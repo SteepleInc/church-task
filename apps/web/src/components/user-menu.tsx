@@ -1,5 +1,5 @@
 import { api } from "@church-task/backend/convex/_generated/api";
-import { Button } from "@church-task/ui/components/button";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,7 +8,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@church-task/ui/components/dropdown-menu";
+} from "@/components/ui/dropdown-menu";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 

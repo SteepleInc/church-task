@@ -1,5 +1,5 @@
 import { api } from "@church-task/backend/convex/_generated/api";
-import { buttonVariants } from "@church-task/ui/components/button";
+import { buttonVariants } from "@/components/ui/button";
 import { CheckoutLink, CustomerPortalLink } from "@convex-dev/polar/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";

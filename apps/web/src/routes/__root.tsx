@@ -1,4 +1,4 @@
-import { Toaster } from "@church-task/ui/components/sonner";
+import { Toaster } from "@/components/ui/sonner";
 import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
