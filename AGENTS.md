@@ -39,3 +39,17 @@ Because `.refrence/` is ignored, files added or changed there will not appear in
 - Check existing code before introducing new patterns.
 - Keep changes small and run the narrowest useful verification command before finishing.
 - Do not commit unless the user explicitly asks.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `SteepleInc/church-task`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the default five-label triage vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This repo uses a single-context domain-doc layout with root `CONTEXT.md` and root `docs/adr/`. See `docs/agents/domain.md`.
