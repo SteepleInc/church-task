@@ -5,8 +5,8 @@
   "license": "ISC",
   "author": "",
   "scripts": {
-    "dev": "convex dev",
-    "dev:setup": "convex dev --configure --until-success"
+    "dev": "bun --env-file=../../.env convex dev",
+    "dev:setup": "bun --env-file=../../.env convex dev --configure --until-success"
   },
   "dependencies": {
     "@confect/core": "catalog:",
