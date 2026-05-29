@@ -1,4 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+
+async function signUpThroughDashboard(page: Page, email: string, name = "E2E Signup User") {
+  await page.goto("/dashboard");
+
+  await page.getByLabel("Name").fill(name);
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill("E2ePassword123!");
+  await page.getByRole("button", { name: "Sign Up" }).click();
+
+  await expect(page).toHaveURL("/dashboard");
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+}
 
 test("home route shows the app shell and connected API status", async ({ page }) => {
   await page.goto("/");
@@ -68,14 +80,24 @@ test("signup shows validation errors for invalid values", async ({ page }) => {
 test("signup reaches the authenticated dashboard with private data", async ({ page }, testInfo) => {
   const uniqueEmail = `e2e-signup-${Date.now()}-${testInfo.workerIndex}@example.com`;
 
-  await page.goto("/dashboard");
+  await signUpThroughDashboard(page, uniqueEmail);
+  await expect(page.getByText("privateData: This is private")).toBeVisible();
+});
 
-  await page.getByLabel("Name").fill("E2E Signup User");
-  await page.getByLabel("Email").fill(uniqueEmail);
-  await page.getByLabel("Password").fill("E2ePassword123!");
-  await page.getByRole("button", { name: "Sign Up" }).click();
+test("authenticated user menu shows account details and signs out", async ({ page }, testInfo) => {
+  const uniqueEmail = `e2e-signout-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const userName = "E2E Sign Out User";
+
+  await signUpThroughDashboard(page, uniqueEmail, userName);
+
+  await page.getByRole("button", { name: userName }).click();
+
+  await expect(page.getByText("My Account")).toBeVisible();
+  await expect(page.getByText(uniqueEmail)).toBeVisible();
+
+  await page.getByRole("menuitem", { name: "Sign Out" }).click();
 
   await expect(page).toHaveURL("/dashboard");
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-  await expect(page.getByText("privateData: This is private")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Create Account" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign Up" })).toBeVisible();
 });
