@@ -133,6 +133,27 @@ test("church switcher creates another Church and switches Active Church", async 
   await expect(page.getByText(`Active Church: ${firstChurch}`)).toBeVisible();
 });
 
+test("active Church shell invites members and shows pending invitations", async ({
+  page,
+}, testInfo) => {
+  const uniqueEmail = `e2e-inviter-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const inviteeEmail = `e2e-invitee-${Date.now()}-${testInfo.workerIndex}@example.com`;
+
+  await signUpThroughDashboard(page, uniqueEmail);
+  await createFirstChurch(page, `E2E Inviting Church ${Date.now()}`);
+
+  await expect(page.getByRole("heading", { name: "Church Invitations" })).toBeVisible();
+  await expect(page.getByText("No pending invitations.")).toBeVisible();
+
+  await page.getByLabel("Invite Member Email").fill(inviteeEmail);
+  await page.getByLabel("Role").selectOption("admin");
+  await page.getByRole("button", { name: "Invite Member" }).click();
+
+  await expect(page.getByText(`Invitation sent to ${inviteeEmail}.`)).toBeVisible();
+  await expect(page.getByText(inviteeEmail)).toBeVisible();
+  await expect(page.getByText("admin")).toBeVisible();
+});
+
 test("authenticated user menu shows account details and signs out", async ({ page }, testInfo) => {
   const uniqueEmail = `e2e-signout-${Date.now()}-${testInfo.workerIndex}@example.com`;
   const userName = "E2E Sign Out User";

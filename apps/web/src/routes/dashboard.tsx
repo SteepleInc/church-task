@@ -25,6 +25,8 @@ function PrivateDashboardContent() {
   const products = useQuery(api.polar.listAllProducts);
   const subscription = useQuery(api.polar.getCurrentSubscription);
   const { data: activeChurch } = authClient.useActiveOrganization();
+  const pendingInvitations =
+    activeChurch?.invitations.filter((invitation) => invitation.status === "pending") ?? [];
 
   const product = products?.find((product: { isRecurring?: boolean }) => product.isRecurring);
   const hasActiveSubscription = Boolean(subscription);
@@ -75,8 +77,136 @@ function PrivateDashboardContent() {
             <p>No recurring plans available.</p>
           )}
         </section>
+        {activeChurch ? (
+          <ChurchInvitationPanel
+            activeChurchId={activeChurch.id}
+            pendingInvitations={pendingInvitations}
+          />
+        ) : null}
       </main>
     </div>
+  );
+}
+
+type InvitationRole = "member" | "admin";
+
+type PendingInvitation = {
+  id: string;
+  email: string;
+  role: string | string[];
+  status: string;
+};
+
+function invitationRoleLabel(role: string | string[]) {
+  return Array.isArray(role) ? role.join(", ") : role;
+}
+
+function ChurchInvitationPanel({
+  activeChurchId,
+  pendingInvitations,
+}: {
+  activeChurchId: string;
+  pendingInvitations: PendingInvitation[];
+}) {
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<InvitationRole>("member");
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [isInviting, setIsInviting] = useState(false);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Church Invitations</CardTitle>
+        <CardDescription>
+          Invite people to this Church and track pending invitations.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-6">
+        <form
+          className="grid max-w-xl gap-4"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setInviteError(null);
+            setInviteSuccess(null);
+
+            const trimmedEmail = inviteEmail.trim().toLowerCase();
+
+            if (!trimmedEmail.includes("@")) {
+              setInviteError("Enter a valid email address.");
+              return;
+            }
+
+            setIsInviting(true);
+            const result = await authClient.organization.inviteMember({
+              organizationId: activeChurchId,
+              email: trimmedEmail,
+              role: inviteRole,
+            });
+            setIsInviting(false);
+
+            if (result.error) {
+              setInviteError(result.error.message ?? "Could not invite Church member.");
+              return;
+            }
+
+            setInviteEmail("");
+            setInviteRole("member");
+            setInviteSuccess(`Invitation sent to ${trimmedEmail}.`);
+          }}
+        >
+          <div className="grid gap-2">
+            <Label htmlFor="invite-email">Invite Member Email</Label>
+            <Input
+              id="invite-email"
+              name="inviteEmail"
+              type="email"
+              value={inviteEmail}
+              onChange={(event) => setInviteEmail(event.target.value)}
+              placeholder="member@example.com"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="invite-role">Role</Label>
+            <select
+              id="invite-role"
+              name="inviteRole"
+              value={inviteRole}
+              onChange={(event) => setInviteRole(event.target.value as InvitationRole)}
+              className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          {inviteError ? <p className="text-sm text-destructive">{inviteError}</p> : null}
+          {inviteSuccess ? <p className="text-sm text-muted-foreground">{inviteSuccess}</p> : null}
+          <Button type="submit" disabled={isInviting}>
+            {isInviting ? "Inviting..." : "Invite Member"}
+          </Button>
+        </form>
+        <div className="grid gap-3">
+          <h2 className="text-base font-semibold">Pending Invitations</h2>
+          {pendingInvitations.length > 0 ? (
+            <div className="grid gap-2">
+              {pendingInvitations.map((invitation) => (
+                <div
+                  key={invitation.id}
+                  className="flex items-center justify-between gap-4 rounded-lg border p-3"
+                >
+                  <span>{invitation.email}</span>
+                  <span className="text-sm capitalize text-muted-foreground">
+                    {invitationRoleLabel(invitation.role)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No pending invitations.</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
