@@ -47,6 +47,6 @@ coverage
 # Misc
 *.tgz
 .cache
-.refrence/
+.reference/
 tmp
 temp

@@ -62,4 +62,4 @@ Build the reusable CLI and MCP foundation before the user workflow PRDs. The fou
 
 ## Further Notes
 
-The reference repositories should be treated as implementation guides, not as editable dependencies. `.refrence/better-auth` shows that Better Auth already has bearer, MCP OAuth/OIDC, and API-key token primitives. `.refrence/effect` and `.refrence/confect` should guide how the CLI runtime and typed Convex operation layer are shaped.
+The reference repositories should be treated as implementation guides, not as editable dependencies. `.reference/better-auth` shows that Better Auth already has bearer, MCP OAuth/OIDC, and API-key token primitives. `.reference/effect` and `.reference/confect` should guide how the CLI runtime and typed Convex operation layer are shaped.
