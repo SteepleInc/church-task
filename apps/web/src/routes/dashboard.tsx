@@ -79,10 +79,13 @@ function PrivateDashboardContent() {
         </section>
         <ActiveChurchInvitationPrompt />
         {activeChurch ? (
-          <ChurchInvitationPanel
-            activeChurchId={activeChurch.id}
-            pendingInvitations={pendingInvitations}
-          />
+          <>
+            <ChurchMembersPanel activeChurchId={activeChurch.id} />
+            <ChurchInvitationPanel
+              activeChurchId={activeChurch.id}
+              pendingInvitations={pendingInvitations}
+            />
+          </>
         ) : null}
       </main>
     </div>
@@ -200,8 +203,86 @@ type UserInvitation = PendingInvitation & {
   organizationName: string;
 };
 
+type ChurchMember = {
+  id: string;
+  role: string | string[];
+  user: {
+    name?: string | null;
+    email?: string | null;
+  };
+};
+
 function invitationRoleLabel(role: string | string[]) {
   return Array.isArray(role) ? role.join(", ") : role;
+}
+
+function ChurchMembersPanel({ activeChurchId }: { activeChurchId: string }) {
+  const [members, setMembers] = useState<ChurchMember[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadMembers() {
+      setIsLoading(true);
+      setError(null);
+      const result = await authClient.organization.listMembers({
+        query: { organizationId: activeChurchId },
+      });
+
+      if (ignore) {
+        return;
+      }
+
+      setIsLoading(false);
+
+      if (result.error) {
+        setError(result.error.message ?? "Could not load Church Members.");
+        return;
+      }
+
+      setMembers(result.data?.members ?? []);
+    }
+
+    void loadMembers();
+
+    return () => {
+      ignore = true;
+    };
+  }, [activeChurchId]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Church Members</CardTitle>
+        <CardDescription>Your membership context for the Active Church.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading Church Members...</p>
+        ) : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {!isLoading && !error && members.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No Church Members found.</p>
+        ) : null}
+        {members.map((member) => (
+          <div
+            key={member.id}
+            className="flex items-center justify-between gap-4 rounded-lg border p-3"
+          >
+            <div>
+              <p className="font-medium">{member.user.name ?? "Unnamed member"}</p>
+              <p className="text-sm text-muted-foreground">{member.user.email ?? "No email"}</p>
+            </div>
+            <span className="text-sm capitalize text-muted-foreground">
+              {invitationRoleLabel(member.role)}
+            </span>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
 }
 
 function ChurchInvitationPanel({

@@ -181,6 +181,21 @@ test("active Church shell invites members and shows pending invitations", async 
   await expect(page.getByText("admin")).toBeVisible();
 });
 
+test("active Church shell shows the User's Church Membership context", async ({
+  page,
+}, testInfo) => {
+  const uniqueEmail = `e2e-member-context-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const userName = "E2E Member Context User";
+
+  await signUpThroughDashboard(page, uniqueEmail, userName);
+  await createFirstChurch(page, `E2E Member Context Church ${Date.now()}`);
+
+  await expect(page.getByRole("heading", { name: "Church Members" })).toBeVisible();
+  await expect(page.getByText(userName)).toBeVisible();
+  await expect(page.getByText(uniqueEmail)).toBeVisible();
+  await expect(page.getByText("owner")).toBeVisible();
+});
+
 test("invited user accepts pending Church Invitation before creating a Church", async ({
   page,
 }, testInfo) => {
