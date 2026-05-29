@@ -32,29 +32,37 @@ function PrivateDashboardContent() {
   const hasActiveSubscription = Boolean(subscription);
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] bg-muted/30">
-      <aside className="w-72 border-r bg-background p-4">
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col bg-muted/30 lg:flex-row">
+      <aside className="border-b bg-background p-4 lg:w-80 lg:border-b-0 lg:border-r">
         <ChurchSwitcher
           activeChurchId={activeChurch?.id ?? null}
           activeChurchName={activeChurch?.name}
         />
       </aside>
-      <main className="flex flex-1 flex-col gap-6 p-6">
-        <div className="flex items-start justify-between gap-4">
+      <main className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
+        <div className="flex flex-col gap-4 rounded-xl border bg-background p-4 shadow-xs sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1>Dashboard</h1>
-            {activeChurch ? <p>Active Church: {activeChurch.name}</p> : null}
+            <p className="text-sm font-medium text-muted-foreground">Church Task</p>
+            <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+            {activeChurch ? (
+              <p className="text-sm text-muted-foreground">Active Church: {activeChurch.name}</p>
+            ) : null}
           </div>
           <UserMenu />
         </div>
-        <section className="grid gap-3">
-          <p>
-            privateData:{" "}
-            {QueryResult.isSuccess(privateData) ? privateData.value.message : "Loading..."}
-          </p>
-          <p>Plan: {hasActiveSubscription ? "Active" : "Free"}</p>
+        <section className="grid gap-4 rounded-xl border bg-background p-4 shadow-xs">
+          <div>
+            <h2 className="text-base font-semibold">Church Home</h2>
+            <p className="text-sm text-muted-foreground">
+              privateData:{" "}
+              {QueryResult.isSuccess(privateData) ? privateData.value.message : "Loading..."}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Plan: {hasActiveSubscription ? "Active" : "Free"}
+            </p>
+          </div>
           {subscription === undefined ? (
-            <p>Loading subscription options...</p>
+            <p className="text-sm text-muted-foreground">Loading subscription options...</p>
           ) : hasActiveSubscription ? (
             <CustomerPortalLink
               polarApi={api.polar}
@@ -63,7 +71,7 @@ function PrivateDashboardContent() {
               Manage Subscription
             </CustomerPortalLink>
           ) : products === undefined ? (
-            <p>Loading subscription options...</p>
+            <p className="text-sm text-muted-foreground">Loading subscription options...</p>
           ) : product ? (
             <CheckoutLink
               polarApi={api.polar}
@@ -74,7 +82,7 @@ function PrivateDashboardContent() {
               Upgrade
             </CheckoutLink>
           ) : (
-            <p>No recurring plans available.</p>
+            <p className="text-sm text-muted-foreground">No recurring plans available.</p>
           )}
         </section>
         <ActiveChurchInvitationPrompt />
@@ -505,9 +513,13 @@ function ChurchSwitcher({
 
   return (
     <div className="flex h-full flex-col gap-6">
-      <div>
-        <p className="text-sm font-medium text-muted-foreground">Active Church</p>
-        <p className="text-lg font-semibold">{activeChurchName ?? "Loading..."}</p>
+      <div className="rounded-xl border bg-muted/30 p-4">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Active Church
+        </p>
+        <p className="mt-1 text-lg font-semibold leading-tight">
+          {activeChurchName ?? "Loading..."}
+        </p>
       </div>
       <div className="grid gap-2">
         <p className="text-sm font-medium">Switch Church</p>
@@ -544,7 +556,7 @@ function ChurchSwitcher({
         })}
       </div>
       <form
-        className="mt-auto grid gap-3 border-t pt-4"
+        className="grid gap-3 border-t pt-4 lg:mt-auto"
         onSubmit={async (event) => {
           event.preventDefault();
           setError(null);
