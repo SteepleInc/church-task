@@ -12,6 +12,20 @@ const decodeJwtPayload = (token: string) =>
     sessionId?: string;
   };
 
+const signUpWithEmail = (c: typeof TestConfect.TestConfect.Service, email: string) =>
+  c.fetch("/api/auth/sign-up/email", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: "http://localhost:2101",
+    },
+    body: JSON.stringify({
+      name: "Convex Test User",
+      email,
+      password: "correct horse battery staple",
+    }),
+  });
+
 describe("Better Auth authenticated state spike", () => {
   it.effect("convex-test identity alone does not authenticate Better Auth-backed queries", () =>
     Effect.gen(function* () {
@@ -34,18 +48,7 @@ describe("Better Auth authenticated state spike", () => {
         const c = yield* TestConfect.TestConfect;
         const email = `convex-test-${crypto.randomUUID()}@example.com`;
 
-        const response = yield* c.fetch("/api/auth/sign-up/email", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            origin: "http://localhost:2101",
-          },
-          body: JSON.stringify({
-            name: "Convex Test User",
-            email,
-            password: "correct horse battery staple",
-          }),
-        });
+        const response = yield* signUpWithEmail(c, email);
 
         expect(response.status).toBe(200);
 
@@ -86,5 +89,61 @@ describe("Better Auth authenticated state spike", () => {
           name: "Convex Test User",
         });
       }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect(
+    "agent current-user request rejects invalid bearer tokens with a sanitized structured error",
+    () =>
+      Effect.gen(function* () {
+        const c = yield* TestConfect.TestConfect;
+        const rawToken = "invalid-agent-token-for-issue-12";
+
+        const response = yield* c.fetch("/api/agent/current-user", {
+          method: "GET",
+          headers: { authorization: `Bearer ${rawToken}` },
+        });
+        const bodyText = yield* Effect.promise(() => response.text());
+
+        expect(response.status).toBe(401);
+        expect(bodyText).not.toContain(rawToken);
+        expect(JSON.parse(bodyText)).toEqual({
+          ok: false,
+          error: {
+            code: "UNAUTHENTICATED",
+            message: "Authentication required",
+          },
+        });
+      }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("agent current-user request resolves a valid bearer token to the current User", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-bearer-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string; email?: string };
+        token?: string;
+      };
+
+      expect(signUpResponse.status).toBe(200);
+      expect(signUpBody.token).toEqual(expect.any(String));
+
+      const response = yield* c.fetch("/api/agent/current-user", {
+        method: "GET",
+        headers: { authorization: `Bearer ${signUpBody.token}` },
+      });
+      const body = (yield* Effect.promise(() => response.json())) as unknown;
+
+      expect(response.status).toBe(200);
+      expect(body).toEqual({
+        ok: true,
+        user: {
+          id: signUpBody.user!.id,
+          email,
+          name: "Convex Test User",
+        },
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
   );
 });
