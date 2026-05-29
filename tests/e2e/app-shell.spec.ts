@@ -109,6 +109,30 @@ test("creating the first Church reaches the authenticated dashboard with private
   await expect(page.getByText("privateData: This is private")).toBeVisible();
 });
 
+test("church switcher creates another Church and switches Active Church", async ({
+  page,
+}, testInfo) => {
+  const uniqueEmail = `e2e-switcher-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const firstChurch = `E2E First Church ${Date.now()}`;
+  const secondChurch = `E2E Second Church ${Date.now()}`;
+
+  await signUpThroughDashboard(page, uniqueEmail);
+  await createFirstChurch(page, firstChurch);
+
+  await expect(page.getByText("Switch Church")).toBeVisible();
+  await expect(page.getByRole("button", { name: firstChurch })).toBeDisabled();
+
+  await page.getByLabel("Create Another Church").fill(secondChurch);
+  await page.getByRole("button", { name: "Create Church" }).click();
+
+  await expect(page.getByText(`Active Church: ${secondChurch}`)).toBeVisible();
+  await expect(page.getByRole("button", { name: secondChurch })).toBeDisabled();
+
+  await page.getByRole("button", { name: firstChurch }).click();
+
+  await expect(page.getByText(`Active Church: ${firstChurch}`)).toBeVisible();
+});
+
 test("authenticated user menu shows account details and signs out", async ({ page }, testInfo) => {
   const uniqueEmail = `e2e-signout-${Date.now()}-${testInfo.workerIndex}@example.com`;
   const userName = "E2E Sign Out User";
