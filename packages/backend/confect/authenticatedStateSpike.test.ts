@@ -265,4 +265,62 @@ describe("Better Auth authenticated state spike", () => {
       });
     }).pipe(Effect.provide(TestConfect.layer())),
   );
+
+  it.effect("MCP current-user tool requires authentication with a structured response", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+
+      const response = yield* c.fetch("/api/mcp/tools/current-user", {
+        method: "POST",
+      });
+      const body = (yield* Effect.promise(() => response.json())) as unknown;
+
+      expect(response.status).toBe(401);
+      expect(body).toEqual({
+        ok: false,
+        error: {
+          code: "UNAUTHENTICATED",
+          message: "Authentication required",
+        },
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("MCP current-user tool returns the shared typed operation response", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `mcp-current-user-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+
+      expect(signUpResponse.status).toBe(200);
+      expect(signUpBody.token).toEqual(expect.any(String));
+
+      const response = yield* c.fetch("/api/mcp/tools/current-user", {
+        method: "POST",
+        headers: { authorization: `Bearer ${signUpBody.token}` },
+      });
+      const body = (yield* Effect.promise(() => response.json())) as unknown;
+
+      expect(response.status).toBe(200);
+      expect(body).toEqual({
+        ok: true,
+        tool: "currentUser",
+        result: {
+          ok: true,
+          operation: "currentUser",
+          data: {
+            user: {
+              id: signUpBody.user!.id,
+              email,
+              name: "Convex Test User",
+            },
+          },
+        },
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
 });

@@ -16,6 +16,12 @@ export const CurrentUserResponse = Schema.Struct({
   data: CurrentUserData,
 });
 
+export const McpCurrentUserToolResponse = Schema.Struct({
+  ok: Schema.Literal(true),
+  tool: Schema.Literal("currentUser"),
+  result: CurrentUserResponse,
+});
+
 export const BatchReadArgs = Schema.Struct({
   operations: Schema.Array(
     Schema.Struct({
@@ -40,12 +46,21 @@ export const BatchReadResponse = Schema.Struct({
 });
 
 export type CurrentUserResponse = typeof CurrentUserResponse.Type;
+export type McpCurrentUserToolResponse = typeof McpCurrentUserToolResponse.Type;
 export type BatchReadResponse = typeof BatchReadResponse.Type;
 
 export const currentUserResponse = (user: typeof AgentUser.Type | null): CurrentUserResponse => ({
   ok: true,
   operation: "currentUser",
   data: { user },
+});
+
+export const mcpCurrentUserToolResponse = (
+  user: typeof AgentUser.Type,
+): McpCurrentUserToolResponse => ({
+  ok: true,
+  tool: "currentUser",
+  result: currentUserResponse(user),
 });
 
 export const batchReadResponse = (
