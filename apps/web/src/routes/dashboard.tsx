@@ -9,7 +9,7 @@ import { QueryResult, useQuery as useConfectQuery } from "@confect/react";
 import { CheckoutLink, CustomerPortalLink } from "@convex-dev/polar/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
@@ -24,7 +24,7 @@ function PrivateDashboardContent() {
   const privateData = useConfectQuery(refs.public.privateData.get);
   const products = useQuery(api.polar.listAllProducts);
   const subscription = useQuery(api.polar.getCurrentSubscription);
-  const { data: activeChurch } = authClient.useActiveOrganization();
+  const activeChurch = useQuery(api.dashboard.getActiveOrganization);
   const pendingInvitations =
     activeChurch?.invitations.filter((invitation) => invitation.status === "pending") ?? [];
 
@@ -101,43 +101,12 @@ function PrivateDashboardContent() {
 }
 
 function ActiveChurchInvitationPrompt() {
-  const [pendingInvitations, setPendingInvitations] = useState<UserInvitation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const invitations = useQuery(api.dashboard.listUserInvitations);
   const [error, setError] = useState<string | null>(null);
   const [acceptingInvitationId, setAcceptingInvitationId] = useState<string | null>(null);
+  const pendingInvitations = invitations ?? [];
 
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadInvitations() {
-      setIsLoading(true);
-      setError(null);
-      const result = await authClient.organization.listUserInvitations({});
-
-      if (ignore) {
-        return;
-      }
-
-      setIsLoading(false);
-
-      if (result.error) {
-        setError(result.error.message ?? "Could not load Church Invitations.");
-        return;
-      }
-
-      setPendingInvitations(
-        (result.data ?? []).filter((invitation) => invitation.status === "pending"),
-      );
-    }
-
-    void loadInvitations();
-
-    return () => {
-      ignore = true;
-    };
-  }, []);
-
-  if (isLoading || (!error && pendingInvitations.length === 0)) {
+  if (invitations === undefined || (!error && pendingInvitations.length === 0)) {
     return null;
   }
 
@@ -180,12 +149,6 @@ function ActiveChurchInvitationPrompt() {
                     setError(result.error.message ?? "Could not accept Church Invitation.");
                     return;
                   }
-
-                  setPendingInvitations((currentInvitations) =>
-                    currentInvitations.filter(
-                      (currentInvitation) => currentInvitation.id !== invitation.id,
-                    ),
-                  );
                 }}
               >
                 {isAccepting ? "Accepting..." : "Accept Invitation"}
@@ -207,19 +170,6 @@ type PendingInvitation = {
   status: string;
 };
 
-type UserInvitation = PendingInvitation & {
-  organizationName: string;
-};
-
-type ChurchMember = {
-  id: string;
-  role: string | string[];
-  user: {
-    name?: string | null;
-    email?: string | null;
-  };
-};
-
 function invitationRoleLabel(role: string | string[]) {
   return Array.isArray(role) ? role.join(", ") : role;
 }
@@ -229,44 +179,11 @@ function memberHasRole(role: string | string[], expectedRole: string) {
 }
 
 function ChurchMembersPanel({ activeChurchId }: { activeChurchId: string }) {
-  const [members, setMembers] = useState<ChurchMember[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const members = useQuery(api.dashboard.listMembers, { organizationId: activeChurchId });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [updatingMemberId, setUpdatingMemberId] = useState<string | null>(null);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadMembers() {
-      setIsLoading(true);
-      setError(null);
-      setSuccess(null);
-      const result = await authClient.organization.listMembers({
-        query: { organizationId: activeChurchId },
-      });
-
-      if (ignore) {
-        return;
-      }
-
-      setIsLoading(false);
-
-      if (result.error) {
-        setError(result.error.message ?? "Could not load Church Members.");
-        return;
-      }
-
-      setMembers(result.data?.members ?? []);
-    }
-
-    void loadMembers();
-
-    return () => {
-      ignore = true;
-    };
-  }, [activeChurchId]);
 
   return (
     <Card>
@@ -275,15 +192,15 @@ function ChurchMembersPanel({ activeChurchId }: { activeChurchId: string }) {
         <CardDescription>Your membership context for the Active Church.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3">
-        {isLoading ? (
+        {members === undefined ? (
           <p className="text-sm text-muted-foreground">Loading Church Members...</p>
         ) : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         {success ? <p className="text-sm text-muted-foreground">{success}</p> : null}
-        {!isLoading && !error && members.length === 0 ? (
+        {members !== undefined && !error && members.length === 0 ? (
           <p className="text-sm text-muted-foreground">No Church Members found.</p>
         ) : null}
-        {members.map((member) => {
+        {(members ?? []).map((member) => {
           const isOwner = memberHasRole(member.role, "owner");
           const roleLabel = invitationRoleLabel(member.role);
           const isUpdating = updatingMemberId === member.id;
@@ -326,13 +243,6 @@ function ChurchMembersPanel({ activeChurchId }: { activeChurchId: string }) {
                         return;
                       }
 
-                      setMembers((currentMembers) =>
-                        currentMembers.map((currentMember) =>
-                          currentMember.id === member.id
-                            ? { ...currentMember, role: nextRole }
-                            : currentMember,
-                        ),
-                      );
                       setSuccess(`Updated ${member.user.email ?? "Church Member"} to ${nextRole}.`);
                     }}
                     className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
@@ -360,9 +270,6 @@ function ChurchMembersPanel({ activeChurchId }: { activeChurchId: string }) {
                         return;
                       }
 
-                      setMembers((currentMembers) =>
-                        currentMembers.filter((currentMember) => currentMember.id !== member.id),
-                      );
                       setSuccess(`Removed ${member.user.email ?? "Church Member"}.`);
                     }}
                   >
@@ -503,13 +410,13 @@ function ChurchSwitcher({
   activeChurchId: string | null;
   activeChurchName?: string;
 }) {
-  const churches = authClient.useListOrganizations();
+  const churches = useQuery(api.dashboard.listOrganizations);
   const [newChurchName, setNewChurchName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pendingChurchId, setPendingChurchId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  const churchList = churches.data ?? [];
+  const churchList = churches ?? [];
 
   return (
     <div className="flex h-full flex-col gap-6">
@@ -523,7 +430,7 @@ function ChurchSwitcher({
       </div>
       <div className="grid gap-2">
         <p className="text-sm font-medium">Switch Church</p>
-        {churches.isPending ? (
+        {churches === undefined ? (
           <p className="text-sm text-muted-foreground">Loading Churches...</p>
         ) : null}
         {churchList.map((church) => {
@@ -604,57 +511,24 @@ function ChurchSwitcher({
 }
 
 function ChurchOnboardingGate() {
-  const activeChurch = authClient.useActiveOrganization();
+  const activeChurch = useQuery(api.dashboard.getActiveOrganization);
+  const hasActiveChurch = Boolean(activeChurch);
   const [churchName, setChurchName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [invitationError, setInvitationError] = useState<string | null>(null);
-  const [pendingInvitations, setPendingInvitations] = useState<UserInvitation[]>([]);
-  const [isLoadingInvitations, setIsLoadingInvitations] = useState(false);
+  const pendingInvitations = useQuery(api.dashboard.listUserInvitations);
   const [acceptingInvitationId, setAcceptingInvitationId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (activeChurch.isPending || activeChurch.data) {
-      return;
-    }
-
-    let ignore = false;
-
-    async function loadInvitations() {
-      setIsLoadingInvitations(true);
-      setInvitationError(null);
-      const result = await authClient.organization.listUserInvitations({});
-
-      if (ignore) {
-        return;
-      }
-
-      setIsLoadingInvitations(false);
-
-      if (result.error) {
-        setInvitationError(result.error.message ?? "Could not load Church Invitations.");
-        return;
-      }
-
-      setPendingInvitations(result.data ?? []);
-    }
-
-    void loadInvitations();
-
-    return () => {
-      ignore = true;
-    };
-  }, [activeChurch.data, activeChurch.isPending]);
-
-  if (activeChurch.isPending) {
+  if (activeChurch === undefined) {
     return <div>Loading Church...</div>;
   }
 
-  if (activeChurch.data) {
+  if (hasActiveChurch) {
     return <PrivateDashboardContent />;
   }
 
-  if (isLoadingInvitations) {
+  if (pendingInvitations === undefined) {
     return <div>Loading Church Invitations...</div>;
   }
 
@@ -701,12 +575,6 @@ function ChurchOnboardingGate() {
                         );
                         return;
                       }
-
-                      setPendingInvitations((currentInvitations) =>
-                        currentInvitations.filter(
-                          (currentInvitation) => currentInvitation.id !== invitation.id,
-                        ),
-                      );
                     }}
                   >
                     {isAccepting ? "Accepting..." : "Accept Invitation"}
