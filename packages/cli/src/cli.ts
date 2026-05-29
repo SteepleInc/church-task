@@ -2,7 +2,7 @@ import { api } from "@church-task/backend/convex/_generated/api";
 import type { CurrentUserResponse } from "@church-task/backend/agent/operations";
 import { ConvexHttpClient } from "convex/browser";
 import { Context, Data, Effect, Layer } from "effect";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 export type CliEnv = Record<string, string | undefined>;
@@ -40,11 +40,16 @@ export type BackendClientService = {
     readonly name: string;
     readonly sessionToken: string;
   }) => Effect.Effect<CliCredential, BackendError>;
+  readonly revokeCliCredential: (args: {
+    readonly credentialId: string;
+    readonly token: string;
+  }) => Effect.Effect<{ readonly revoked: boolean }, BackendError>;
 };
 
 export type CredentialStorageService = {
   readonly read: Effect.Effect<CliCredential | null, CredentialStorageError>;
   readonly write: (credential: CliCredential) => Effect.Effect<void, CredentialStorageError>;
+  readonly remove: Effect.Effect<void, CredentialStorageError>;
 };
 
 export class BackendError extends Data.TaggedError("BackendError")<{
@@ -126,6 +131,18 @@ const makeFileCredentialStorageLayer = (env: CliEnv) =>
         },
         catch: (cause) => new CredentialStorageError({ cause }),
       }),
+    remove: Effect.tryPromise({
+      try: async () => {
+        const path = credentialPathFromEnv(env);
+        try {
+          await unlink(path);
+        } catch (cause) {
+          if ((cause as { code?: string }).code === "ENOENT") return;
+          throw cause;
+        }
+      },
+      catch: (cause) => new CredentialStorageError({ cause }),
+    }),
   });
 
 const makeConvexBackendLayer = (env: CliEnv) =>
@@ -197,6 +214,25 @@ const makeConvexBackendLayer = (env: CliEnv) =>
             },
             catch: (cause) => new BackendError({ cause }),
           }),
+        revokeCliCredential: ({ credentialId, token }) =>
+          Effect.tryPromise({
+            try: async () => {
+              const response = await fetch(`${authBaseUrl}/api/auth/api-key/delete`, {
+                method: "POST",
+                headers: {
+                  authorization: `Bearer ${token}`,
+                  "content-type": "application/json",
+                },
+                body: JSON.stringify({ keyId: credentialId }),
+              });
+
+              if (!response.ok) throw new Error("CLI credential revocation failed.");
+
+              const body = (await response.json()) as { success?: boolean };
+              return { revoked: body.success === true };
+            },
+            catch: (cause) => new BackendError({ cause }),
+          }),
       };
     }),
   );
@@ -232,6 +268,78 @@ const runCurrentUser = Effect.gen(function* () {
       : yield* backend.currentUser;
 
   return success(currentUser);
+});
+
+const safeCredentialMetadata = (credential: CliCredential) => ({
+  id: credential.id,
+  name: credential.name,
+  start: credential.start ?? null,
+  ...(credential.createdAt ? { createdAt: credential.createdAt } : {}),
+});
+
+const runAuthStatus = Effect.gen(function* () {
+  const backend = yield* BackendClient;
+  const storage = yield* CredentialStorage;
+  const envToken = yield* CurrentEnvToken;
+
+  if (envToken) {
+    const currentUser = yield* backend.currentUserWithToken(envToken);
+    return success({
+      ok: true,
+      operation: "authStatus",
+      authenticated: currentUser.data.user !== null,
+      user: currentUser.data.user,
+      credential: { source: "environment" },
+    });
+  }
+
+  const credential = yield* storage.read;
+  if (!credential) {
+    return success({
+      ok: true,
+      operation: "authStatus",
+      authenticated: false,
+      user: null,
+      credential: null,
+    });
+  }
+
+  const currentUser = yield* backend.currentUserWithToken(credential.token);
+
+  return success({
+    ok: true,
+    operation: "authStatus",
+    authenticated: currentUser.data.user !== null,
+    user: currentUser.data.user,
+    credential: {
+      source: "local",
+      ...safeCredentialMetadata(credential),
+    },
+  });
+});
+
+const runLogout = Effect.gen(function* () {
+  const backend = yield* BackendClient;
+  const storage = yield* CredentialStorage;
+  const credential = yield* storage.read;
+
+  if (!credential) {
+    yield* storage.remove;
+    return success({ ok: true, operation: "logout", revoked: false, credential: null });
+  }
+
+  const revokeResult = yield* backend.revokeCliCredential({
+    credentialId: credential.id,
+    token: credential.token,
+  });
+  yield* storage.remove;
+
+  return success({
+    ok: true,
+    operation: "logout",
+    revoked: revokeResult.revoked,
+    credential: safeCredentialMetadata(credential),
+  });
 });
 
 class CurrentEnvToken extends Context.Tag("@church-task/cli/CurrentEnvToken")<
@@ -286,6 +394,14 @@ const runCliEffect = (
     return runCurrentUser;
   }
 
+  if (command === "auth" && args[1] === "status") {
+    return runAuthStatus;
+  }
+
+  if (command === "auth" && args[1] === "logout") {
+    return runLogout;
+  }
+
   return Effect.fail(new UnknownCommandError({ command }));
 };
 
@@ -332,7 +448,7 @@ const formatError = (error: CliError) => {
       return failure({
         code: "unknown_command",
         message:
-          "Run `church-task health`, `church-task login --name <name>`, or `church-task current-user`.",
+          "Run `church-task health`, `church-task login --name <name>`, `church-task current-user`, `church-task auth status`, or `church-task auth logout`.",
       });
   }
 };

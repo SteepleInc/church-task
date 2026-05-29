@@ -29,11 +29,17 @@ const fakeBackend = (overrides: Partial<BackendClientService>) =>
         token: "created-cli-token",
         start: "ctcli_",
       }),
+    revokeCliCredential: () => Effect.succeed({ revoked: true }),
     ...overrides,
   });
 
-const fakeCredentialStorage = (service: CredentialStorageService) =>
-  Layer.succeed(CredentialStorage, service);
+const fakeCredentialStorage = (overrides: Partial<CredentialStorageService>) =>
+  Layer.succeed(CredentialStorage, {
+    read: Effect.succeed(null),
+    write: () => Effect.void,
+    remove: Effect.void,
+    ...overrides,
+  });
 
 describe("church-task health", () => {
   it("prints machine-readable success when the backend health operation succeeds", async () => {
@@ -135,6 +141,115 @@ describe("church-task current-user", () => {
     expect(result.stdout).toBe(`${JSON.stringify(authenticatedCurrentUser)}\n`);
     expect(result.stdout).not.toContain(secret);
     expect(result.stderr).not.toContain(secret);
+  });
+});
+
+describe("church-task auth status", () => {
+  it("shows authenticated User identity and safe credential metadata without printing the token", async () => {
+    const storedToken = "stored-cli-token";
+    const currentUser = {
+      ok: true,
+      operation: "currentUser",
+      data: { user: { id: "user_456", email: "stored@example.com", name: "Stored User" } },
+    } as const;
+
+    const result = await runCli(["auth", "status"], {
+      env: {},
+      backendLayer: fakeBackend({
+        currentUserWithToken: (token) => {
+          expect(token).toBe(storedToken);
+          return Effect.succeed(currentUser);
+        },
+      }),
+      credentialStorageLayer: fakeCredentialStorage({
+        read: Effect.succeed({
+          id: "cred_456",
+          name: "Stored CLI",
+          token: storedToken,
+          start: "ctcli_",
+          createdAt: "2026-05-29T00:00:00.000Z",
+        }),
+      }),
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).not.toContain(storedToken);
+    expect(JSON.parse(result.stdout)).toEqual({
+      ok: true,
+      operation: "authStatus",
+      authenticated: true,
+      user: { id: "user_456", email: "stored@example.com", name: "Stored User" },
+      credential: {
+        source: "local",
+        id: "cred_456",
+        name: "Stored CLI",
+        start: "ctcli_",
+        createdAt: "2026-05-29T00:00:00.000Z",
+      },
+    });
+  });
+
+  it("returns a clear unauthenticated state after logout removes local credential material", async () => {
+    const result = await runCli(["auth", "status"], {
+      env: {},
+      backendLayer: fakeBackend({}),
+      credentialStorageLayer: fakeCredentialStorage({ read: Effect.succeed(null) }),
+    });
+
+    expect(result).toEqual({
+      exitCode: 0,
+      stderr: "",
+      stdout: `${JSON.stringify({
+        ok: true,
+        operation: "authStatus",
+        authenticated: false,
+        user: null,
+        credential: null,
+      })}\n`,
+    });
+  });
+});
+
+describe("church-task auth logout", () => {
+  it("revokes the server credential and removes local credential material", async () => {
+    const storedToken = "stored-cli-token";
+    let revoked: { readonly credentialId: string; readonly token: string } | null = null;
+    let removed = false;
+
+    const result = await runCli(["auth", "logout"], {
+      env: {},
+      backendLayer: fakeBackend({
+        revokeCliCredential: (args) =>
+          Effect.sync(() => {
+            revoked = args;
+            return { revoked: true };
+          }),
+      }),
+      credentialStorageLayer: fakeCredentialStorage({
+        read: Effect.succeed({
+          id: "cred_456",
+          name: "Stored CLI",
+          token: storedToken,
+          start: "ctcli_",
+        }),
+        remove: Effect.sync(() => {
+          removed = true;
+        }),
+      }),
+    });
+
+    expect(revoked).toEqual({ credentialId: "cred_456", token: storedToken });
+    expect(removed).toBe(true);
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).not.toContain(storedToken);
+    expect(JSON.parse(result.stdout)).toEqual({
+      ok: true,
+      operation: "logout",
+      revoked: true,
+      credential: { id: "cred_456", name: "Stored CLI", start: "ctcli_" },
+    });
   });
 });
 
