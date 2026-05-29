@@ -146,4 +146,69 @@ describe("Better Auth authenticated state spike", () => {
       });
     }).pipe(Effect.provide(TestConfect.layer())),
   );
+
+  it.effect("MCP OAuth authorization-server metadata advertises discoverable endpoints", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+
+      const response = yield* c.fetch("/.well-known/oauth-authorization-server", {
+        method: "GET",
+      });
+      const body = (yield* Effect.promise(() => response.json())) as Record<string, unknown>;
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({
+        issuer: "http://127.0.0.1:3210",
+        authorization_endpoint: "http://127.0.0.1:3210/api/auth/mcp/authorize",
+        token_endpoint: "http://127.0.0.1:3210/api/auth/mcp/token",
+        userinfo_endpoint: "http://127.0.0.1:3210/api/auth/mcp/userinfo",
+        jwks_uri: "http://127.0.0.1:3210/api/auth/mcp/jwks",
+        registration_endpoint: "http://127.0.0.1:3210/api/auth/mcp/register",
+        scopes_supported: ["openid", "profile", "email", "offline_access"],
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("MCP protected-resource metadata advertises bearer header support", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+
+      const response = yield* c.fetch("/.well-known/oauth-protected-resource", {
+        method: "GET",
+      });
+      const body = (yield* Effect.promise(() => response.json())) as Record<string, unknown>;
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({
+        resource: "http://127.0.0.1:3210",
+        authorization_servers: ["http://127.0.0.1:3210"],
+        jwks_uri: "http://127.0.0.1:3210/api/auth/mcp/jwks",
+        scopes_supported: ["openid", "profile", "email", "offline_access"],
+        bearer_methods_supported: ["header"],
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("MCP current-session request rejects invalid bearer tokens without leaking them", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const rawToken = "invalid-mcp-token-for-issue-14";
+
+      const response = yield* c.fetch("/api/mcp/current-session", {
+        method: "GET",
+        headers: { authorization: `Bearer ${rawToken}` },
+      });
+      const bodyText = yield* Effect.promise(() => response.text());
+
+      expect(response.status).toBe(401);
+      expect(bodyText).not.toContain(rawToken);
+      expect(JSON.parse(bodyText)).toEqual({
+        ok: false,
+        error: {
+          code: "UNAUTHENTICATED",
+          message: "Authentication required",
+        },
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
 });

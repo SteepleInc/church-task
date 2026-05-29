@@ -1,7 +1,7 @@
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth/minimal";
-import { bearer, organization } from "better-auth/plugins";
+import { bearer, mcp, organization } from "better-auth/plugins";
 
 import { components } from "./convex/_generated/api";
 import type { DataModel } from "./convex/_generated/dataModel";
@@ -28,6 +28,7 @@ export function createAuth(ctx: GenericCtx<DataModel>) {
     },
     plugins: [
       bearer(),
+      mcp({ loginPage: "/" }),
       organization({
         teams: { enabled: false },
       }),
