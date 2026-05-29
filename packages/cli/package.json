@@ -1,0 +1,24 @@
+{
+  "name": "@church-task/cli",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "church-task": "./src/bin.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "test:cli": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@church-task/backend": "workspace:*",
+    "convex": "catalog:",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@church-task/config": "workspace:*",
+    "@types/node": "^24.3.0",
+    "typescript": "catalog:",
+    "vitest": "3.2.4"
+  }
+}

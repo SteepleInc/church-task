@@ -36,6 +36,7 @@
     "dev:server": "turbo -F @church-task/backend dev",
     "dev:setup": "turbo -F @church-task/backend dev:setup",
     "test:backend": "turbo -F @church-task/backend test:backend",
+    "test:cli": "turbo -F @church-task/cli test:cli",
     "test:e2e": "playwright test",
     "check": "oxlint && oxfmt --write"
   },

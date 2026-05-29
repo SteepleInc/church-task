@@ -97,6 +97,24 @@
         "vitest": "3.2.4",
       },
     },
+    "packages/cli": {
+      "name": "@church-task/cli",
+      "version": "0.0.0",
+      "bin": {
+        "church-task": "./src/bin.ts",
+      },
+      "dependencies": {
+        "@church-task/backend": "workspace:*",
+        "convex": "catalog:",
+        "effect": "catalog:",
+      },
+      "devDependencies": {
+        "@church-task/config": "workspace:*",
+        "@types/node": "^24.3.0",
+        "typescript": "catalog:",
+        "vitest": "3.2.4",
+      },
+    },
     "packages/config": {
       "name": "@church-task/config",
       "version": "0.0.0",
@@ -217,6 +235,8 @@
     "@better-fetch/fetch": ["@better-fetch/fetch@1.1.21", "", {}, "sha512-/ImESw0sskqlVR94jB+5+Pxjf+xBwDZF/N5+y2/q4EqD7IARUTSpPfIo8uf39SYpCxyOCtbyYpUrZ3F/k0zT4A=="],
 
     "@church-task/backend": ["@church-task/backend@workspace:packages/backend"],
+
+    "@church-task/cli": ["@church-task/cli@workspace:packages/cli"],
 
     "@church-task/config": ["@church-task/config@workspace:packages/config"],
 
