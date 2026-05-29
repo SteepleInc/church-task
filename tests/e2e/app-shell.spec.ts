@@ -9,7 +9,15 @@ async function signUpThroughDashboard(page: Page, email: string, name = "E2E Sig
   await page.getByRole("button", { name: "Sign Up" }).click();
 
   await expect(page).toHaveURL("/dashboard");
+  await expect(page.getByRole("heading", { name: "Create Your First Church" })).toBeVisible();
+}
+
+async function createFirstChurch(page: Page, churchName: string) {
+  await page.getByLabel("Church Name").fill(churchName);
+  await page.getByRole("button", { name: "Create Church" }).click();
+
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByText(`Active Church: ${churchName}`)).toBeVisible();
 }
 
 test("home route shows the app shell and connected API status", async ({ page }) => {
@@ -77,10 +85,27 @@ test("signup shows validation errors for invalid values", async ({ page }) => {
   await expect(page.getByText("Password must be at least 8 characters")).toBeVisible();
 });
 
-test("signup reaches the authenticated dashboard with private data", async ({ page }, testInfo) => {
+test("signup gates the user on creating their first Church", async ({ page }, testInfo) => {
   const uniqueEmail = `e2e-signup-${Date.now()}-${testInfo.workerIndex}@example.com`;
 
   await signUpThroughDashboard(page, uniqueEmail);
+
+  await expect(
+    page.getByText("Church Task needs an active Church before you can enter the app."),
+  ).toBeVisible();
+  await expect(page.getByLabel("Church Name")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create Church" })).toBeVisible();
+});
+
+test("creating the first Church reaches the authenticated dashboard with private data", async ({
+  page,
+}, testInfo) => {
+  const uniqueEmail = `e2e-church-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const churchName = `E2E Church ${Date.now()}`;
+
+  await signUpThroughDashboard(page, uniqueEmail);
+  await createFirstChurch(page, churchName);
+
   await expect(page.getByText("privateData: This is private")).toBeVisible();
 });
 
@@ -89,6 +114,7 @@ test("authenticated user menu shows account details and signs out", async ({ pag
   const userName = "E2E Sign Out User";
 
   await signUpThroughDashboard(page, uniqueEmail, userName);
+  await createFirstChurch(page, `E2E Sign Out Church ${Date.now()}`);
 
   await page.getByRole("button", { name: userName }).click();
 

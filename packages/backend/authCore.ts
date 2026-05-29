@@ -1,6 +1,7 @@
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth/minimal";
+import { organization } from "better-auth/plugins";
 
 import { components } from "./convex/_generated/api";
 import type { DataModel } from "./convex/_generated/dataModel";
@@ -26,6 +27,9 @@ export function createAuth(ctx: GenericCtx<DataModel>) {
       requireEmailVerification: false,
     },
     plugins: [
+      organization({
+        teams: { enabled: false },
+      }),
       crossDomain({ siteUrl }),
       convex({
         authConfig,
