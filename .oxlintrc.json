@@ -4,6 +4,7 @@
   "categories": {
     "correctness": "error"
   },
+  "ignorePatterns": ["**/_generated/**", "apps/web/src/routeTree.gen.ts"],
   "rules": {},
   "env": {
     "builtin": true

@@ -1,0 +1,3 @@
+# Domain activity log
+
+Church Task will maintain a Church-scoped `activities` table for audit history across domain entities such as Tasks, Templates, Template Tasks, Cycles, Teams, and Workflows. Domain mutations that create, move, complete, materialize, roll over, or otherwise meaningfully change those entities must write corresponding Activity records in the same mutation transaction when possible, so future UI and agent surfaces can show reliable history. Activities are an audit log, not event sourcing: current state remains on the domain tables, and the application must not require replaying Activities to reconstruct normal entity state.
