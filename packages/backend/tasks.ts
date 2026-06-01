@@ -363,6 +363,16 @@ export async function updateTasks(
         (field) => field !== "assignedUserId" && field !== "teamId",
       );
       if (nonAssignmentFields.length > 0) {
+        const metadata: {
+          updatedFields: Array<string>;
+          previousTitle?: string;
+          title?: string;
+        } = { updatedFields: nonAssignmentFields };
+        if ("title" in patch && patch.title !== undefined) {
+          metadata.previousTitle = task.title;
+          metadata.title = patch.title;
+        }
+
         await writeActivity(ctx, {
           churchId: args.churchId,
           entityType: "task",
@@ -372,7 +382,7 @@ export async function updateTasks(
           actorId: args.actorId,
           occurredAt: args.occurredAt,
           cycleId: task.cycleId,
-          metadata: { updatedFields: nonAssignmentFields },
+          metadata,
         });
       }
     });
