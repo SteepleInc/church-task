@@ -69,7 +69,7 @@ The Template that caused a Cycle task to exist. A generated Task may show its So
 _Avoid_: Origin, parent template
 
 **Task**:
-A unit of church work inside a Cycle that can be assigned, scheduled, tracked, and completed. A Task may be assigned to one Team, one User, both, or neither; completion belongs to the Task, not to each assignee. A Task without a Source Template is still just a Task.
+A unit of church work inside a Cycle that can be assigned, scheduled, tracked, and completed. A Task may be assigned to one Team, one User, both, or neither; User assignment means one expected executor, while Team assignment remains the accountability boundary. A Task without a Source Template is still just a Task.
 _Avoid_: Card when referring to the domain concept; one-off task, manual task
 
 **Subtask**:
@@ -119,11 +119,11 @@ A kanban-style presentation of a Saved View. A Board groups Tasks into columns, 
 _Avoid_: Board as the general saved-view concept
 
 **System Board**:
-A built-in Board presentation of a System Saved View, such as My Work, a default Team view, or an all-Church view. A System Board is permanent in product navigation and cannot be deleted by Users.
+A built-in Board presentation of a System Saved View, such as My Work, a default Team view, or Our Work for all visible Church work. A System Board is permanent in product navigation and cannot be deleted by Users.
 _Avoid_: Hard-coded page, special board
 
 **System Saved View**:
-A built-in Saved View created or maintained by Church Task, such as My Work, a default Team view, or an all-Church view. A System Saved View behaves like a Saved View but is permanent in product navigation and cannot be deleted by Users.
+A built-in Saved View created or maintained by Church Task, such as My Work, a default Team view, or Our Work for all visible Church work. A System Saved View behaves like a Saved View but is permanent in product navigation and cannot be deleted by Users.
 _Avoid_: Hard-coded view, special view
 
 **Board Column**:

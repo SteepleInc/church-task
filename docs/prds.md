@@ -34,6 +34,8 @@ Team and Workflow Setup gives every new Church a useful starting set of default 
 
 ## 6. Task Execution and Assignment
 
+Status: Speced in [GitHub issue #60](https://github.com/SteepleInc/church-task/issues/60).
+
 Task Execution and Assignment lets Users create, update, assign, move, and complete Tasks in the current weekly Cycle by default through both the web UI and MCP/CLI. The first web UI is a kanban-style Workflow view, using Team or Church default Workflow Statuses while preserving each Task's canonical Task State. It includes changing the Cycle when needed, optional Team/User assignment, batch-shaped operations, Subtasks, Due Dates, and Workflow movement, but does not include template authoring, saved views, or advanced weekly planning tools.
 
 ## 7. Weekly Cycle Planning
