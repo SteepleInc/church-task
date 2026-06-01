@@ -96,6 +96,14 @@ export function getTaskTeamUpdateFields(currentTeamId: string | null, nextTeamId
   return { teamId };
 }
 
+export function getExecutionWorkflowId(args: {
+  readonly surface: ExecutionSurface;
+  readonly churchDefaultWorkflowId?: string | null;
+  readonly teamDefaultWorkflowId?: string | null;
+}) {
+  return args.surface === "team_board" ? args.teamDefaultWorkflowId : args.churchDefaultWorkflowId;
+}
+
 export function formatTaskActivity(activity: TaskActivitySummary) {
   const eventLabel = activity.eventType.replace(/^task\./, "").replaceAll("_", " ");
   const actorLabel =
@@ -137,7 +145,11 @@ export function TaskExecutionSurface({
   const churchDefaultWorkflow = workDefaults?.ok
     ? workDefaults.data.workflows.find((workflow) => workflow.isDefault)
     : null;
-  const workflowId = surface === "team_board" ? team?.defaultWorkflowId : churchDefaultWorkflow?.id;
+  const workflowId = getExecutionWorkflowId({
+    surface,
+    churchDefaultWorkflowId: churchDefaultWorkflow?.id,
+    teamDefaultWorkflowId: team?.defaultWorkflowId,
+  });
 
   const workflowStatusesResult = useQuery(
     api.tasks.mcpListWorkflowStatuses,

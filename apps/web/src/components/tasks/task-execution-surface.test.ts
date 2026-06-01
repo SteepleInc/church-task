@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   formatTaskActivity,
   getTaskCreationDefaults,
+  getExecutionWorkflowId,
   getTaskTeamUpdateFields,
   getTaskTitleUpdateFields,
   selectCurrentExecutionCycle,
@@ -46,6 +47,30 @@ describe("Task execution surface", () => {
       assignedUserId: null,
       teamId: "team-1",
     });
+  });
+
+  test("selects the effective Workflow for fixed execution surfaces", () => {
+    expect(
+      getExecutionWorkflowId({
+        surface: "my_work",
+        churchDefaultWorkflowId: "church-workflow",
+        teamDefaultWorkflowId: "team-workflow",
+      }),
+    ).toBe("church-workflow");
+    expect(
+      getExecutionWorkflowId({
+        surface: "our_work",
+        churchDefaultWorkflowId: "church-workflow",
+        teamDefaultWorkflowId: "team-workflow",
+      }),
+    ).toBe("church-workflow");
+    expect(
+      getExecutionWorkflowId({
+        surface: "team_board",
+        churchDefaultWorkflowId: "church-workflow",
+        teamDefaultWorkflowId: "team-workflow",
+      }),
+    ).toBe("team-workflow");
   });
 
   test("builds trimmed Task title update fields only for changed titles", () => {
