@@ -21,6 +21,54 @@ const trustedOrigins = [
 
 export const authComponent = createClient<DataModel>(components.betterAuth);
 
+const roleToString = (role: unknown) => (Array.isArray(role) ? role.join(",") : String(role));
+
+const stringOrNull = (value: unknown) => (typeof value === "string" ? value : null);
+
+const recordAuthHookActivity = async (
+  ctx: GenericCtx<DataModel>,
+  input: {
+    readonly churchId: string;
+    readonly entityType: "church" | "team";
+    readonly entityId: string;
+    readonly eventType:
+      | "church.created"
+      | "church.updated"
+      | "church.deleted"
+      | "church.member.added"
+      | "church.member.removed"
+      | "church.member.role_updated"
+      | "church.invitation.created"
+      | "church.invitation.accepted"
+      | "church.invitation.rejected"
+      | "church.invitation.canceled"
+      | "team.created"
+      | "team.member.added"
+      | "team.member.removed";
+    readonly actorId: string | null;
+    readonly metadata: unknown;
+  },
+) => {
+  if (!("runMutation" in ctx)) {
+    return;
+  }
+
+  try {
+    await ctx.runMutation(internal.activities.internalRecordAuthHookActivity, {
+      ...input,
+      occurredAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Better Auth Activity hook failed", {
+      eventType: input.eventType,
+      churchId: input.churchId,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      error,
+    });
+  }
+};
+
 export function createAuth(ctx: GenericCtx<DataModel>) {
   return betterAuth({
     baseURL: process.env.CONVEX_SITE_URL,
@@ -91,6 +139,182 @@ export function createAuth(ctx: GenericCtx<DataModel>) {
                 churchId: organization.id,
               });
             }
+
+            await recordAuthHookActivity(ctx, {
+              churchId: organization.id,
+              entityType: "church",
+              entityId: organization.id,
+              eventType: "church.created",
+              actorId: null,
+              metadata: {
+                name: organization.name,
+                slug: stringOrNull(organization.slug),
+                churchTimeZone: stringOrNull(organization.churchTimeZone),
+              },
+            });
+          },
+          afterUpdateOrganization: async ({ organization, user }) => {
+            if (!organization) {
+              return;
+            }
+
+            await recordAuthHookActivity(ctx, {
+              churchId: organization.id,
+              entityType: "church",
+              entityId: organization.id,
+              eventType: "church.updated",
+              actorId: user.id,
+              metadata: {
+                name: stringOrNull(organization.name),
+                slug: stringOrNull(organization.slug),
+              },
+            });
+          },
+          afterDeleteOrganization: async ({ organization, user }) => {
+            await recordAuthHookActivity(ctx, {
+              churchId: organization.id,
+              entityType: "church",
+              entityId: organization.id,
+              eventType: "church.deleted",
+              actorId: user.id,
+              metadata: {
+                name: organization.name,
+                slug: stringOrNull(organization.slug),
+              },
+            });
+          },
+          afterAddMember: async ({ member, user, organization }) => {
+            await recordAuthHookActivity(ctx, {
+              churchId: organization.id,
+              entityType: "church",
+              entityId: organization.id,
+              eventType: "church.member.added",
+              actorId: user.id,
+              metadata: {
+                memberUserId: member.userId,
+                role: roleToString(member.role),
+              },
+            });
+          },
+          afterRemoveMember: async ({ member, user, organization }) => {
+            await recordAuthHookActivity(ctx, {
+              churchId: organization.id,
+              entityType: "church",
+              entityId: organization.id,
+              eventType: "church.member.removed",
+              actorId: user.id,
+              metadata: {
+                memberUserId: member.userId,
+                role: roleToString(member.role),
+              },
+            });
+          },
+          afterUpdateMemberRole: async ({ member, previousRole, user, organization }) => {
+            await recordAuthHookActivity(ctx, {
+              churchId: organization.id,
+              entityType: "church",
+              entityId: organization.id,
+              eventType: "church.member.role_updated",
+              actorId: user.id,
+              metadata: {
+                memberUserId: member.userId,
+                previousRole,
+                role: roleToString(member.role),
+              },
+            });
+          },
+          afterCreateInvitation: async ({ invitation, inviter, organization }) => {
+            await recordAuthHookActivity(ctx, {
+              churchId: organization.id,
+              entityType: "church",
+              entityId: organization.id,
+              eventType: "church.invitation.created",
+              actorId: inviter.id,
+              metadata: {
+                invitationId: invitation.id,
+                email: invitation.email,
+                role: roleToString(invitation.role),
+                teamId: stringOrNull(invitation.teamId),
+              },
+            });
+          },
+          afterAcceptInvitation: async ({ invitation, member, user, organization }) => {
+            await recordAuthHookActivity(ctx, {
+              churchId: organization.id,
+              entityType: "church",
+              entityId: organization.id,
+              eventType: "church.invitation.accepted",
+              actorId: user.id,
+              metadata: {
+                invitationId: invitation.id,
+                memberUserId: member.userId,
+                role: roleToString(member.role),
+              },
+            });
+          },
+          afterRejectInvitation: async ({ invitation, user, organization }) => {
+            await recordAuthHookActivity(ctx, {
+              churchId: organization.id,
+              entityType: "church",
+              entityId: organization.id,
+              eventType: "church.invitation.rejected",
+              actorId: user.id,
+              metadata: {
+                invitationId: invitation.id,
+                email: invitation.email,
+                role: roleToString(invitation.role),
+              },
+            });
+          },
+          afterCancelInvitation: async ({ invitation, cancelledBy, organization }) => {
+            await recordAuthHookActivity(ctx, {
+              churchId: organization.id,
+              entityType: "church",
+              entityId: organization.id,
+              eventType: "church.invitation.canceled",
+              actorId: cancelledBy.id,
+              metadata: {
+                invitationId: invitation.id,
+                email: invitation.email,
+                role: roleToString(invitation.role),
+              },
+            });
+          },
+          afterCreateTeam: async ({ team, user, organization }) => {
+            await recordAuthHookActivity(ctx, {
+              churchId: organization.id,
+              entityType: "team",
+              entityId: team.id,
+              eventType: "team.created",
+              actorId: user?.id ?? null,
+              metadata: {
+                name: team.name,
+              },
+            });
+          },
+          afterAddTeamMember: async ({ teamMember, team, user, organization }) => {
+            await recordAuthHookActivity(ctx, {
+              churchId: organization.id,
+              entityType: "team",
+              entityId: team.id,
+              eventType: "team.member.added",
+              actorId: user.id,
+              metadata: {
+                memberUserId: teamMember.userId,
+              },
+            });
+          },
+          afterRemoveTeamMember: async ({ teamMember, team, user, organization }) => {
+            await recordAuthHookActivity(ctx, {
+              churchId: organization.id,
+              entityType: "team",
+              entityId: team.id,
+              eventType: "team.member.removed",
+              actorId: user.id,
+              metadata: {
+                memberUserId: teamMember.userId,
+              },
+            });
           },
         },
         sendInvitationEmail: (data) =>

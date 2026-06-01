@@ -87,6 +87,50 @@ const createTeam = (
     }),
   });
 
+const addTeamMember = (
+  c: typeof TestConfect.TestConfect.Service,
+  args: {
+    readonly token: string;
+    readonly userId: string;
+    readonly organizationId: string;
+    readonly teamId: string;
+  },
+) =>
+  c.fetch("/api/auth/organization/add-team-member", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${args.token}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      userId: args.userId,
+      organizationId: args.organizationId,
+      teamId: args.teamId,
+    }),
+  });
+
+const removeTeamMember = (
+  c: typeof TestConfect.TestConfect.Service,
+  args: {
+    readonly token: string;
+    readonly userId: string;
+    readonly organizationId: string;
+    readonly teamId: string;
+  },
+) =>
+  c.fetch("/api/auth/organization/remove-team-member", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${args.token}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      userId: args.userId,
+      organizationId: args.organizationId,
+      teamId: args.teamId,
+    }),
+  });
+
 describe("agent operation boundary", () => {
   it.effect("currentUser returns the stable typed response shape", () =>
     Effect.gen(function* () {
@@ -1344,6 +1388,92 @@ describe("agent operation boundary", () => {
             },
           ],
         },
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("Better Auth hooks record product-visible Activities", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const ownerEmail = `agent-auth-hook-owner-${crypto.randomUUID()}@example.com`;
+      const ownerSignUpResponse = yield* signUpWithEmail(c, ownerEmail);
+      const ownerSignUpBody = (yield* Effect.promise(() => ownerSignUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: ownerSignUpBody.token!,
+        name: "Auth Hook Church",
+        slug: `auth-hook-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const teamResponse = yield* createTeam(c, {
+        token: ownerSignUpBody.token!,
+        name: "Care Team",
+        organizationId: church.id!,
+      });
+      const team = (yield* Effect.promise(() => teamResponse.json())) as { id?: string };
+      const addTeamMemberResponse = yield* addTeamMember(c, {
+        token: ownerSignUpBody.token!,
+        userId: ownerSignUpBody.user!.id!,
+        organizationId: church.id!,
+        teamId: team.id!,
+      });
+      const removeTeamMemberResponse = yield* removeTeamMember(c, {
+        token: ownerSignUpBody.token!,
+        userId: ownerSignUpBody.user!.id!,
+        organizationId: church.id!,
+        teamId: team.id!,
+      });
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: ownerSignUpBody.user!.id!,
+        sessionToken: ownerSignUpBody.token!,
+      });
+
+      expect(churchResponse.status).toBe(200);
+      expect(teamResponse.status).toBe(200);
+      expect(addTeamMemberResponse.status).toBe(200);
+      expect(removeTeamMemberResponse.status).toBe(200);
+
+      const churchActivities = yield* authenticated.query(refs.public.activities.listForEntity, {
+        churchId: church.id!,
+        entityType: "church",
+        entityId: church.id!,
+      });
+      const teamActivities = yield* authenticated.query(refs.public.activities.listForEntity, {
+        churchId: church.id!,
+        entityType: "team",
+        entityId: team.id!,
+      });
+
+      expect(churchActivities.data.activities.map((activity) => activity.eventType)).toEqual([
+        "church.member.added",
+        "church.created",
+      ]);
+      expect(churchActivities.data.activities[0]!.metadata).toEqual({
+        memberUserId: ownerSignUpBody.user!.id,
+        role: "owner",
+      });
+      expect(churchActivities.data.activities[1]!.metadata).toMatchObject({
+        name: "Auth Hook Church",
+        churchTimeZone: "America/New_York",
+      });
+      expect(teamActivities.data.activities.map((activity) => activity.eventType)).toEqual([
+        "team.created",
+        "team.member.added",
+        "team.member.removed",
+      ]);
+      expect(teamActivities.data.activities.map((activity) => activity.actorType)).toEqual([
+        "better_auth",
+        "better_auth",
+        "better_auth",
+      ]);
+      expect(teamActivities.data.activities[0]!.metadata).toEqual({ name: "Care Team" });
+      expect(teamActivities.data.activities[1]!.metadata).toEqual({
+        memberUserId: ownerSignUpBody.user!.id,
+      });
+      expect(teamActivities.data.activities[2]!.metadata).toEqual({
+        memberUserId: ownerSignUpBody.user!.id,
       });
     }).pipe(Effect.provide(TestConfect.layer())),
   );
