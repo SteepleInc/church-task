@@ -24,6 +24,7 @@ type TaskUpdateInput = {
     readonly workflowStatusId?: string;
     readonly dueDate?: string;
     readonly cycleId?: string;
+    readonly parentTaskId?: string | null;
   };
 };
 
@@ -266,6 +267,22 @@ export async function updateTasks(
     if ("title" in update.fields && update.fields.title !== task.title) {
       patch.title = update.fields.title;
       updatedFields.push("title");
+    }
+
+    if (
+      "parentTaskId" in update.fields &&
+      (update.fields.parentTaskId ?? null) !== task.parentTaskId
+    ) {
+      const parentTaskId = update.fields.parentTaskId ?? null;
+      if (parentTaskId !== null) {
+        const parentTask = await ctx.db.get(parentTaskId as Id<"tasks">);
+        if (!parentTask || parentTask.churchId !== args.churchId) {
+          return { ok: false as const, code: "parentTaskNotFound" as const };
+        }
+      }
+
+      patch.parentTaskId = parentTaskId;
+      updatedFields.push("parentTaskId");
     }
 
     let movedDueDate: {
@@ -608,10 +625,16 @@ export async function updateTasks(
           updatedFields: Array<string>;
           previousTitle?: string;
           title?: string;
+          previousParentTaskId?: string | null;
+          parentTaskId?: string | null;
         } = { updatedFields: nonAssignmentFields };
         if ("title" in patch && patch.title !== undefined) {
           metadata.previousTitle = task.title;
           metadata.title = patch.title;
+        }
+        if ("parentTaskId" in patch) {
+          metadata.previousParentTaskId = task.parentTaskId;
+          metadata.parentTaskId = patch.parentTaskId ?? null;
         }
 
         await writeActivity(ctx, {

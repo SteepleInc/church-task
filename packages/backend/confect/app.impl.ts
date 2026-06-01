@@ -2360,6 +2360,13 @@ const tasksUpdateBatch = FunctionImpl.make(api, "tasks", "updateBatch", (args) =
         "Cycle was not found in the active Church.",
       );
     }
+    if (!updated.ok && updated.code === "parentTaskNotFound") {
+      return taskErrorResponse(
+        "updateTasks",
+        "parent_task_not_found",
+        "Parent Task was not found in the active Church.",
+      );
+    }
     if (!updated.ok) {
       return yield* Effect.dieMessage("Unexpected Task update result.");
     }

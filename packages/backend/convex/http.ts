@@ -136,6 +136,7 @@ http.route({
       readonly workflowStatusId?: string;
       readonly dueDate?: string;
       readonly cycleId?: string;
+      readonly parentTaskId?: string | null;
     };
 
     const { churchId, taskId, ...fields } = body;

@@ -28,6 +28,7 @@ const TaskUpdateFields = Schema.Struct({
   workflowStatusId: Schema.optional(Schema.String),
   dueDate: Schema.optional(Schema.String),
   cycleId: Schema.optional(Schema.String),
+  parentTaskId: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
 });
 
 export const TaskUpdateBatchArgs = Schema.Struct({

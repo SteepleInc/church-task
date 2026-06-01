@@ -133,6 +133,7 @@ export const mcpUpdateTask = mutation({
       workflowStatusId: v.optional(v.string()),
       dueDate: v.optional(v.string()),
       cycleId: v.optional(v.string()),
+      parentTaskId: v.optional(v.union(v.string(), v.null())),
     }),
   },
   handler: async (ctx, args) => {
@@ -245,6 +246,13 @@ export const mcpUpdateTask = mutation({
         "updateTasks",
         "workflow_status_not_in_effective_workflow",
         "Workflow Status must belong to the Task's effective Workflow.",
+      );
+    }
+    if (!updated.ok && updated.code === "parentTaskNotFound") {
+      return taskErrorResponse(
+        "updateTasks",
+        "parent_task_not_found",
+        "Parent Task was not found in the active Church.",
       );
     }
     if (!updated.ok && updated.code === "invalidDueDate") {

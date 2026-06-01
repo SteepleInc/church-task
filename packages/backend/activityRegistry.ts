@@ -36,6 +36,8 @@ export const ActivityMetadataByEventType = {
     updatedFields: Schema.Array(Schema.String),
     previousTitle: Schema.optional(Schema.String),
     title: Schema.optional(Schema.String),
+    previousParentTaskId: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+    parentTaskId: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
   }),
   "task.user_assigned": Schema.Struct({
     previousAssignedUserId: Schema.Union(Schema.String, Schema.Null),

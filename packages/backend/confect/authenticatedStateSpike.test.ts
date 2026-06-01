@@ -445,6 +445,107 @@ describe("Better Auth authenticated state spike", () => {
   );
 
   it.effect(
+    "MCP update-task tool updates parent Task through the shared Task update contract",
+    () =>
+      Effect.gen(function* () {
+        const c = yield* TestConfect.TestConfect;
+        const email = `mcp-update-task-parent-${crypto.randomUUID()}@example.com`;
+        const signUpResponse = yield* signUpWithEmail(c, email);
+        const owner = (yield* Effect.promise(() => signUpResponse.json())) as {
+          user?: { id?: string };
+          token?: string;
+        };
+        const churchResponse = yield* createChurch(c, {
+          token: owner.token!,
+          name: "MCP Task Parent Update Church",
+          slug: `mcp-task-parent-update-${crypto.randomUUID()}`,
+        });
+        const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+        const authenticated = yield* authenticatedConfect(c, {
+          userId: owner.user!.id!,
+          sessionToken: owner.token!,
+        });
+        const defaults = yield* authenticated.query(refs.public.workDefaults.readForChurch, {
+          churchId: church.id!,
+        });
+        const todoStatus = defaults.data.workflowStatuses.find(
+          (status) => status.taskState === "todo",
+        )!;
+        const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
+          churchId: church.id!,
+          tasks: [
+            {
+              title: "Parent from MCP",
+              teamId: null,
+              workflowStatusId: todoStatus.id,
+              dueDate: "2026-06-03",
+              parentTaskId: null,
+            },
+            {
+              title: "Child from MCP",
+              teamId: null,
+              workflowStatusId: todoStatus.id,
+              dueDate: "2026-06-03",
+              parentTaskId: null,
+            },
+          ],
+        });
+        const parentTask = created.data.tasks.find(
+          (candidate) => candidate.title === "Parent from MCP",
+        )!;
+        const childTask = created.data.tasks.find(
+          (candidate) => candidate.title === "Child from MCP",
+        )!;
+
+        const response = yield* c.fetch("/api/mcp/tools/update-task", {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${owner.token}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            churchId: church.id!,
+            taskId: childTask.id,
+            parentTaskId: parentTask.id,
+          }),
+        });
+        const body = (yield* Effect.promise(() => response.json())) as unknown;
+        const activities = yield* authenticated.query(refs.public.activities.listForEntity, {
+          churchId: church.id!,
+          entityType: "task",
+          entityId: childTask.id,
+        });
+
+        expect(response.status).toBe(200);
+        expect(body).toMatchObject({
+          ok: true,
+          tool: "update_task",
+          result: {
+            ok: true,
+            operation: "updateTasks",
+            data: {
+              tasks: expect.arrayContaining([
+                expect.objectContaining({ id: childTask.id, parentTaskId: parentTask.id }),
+              ]),
+            },
+          },
+        });
+        expect(activities.data.activities.map((activity) => activity.eventType)).toEqual([
+          "task.created",
+          "task.updated",
+        ]);
+        expect(activities.data.activities[1]).toMatchObject({
+          actorId: owner.user!.id!,
+          metadata: {
+            updatedFields: ["parentTaskId"],
+            previousParentTaskId: null,
+            parentTaskId: parentTask.id,
+          },
+        });
+      }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect(
     "MCP lifecycle tools complete, cancel, and reopen Tasks through shared transitions",
     () =>
       Effect.gen(function* () {
