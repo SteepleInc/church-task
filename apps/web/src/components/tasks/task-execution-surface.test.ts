@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   formatTaskActivity,
   getMyWorkEmptyStateActions,
+  getTaskAssigneeOptions,
   getTaskCreationDefaults,
   getExecutionWorkflowId,
   getTaskExecutionReadArgs,
@@ -145,6 +146,15 @@ describe("Task execution surface", () => {
     expect(getTaskTeamUpdateFields("team-1", "")).toEqual({ teamId: null });
     expect(getTaskTeamUpdateFields("team-1", "team-1")).toBeNull();
     expect(getTaskTeamUpdateFields(null, "")).toBeNull();
+  });
+
+  test("offers Church Users as assignees without filtering by Team Membership", () => {
+    const churchUsers = [
+      { id: "team-member", name: "Team Member", email: "member@example.com" },
+      { id: "cross-team-helper", name: "Cross Team Helper", email: "helper@example.com" },
+    ];
+
+    expect(getTaskAssigneeOptions(churchUsers)).toEqual(churchUsers);
   });
 
   test("formats recent Task Activity for the execution surface", () => {

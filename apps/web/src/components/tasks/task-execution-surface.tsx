@@ -105,6 +105,10 @@ export function getTaskTeamUpdateFields(currentTeamId: string | null, nextTeamId
   return { teamId };
 }
 
+export function getTaskAssigneeOptions(users: readonly UserSummary[]) {
+  return users;
+}
+
 export function getExecutionWorkflowId(args: {
   readonly surface: ExecutionSurface;
   readonly churchDefaultWorkflowId?: string | null;
@@ -458,6 +462,7 @@ function TaskActionRow({
 }) {
   const [draftTitle, setDraftTitle] = useState(task.title);
   const titleUpdateFields = getTaskTitleUpdateFields(task.title, draftTitle);
+  const assigneeOptions = getTaskAssigneeOptions(users);
 
   return (
     <div
@@ -496,7 +501,7 @@ function TaskActionRow({
         }}
       >
         <NativeSelectOption value="">Unassigned</NativeSelectOption>
-        {users.map((user) => (
+        {assigneeOptions.map((user) => (
           <NativeSelectOption key={user.id} value={user.id}>
             {user.name ?? user.email ?? user.id}
           </NativeSelectOption>
