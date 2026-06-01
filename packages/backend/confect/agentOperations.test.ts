@@ -1701,6 +1701,141 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("Task creation validates Team defaults and effective Workflow Statuses", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const ownerResponse = yield* signUpWithEmail(
+        c,
+        `agent-task-team-create-owner-${crypto.randomUUID()}@example.com`,
+      );
+      const owner = (yield* Effect.promise(() => ownerResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: owner.token!,
+        name: "Task Team Create Church",
+        slug: `task-team-create-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const teamResponse = yield* createTeam(c, {
+        token: owner.token!,
+        name: "Hospitality",
+        organizationId: church.id!,
+      });
+      const archivedTeamResponse = yield* createTeam(c, {
+        token: owner.token!,
+        name: "Archived Hospitality",
+        organizationId: church.id!,
+      });
+      const team = (yield* Effect.promise(() => teamResponse.json())) as { id?: string };
+      const archivedTeam = (yield* Effect.promise(() => archivedTeamResponse.json())) as {
+        id?: string;
+      };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: owner.user!.id!,
+        sessionToken: owner.token!,
+      });
+      const defaults = yield* authenticated.query(refs.public.workDefaults.readForChurch, {
+        churchId: church.id!,
+      });
+      const defaultWorkflow = defaults.data.workflows.find((workflow) => workflow.isDefault)!;
+      const defaultTodo = defaults.data.workflowStatuses.find(
+        (status) => status.workflowId === defaultWorkflow.id && status.taskState === "todo",
+      )!;
+      const teamWorkflowResult = yield* authenticated.mutation(
+        refs.public.workflows.createForChurch,
+        {
+          churchId: church.id!,
+          key: "hospitality-flow",
+          name: "Hospitality Flow",
+          isDefault: false,
+          sortOrder: 1,
+          statuses: [
+            { key: "todo", name: "Ready", taskState: "todo", sortOrder: 0 },
+            { key: "doing", name: "Doing", taskState: "in_progress", sortOrder: 1 },
+            { key: "done", name: "Done", taskState: "done", sortOrder: 2 },
+          ],
+        },
+      );
+      const teamWorkflow = teamWorkflowResult.data.workflows.find(
+        (workflow) => workflow.key === "hospitality-flow",
+      )!;
+      const teamTodo = teamWorkflowResult.data.workflowStatuses.find(
+        (status) => status.workflowId === teamWorkflow.id && status.taskState === "todo",
+      )!;
+      yield* authenticated.mutation(refs.public.teams.updateProductFields, {
+        churchId: church.id!,
+        updates: [
+          { teamId: team.id!, fields: { defaultWorkflowId: teamWorkflow.id } },
+          { teamId: archivedTeam.id!, fields: { archivedAt: "2026-06-01T00:00:00.000Z" } },
+        ],
+      });
+
+      const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
+        churchId: church.id!,
+        tasks: [
+          {
+            title: "Prepare welcome table",
+            teamId: team.id!,
+            workflowStatusId: teamTodo.id,
+            dueDate: "2026-06-03",
+            parentTaskId: null,
+          },
+        ],
+      });
+      const mismatchedStatus = yield* authenticated.mutation(refs.public.tasks.createBatch, {
+        churchId: church.id!,
+        tasks: [
+          {
+            title: "Wrong Workflow Status",
+            teamId: team.id!,
+            workflowStatusId: defaultTodo.id,
+            dueDate: "2026-06-03",
+            parentTaskId: null,
+          },
+        ],
+      });
+      const archivedTeamCreate = yield* authenticated.mutation(refs.public.tasks.createBatch, {
+        churchId: church.id!,
+        tasks: [
+          {
+            title: "Archived Team Task",
+            teamId: archivedTeam.id!,
+            workflowStatusId: defaultTodo.id,
+            dueDate: "2026-06-03",
+            parentTaskId: null,
+          },
+        ],
+      });
+
+      expect(
+        created.data.tasks.find((task) => task.title === "Prepare welcome table"),
+      ).toMatchObject({
+        teamId: team.id,
+        workflowId: teamWorkflow.id,
+        workflowStatusId: teamTodo.id,
+        taskState: "todo",
+      });
+      expect(mismatchedStatus).toEqual({
+        ok: false,
+        operation: "createTasks",
+        error: {
+          code: "workflow_status_not_in_effective_workflow",
+          message: "Workflow Status must belong to the Task's effective Workflow.",
+        },
+      });
+      expect(archivedTeamCreate).toEqual({
+        ok: false,
+        operation: "createTasks",
+        error: {
+          code: "team_not_found",
+          message: "Team was not found in the active Church.",
+        },
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Task update assigns and unassigns Users with Activity history", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;
@@ -2138,29 +2273,18 @@ describe("agent operation boundary", () => {
         userId: signUpBody.user!.id!,
         sessionToken: signUpBody.token!,
       });
-      const workflow = yield* authenticated.mutation(refs.public.workflows.createForChurch, {
+      const defaults = yield* authenticated.query(refs.public.workDefaults.readForChurch, {
         churchId: church.id!,
-        key: "transition-workflow",
-        name: "Transition Workflow",
-        isDefault: false,
-        sortOrder: 1,
-        statuses: [
-          { key: "todo", name: "To Do", taskState: "todo", sortOrder: 0 },
-          { key: "doing", name: "Doing", taskState: "in_progress", sortOrder: 1 },
-          { key: "done", name: "Done", taskState: "done", sortOrder: 2 },
-        ],
       });
-      const transitionWorkflow = workflow.data.workflows.find(
-        (candidate) => candidate.key === "transition-workflow",
+      const defaultWorkflow = defaults.data.workflows.find((candidate) => candidate.isDefault)!;
+      const todoStatus = defaults.data.workflowStatuses.find(
+        (status) => status.workflowId === defaultWorkflow.id && status.taskState === "todo",
       )!;
-      const todoStatus = workflow.data.workflowStatuses.find(
-        (status) => status.workflowId === transitionWorkflow.id && status.key === "todo",
+      const doingStatus = defaults.data.workflowStatuses.find(
+        (status) => status.workflowId === defaultWorkflow.id && status.taskState === "in_progress",
       )!;
-      const doingStatus = workflow.data.workflowStatuses.find(
-        (status) => status.workflowId === transitionWorkflow.id && status.key === "doing",
-      )!;
-      const doneStatus = workflow.data.workflowStatuses.find(
-        (status) => status.workflowId === transitionWorkflow.id && status.key === "done",
+      const doneStatus = defaults.data.workflowStatuses.find(
+        (status) => status.workflowId === defaultWorkflow.id && status.taskState === "done",
       )!;
       const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
         churchId: church.id!,
@@ -2226,7 +2350,7 @@ describe("agent operation boundary", () => {
               cycleId: cancelMe.cycleId,
               dueDate: "2026-06-03",
               parentTaskId: null,
-              workflowId: transitionWorkflow.id,
+              workflowId: defaultWorkflow.id,
               workflowStatusId: todoStatus.id,
               taskState: "done",
               finishedAt: null,
@@ -2280,7 +2404,7 @@ describe("agent operation boundary", () => {
       expect(transitionActivities.data.activities[1]!.metadata).toMatchObject({
         previousTaskState: "in_progress",
         previousWorkflowStatusId: doingStatus.id,
-        previousWorkflowStatusName: "Doing",
+        previousWorkflowStatusName: doingStatus.name,
       });
       expect(inconsistent).toEqual({
         ok: false,

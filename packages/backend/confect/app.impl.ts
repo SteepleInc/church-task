@@ -2028,6 +2028,22 @@ const tasksCreateBatch = FunctionImpl.make(api, "tasks", "createBatch", (args) =
       );
     }
 
+    const churchDefaultWorkflow = yield* Effect.promise(() =>
+      ctx.db
+        .query("workflows")
+        .withIndex("by_churchId", (q) => q.eq("churchId", args.churchId))
+        .filter((q) => q.eq(q.field("isDefault"), true))
+        .first(),
+    ).pipe(Effect.orDie);
+
+    if (!churchDefaultWorkflow) {
+      return taskErrorResponse(
+        "createTasks",
+        "team_workflow_not_configured",
+        "The Church default Workflow is missing.",
+      );
+    }
+
     const assignedUserIds = [
       ...new Set(
         args.tasks
@@ -2049,6 +2065,64 @@ const tasksCreateBatch = FunctionImpl.make(api, "tasks", "createBatch", (args) =
           "createTasks",
           "assigned_user_not_church_member",
           "Assigned User must be a Church Member of the Task's Church.",
+        );
+      }
+    }
+
+    const teamIds = [
+      ...new Set(
+        args.tasks
+          .map((task) => task.teamId ?? null)
+          .filter((teamId): teamId is string => teamId !== null),
+      ),
+    ];
+    const teamWorkflowIds: Record<string, string> = {};
+    for (const teamId of teamIds) {
+      const team = (yield* Effect.promise(() =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "team",
+          where: [
+            { field: "_id", value: teamId },
+            { field: "organizationId", value: args.churchId },
+          ],
+        }),
+      ).pipe(Effect.orDie)) as BetterAuthTeam | null;
+
+      if (!team || team.archivedAt != null) {
+        return taskErrorResponse(
+          "createTasks",
+          "team_not_found",
+          "Team was not found in the active Church.",
+        );
+      }
+
+      teamWorkflowIds[teamId] = team.defaultWorkflowId ?? churchDefaultWorkflow._id;
+    }
+
+    for (const task of args.tasks) {
+      const workflowStatus = yield* Effect.promise(() =>
+        ctx.db.get(task.workflowStatusId as Id<"workflowStatuses">),
+      ).pipe(Effect.orDie);
+      if (
+        !workflowStatus ||
+        workflowStatus.churchId !== args.churchId ||
+        workflowStatus.archivedAt !== null
+      ) {
+        return taskErrorResponse(
+          "createTasks",
+          "workflow_status_not_found",
+          "Workflow Status was not found in the active Church.",
+        );
+      }
+
+      const effectiveWorkflowId = task.teamId
+        ? teamWorkflowIds[task.teamId]
+        : churchDefaultWorkflow._id;
+      if (workflowStatus.workflowId !== effectiveWorkflowId) {
+        return taskErrorResponse(
+          "createTasks",
+          "workflow_status_not_in_effective_workflow",
+          "Workflow Status must belong to the Task's effective Workflow.",
         );
       }
     }
