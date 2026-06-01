@@ -8,6 +8,7 @@ import {
   BatchReadResponse,
   CurrentUserResponse,
 } from "../agent/operations";
+import { WorkDefaultsChurchArgs, WorkDefaultsResponse } from "../agent/workDefaultsOperations";
 
 export const healthCheck = GroupSpec.make("healthCheck").addFunction(
   FunctionSpec.publicQuery({
@@ -53,5 +54,21 @@ export const agent = GroupSpec.make("agent")
       name: "activeChurch",
       args: ActiveChurchArgs,
       returns: ActiveChurchResponse,
+    }),
+  );
+
+export const workDefaults = GroupSpec.make("workDefaults")
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "seedForChurch",
+      args: WorkDefaultsChurchArgs,
+      returns: WorkDefaultsResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicQuery({
+      name: "readForChurch",
+      args: WorkDefaultsChurchArgs,
+      returns: WorkDefaultsResponse,
     }),
   );

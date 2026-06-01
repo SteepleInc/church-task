@@ -1,4 +1,4 @@
-import { FunctionImpl, GroupImpl, QueryCtx } from "@confect/server";
+import { FunctionImpl, GroupImpl, MutationCtx, QueryCtx } from "@confect/server";
 import { Effect, Layer } from "effect";
 
 import {
@@ -8,9 +8,11 @@ import {
   noActiveChurchResponse,
   notChurchMemberResponse,
 } from "../agent/operations";
+import { workDefaultsResponse } from "../agent/workDefaultsOperations";
 import { authComponent } from "../authCore";
 import { components } from "../convex/_generated/api";
 import type { DataModel } from "../convex/_generated/dataModel";
+import { readDefaultWorkModel, seedDefaultWorkModel } from "../workDefaults";
 import api from "./_generated/api";
 
 type BetterAuthSession = {
@@ -130,6 +132,33 @@ const getActiveChurch = (churchId: string | null) =>
     });
   });
 
+const serializeWorkDefaults = (data: Awaited<ReturnType<typeof readDefaultWorkModel>>) => ({
+  workflows: data.workflows.map((workflow) => ({
+    id: workflow._id,
+    key: workflow.key,
+    name: workflow.name,
+    isDefault: workflow.isDefault,
+    sortOrder: workflow.sortOrder,
+    archivedAt: workflow.archivedAt,
+  })),
+  workflowStatuses: data.workflowStatuses.map((status) => ({
+    id: status._id,
+    workflowId: status.workflowId,
+    key: status.key,
+    name: status.name,
+    taskState: status.taskState,
+    sortOrder: status.sortOrder,
+    archivedAt: status.archivedAt,
+  })),
+  keyDates: data.keyDates.map((keyDate) => ({
+    id: keyDate._id,
+    key: keyDate.key,
+    name: keyDate.name,
+    schedule: keyDate.schedule,
+    archivedAt: keyDate.archivedAt,
+  })),
+});
+
 const healthCheckGet = FunctionImpl.make(api, "healthCheck", "get", () =>
   Effect.succeed("OK" as const),
 );
@@ -167,6 +196,31 @@ const agentActiveChurch = FunctionImpl.make(api, "agent", "activeChurch", (args)
   getActiveChurch(args.churchId),
 );
 
+const workDefaultsSeedForChurch = FunctionImpl.make(api, "workDefaults", "seedForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+
+    yield* Effect.promise(() => seedDefaultWorkModel(ctx, args.churchId)).pipe(Effect.orDie);
+
+    const defaults = yield* Effect.promise(() => readDefaultWorkModel(ctx, args.churchId)).pipe(
+      Effect.orDie,
+    );
+
+    return workDefaultsResponse("seedWorkDefaults", serializeWorkDefaults(defaults));
+  }),
+);
+
+const workDefaultsReadForChurch = FunctionImpl.make(api, "workDefaults", "readForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* QueryCtx.QueryCtx<DataModel>();
+    const defaults = yield* Effect.promise(() => readDefaultWorkModel(ctx, args.churchId)).pipe(
+      Effect.orDie,
+    );
+
+    return workDefaultsResponse("readWorkDefaults", serializeWorkDefaults(defaults));
+  }),
+);
+
 export const healthCheck = GroupImpl.make(api, "healthCheck").pipe(Layer.provide(healthCheckGet));
 
 export const privateData = GroupImpl.make(api, "privateData").pipe(Layer.provide(privateDataGet));
@@ -175,4 +229,8 @@ export const agent = GroupImpl.make(api, "agent").pipe(
   Layer.provide(agentCurrentUser),
   Layer.provide(agentBatchRead),
   Layer.provide(agentActiveChurch),
+);
+export const workDefaults = GroupImpl.make(api, "workDefaults").pipe(
+  Layer.provide(workDefaultsSeedForChurch),
+  Layer.provide(workDefaultsReadForChurch),
 );

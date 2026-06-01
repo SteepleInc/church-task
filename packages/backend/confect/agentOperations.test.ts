@@ -281,6 +281,90 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("Church creation seeds the default work model", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-work-defaults-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Seeded Church",
+        slug: `seeded-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+
+      const result = yield* authenticated.query(refs.public.workDefaults.readForChurch, {
+        churchId: church.id!,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.data.workflows).toMatchObject([
+        {
+          key: "church-default",
+          name: "Default Workflow",
+          isDefault: true,
+          sortOrder: 0,
+          archivedAt: null,
+        },
+      ]);
+      expect(result.data.workflowStatuses.map((status) => [status.key, status.taskState])).toEqual([
+        ["to-do", "todo"],
+        ["in-progress", "in_progress"],
+        ["done", "done"],
+      ]);
+      expect(result.data.keyDates.map((keyDate) => keyDate.key)).toEqual([
+        "christmas",
+        "easter",
+        "palm-sunday",
+        "pentecost",
+        "mothers-day",
+        "fathers-day",
+      ]);
+      expect(result.data.keyDates.every((keyDate) => keyDate.archivedAt === null)).toBe(true);
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("default work model seeding is idempotent", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-work-defaults-idempotent-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Idempotent Seed Church",
+        slug: `idempotent-seed-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+
+      yield* authenticated.mutation(refs.public.workDefaults.seedForChurch, {
+        churchId: church.id!,
+      });
+      const result = yield* authenticated.mutation(refs.public.workDefaults.seedForChurch, {
+        churchId: church.id!,
+      });
+
+      expect(result.data.workflows).toHaveLength(1);
+      expect(result.data.workflowStatuses).toHaveLength(3);
+      expect(result.data.keyDates).toHaveLength(6);
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Church creation rejects an invalid Church Time Zone", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;

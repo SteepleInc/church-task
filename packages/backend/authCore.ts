@@ -5,7 +5,7 @@ import { APIError } from "better-auth/api";
 import { betterAuth } from "better-auth/minimal";
 import { bearer, mcp, organization } from "better-auth/plugins";
 
-import { components } from "./convex/_generated/api";
+import { components, internal } from "./convex/_generated/api";
 import type { DataModel } from "./convex/_generated/dataModel";
 import authConfig from "./convex/auth.config";
 import { sendChurchInvitationEmail } from "./churchInvitationEmail";
@@ -66,6 +66,13 @@ export function createAuth(ctx: GenericCtx<DataModel>) {
             if (!isValidChurchTimeZone(organization.churchTimeZone)) {
               throw new APIError("BAD_REQUEST", {
                 message: "Church Time Zone must be a valid IANA time zone.",
+              });
+            }
+          },
+          afterCreateOrganization: async ({ organization }) => {
+            if ("runMutation" in ctx) {
+              await ctx.runMutation(internal.workDefaults.internalSeedForChurch, {
+                churchId: organization.id,
               });
             }
           },
