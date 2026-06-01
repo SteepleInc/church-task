@@ -32,7 +32,7 @@ async function createFirstChurch(page: Page, churchName: string) {
   await page.getByLabel("Church Name").fill(churchName);
   await page.getByRole("button", { name: "Create Church" }).click();
 
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "My Work", level: 1 })).toBeVisible();
   await expect(page.getByText(`Active Church: ${churchName}`)).toBeVisible();
 }
 
@@ -124,7 +124,7 @@ test("signup gates the user on creating their first Church", async ({ page }, te
   await expect(page.getByRole("button", { name: "Create Church" })).toBeVisible();
 });
 
-test("creating the first Church reaches the authenticated dashboard with private data", async ({
+test("creating the first Church reaches the authenticated My Work dashboard", async ({
   page,
 }, testInfo) => {
   const uniqueEmail = `e2e-church-${Date.now()}-${testInfo.workerIndex}@example.com`;
@@ -133,7 +133,40 @@ test("creating the first Church reaches the authenticated dashboard with private
   await signUpThroughDashboard(page, uniqueEmail);
   await createFirstChurch(page, churchName);
 
-  await expect(page.getByText("privateData: This is private")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "My Work", level: 1 })).toBeVisible();
+  await expect(
+    page.getByText("Tasks assigned directly to you in the current execution window."),
+  ).toBeVisible();
+});
+
+test("authenticated dashboard lands on My Work and filters to directly assigned Tasks", async ({
+  page,
+}, testInfo) => {
+  const uniqueEmail = `e2e-my-work-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const assignedTaskTitle = `Assigned My Work Task ${Date.now()}`;
+  const sharedTaskTitle = `Shared Our Work Task ${Date.now()}`;
+
+  await signUpThroughDashboard(page, uniqueEmail, "E2E My Work User");
+  await createFirstChurch(page, `E2E My Work Church ${Date.now()}`);
+
+  await expect(page.getByRole("heading", { name: "My Work", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No Tasks assigned to you" })).toBeVisible();
+
+  await page.getByPlaceholder("Add a Task assigned to me").fill(assignedTaskTitle);
+  await page.getByRole("button", { name: "Create Task" }).click();
+  await expect(page.getByText(assignedTaskTitle).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Our Work" }).click();
+  await expect(page.getByRole("heading", { name: "Our Work", level: 1 })).toBeVisible();
+  await page.getByPlaceholder("Add Church-wide Task").fill(sharedTaskTitle);
+  await page.getByRole("button", { name: "Create Task" }).click();
+  await expect(page.getByText(assignedTaskTitle).first()).toBeVisible();
+  await expect(page.getByText(sharedTaskTitle).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "My Work" }).click();
+  await expect(page.getByRole("heading", { name: "My Work", level: 1 })).toBeVisible();
+  await expect(page.getByText(assignedTaskTitle).first()).toBeVisible();
+  await expect(page.getByText(sharedTaskTitle)).not.toBeVisible();
 });
 
 test("church switcher creates another Church and switches Active Church", async ({
@@ -507,7 +540,7 @@ test("invited user accepts pending Church Invitation before creating a Church", 
 
   await page.getByRole("button", { name: "Accept Invitation" }).click();
 
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "My Work", level: 1 })).toBeVisible();
   await expect(page.getByText(`Active Church: ${churchName}`)).toBeVisible();
 });
 
