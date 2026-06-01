@@ -57,6 +57,41 @@ describe("Task execution smoke summary", () => {
     });
   });
 
+  test("maps smoke steps to #71 acceptance criteria with blocking coverage", () => {
+    const summary = buildTaskExecutionSmokeSummary({
+      generatedAt: "2026-06-01T00:00:00.000Z",
+      e2eReady: false,
+      e2eSkipReason: "Missing .env.e2e.",
+      results: [
+        {
+          ...passedResult,
+          acceptanceCriteria: ["cross_surface_lifecycle", "activity_history"],
+        },
+        {
+          name: "browser execution smoke",
+          command: "bun run test:e2e tests/e2e/app-shell.spec.ts",
+          covers: ["Browser workflows prove persisted web behavior."],
+          exitCode: 0,
+          status: "skipped",
+          acceptanceCriteria: ["web_reflects_contract_changes", "kanban_persists_movement"],
+        },
+      ],
+    });
+
+    expect(summary.acceptanceCriteriaCoverage).toContainEqual({
+      key: "cross_surface_lifecycle",
+      text: "A Task can be created, assigned, moved, completed, canceled, and reopened through the implemented execution surfaces.",
+      status: "passed",
+      coveredBy: ["backend public-boundary smoke"],
+    });
+    expect(summary.acceptanceCriteriaCoverage).toContainEqual({
+      key: "web_reflects_contract_changes",
+      text: "Web routes reflect changes made through backend/MCP/CLI contracts.",
+      status: "blocked",
+      coveredBy: ["browser execution smoke"],
+    });
+  });
+
   test("marks the smoke path failed when any step fails", () => {
     const summary = buildTaskExecutionSmokeSummary({
       generatedAt: "2026-06-01T00:00:00.000Z",
@@ -156,5 +191,9 @@ describe("Task execution smoke summary", () => {
     expect(report).toContain("| browser execution smoke | skipped | 0 |");
     expect(report).toContain("## Acceptance Coverage");
     expect(report).toContain("- Browser workflows prove persisted web behavior.");
+    expect(report).toContain("## #71 Acceptance Criteria");
+    expect(report).toContain(
+      "| web_reflects_contract_changes | uncovered | Web routes reflect changes made through backend/MCP/CLI contracts. | None |",
+    );
   });
 });

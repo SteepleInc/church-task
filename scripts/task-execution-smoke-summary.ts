@@ -1,11 +1,27 @@
 export type TaskExecutionSmokeStatus = "passed" | "failed" | "skipped";
 
+export type TaskExecutionSmokeAcceptanceCriterionKey =
+  | "cross_surface_lifecycle"
+  | "web_reflects_contract_changes"
+  | "cli_mcp_shared_semantics"
+  | "activity_history"
+  | "kanban_persists_movement"
+  | "regression_verification";
+
+export type TaskExecutionSmokeAcceptanceCriterionCoverage = {
+  readonly key: TaskExecutionSmokeAcceptanceCriterionKey;
+  readonly text: string;
+  readonly status: "passed" | "blocked" | "uncovered";
+  readonly coveredBy: readonly string[];
+};
+
 export type TaskExecutionSmokeStepResult = {
   readonly name: string;
   readonly command: string;
   readonly exitCode: number;
   readonly status: TaskExecutionSmokeStatus;
   readonly covers: readonly string[];
+  readonly acceptanceCriteria?: readonly TaskExecutionSmokeAcceptanceCriterionKey[];
 };
 
 export type TaskExecutionSmokeSummary = {
@@ -18,10 +34,41 @@ export type TaskExecutionSmokeSummary = {
     readonly fullVerificationCommand: string;
     readonly blockingSteps: readonly string[];
   };
+  readonly acceptanceCriteriaCoverage: readonly TaskExecutionSmokeAcceptanceCriterionCoverage[];
   readonly results: readonly TaskExecutionSmokeStepResult[];
 };
 
 export const taskExecutionSmokeFullVerificationCommand = "bun run test:task-execution-smoke:full";
+
+export const taskExecutionSmokeAcceptanceCriteria: readonly Omit<
+  TaskExecutionSmokeAcceptanceCriterionCoverage,
+  "status" | "coveredBy"
+>[] = [
+  {
+    key: "cross_surface_lifecycle",
+    text: "A Task can be created, assigned, moved, completed, canceled, and reopened through the implemented execution surfaces.",
+  },
+  {
+    key: "web_reflects_contract_changes",
+    text: "Web routes reflect changes made through backend/MCP/CLI contracts.",
+  },
+  {
+    key: "cli_mcp_shared_semantics",
+    text: "CLI and MCP use the same Task execution semantics as the web UI.",
+  },
+  {
+    key: "activity_history",
+    text: "Activity history records the correct event types, metadata, and authenticated actor ids for the smoke path.",
+  },
+  {
+    key: "kanban_persists_movement",
+    text: "The ReUI Kanban board persists drag/drop movement through backend state.",
+  },
+  {
+    key: "regression_verification",
+    text: "Regression tests or documented verification cover the critical end-to-end path without coupling to private implementation details.",
+  },
+];
 
 export function getTaskExecutionSmokeExitCode(
   summary: Pick<TaskExecutionSmokeSummary, "status">,
@@ -61,6 +108,25 @@ export function buildTaskExecutionSmokeSummary(input: {
     return [];
   });
 
+  const acceptanceCriteriaCoverage = taskExecutionSmokeAcceptanceCriteria.map((criterion) => {
+    const coveringResults = input.results.filter((result) =>
+      result.acceptanceCriteria?.includes(criterion.key),
+    );
+    const coveredBy = coveringResults.map((result) => result.name);
+    const criterionStatus =
+      coveringResults.length === 0
+        ? "uncovered"
+        : coveringResults.some((result) => result.status !== "passed")
+          ? "blocked"
+          : "passed";
+
+    return {
+      ...criterion,
+      status: criterionStatus,
+      coveredBy,
+    };
+  });
+
   return {
     ...input,
     status,
@@ -69,6 +135,7 @@ export function buildTaskExecutionSmokeSummary(input: {
       fullVerificationCommand: taskExecutionSmokeFullVerificationCommand,
       blockingSteps,
     },
+    acceptanceCriteriaCoverage,
   };
 }
 
@@ -124,6 +191,19 @@ export function formatTaskExecutionSmokeMarkdown(summary: TaskExecutionSmokeSumm
     }
 
     lines.push("");
+  }
+
+  lines.push(
+    "## #71 Acceptance Criteria",
+    "",
+    "| Criterion | Status | Requirement | Covered By |",
+    "| --- | --- | --- | --- |",
+  );
+
+  for (const criterion of summary.acceptanceCriteriaCoverage) {
+    lines.push(
+      `| ${criterion.key} | ${criterion.status} | ${escapeMarkdownTableCell(criterion.text)} | ${criterion.coveredBy.length > 0 ? escapeMarkdownTableCell(criterion.coveredBy.join(", ")) : "None"} |`,
+    );
   }
 
   return `${lines.join("\n")}\n`;
