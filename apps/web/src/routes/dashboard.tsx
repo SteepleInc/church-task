@@ -1346,8 +1346,7 @@ function defaultWorkflowStatuses() {
 function taskStateLabel(taskState: WorkflowSetupStatus["taskState"]) {
   if (taskState === "todo") return "To Do";
   if (taskState === "in_progress") return "In Progress";
-  if (taskState === "done") return "Done";
-  return "Canceled";
+  return "Done";
 }
 
 function ChurchTimeZoneSettings({
