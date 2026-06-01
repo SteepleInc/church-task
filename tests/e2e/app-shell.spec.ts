@@ -232,7 +232,7 @@ test("active Church member can navigate to readable setup settings", async ({ pa
   await expect(page.getByText(/Organization|Org/)).not.toBeVisible();
   await expect(
     page.getByRole("button", {
-      name: /Create Team|Archive Team|Create Workflow|Archive Workflow|Add Workflow Status|Archive Workflow Status|Update Time Zone/,
+      name: /Create Team|Archive Team|Add Team Member|Remove .+ from .+|Create Workflow|Archive Workflow|Add Workflow Status|Archive Workflow Status|Update Time Zone/,
     }),
   ).not.toBeVisible();
 });
