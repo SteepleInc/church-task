@@ -17,54 +17,63 @@ describe("Task execution smoke summary", () => {
   };
 
   test("marks the smoke path passed when every step passes", () => {
-    expect(
-      buildTaskExecutionSmokeSummary({
-        generatedAt: "2026-06-01T00:00:00.000Z",
-        e2eReady: true,
-        e2eSkipReason: null,
-        results: [passedResult],
-      }).status,
-    ).toBe("passed");
+    const summary = buildTaskExecutionSmokeSummary({
+      generatedAt: "2026-06-01T00:00:00.000Z",
+      e2eReady: true,
+      e2eSkipReason: null,
+      results: [passedResult],
+    });
+
+    expect(summary.status).toBe("passed");
+    expect(summary.closureGate).toEqual({ ready: true, blockingSteps: [] });
   });
 
   test("keeps skipped browser verification visible in the aggregate status", () => {
-    expect(
-      buildTaskExecutionSmokeSummary({
-        generatedAt: "2026-06-01T00:00:00.000Z",
-        e2eReady: false,
-        e2eSkipReason: "Missing .env.e2e.",
-        results: [
-          passedResult,
-          {
-            name: "browser execution smoke",
-            command: "bun run test:e2e tests/e2e/app-shell.spec.ts",
-            covers: ["Browser workflows prove persisted web behavior."],
-            exitCode: 0,
-            status: "skipped",
-          },
-        ],
-      }).status,
-    ).toBe("passed_with_skips");
+    const summary = buildTaskExecutionSmokeSummary({
+      generatedAt: "2026-06-01T00:00:00.000Z",
+      e2eReady: false,
+      e2eSkipReason: "Missing .env.e2e.",
+      results: [
+        passedResult,
+        {
+          name: "browser execution smoke",
+          command: "bun run test:e2e tests/e2e/app-shell.spec.ts",
+          covers: ["Browser workflows prove persisted web behavior."],
+          exitCode: 0,
+          status: "skipped",
+        },
+      ],
+    });
+
+    expect(summary.status).toBe("passed_with_skips");
+    expect(summary.closureGate).toEqual({
+      ready: false,
+      blockingSteps: ["browser execution smoke was skipped"],
+    });
   });
 
   test("marks the smoke path failed when any step fails", () => {
-    expect(
-      buildTaskExecutionSmokeSummary({
-        generatedAt: "2026-06-01T00:00:00.000Z",
-        e2eReady: true,
-        e2eSkipReason: null,
-        results: [
-          passedResult,
-          {
-            name: "CLI public smoke",
-            command: "bun --filter @church-task/cli test:cli",
-            covers: ["CLI commands use the public Task execution contract."],
-            exitCode: 1,
-            status: "failed",
-          },
-        ],
-      }).status,
-    ).toBe("failed");
+    const summary = buildTaskExecutionSmokeSummary({
+      generatedAt: "2026-06-01T00:00:00.000Z",
+      e2eReady: true,
+      e2eSkipReason: null,
+      results: [
+        passedResult,
+        {
+          name: "CLI public smoke",
+          command: "bun --filter @church-task/cli test:cli",
+          covers: ["CLI commands use the public Task execution contract."],
+          exitCode: 1,
+          status: "failed",
+        },
+      ],
+    });
+
+    expect(summary.status).toBe("failed");
+    expect(summary.closureGate).toEqual({
+      ready: false,
+      blockingSteps: ["CLI public smoke failed with exit code 1"],
+    });
   });
 
   test("allows local smoke runs to pass with skips by default", () => {
@@ -134,6 +143,9 @@ describe("Task execution smoke summary", () => {
 
     expect(report).toContain("Status: passed_with_skips");
     expect(report).toContain("E2E skip reason: Missing .env.e2e.");
+    expect(report).toContain("## Closure Gate");
+    expect(report).toContain("Ready to close #71: no");
+    expect(report).toContain("- browser execution smoke was skipped");
     expect(report).toContain("| browser execution smoke | skipped | 0 |");
     expect(report).toContain("## Acceptance Coverage");
     expect(report).toContain("- Browser workflows prove persisted web behavior.");

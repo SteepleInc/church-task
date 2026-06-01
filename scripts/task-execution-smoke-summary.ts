@@ -13,6 +13,10 @@ export type TaskExecutionSmokeSummary = {
   readonly e2eReady: boolean;
   readonly e2eSkipReason: string | null;
   readonly status: "passed" | "failed" | "passed_with_skips";
+  readonly closureGate: {
+    readonly ready: boolean;
+    readonly blockingSteps: readonly string[];
+  };
   readonly results: readonly TaskExecutionSmokeStepResult[];
 };
 
@@ -37,13 +41,30 @@ export function buildTaskExecutionSmokeSummary(input: {
   readonly e2eSkipReason: string | null;
   readonly results: readonly TaskExecutionSmokeStepResult[];
 }): TaskExecutionSmokeSummary {
+  const status = input.results.some((result) => result.status === "failed")
+    ? "failed"
+    : input.results.some((result) => result.status === "skipped")
+      ? "passed_with_skips"
+      : "passed";
+  const blockingSteps = input.results.flatMap((result) => {
+    if (result.status === "failed") {
+      return [`${result.name} failed with exit code ${result.exitCode}`];
+    }
+
+    if (result.status === "skipped") {
+      return [`${result.name} was skipped`];
+    }
+
+    return [];
+  });
+
   return {
     ...input,
-    status: input.results.some((result) => result.status === "failed")
-      ? "failed"
-      : input.results.some((result) => result.status === "skipped")
-        ? "passed_with_skips"
-        : "passed",
+    status,
+    closureGate: {
+      ready: status === "passed",
+      blockingSteps,
+    },
   };
 }
 
@@ -58,6 +79,21 @@ export function formatTaskExecutionSmokeMarkdown(summary: TaskExecutionSmokeSumm
 
   if (summary.e2eSkipReason) {
     lines.push("", `E2E skip reason: ${summary.e2eSkipReason}`);
+  }
+
+  lines.push(
+    "",
+    "## Closure Gate",
+    "",
+    `Ready to close #71: ${summary.closureGate.ready ? "yes" : "no"}`,
+  );
+
+  if (summary.closureGate.blockingSteps.length > 0) {
+    lines.push("", "Blocking steps:");
+
+    for (const blockingStep of summary.closureGate.blockingSteps) {
+      lines.push(`- ${blockingStep}`);
+    }
   }
 
   lines.push("", "| Step | Status | Exit Code | Command |", "| --- | --- | ---: | --- |");
