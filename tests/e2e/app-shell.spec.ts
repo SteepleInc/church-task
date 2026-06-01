@@ -169,6 +169,37 @@ test("authenticated dashboard lands on My Work and filters to directly assigned 
   await expect(page.getByText(sharedTaskTitle)).not.toBeVisible();
 });
 
+test("My Work lifecycle actions complete, cancel, and reopen Tasks", async ({ page }, testInfo) => {
+  const uniqueEmail = `e2e-my-work-lifecycle-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const completedTaskTitle = `Lifecycle Complete Task ${Date.now()}`;
+  const canceledTaskTitle = `Lifecycle Cancel Task ${Date.now()}`;
+
+  await signUpThroughDashboard(page, uniqueEmail, "E2E My Work Lifecycle User");
+  await createFirstChurch(page, `E2E My Work Lifecycle Church ${Date.now()}`);
+
+  await page.getByPlaceholder("Add a Task assigned to me").fill(completedTaskTitle);
+  await page.getByRole("button", { name: "Create Task" }).click();
+  const completedTaskActions = page.getByRole("group", {
+    name: `Actions for ${completedTaskTitle}`,
+  });
+  await expect(completedTaskActions).toBeVisible();
+
+  await completedTaskActions.getByRole("button", { name: "Complete" }).click();
+  await expect(completedTaskActions.getByText("State: done")).toBeVisible();
+
+  await page.getByPlaceholder("Add a Task assigned to me").fill(canceledTaskTitle);
+  await page.getByRole("button", { name: "Create Task" }).click();
+  const canceledTaskActions = page.getByRole("group", {
+    name: `Actions for ${canceledTaskTitle}`,
+  });
+  await expect(canceledTaskActions).toBeVisible();
+
+  await canceledTaskActions.getByRole("button", { name: "Cancel" }).click();
+  await expect(canceledTaskActions.getByText("State: canceled")).toBeVisible();
+  await canceledTaskActions.getByRole("button", { name: "Reopen" }).click();
+  await expect(canceledTaskActions.getByText("State: todo")).toBeVisible();
+});
+
 test("Team sidebar navigation opens a Team board filtered to that Team", async ({
   page,
 }, testInfo) => {

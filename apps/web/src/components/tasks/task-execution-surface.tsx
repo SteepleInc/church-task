@@ -362,7 +362,11 @@ function TaskActionRow({
   const titleUpdateFields = getTaskTitleUpdateFields(task.title, draftTitle);
 
   return (
-    <div className="grid gap-3 rounded-lg border p-3 lg:grid-cols-[minmax(12rem,1fr)_auto_auto_auto] lg:items-center">
+    <div
+      aria-label={`Actions for ${task.title}`}
+      className="grid gap-3 rounded-lg border p-3 lg:grid-cols-[minmax(12rem,1fr)_auto_auto_auto] lg:items-center"
+      role="group"
+    >
       <div className="grid gap-2">
         <Input
           aria-label={`Title for ${task.title}`}
