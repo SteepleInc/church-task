@@ -24,7 +24,7 @@ const hasE2eEnvFile = existsSync(e2eEnvFile);
 const requireFull = process.argv.includes("--require-full");
 const issueLinks = {
   prdIssue: "https://github.com/SteepleInc/church-task/issues/60",
-  taskIssue: "https://github.com/SteepleInc/church-task/issues/71",
+  taskIssue: "https://github.com/SteepleInc/church-task/issues/69",
 } as const;
 
 if (hasE2eEnvFile) {

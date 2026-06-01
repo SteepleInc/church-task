@@ -209,6 +209,7 @@ export function buildTaskExecutionSmokeSummary(input: {
 }
 
 export function formatTaskExecutionSmokeMarkdown(summary: TaskExecutionSmokeSummary) {
+  const taskIssueNumber = getIssueNumber(summary.issueLinks.taskIssue);
   const lines = [
     "# Task Execution Smoke Report",
     "",
@@ -231,7 +232,7 @@ export function formatTaskExecutionSmokeMarkdown(summary: TaskExecutionSmokeSumm
     "",
     "## Closure Gate",
     "",
-    `Ready to close #71: ${summary.closureGate.ready ? "yes" : "no"}`,
+    `Ready to close ${taskIssueNumber}: ${summary.closureGate.ready ? "yes" : "no"}`,
     `Full verification command: ${summary.closureGate.fullVerificationCommand}`,
   );
 
@@ -281,7 +282,7 @@ export function formatTaskExecutionSmokeMarkdown(summary: TaskExecutionSmokeSumm
   }
 
   lines.push(
-    "## #71 Acceptance Criteria",
+    `## ${taskIssueNumber} Acceptance Criteria`,
     "",
     "| Criterion | Status | Requirement | Covered By |",
     "| --- | --- | --- | --- |",
@@ -298,6 +299,12 @@ export function formatTaskExecutionSmokeMarkdown(summary: TaskExecutionSmokeSumm
 
 function escapeMarkdownTableCell(value: string) {
   return value.replaceAll("|", "\\|");
+}
+
+function getIssueNumber(issueUrl: string) {
+  const issueNumber = /\/issues\/(\d+)$/.exec(issueUrl)?.[1];
+
+  return issueNumber ? `#${issueNumber}` : issueUrl;
 }
 
 function formatDuration(durationMs: number) {

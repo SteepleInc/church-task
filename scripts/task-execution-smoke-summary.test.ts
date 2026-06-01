@@ -23,7 +23,7 @@ describe("Task execution smoke summary", () => {
   };
   const issueLinks = {
     prdIssue: "https://github.com/SteepleInc/church-task/issues/60",
-    taskIssue: "https://github.com/SteepleInc/church-task/issues/71",
+    taskIssue: "https://github.com/SteepleInc/church-task/issues/69",
   };
 
   test("marks the smoke path passed when every step passes", () => {
@@ -81,7 +81,7 @@ describe("Task execution smoke summary", () => {
     });
   });
 
-  test("maps smoke steps to #71 acceptance criteria with blocking coverage", () => {
+  test("maps smoke steps to task acceptance criteria with blocking coverage", () => {
     const summary = buildTaskExecutionSmokeSummary({
       generatedAt: "2026-06-01T00:00:00.000Z",
       e2eReady: false,
@@ -275,14 +275,14 @@ describe("Task execution smoke summary", () => {
 
     expect(report).toContain("Status: passed_with_skips");
     expect(report).toContain("Parent PRD: https://github.com/SteepleInc/church-task/issues/60");
-    expect(report).toContain("Task issue: https://github.com/SteepleInc/church-task/issues/71");
+    expect(report).toContain("Task issue: https://github.com/SteepleInc/church-task/issues/69");
     expect(report).toContain("E2E env file: .env.e2e or CI process environment");
     expect(report).toContain("E2E required env: VITE_CONVEX_URL, VITE_CONVEX_SITE_URL");
     expect(report).toContain("E2E CI secrets: E2E_CONVEX_URL, E2E_CONVEX_SITE_URL");
     expect(report).toContain("Total duration: 5.6s");
     expect(report).toContain("E2E skip reason: Missing .env.e2e.");
     expect(report).toContain("## Closure Gate");
-    expect(report).toContain("Ready to close #71: no");
+    expect(report).toContain("Ready to close #69: no");
     expect(report).toContain("Full verification command: bun run test:task-execution-smoke:full");
     expect(report).toContain("- browser execution smoke was skipped: Missing .env.e2e.");
     expect(report).toContain("Blocking step commands:");
@@ -295,7 +295,7 @@ describe("Task execution smoke summary", () => {
     );
     expect(report).toContain("## Acceptance Coverage");
     expect(report).toContain("- Browser workflows prove persisted web behavior.");
-    expect(report).toContain("## #71 Acceptance Criteria");
+    expect(report).toContain("## #69 Acceptance Criteria");
     expect(report).toContain(
       "| web_reflects_contract_changes | uncovered | Web routes reflect changes made through backend/MCP/CLI contracts. | None |",
     );
