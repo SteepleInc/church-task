@@ -66,7 +66,10 @@ import { useState } from "react";
 
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
-import { TaskExecutionSurface } from "@/components/tasks/task-execution-surface";
+import {
+  TaskExecutionSurface,
+  type TaskExecutionFilters,
+} from "@/components/tasks/task-execution-surface";
 import UserMenu from "@/components/user-menu";
 import { authClient } from "@/lib/auth-client";
 
@@ -74,6 +77,8 @@ export const Route = createFileRoute("/dashboard")({
   validateSearch: (search): DashboardSearch => {
     const work = search.work;
     const teamId = search.teamId;
+    const taskState = search.taskState;
+    const workflowStatusId = search.workflowStatusId;
 
     return {
       work:
@@ -81,6 +86,17 @@ export const Route = createFileRoute("/dashboard")({
           ? work
           : undefined,
       teamId: typeof teamId === "string" && teamId.length > 0 ? teamId : undefined,
+      taskState:
+        taskState === "todo" ||
+        taskState === "in_progress" ||
+        taskState === "done" ||
+        taskState === "canceled"
+          ? taskState
+          : undefined,
+      workflowStatusId:
+        typeof workflowStatusId === "string" && workflowStatusId.length > 0
+          ? workflowStatusId
+          : undefined,
     };
   },
   component: RouteComponent,
@@ -91,6 +107,8 @@ type ActiveDashboardPanel = "my_work" | "our_work" | "settings" | { kind: "team"
 type DashboardSearch = {
   readonly work?: "my_work" | "our_work" | "team" | "settings";
   readonly teamId?: string;
+  readonly taskState?: "todo" | "in_progress" | "done" | "canceled";
+  readonly workflowStatusId?: string;
 };
 
 export function getUnavailableTeamBoardActions() {
@@ -120,6 +138,17 @@ export function getDashboardSearchForPanel(panel: ActiveDashboardPanel): Dashboa
   return panel === "my_work" ? {} : { work: panel };
 }
 
+export function getDashboardSearchForExecutionFilters(
+  search: DashboardSearch,
+  filters: TaskExecutionFilters,
+): DashboardSearch {
+  return {
+    ...search,
+    taskState: filters.taskState,
+    workflowStatusId: filters.workflowStatusId,
+  };
+}
+
 function PrivateDashboardContent() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/dashboard" });
@@ -131,6 +160,9 @@ function PrivateDashboardContent() {
   const activePanel = getDashboardPanelFromSearch(search);
   const setActivePanel = (panel: ActiveDashboardPanel) => {
     navigate({ search: getDashboardSearchForPanel(panel) });
+  };
+  const setExecutionFilters = (filters: TaskExecutionFilters) => {
+    navigate({ search: getDashboardSearchForExecutionFilters(search, filters) });
   };
   const currentUserId = QueryResult.isSuccess(currentUser) ? (currentUser.value?.id ?? null) : null;
   const teams = useQuery(
@@ -321,6 +353,11 @@ function PrivateDashboardContent() {
               }
               team={selectedTeam}
               myWorkEmptyStateTeams={memberTeams}
+              filters={{
+                taskState: search.taskState,
+                workflowStatusId: search.workflowStatusId,
+              }}
+              onFiltersChange={setExecutionFilters}
               onOpenOurWork={() => setActivePanel("our_work")}
               onOpenTeamBoard={(teamId) => setActivePanel({ kind: "team", teamId })}
             />

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   getDashboardPanelFromSearch,
+  getDashboardSearchForExecutionFilters,
   getDashboardSearchForPanel,
   getUnavailableTeamBoardActions,
 } from "./dashboard";
@@ -25,6 +26,26 @@ describe("dashboard execution route search", () => {
 
   test("falls back to My Work for incomplete Team board search state", () => {
     expect(getDashboardPanelFromSearch({ work: "team" })).toBe("my_work");
+  });
+
+  test("encodes temporary execution filters as route search state", () => {
+    expect(
+      getDashboardSearchForExecutionFilters(
+        { work: "our_work" },
+        { taskState: "in_progress", workflowStatusId: "status-1" },
+      ),
+    ).toEqual({
+      work: "our_work",
+      taskState: "in_progress",
+      workflowStatusId: "status-1",
+    });
+
+    expect(
+      getDashboardSearchForExecutionFilters(
+        { work: "our_work", taskState: "done", workflowStatusId: "status-1" },
+        {},
+      ),
+    ).toEqual({ work: "our_work", taskState: undefined, workflowStatusId: undefined });
   });
 
   test("offers execution route recovery actions for unavailable Team boards", () => {

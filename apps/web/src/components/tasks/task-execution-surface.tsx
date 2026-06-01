@@ -18,6 +18,11 @@ type ExecutionCycle = {
 
 type TaskState = "todo" | "in_progress" | "done" | "canceled";
 
+export type TaskExecutionFilters = {
+  readonly taskState?: TaskState;
+  readonly workflowStatusId?: string;
+};
+
 type TaskSummary = {
   readonly id: string;
   readonly title: string;
@@ -199,6 +204,7 @@ export function getTaskExecutionReadArgs(args: {
   readonly surface: ExecutionSurface;
   readonly teamId?: string | null;
   readonly cycleId?: string | null;
+  readonly filters?: TaskExecutionFilters;
 }) {
   if (!args.cycleId) {
     return null;
@@ -211,6 +217,8 @@ export function getTaskExecutionReadArgs(args: {
       ? { teamId: args.teamId ?? null }
       : { surface: args.surface }),
     cycleId: args.cycleId,
+    ...(args.filters?.taskState ? { taskState: args.filters.taskState } : {}),
+    ...(args.filters?.workflowStatusId ? { workflowStatusId: args.filters.workflowStatusId } : {}),
   };
 }
 
@@ -250,6 +258,8 @@ export function TaskExecutionSurface({
   surface,
   team,
   myWorkEmptyStateTeams,
+  filters,
+  onFiltersChange,
   onOpenOurWork,
   onOpenTeamBoard,
 }: {
@@ -262,6 +272,8 @@ export function TaskExecutionSurface({
     readonly defaultWorkflowId: string | null;
   } | null;
   readonly myWorkEmptyStateTeams?: readonly MyWorkEmptyStateTeam[];
+  readonly filters?: TaskExecutionFilters;
+  readonly onFiltersChange?: (filters: TaskExecutionFilters) => void;
   readonly onOpenOurWork?: () => void;
   readonly onOpenTeamBoard?: (teamId: string) => void;
 }) {
@@ -295,6 +307,7 @@ export function TaskExecutionSurface({
     surface,
     teamId: team?.id ?? null,
     cycleId: currentCycle?.id ?? null,
+    filters,
   });
   const tasksResult = useQuery(
     api.tasks.mcpListTasks,
@@ -394,6 +407,53 @@ export function TaskExecutionSurface({
             Create Task
           </Button>
           {error ? <p className="text-sm text-destructive sm:col-span-2">{error}</p> : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="gap-2">
+          <CardTitle>Temporary Filters</CardTitle>
+          <CardDescription>
+            Narrow this execution route without creating a saved view.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          <NativeSelect
+            size="sm"
+            value={filters?.taskState ?? ""}
+            aria-label="Filter Task State"
+            onChange={(event) => {
+              onFiltersChange?.({
+                ...filters,
+                taskState: (event.target.value || undefined) as TaskState | undefined,
+              });
+            }}
+          >
+            <NativeSelectOption value="">All states</NativeSelectOption>
+            <NativeSelectOption value="todo">To do</NativeSelectOption>
+            <NativeSelectOption value="in_progress">In progress</NativeSelectOption>
+            <NativeSelectOption value="done">Done</NativeSelectOption>
+            <NativeSelectOption value="canceled">Canceled</NativeSelectOption>
+          </NativeSelect>
+          <NativeSelect
+            size="sm"
+            value={filters?.workflowStatusId ?? ""}
+            aria-label="Filter Workflow Status"
+            disabled={workflowStatuses.length === 0}
+            onChange={(event) => {
+              onFiltersChange?.({
+                ...filters,
+                workflowStatusId: event.target.value || undefined,
+              });
+            }}
+          >
+            <NativeSelectOption value="">All Workflow Statuses</NativeSelectOption>
+            {workflowStatuses.map((status) => (
+              <NativeSelectOption key={status.id} value={status.id}>
+                {status.name}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
         </CardContent>
       </Card>
 

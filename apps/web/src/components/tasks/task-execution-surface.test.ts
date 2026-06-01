@@ -125,6 +125,25 @@ describe("Task execution surface", () => {
     });
   });
 
+  test("adds temporary route filters to execution-window reads", () => {
+    expect(
+      getTaskExecutionReadArgs({
+        churchId: "church-1",
+        currentUserId: "user-1",
+        surface: "our_work",
+        cycleId: "cycle-1",
+        filters: { taskState: "in_progress", workflowStatusId: "status-1" },
+      }),
+    ).toEqual({
+      churchId: "church-1",
+      actorUserId: "user-1",
+      surface: "our_work",
+      cycleId: "cycle-1",
+      taskState: "in_progress",
+      workflowStatusId: "status-1",
+    });
+  });
+
   test("does not broaden execution reads when no current Cycle is available", () => {
     expect(
       getTaskExecutionReadArgs({
