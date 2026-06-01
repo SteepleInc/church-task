@@ -5,6 +5,7 @@ import {
   agent,
   auth,
   healthCheck,
+  keyDates,
   privateData,
   tasks,
   teams,
@@ -17,6 +18,7 @@ export default Spec.make()
   .add(agent)
   .add(auth)
   .add(healthCheck)
+  .add(keyDates)
   .add(privateData)
   .add(tasks)
   .add(teams)

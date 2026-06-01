@@ -387,6 +387,90 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("Key Date scheduling resolves fixed, computed, manual, and one-time occurrences", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-key-date-scheduling-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Key Date Church",
+        slug: `key-date-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+
+      const createdKeyDates = yield* authenticated.mutation(refs.public.keyDates.createForChurch, {
+        churchId: church.id!,
+        keyDates: [
+          {
+            key: "summer-fest",
+            name: "Summer Fest",
+            schedule: { kind: "manualOccurrences" },
+          },
+          {
+            key: "building-dedication",
+            name: "Building Dedication",
+            schedule: { kind: "oneTime" },
+          },
+        ],
+      });
+      const summerFest = createdKeyDates.data.keyDates.find(
+        (keyDate) => keyDate.key === "summer-fest",
+      )!;
+      const buildingDedication = createdKeyDates.data.keyDates.find(
+        (keyDate) => keyDate.key === "building-dedication",
+      )!;
+
+      yield* authenticated.mutation(refs.public.keyDates.createOccurrences, {
+        churchId: church.id!,
+        occurrences: [
+          {
+            keyDateId: summerFest.id,
+            localDate: "2026-08-15",
+            label: "Saturday festival",
+          },
+          {
+            keyDateId: buildingDedication.id,
+            localDate: "2026-09-20",
+            label: null,
+          },
+        ],
+      });
+
+      const result = yield* authenticated.query(refs.public.keyDates.resolveOccurrences, {
+        churchId: church.id!,
+        fromYear: 2026,
+        toYear: 2026,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(
+        result.data.resolvedOccurrences.map((occurrence) => [
+          occurrence.key,
+          occurrence.localDate,
+          occurrence.source,
+        ]),
+      ).toEqual([
+        ["palm-sunday", "2026-03-29", "computedYearly"],
+        ["easter", "2026-04-05", "computedYearly"],
+        ["mothers-day", "2026-05-10", "computedYearly"],
+        ["pentecost", "2026-05-24", "computedYearly"],
+        ["fathers-day", "2026-06-21", "computedYearly"],
+        ["summer-fest", "2026-08-15", "manualOccurrences"],
+        ["building-dedication", "2026-09-20", "oneTime"],
+        ["christmas", "2026-12-25", "fixedYearly"],
+      ]);
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Task and Subtask creation assigns Cycles from Due Dates", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;

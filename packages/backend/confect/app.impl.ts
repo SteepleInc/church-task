@@ -6,6 +6,7 @@ import {
   listActivitiesForEntityResponse,
   recordActivityResponse,
 } from "../agent/activityOperations";
+import { keyDateErrorResponse, keyDateResponse } from "../agent/keyDateOperations";
 import {
   activeChurchResponse,
   batchReadResponse,
@@ -21,6 +22,12 @@ import { listActivitiesForEntity, serializeActivity, writeActivity } from "../ac
 import { authComponent } from "../authCore";
 import { components } from "../convex/_generated/api";
 import type { DataModel } from "../convex/_generated/dataModel";
+import {
+  createKeyDateOccurrences,
+  createKeyDates,
+  readKeyDateModel,
+  resolveKeyDateOccurrences,
+} from "../keyDateScheduling";
 import { readDefaultWorkModel, seedDefaultWorkModel } from "../workDefaults";
 import { createTasks, readTaskModel } from "../tasks";
 import {
@@ -228,6 +235,27 @@ const serializeWorkDefaults = (data: Awaited<ReturnType<typeof readDefaultWorkMo
   })),
 });
 
+const serializeKeyDateModel = (
+  data: Awaited<ReturnType<typeof readKeyDateModel>>,
+  resolvedOccurrences: Awaited<ReturnType<typeof resolveKeyDateOccurrences>> = [],
+) => ({
+  keyDates: data.keyDates.map((keyDate) => ({
+    id: keyDate._id,
+    key: keyDate.key,
+    name: keyDate.name,
+    schedule: keyDate.schedule,
+    archivedAt: keyDate.archivedAt,
+  })),
+  occurrences: data.occurrences.map((occurrence) => ({
+    id: occurrence._id,
+    keyDateId: occurrence.keyDateId,
+    localDate: occurrence.localDate,
+    label: occurrence.label,
+    archivedAt: occurrence.archivedAt,
+  })),
+  resolvedOccurrences,
+});
+
 const serializeWorkflowModel = (data: Awaited<ReturnType<typeof readWorkflowModel>>) => ({
   workflows: data.workflows.map((workflow) => ({
     id: workflow._id,
@@ -344,6 +372,195 @@ const workDefaultsReadForChurch = FunctionImpl.make(api, "workDefaults", "readFo
 
     return workDefaultsResponse("readWorkDefaults", serializeWorkDefaults(defaults));
   }),
+);
+
+const keyDatesCreateForChurch = FunctionImpl.make(api, "keyDates", "createForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    if (auth.status === "notAuthenticated") {
+      return keyDateErrorResponse(
+        "createKeyDates",
+        "not_authenticated",
+        "Authentication is required.",
+      );
+    }
+    if (auth.status === "notChurchMember") {
+      return keyDateErrorResponse(
+        "createKeyDates",
+        "not_church_member",
+        "Church membership is required.",
+      );
+    }
+    if (auth.membership.role !== "owner" && auth.membership.role !== "admin") {
+      return keyDateErrorResponse(
+        "createKeyDates",
+        "not_authorized",
+        "Only Church owners and admins can manage Key Dates.",
+      );
+    }
+
+    const created = yield* Effect.tryPromise(() => createKeyDates(ctx, args)).pipe(
+      Effect.catchAll(() =>
+        Effect.succeed({ ok: false as const, code: "invalidKeyDate" as const }),
+      ),
+    );
+
+    if (!created.ok && created.code === "duplicateKey") {
+      return keyDateErrorResponse(
+        "createKeyDates",
+        "duplicate_key_date",
+        "A Key Date with that key already exists in this Church.",
+      );
+    }
+    if (!created.ok) {
+      return keyDateErrorResponse(
+        "createKeyDates",
+        "invalid_key_date",
+        "Key Date schedule fields must describe real local dates.",
+      );
+    }
+
+    const model = yield* Effect.promise(() => readKeyDateModel(ctx, args.churchId)).pipe(
+      Effect.orDie,
+    );
+
+    return keyDateResponse("createKeyDates", serializeKeyDateModel(model));
+  }),
+);
+
+const keyDatesCreateOccurrences = FunctionImpl.make(api, "keyDates", "createOccurrences", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    if (auth.status === "notAuthenticated") {
+      return keyDateErrorResponse(
+        "createKeyDateOccurrences",
+        "not_authenticated",
+        "Authentication is required.",
+      );
+    }
+    if (auth.status === "notChurchMember") {
+      return keyDateErrorResponse(
+        "createKeyDateOccurrences",
+        "not_church_member",
+        "Church membership is required.",
+      );
+    }
+    if (auth.membership.role !== "owner" && auth.membership.role !== "admin") {
+      return keyDateErrorResponse(
+        "createKeyDateOccurrences",
+        "not_authorized",
+        "Only Church owners and admins can manage Key Dates.",
+      );
+    }
+
+    const created = yield* Effect.tryPromise(() => createKeyDateOccurrences(ctx, args)).pipe(
+      Effect.catchAll(() =>
+        Effect.succeed({ ok: false as const, code: "invalidOccurrence" as const }),
+      ),
+    );
+
+    if (!created.ok && created.code === "keyDateNotFound") {
+      return keyDateErrorResponse(
+        "createKeyDateOccurrences",
+        "key_date_not_found",
+        "Key Date was not found in the active Church.",
+      );
+    }
+    if (!created.ok && created.code === "duplicateOccurrence") {
+      return keyDateErrorResponse(
+        "createKeyDateOccurrences",
+        "duplicate_occurrence",
+        "That Key Date occurrence already exists.",
+      );
+    }
+    if (!created.ok) {
+      return keyDateErrorResponse(
+        "createKeyDateOccurrences",
+        "invalid_key_date",
+        "Key Date Occurrence must use a real local date in YYYY-MM-DD format.",
+      );
+    }
+
+    const model = yield* Effect.promise(() => readKeyDateModel(ctx, args.churchId)).pipe(
+      Effect.orDie,
+    );
+
+    return keyDateResponse("createKeyDateOccurrences", serializeKeyDateModel(model));
+  }),
+);
+
+const keyDatesListForChurch = FunctionImpl.make(api, "keyDates", "listForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* QueryCtx.QueryCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId);
+
+    if (auth.status === "notAuthenticated") {
+      return keyDateErrorResponse(
+        "listKeyDates",
+        "not_authenticated",
+        "Authentication is required.",
+      );
+    }
+    if (auth.status === "notChurchMember") {
+      return keyDateErrorResponse(
+        "listKeyDates",
+        "not_church_member",
+        "Church membership is required.",
+      );
+    }
+
+    const model = yield* Effect.promise(() => readKeyDateModel(ctx, args.churchId)).pipe(
+      Effect.orDie,
+    );
+
+    return keyDateResponse("listKeyDates", serializeKeyDateModel(model));
+  }),
+);
+
+const keyDatesResolveOccurrences = FunctionImpl.make(
+  api,
+  "keyDates",
+  "resolveOccurrences",
+  (args) =>
+    Effect.gen(function* () {
+      const ctx = yield* QueryCtx.QueryCtx<DataModel>();
+      const auth = yield* getAuthenticatedChurchMember(args.churchId);
+
+      if (auth.status === "notAuthenticated") {
+        return keyDateErrorResponse(
+          "resolveKeyDateOccurrences",
+          "not_authenticated",
+          "Authentication is required.",
+        );
+      }
+      if (auth.status === "notChurchMember") {
+        return keyDateErrorResponse(
+          "resolveKeyDateOccurrences",
+          "not_church_member",
+          "Church membership is required.",
+        );
+      }
+
+      const model = yield* Effect.promise(() => readKeyDateModel(ctx, args.churchId)).pipe(
+        Effect.orDie,
+      );
+      const resolvedOccurrences = yield* Effect.promise(() =>
+        resolveKeyDateOccurrences(ctx, args),
+      ).pipe(Effect.orDie);
+
+      return keyDateResponse(
+        "resolveKeyDateOccurrences",
+        serializeKeyDateModel(model, resolvedOccurrences),
+      );
+    }),
 );
 
 const activitiesRecordForChurch = FunctionImpl.make(api, "activities", "recordForChurch", (args) =>
@@ -850,6 +1067,12 @@ export const agent = GroupImpl.make(api, "agent").pipe(
 export const workDefaults = GroupImpl.make(api, "workDefaults").pipe(
   Layer.provide(workDefaultsSeedForChurch),
   Layer.provide(workDefaultsReadForChurch),
+);
+export const keyDates = GroupImpl.make(api, "keyDates").pipe(
+  Layer.provide(keyDatesCreateForChurch),
+  Layer.provide(keyDatesCreateOccurrences),
+  Layer.provide(keyDatesListForChurch),
+  Layer.provide(keyDatesResolveOccurrences),
 );
 export const activities = GroupImpl.make(api, "activities").pipe(
   Layer.provide(activitiesRecordForChurch),

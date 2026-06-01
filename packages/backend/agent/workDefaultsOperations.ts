@@ -48,6 +48,12 @@ export const KeyDateSummary = Schema.Struct({
         Schema.Literal("fathers_day"),
       ),
     }),
+    Schema.Struct({
+      kind: Schema.Literal("manualOccurrences"),
+    }),
+    Schema.Struct({
+      kind: Schema.Literal("oneTime"),
+    }),
   ),
   archivedAt: Schema.Union(Schema.String, Schema.Null),
 });

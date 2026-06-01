@@ -8,6 +8,14 @@ import {
   RecordActivityOperationResponse,
 } from "../agent/activityOperations";
 import {
+  KeyDateCreateArgs,
+  KeyDateListArgs,
+  KeyDateOccurrenceCreateArgs,
+  KeyDateReadResponse,
+  KeyDateResolveOccurrencesArgs,
+  KeyDateWriteResponse,
+} from "../agent/keyDateOperations";
+import {
   ActiveChurchArgs,
   ActiveChurchResponse,
   BatchReadArgs,
@@ -94,6 +102,36 @@ export const workDefaults = GroupSpec.make("workDefaults")
       name: "readForChurch",
       args: WorkDefaultsChurchArgs,
       returns: WorkDefaultsResponse,
+    }),
+  );
+
+export const keyDates = GroupSpec.make("keyDates")
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "createForChurch",
+      args: KeyDateCreateArgs,
+      returns: KeyDateWriteResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "createOccurrences",
+      args: KeyDateOccurrenceCreateArgs,
+      returns: KeyDateWriteResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicQuery({
+      name: "listForChurch",
+      args: KeyDateListArgs,
+      returns: KeyDateReadResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicQuery({
+      name: "resolveOccurrences",
+      args: KeyDateResolveOccurrencesArgs,
+      returns: KeyDateReadResponse,
     }),
   );
 

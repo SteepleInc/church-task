@@ -107,12 +107,33 @@ export const KeyDates = Table.make(
           Schema.Literal("fathers_day"),
         ),
       }),
+      Schema.Struct({
+        kind: Schema.Literal("manualOccurrences"),
+      }),
+      Schema.Struct({
+        kind: Schema.Literal("oneTime"),
+      }),
     ),
     archivedAt: Schema.Union(Schema.String, Schema.Null),
   }),
 )
   .index("by_churchId_and_key", ["churchId", "key"])
   .index("by_churchId", ["churchId"]);
+
+export const KeyDateOccurrences = Table.make(
+  "keyDateOccurrences",
+  Schema.Struct({
+    churchId: Schema.String,
+    keyDateId: Schema.String,
+    /** Church-local occurrence date used by scheduling rules that anchor to this Key Date. */
+    localDate: Schema.String,
+    label: Schema.Union(Schema.String, Schema.Null),
+    archivedAt: Schema.Union(Schema.String, Schema.Null),
+  }),
+)
+  .index("by_churchId", ["churchId"])
+  .index("by_keyDateId", ["keyDateId"])
+  .index("by_keyDateId_and_localDate", ["keyDateId", "localDate"]);
 
 export const Activities = Table.make(
   "activities",
@@ -137,4 +158,5 @@ export default DatabaseSchema.make()
   .addTable(Tasks)
   .addTable(Cycles)
   .addTable(KeyDates)
+  .addTable(KeyDateOccurrences)
   .addTable(Activities);
