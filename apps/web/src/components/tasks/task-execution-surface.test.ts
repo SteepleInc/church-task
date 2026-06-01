@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  formatTaskActivity,
   getTaskCreationDefaults,
   getTaskTeamUpdateFields,
   getTaskTitleUpdateFields,
@@ -61,5 +62,27 @@ describe("Task execution surface", () => {
     expect(getTaskTeamUpdateFields("team-1", "")).toEqual({ teamId: null });
     expect(getTaskTeamUpdateFields("team-1", "team-1")).toBeNull();
     expect(getTaskTeamUpdateFields(null, "")).toBeNull();
+  });
+
+  test("formats recent Task Activity for the execution surface", () => {
+    expect(
+      formatTaskActivity({
+        id: "activity-1",
+        eventType: "task.status_moved",
+        actorType: "user",
+        actorId: "user-1",
+        occurredAt: "2026-06-01T12:00:00.000Z",
+      }),
+    ).toBe("status moved by User user-1");
+
+    expect(
+      formatTaskActivity({
+        id: "activity-2",
+        eventType: "task.completed",
+        actorType: "system",
+        actorId: null,
+        occurredAt: "2026-06-01T12:01:00.000Z",
+      }),
+    ).toBe("completed by System");
   });
 });

@@ -46,6 +46,14 @@ type TeamSummary = {
   readonly name: string;
 };
 
+type TaskActivitySummary = {
+  readonly id: string;
+  readonly eventType: string;
+  readonly actorType: string;
+  readonly actorId: string | null;
+  readonly occurredAt: string;
+};
+
 export function selectCurrentExecutionCycle(
   cycles: readonly ExecutionCycle[],
   today: string,
@@ -86,6 +94,18 @@ export function getTaskTeamUpdateFields(currentTeamId: string | null, nextTeamId
   }
 
   return { teamId };
+}
+
+export function formatTaskActivity(activity: TaskActivitySummary) {
+  const eventLabel = activity.eventType.replace(/^task\./, "").replaceAll("_", " ");
+  const actorLabel =
+    activity.actorType === "user" && activity.actorId
+      ? `User ${activity.actorId}`
+      : activity.actorType === "system"
+        ? "System"
+        : activity.actorType;
+
+  return `${eventLabel} by ${actorLabel}`;
 }
 
 export function TaskExecutionSurface({
@@ -283,6 +303,7 @@ export function TaskExecutionSurface({
 }
 
 function TaskActionList({
+  churchId,
   tasks,
   users,
   teams,
@@ -320,6 +341,7 @@ function TaskActionList({
         {tasks.map((task) => (
           <TaskActionRow
             key={task.id}
+            churchId={churchId}
             task={task}
             users={users}
             teams={teams}
@@ -335,6 +357,7 @@ function TaskActionList({
 }
 
 function TaskActionRow({
+  churchId,
   task,
   users,
   teams,
@@ -343,6 +366,7 @@ function TaskActionRow({
   cancelTask,
   reopenTask,
 }: {
+  readonly churchId: string;
   readonly task: TaskSummary;
   readonly users: readonly UserSummary[];
   readonly teams: readonly TeamSummary[];
@@ -374,6 +398,7 @@ function TaskActionRow({
           onChange={(event) => setDraftTitle(event.target.value)}
         />
         <p className="text-xs text-muted-foreground">State: {task.taskState}</p>
+        <TaskActivityList churchId={churchId} taskId={task.id} />
         <Button
           type="button"
           size="sm"
@@ -436,6 +461,34 @@ function TaskActionRow({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function TaskActivityList({
+  churchId,
+  taskId,
+}: {
+  readonly churchId: string;
+  readonly taskId: string;
+}) {
+  const activitiesResult = useQuery(api.activities.listForEntity, {
+    churchId,
+    entityType: "task",
+    entityId: taskId,
+  });
+  const activities = activitiesResult?.ok
+    ? activitiesResult.data.activities.slice(-3).reverse()
+    : [];
+
+  return (
+    <div aria-label="Recent Task Activity" className="grid gap-1 text-xs text-muted-foreground">
+      <p className="font-medium text-foreground">Recent Activity</p>
+      {activitiesResult === undefined ? <p>Loading Activity...</p> : null}
+      {activitiesResult !== undefined && activities.length === 0 ? <p>No Activity yet.</p> : null}
+      {activities.map((activity) => (
+        <p key={activity.id}>{formatTaskActivity(activity)}</p>
+      ))}
     </div>
   );
 }

@@ -186,6 +186,7 @@ test("My Work lifecycle actions complete, cancel, and reopen Tasks", async ({ pa
 
   await completedTaskActions.getByRole("button", { name: "Complete" }).click();
   await expect(completedTaskActions.getByText("State: done")).toBeVisible();
+  await expect(completedTaskActions.getByText(/completed by User/)).toBeVisible();
 
   await page.getByPlaceholder("Add a Task assigned to me").fill(canceledTaskTitle);
   await page.getByRole("button", { name: "Create Task" }).click();
@@ -196,8 +197,10 @@ test("My Work lifecycle actions complete, cancel, and reopen Tasks", async ({ pa
 
   await canceledTaskActions.getByRole("button", { name: "Cancel" }).click();
   await expect(canceledTaskActions.getByText("State: canceled")).toBeVisible();
+  await expect(canceledTaskActions.getByText(/canceled by User/)).toBeVisible();
   await canceledTaskActions.getByRole("button", { name: "Reopen" }).click();
   await expect(canceledTaskActions.getByText("State: todo")).toBeVisible();
+  await expect(canceledTaskActions.getByText(/reopened by User/)).toBeVisible();
 });
 
 test("Team sidebar navigation opens a Team board filtered to that Team", async ({
