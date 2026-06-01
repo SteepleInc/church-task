@@ -28,6 +28,8 @@ Core Work Data Model establishes the durable Convex-backed domain model for Task
 
 ## 5. Team and Workflow Setup
 
+Status: Speced in [GitHub issue #47](https://github.com/SteepleInc/church-task/issues/47).
+
 Team and Workflow Setup gives every new Church a useful starting set of default Teams and Workflows so leaders can begin organizing work without blank-slate configuration. Owners and admins can rename, add, archive, and reorder Teams, manage Team Memberships, and define the Workflow Statuses each Team's Tasks move through while still mapping to canonical Task States: To Do, In Progress, Done, and Canceled. It supports both web UI and MCP/CLI operations, uses Team Membership to determine visibility and relevance, and does not include team-level Roles, custom permission models, creating Tasks, or assigning Tasks to Users.
 
 ## 6. Task Execution and Assignment
