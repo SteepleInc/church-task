@@ -178,13 +178,17 @@ export function getTaskExecutionReadArgs(args: {
   readonly teamId?: string | null;
   readonly cycleId?: string | null;
 }) {
+  if (!args.cycleId) {
+    return null;
+  }
+
   return {
     churchId: args.churchId,
     actorUserId: args.currentUserId,
     ...(args.surface === "team_board"
       ? { teamId: args.teamId ?? null }
       : { surface: args.surface }),
-    ...(args.cycleId ? { cycleId: args.cycleId } : {}),
+    cycleId: args.cycleId,
   };
 }
 
@@ -254,17 +258,16 @@ export function TaskExecutionSurface({
     api.tasks.mcpListWorkflowStatuses,
     workflowId ? { churchId, actorUserId: currentUserId, workflowId } : "skip",
   );
+  const taskReadArgs = getTaskExecutionReadArgs({
+    churchId,
+    currentUserId,
+    surface,
+    teamId: team?.id ?? null,
+    cycleId: currentCycle?.id ?? null,
+  });
   const tasksResult = useQuery(
     api.tasks.mcpListTasks,
-    cyclesResult === undefined
-      ? "skip"
-      : getTaskExecutionReadArgs({
-          churchId,
-          currentUserId,
-          surface,
-          teamId: team?.id ?? null,
-          cycleId: currentCycle?.id ?? null,
-        }),
+    cyclesResult === undefined || taskReadArgs === null ? "skip" : taskReadArgs,
   );
 
   const createTask = useMutation(api.tasks.mcpCreateTask);
@@ -287,7 +290,7 @@ export function TaskExecutionSurface({
     cyclesResult === undefined ||
     workDefaults === undefined ||
     (workflowId !== undefined && workflowId !== null && workflowStatusesResult === undefined) ||
-    tasksResult === undefined ||
+    (taskReadArgs !== null && tasksResult === undefined) ||
     usersResult === undefined ||
     teamsResult === undefined;
   const surfaceTitle =

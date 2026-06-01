@@ -113,12 +113,25 @@ describe("Task execution surface", () => {
         currentUserId: "user-1",
         surface: "team_board",
         teamId: "team-1",
+        cycleId: "cycle-1",
       }),
     ).toEqual({
       churchId: "church-1",
       actorUserId: "user-1",
       teamId: "team-1",
+      cycleId: "cycle-1",
     });
+  });
+
+  test("does not broaden execution reads when no current Cycle is available", () => {
+    expect(
+      getTaskExecutionReadArgs({
+        churchId: "church-1",
+        currentUserId: "user-1",
+        surface: "my_work",
+        cycleId: null,
+      }),
+    ).toBeNull();
   });
 
   test("builds actionable My Work empty-state navigation targets", () => {
