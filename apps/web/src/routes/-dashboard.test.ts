@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { getDashboardPanelFromSearch, getDashboardSearchForPanel } from "./dashboard";
+import {
+  getDashboardPanelFromSearch,
+  getDashboardSearchForPanel,
+  getUnavailableTeamBoardActions,
+} from "./dashboard";
 
 describe("dashboard execution route search", () => {
   test("lands on My Work when no execution panel is encoded", () => {
@@ -21,5 +25,12 @@ describe("dashboard execution route search", () => {
 
   test("falls back to My Work for incomplete Team board search state", () => {
     expect(getDashboardPanelFromSearch({ work: "team" })).toBe("my_work");
+  });
+
+  test("offers execution route recovery actions for unavailable Team boards", () => {
+    expect(getUnavailableTeamBoardActions()).toEqual([
+      { panel: "my_work", label: "Open My Work" },
+      { panel: "our_work", label: "Open Our Work" },
+    ]);
   });
 });

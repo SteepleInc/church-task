@@ -93,6 +93,13 @@ type DashboardSearch = {
   readonly teamId?: string;
 };
 
+export function getUnavailableTeamBoardActions() {
+  return [
+    { panel: "my_work" as const, label: "Open My Work" },
+    { panel: "our_work" as const, label: "Open Our Work" },
+  ];
+}
+
 export function getDashboardPanelFromSearch(search: DashboardSearch): ActiveDashboardPanel {
   if (search.work === "team" && search.teamId) {
     return { kind: "team", teamId: search.teamId };
@@ -151,6 +158,7 @@ function PrivateDashboardContent() {
     typeof activePanel === "object"
       ? (activeTeams.find((team) => team.id === activePanel.teamId) ?? null)
       : null;
+  const unavailableTeamBoardActions = getUnavailableTeamBoardActions();
 
   const product = products?.find((product: { isRecurring?: boolean }) => product.isRecurring);
   const hasActiveSubscription = Boolean(subscription);
@@ -285,6 +293,20 @@ function PrivateDashboardContent() {
               <p className="text-sm text-muted-foreground">
                 {teams === undefined ? "Loading Team board..." : "Team board is unavailable."}
               </p>
+              {teams !== undefined ? (
+                <div className="flex flex-wrap gap-2">
+                  {unavailableTeamBoardActions.map((action) => (
+                    <Button
+                      key={action.panel}
+                      type="button"
+                      variant={action.panel === "my_work" ? "default" : "outline"}
+                      onClick={() => setActivePanel(action.panel)}
+                    >
+                      {action.label}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
             </section>
           ) : activeChurch && currentUserId ? (
             <TaskExecutionSurface
