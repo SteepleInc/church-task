@@ -40,6 +40,7 @@ import {
   TaskCreateBatchArgs,
   TaskListArgs,
   TaskReadResponse,
+  TaskTransitionBatchArgs,
   TaskWriteResponse,
 } from "../agent/taskOperations";
 import { WorkDefaultsChurchArgs, WorkDefaultsResponse } from "../agent/workDefaultsOperations";
@@ -180,6 +181,27 @@ export const tasks = GroupSpec.make("tasks")
     FunctionSpec.publicMutation({
       name: "createBatch",
       args: TaskCreateBatchArgs,
+      returns: TaskWriteResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "completeBatch",
+      args: TaskTransitionBatchArgs,
+      returns: TaskWriteResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "cancelBatch",
+      args: TaskTransitionBatchArgs,
+      returns: TaskWriteResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "reopenBatch",
+      args: TaskTransitionBatchArgs,
       returns: TaskWriteResponse,
     }),
   )

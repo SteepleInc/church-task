@@ -886,6 +886,153 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("Task transitions complete, cancel, and reopen through public operations", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-task-transitions-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Task Transition Church",
+        slug: `task-transition-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+      const workflow = yield* authenticated.mutation(refs.public.workflows.createForChurch, {
+        churchId: church.id!,
+        key: "transition-workflow",
+        name: "Transition Workflow",
+        isDefault: false,
+        sortOrder: 1,
+        statuses: [
+          { key: "todo", name: "To Do", taskState: "todo", sortOrder: 0 },
+          { key: "doing", name: "Doing", taskState: "in_progress", sortOrder: 1 },
+          { key: "done", name: "Done", taskState: "done", sortOrder: 2 },
+        ],
+      });
+      const transitionWorkflow = workflow.data.workflows.find(
+        (candidate) => candidate.key === "transition-workflow",
+      )!;
+      const todoStatus = workflow.data.workflowStatuses.find(
+        (status) => status.workflowId === transitionWorkflow.id && status.key === "todo",
+      )!;
+      const doingStatus = workflow.data.workflowStatuses.find(
+        (status) => status.workflowId === transitionWorkflow.id && status.key === "doing",
+      )!;
+      const doneStatus = workflow.data.workflowStatuses.find(
+        (status) => status.workflowId === transitionWorkflow.id && status.key === "done",
+      )!;
+      const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
+        churchId: church.id!,
+        tasks: [
+          {
+            title: "Complete me",
+            teamId: null,
+            workflowStatusId: todoStatus.id,
+            dueDate: "2026-06-03",
+            parentTaskId: null,
+          },
+          {
+            title: "Cancel me",
+            teamId: null,
+            workflowStatusId: doingStatus.id,
+            dueDate: "2026-06-03",
+            parentTaskId: null,
+          },
+        ],
+      });
+      const completeMe = created.data.tasks.find((task) => task.title === "Complete me")!;
+      const cancelMe = created.data.tasks.find((task) => task.title === "Cancel me")!;
+
+      const completed = yield* authenticated.mutation(refs.public.tasks.completeBatch, {
+        churchId: church.id!,
+        taskIds: [completeMe.id],
+      });
+      const canceled = yield* authenticated.mutation(refs.public.tasks.cancelBatch, {
+        churchId: church.id!,
+        taskIds: [cancelMe.id],
+      });
+      const reopened = yield* authenticated.mutation(refs.public.tasks.reopenBatch, {
+        churchId: church.id!,
+        taskIds: [cancelMe.id],
+      });
+      const completedTask = completed.data.tasks.find((task) => task.id === completeMe.id)!;
+      const canceledTask = canceled.data.tasks.find((task) => task.id === cancelMe.id)!;
+      const reopenedTask = reopened.data.tasks.find((task) => task.id === cancelMe.id)!;
+      const transitionActivities = yield* authenticated.query(
+        refs.public.activities.listForEntity,
+        {
+          churchId: church.id!,
+          entityType: "task",
+          entityId: cancelMe.id,
+        },
+      );
+
+      const inconsistentTaskId = yield* c.run(
+        Effect.gen(function* () {
+          const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+
+          return yield* Effect.promise(() =>
+            ctx.db.insert("tasks", {
+              churchId: church.id!,
+              title: "Inconsistent Task",
+              teamId: null,
+              cycleId: cancelMe.cycleId,
+              dueDate: "2026-06-03",
+              parentTaskId: null,
+              workflowId: transitionWorkflow.id,
+              workflowStatusId: todoStatus.id,
+              taskState: "done",
+            }),
+          );
+        }),
+        Schema.String,
+      );
+      const inconsistent = yield* authenticated.mutation(refs.public.tasks.completeBatch, {
+        churchId: church.id!,
+        taskIds: [inconsistentTaskId],
+      });
+
+      expect(completedTask).toMatchObject({
+        taskState: "done",
+        workflowStatusId: doneStatus.id,
+      });
+      expect(canceledTask).toMatchObject({
+        taskState: "canceled",
+        workflowStatusId: doneStatus.id,
+      });
+      expect(reopenedTask).toMatchObject({
+        taskState: "in_progress",
+        workflowStatusId: doingStatus.id,
+      });
+      expect(transitionActivities.data.activities.map((activity) => activity.eventType)).toEqual([
+        "task.created",
+        "task.canceled",
+        "task.reopened",
+      ]);
+      expect(transitionActivities.data.activities[1]!.metadata).toMatchObject({
+        previousTaskState: "in_progress",
+        previousWorkflowStatusId: doingStatus.id,
+        previousWorkflowStatusName: "Doing",
+      });
+      expect(inconsistent).toEqual({
+        ok: false,
+        operation: "completeTasks",
+        error: {
+          code: "inconsistent_task_status",
+          message: "Task State and Workflow Status are inconsistent.",
+        },
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Better Auth Teams can be created and updated through Team product fields", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;

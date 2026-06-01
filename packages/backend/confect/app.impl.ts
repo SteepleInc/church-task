@@ -30,7 +30,7 @@ import {
   resolveKeyDateOccurrences,
 } from "../keyDateScheduling";
 import { readDefaultWorkModel, seedDefaultWorkModel } from "../workDefaults";
-import { createTasks, readTaskModel } from "../tasks";
+import { cancelTasks, completeTasks, createTasks, readTaskModel, reopenTasks } from "../tasks";
 import {
   createTemplates,
   previewCycleAdjustmentMerge,
@@ -151,7 +151,7 @@ const getAuthenticatedChurchMember = (churchId: string) =>
 
     if (!membership) return { status: "notChurchMember" as const };
 
-    return { status: "ready" as const, membership };
+    return { status: "ready" as const, authUser, membership };
   });
 
 const listTeamsForChurch = (churchId: string) =>
@@ -850,6 +850,112 @@ const tasksListForChurch = FunctionImpl.make(api, "tasks", "listForChurch", (arg
   }),
 );
 
+const taskTransitionError = (
+  operation: "completeTasks" | "cancelTasks" | "reopenTasks",
+  code:
+    | "taskNotFound"
+    | "invalidTaskTransition"
+    | "inconsistentTaskStatus"
+    | "workflowStatusNotFound"
+    | "doneWorkflowStatusNotFound"
+    | "restoreActivityNotFound"
+    | "restoreWorkflowStatusNotFound",
+) => {
+  if (code === "taskNotFound") {
+    return taskErrorResponse(
+      operation,
+      "task_not_found",
+      "Task was not found in the active Church.",
+    );
+  }
+  if (code === "inconsistentTaskStatus") {
+    return taskErrorResponse(
+      operation,
+      "inconsistent_task_status",
+      "Task State and Workflow Status are inconsistent.",
+    );
+  }
+  if (code === "workflowStatusNotFound") {
+    return taskErrorResponse(
+      operation,
+      "workflow_status_not_found",
+      "Workflow Status was not found in the active Church.",
+    );
+  }
+  if (code === "doneWorkflowStatusNotFound") {
+    return taskErrorResponse(
+      operation,
+      "done_workflow_status_not_found",
+      "The Task Workflow does not have an active Done Workflow Status.",
+    );
+  }
+  if (code === "restoreActivityNotFound") {
+    return taskErrorResponse(
+      operation,
+      "restore_activity_not_found",
+      "Canceled Task restore metadata was not found.",
+    );
+  }
+  if (code === "restoreWorkflowStatusNotFound") {
+    return taskErrorResponse(
+      operation,
+      "restore_workflow_status_not_found",
+      "The previous Workflow Status could not be restored.",
+    );
+  }
+
+  return taskErrorResponse(
+    operation,
+    "invalid_task_transition",
+    "Task cannot perform that transition from its current state.",
+  );
+};
+
+const makeTaskTransitionMutation = (
+  name: "completeBatch" | "cancelBatch" | "reopenBatch",
+  operation: "completeTasks" | "cancelTasks" | "reopenTasks",
+  transition: typeof completeTasks | typeof cancelTasks | typeof reopenTasks,
+) =>
+  FunctionImpl.make(api, "tasks", name, (args) =>
+    Effect.gen(function* () {
+      const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+      const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+        Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+      );
+
+      if (auth.status === "notAuthenticated") {
+        return taskErrorResponse(operation, "not_authenticated", "Authentication is required.");
+      }
+      if (auth.status === "notChurchMember") {
+        return taskErrorResponse(operation, "not_church_member", "Church membership is required.");
+      }
+
+      const result = yield* Effect.promise(() =>
+        transition(ctx, {
+          churchId: args.churchId,
+          taskIds: args.taskIds,
+          actorId: auth.authUser._id,
+        }),
+      ).pipe(Effect.orDie);
+
+      if (!result.ok) return taskTransitionError(operation, result.code);
+
+      const model = yield* Effect.promise(() => readTaskModel(ctx, args.churchId)).pipe(
+        Effect.orDie,
+      );
+
+      return taskResponse(operation, serializeTaskModel(model));
+    }),
+  );
+
+const tasksCompleteBatch = makeTaskTransitionMutation(
+  "completeBatch",
+  "completeTasks",
+  completeTasks,
+);
+const tasksCancelBatch = makeTaskTransitionMutation("cancelBatch", "cancelTasks", cancelTasks);
+const tasksReopenBatch = makeTaskTransitionMutation("reopenBatch", "reopenTasks", reopenTasks);
+
 const templatesCreateForChurch = FunctionImpl.make(api, "templates", "createForChurch", (args) =>
   Effect.gen(function* () {
     const ctx = yield* MutationCtx.MutationCtx<DataModel>();
@@ -1379,6 +1485,9 @@ export const teams = GroupImpl.make(api, "teams").pipe(
 );
 export const tasks = GroupImpl.make(api, "tasks").pipe(
   Layer.provide(tasksCreateBatch),
+  Layer.provide(tasksCompleteBatch),
+  Layer.provide(tasksCancelBatch),
+  Layer.provide(tasksReopenBatch),
   Layer.provide(tasksListForChurch),
 );
 export const templates = GroupImpl.make(api, "templates").pipe(

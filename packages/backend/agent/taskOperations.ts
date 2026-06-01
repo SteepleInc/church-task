@@ -24,6 +24,11 @@ export const TaskListArgs = Schema.Struct({
   churchId: Schema.String,
 });
 
+export const TaskTransitionBatchArgs = Schema.Struct({
+  churchId: Schema.String,
+  taskIds: Schema.Array(Schema.String),
+});
+
 const CycleSummary = Schema.Struct({
   id: Schema.String,
   churchId: Schema.String,
@@ -49,7 +54,13 @@ const TaskSummary = Schema.Struct({
 
 export const TaskSuccessResponse = Schema.Struct({
   ok: Schema.Literal(true),
-  operation: Schema.Union(Schema.Literal("createTasks"), Schema.Literal("listTasks")),
+  operation: Schema.Union(
+    Schema.Literal("createTasks"),
+    Schema.Literal("listTasks"),
+    Schema.Literal("completeTasks"),
+    Schema.Literal("cancelTasks"),
+    Schema.Literal("reopenTasks"),
+  ),
   data: Schema.Struct({
     cycles: Schema.Array(CycleSummary),
     tasks: Schema.Array(TaskSummary),
@@ -58,7 +69,13 @@ export const TaskSuccessResponse = Schema.Struct({
 
 export const TaskErrorResponse = Schema.Struct({
   ok: Schema.Literal(false),
-  operation: Schema.Union(Schema.Literal("createTasks"), Schema.Literal("listTasks")),
+  operation: Schema.Union(
+    Schema.Literal("createTasks"),
+    Schema.Literal("listTasks"),
+    Schema.Literal("completeTasks"),
+    Schema.Literal("cancelTasks"),
+    Schema.Literal("reopenTasks"),
+  ),
   error: Schema.Struct({
     code: Schema.Union(
       Schema.Literal("not_authenticated"),
@@ -67,6 +84,12 @@ export const TaskErrorResponse = Schema.Struct({
       Schema.Literal("invalid_due_date"),
       Schema.Literal("workflow_status_not_found"),
       Schema.Literal("parent_task_not_found"),
+      Schema.Literal("task_not_found"),
+      Schema.Literal("invalid_task_transition"),
+      Schema.Literal("inconsistent_task_status"),
+      Schema.Literal("done_workflow_status_not_found"),
+      Schema.Literal("restore_activity_not_found"),
+      Schema.Literal("restore_workflow_status_not_found"),
     ),
     message: Schema.String,
   }),
