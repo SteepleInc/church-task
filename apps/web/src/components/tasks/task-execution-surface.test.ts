@@ -5,6 +5,7 @@ import {
   getMyWorkEmptyStateActions,
   getTaskAssigneeOptions,
   getTaskCreationDefaults,
+  getTaskDueDateUpdateFields,
   getExecutionWorkflowId,
   getTaskExecutionReadArgs,
   getTaskTeamUpdateFields,
@@ -138,6 +139,14 @@ describe("Task execution surface", () => {
     });
     expect(getTaskTitleUpdateFields("Call volunteer", " Call volunteer ")).toBeNull();
     expect(getTaskTitleUpdateFields("Call volunteer", "   ")).toBeNull();
+  });
+
+  test("builds Task Due Date update fields only for changed dates", () => {
+    expect(getTaskDueDateUpdateFields("2026-06-03", "2026-06-10")).toEqual({
+      dueDate: "2026-06-10",
+    });
+    expect(getTaskDueDateUpdateFields("2026-06-03", "2026-06-03")).toBeNull();
+    expect(getTaskDueDateUpdateFields("2026-06-03", "")).toBeNull();
   });
 
   test("builds Team update fields for Team assignment, changes, and unassignment", () => {

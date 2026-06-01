@@ -23,6 +23,7 @@ type TaskSummary = {
   readonly title: string;
   readonly teamId: string | null;
   readonly assignedUserId: string | null;
+  readonly dueDate: string;
   readonly workflowStatusId: string;
   readonly taskState: TaskState;
 };
@@ -93,6 +94,14 @@ export function getTaskTitleUpdateFields(currentTitle: string, nextTitle: string
   }
 
   return { title: trimmedTitle };
+}
+
+export function getTaskDueDateUpdateFields(currentDueDate: string, nextDueDate: string) {
+  if (!nextDueDate || nextDueDate === currentDueDate) {
+    return null;
+  }
+
+  return { dueDate: nextDueDate };
 }
 
 export function getTaskTeamUpdateFields(currentTeamId: string | null, nextTeamId: string) {
@@ -399,6 +408,7 @@ function TaskActionList({
     taskId: string,
     fields: {
       readonly title?: string;
+      readonly dueDate?: string;
       readonly assignedUserId?: string | null;
       readonly teamId?: string | null;
     },
@@ -452,6 +462,7 @@ function TaskActionRow({
     taskId: string,
     fields: {
       readonly title?: string;
+      readonly dueDate?: string;
       readonly assignedUserId?: string | null;
       readonly teamId?: string | null;
     },
@@ -461,7 +472,9 @@ function TaskActionRow({
   readonly reopenTask: (taskId: string) => void | Promise<unknown>;
 }) {
   const [draftTitle, setDraftTitle] = useState(task.title);
+  const [draftDueDate, setDraftDueDate] = useState(task.dueDate);
   const titleUpdateFields = getTaskTitleUpdateFields(task.title, draftTitle);
+  const dueDateUpdateFields = getTaskDueDateUpdateFields(task.dueDate, draftDueDate);
   const assigneeOptions = getTaskAssigneeOptions(users);
 
   return (
@@ -491,6 +504,32 @@ function TaskActionRow({
         >
           Save Title
         </Button>
+        <div className="grid gap-1 sm:max-w-44">
+          <label className="text-xs font-medium" htmlFor={`due-date-${task.id}`}>
+            Due Date
+          </label>
+          <div className="flex gap-2">
+            <Input
+              id={`due-date-${task.id}`}
+              aria-label={`Due Date for ${task.title}`}
+              type="date"
+              value={draftDueDate}
+              onChange={(event) => setDraftDueDate(event.target.value)}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={!dueDateUpdateFields}
+              onClick={() => {
+                if (!dueDateUpdateFields) return;
+                void updateTask(task.id, dueDateUpdateFields);
+              }}
+            >
+              Save
+            </Button>
+          </div>
+        </div>
       </div>
       <NativeSelect
         size="sm"
@@ -586,6 +625,7 @@ function toBoardTask(task: TaskSummary) {
     id: task.id,
     title: task.title,
     teamId: task.teamId,
+    dueDate: task.dueDate,
     workflowStatusId: task.workflowStatusId,
     taskState: task.taskState,
   };
