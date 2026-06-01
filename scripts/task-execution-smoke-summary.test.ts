@@ -45,6 +45,7 @@ describe("Task execution smoke summary", () => {
           covers: ["Browser workflows prove persisted web behavior."],
           exitCode: 0,
           status: "skipped",
+          skipReason: "Missing .env.e2e.",
         },
       ],
     });
@@ -53,7 +54,7 @@ describe("Task execution smoke summary", () => {
     expect(summary.closureGate).toEqual({
       ready: false,
       fullVerificationCommand: "bun run test:task-execution-smoke:full",
-      blockingSteps: ["browser execution smoke was skipped"],
+      blockingSteps: ["browser execution smoke was skipped: Missing .env.e2e."],
     });
   });
 
@@ -73,6 +74,7 @@ describe("Task execution smoke summary", () => {
           covers: ["Browser workflows prove persisted web behavior."],
           exitCode: 0,
           status: "skipped",
+          skipReason: "Missing .env.e2e.",
           acceptanceCriteria: ["web_reflects_contract_changes", "kanban_persists_movement"],
         },
       ],
@@ -132,6 +134,7 @@ describe("Task execution smoke summary", () => {
               covers: ["Browser workflows prove persisted web behavior."],
               exitCode: 0,
               status: "skipped",
+              skipReason: "Missing .env.e2e.",
             },
           ],
         }),
@@ -155,6 +158,7 @@ describe("Task execution smoke summary", () => {
               covers: ["Browser workflows prove persisted web behavior."],
               exitCode: 0,
               status: "skipped",
+              skipReason: "Missing .env.e2e.",
             },
           ],
         }),
@@ -177,6 +181,7 @@ describe("Task execution smoke summary", () => {
             covers: ["Browser workflows prove persisted web behavior."],
             exitCode: 0,
             status: "skipped",
+            skipReason: "Missing .env.e2e.",
           },
         ],
       }),
@@ -187,8 +192,8 @@ describe("Task execution smoke summary", () => {
     expect(report).toContain("## Closure Gate");
     expect(report).toContain("Ready to close #71: no");
     expect(report).toContain("Full verification command: bun run test:task-execution-smoke:full");
-    expect(report).toContain("- browser execution smoke was skipped");
-    expect(report).toContain("| browser execution smoke | skipped | 0 |");
+    expect(report).toContain("- browser execution smoke was skipped: Missing .env.e2e.");
+    expect(report).toContain("| browser execution smoke | skipped | Missing .env.e2e. | 0 |");
     expect(report).toContain("## Acceptance Coverage");
     expect(report).toContain("- Browser workflows prove persisted web behavior.");
     expect(report).toContain("## #71 Acceptance Criteria");

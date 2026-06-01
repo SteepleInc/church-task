@@ -20,6 +20,7 @@ export type TaskExecutionSmokeStepResult = {
   readonly command: string;
   readonly exitCode: number;
   readonly status: TaskExecutionSmokeStatus;
+  readonly skipReason?: string;
   readonly covers: readonly string[];
   readonly acceptanceCriteria?: readonly TaskExecutionSmokeAcceptanceCriterionKey[];
 };
@@ -102,7 +103,8 @@ export function buildTaskExecutionSmokeSummary(input: {
     }
 
     if (result.status === "skipped") {
-      return [`${result.name} was skipped`];
+      const reason = result.skipReason ? `: ${result.skipReason}` : "";
+      return [`${result.name} was skipped${reason}`];
     }
 
     return [];
@@ -168,11 +170,15 @@ export function formatTaskExecutionSmokeMarkdown(summary: TaskExecutionSmokeSumm
     }
   }
 
-  lines.push("", "| Step | Status | Exit Code | Command |", "| --- | --- | ---: | --- |");
+  lines.push(
+    "",
+    "| Step | Status | Skip Reason | Exit Code | Command |",
+    "| --- | --- | --- | ---: | --- |",
+  );
 
   for (const result of summary.results) {
     lines.push(
-      `| ${escapeMarkdownTableCell(result.name)} | ${result.status} | ${result.exitCode} | ${escapeMarkdownTableCell(result.command)} |`,
+      `| ${escapeMarkdownTableCell(result.name)} | ${result.status} | ${result.skipReason ? escapeMarkdownTableCell(result.skipReason) : ""} | ${result.exitCode} | ${escapeMarkdownTableCell(result.command)} |`,
     );
   }
 

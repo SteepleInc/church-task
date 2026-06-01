@@ -153,6 +153,7 @@ for (const step of steps) {
     acceptanceCriteria: step.acceptanceCriteria,
     exitCode,
     status,
+    skipReason: status === "skipped" ? e2eSkipReason : undefined,
   });
 
   if (exitCode !== 0) {
