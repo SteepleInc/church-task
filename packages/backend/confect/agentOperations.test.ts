@@ -1790,6 +1790,11 @@ describe("agent operation boundary", () => {
         defaultWorkflowId: null,
       });
 
+      const defaults = yield* authenticated.query(refs.public.workDefaults.readForChurch, {
+        churchId: church.id!,
+      });
+      const defaultWorkflow = defaults.data.workflows.find((workflow) => workflow.isDefault)!;
+
       const updated = yield* authenticated.mutation(refs.public.teams.updateProductFields, {
         churchId: church.id!,
         updates: [
@@ -1798,7 +1803,7 @@ describe("agent operation boundary", () => {
             fields: {
               archivedAt: "2026-06-01T00:00:00.000Z",
               sortOrder: 7,
-              defaultWorkflowId: "workflow-default",
+              defaultWorkflowId: defaultWorkflow.id,
             },
           },
         ],
@@ -1811,7 +1816,7 @@ describe("agent operation boundary", () => {
         churchId: church.id,
         archivedAt: "2026-06-01T00:00:00.000Z",
         sortOrder: 7,
-        defaultWorkflowId: "workflow-default",
+        defaultWorkflowId: defaultWorkflow.id,
       });
     }).pipe(Effect.provide(TestConfect.layer())),
   );
@@ -2578,6 +2583,82 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("owners can assign and clear a Team default Workflow", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-team-default-workflow-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Team Default Workflow Church",
+        slug: `team-default-workflow-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const teamResponse = yield* createTeam(c, {
+        token: signUpBody.token!,
+        name: "Hospitality",
+        organizationId: church.id!,
+      });
+      const team = (yield* Effect.promise(() => teamResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+      const createdWorkflow = yield* authenticated.mutation(refs.public.workflows.createForChurch, {
+        churchId: church.id!,
+        key: "hospitality-flow",
+        name: "Hospitality Flow",
+        isDefault: false,
+        sortOrder: 1,
+        statuses: [
+          { key: "todo", name: "To Do", taskState: "todo", sortOrder: 0 },
+          { key: "doing", name: "Doing", taskState: "in_progress", sortOrder: 1 },
+          { key: "done", name: "Done", taskState: "done", sortOrder: 2 },
+        ],
+      });
+      const workflow = createdWorkflow.data.workflows.find(
+        (candidate) => candidate.key === "hospitality-flow",
+      )!;
+
+      const assigned = yield* authenticated.mutation(refs.public.teams.updateProductFields, {
+        churchId: church.id!,
+        updates: [{ teamId: team.id!, fields: { defaultWorkflowId: workflow.id } }],
+      });
+      const cleared = yield* authenticated.mutation(refs.public.teams.updateProductFields, {
+        churchId: church.id!,
+        updates: [{ teamId: team.id!, fields: { defaultWorkflowId: null } }],
+      });
+      const activities = yield* authenticated.query(refs.public.activities.listForEntity, {
+        churchId: church.id!,
+        entityType: "team",
+        entityId: team.id!,
+      });
+
+      expect(assigned.data.teams.find((candidate) => candidate.id === team.id)).toMatchObject({
+        defaultWorkflowId: workflow.id,
+      });
+      expect(cleared.data.teams.find((candidate) => candidate.id === team.id)).toMatchObject({
+        defaultWorkflowId: null,
+      });
+      expect(
+        activities.data.activities.filter(
+          (activity) => activity.eventType === "team.default_workflow_changed",
+        ),
+      ).toEqual([
+        expect.objectContaining({
+          metadata: { previousWorkflowId: null, workflowId: workflow.id },
+        }),
+        expect.objectContaining({
+          metadata: { previousWorkflowId: workflow.id, workflowId: null },
+        }),
+      ]);
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Workflow mutations write Activities", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;
@@ -3059,6 +3140,97 @@ describe("agent operation boundary", () => {
       expect(fallbackTask).toMatchObject({
         workflowId: destinationWorkflow.id,
         workflowStatusId: destinationReady.id,
+        taskState: "in_progress",
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("Task Team changes fall back to the Church default Workflow", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-task-team-default-fallback-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Task Remap Default Fallback Church",
+        slug: `task-remap-default-fallback-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const teamResponse = yield* createTeam(c, {
+        token: signUpBody.token!,
+        name: "Destination Team",
+        organizationId: church.id!,
+      });
+      const team = (yield* Effect.promise(() => teamResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+      const defaults = yield* authenticated.query(refs.public.workDefaults.readForChurch, {
+        churchId: church.id!,
+      });
+      const defaultWorkflow = defaults.data.workflows.find((workflow) => workflow.isDefault)!;
+      const defaultDoing = defaults.data.workflowStatuses.find(
+        (status) => status.workflowId === defaultWorkflow.id && status.taskState === "in_progress",
+      )!;
+      const source = yield* authenticated.mutation(refs.public.workflows.createForChurch, {
+        churchId: church.id!,
+        key: "source-fallback-workflow",
+        name: "Source Fallback Workflow",
+        isDefault: false,
+        sortOrder: 1,
+        statuses: [
+          { key: "todo", name: "To Do", taskState: "todo", sortOrder: 0 },
+          { key: "doing", name: "Doing", taskState: "in_progress", sortOrder: 1 },
+          { key: "done", name: "Done", taskState: "done", sortOrder: 2 },
+        ],
+      });
+      const sourceWorkflow = source.data.workflows.find(
+        (workflow) => workflow.key === "source-fallback-workflow",
+      )!;
+      const sourceDoing = source.data.workflowStatuses.find(
+        (status) => status.workflowId === sourceWorkflow.id && status.key === "doing",
+      )!;
+      const taskId = yield* c.run(
+        Effect.gen(function* () {
+          const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+
+          return yield* Effect.promise(() =>
+            ctx.db.insert("tasks", {
+              churchId: church.id!,
+              title: "Default Fallback Remapped Task",
+              teamId: null,
+              cycleId: "cycle-remap-default-fallback",
+              dueDate: "2026-06-03",
+              parentTaskId: null,
+              workflowId: sourceWorkflow.id,
+              workflowStatusId: sourceDoing.id,
+              taskState: "in_progress",
+              sourceTemplateId: null,
+              sourceTemplateTaskId: null,
+              sourceTemplateCycleId: null,
+              sourceTemplateSyncEnabled: false,
+            }),
+          );
+        }),
+        Schema.String,
+      );
+
+      const remapped = yield* authenticated.mutation(refs.public.workflows.remapTaskTeam, {
+        churchId: church.id!,
+        taskId,
+        destinationTeamId: team.id!,
+      });
+      const task = remapped.data.tasks.find((candidate) => candidate.id === taskId)!;
+
+      expect(task).toMatchObject({
+        teamId: team.id,
+        workflowId: defaultWorkflow.id,
+        workflowStatusId: defaultDoing.id,
         taskState: "in_progress",
       });
     }).pipe(Effect.provide(TestConfect.layer())),

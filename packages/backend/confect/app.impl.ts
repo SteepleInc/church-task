@@ -42,7 +42,7 @@ import { listActivitiesForEntity, serializeActivity, writeActivity } from "../ac
 import { authComponent } from "../authCore";
 import { isValidChurchTimeZone } from "../churchTimeZone";
 import { api as convexApi, components } from "../convex/_generated/api";
-import type { DataModel } from "../convex/_generated/dataModel";
+import type { DataModel, Id } from "../convex/_generated/dataModel";
 import { maintainCyclesForChurch } from "../cycleMaintenance";
 import {
   createKeyDateOccurrences,
@@ -1832,7 +1832,7 @@ const teamUpdateProductFields = FunctionImpl.make(api, "teams", "updateProductFi
     }
 
     for (const update of args.updates) {
-      const team = yield* Effect.promise(() =>
+      const team = (yield* Effect.promise(() =>
         ctx.runQuery(components.betterAuth.adapter.findOne, {
           model: "team",
           where: [
@@ -1840,7 +1840,7 @@ const teamUpdateProductFields = FunctionImpl.make(api, "teams", "updateProductFi
             { field: "organizationId", value: args.churchId },
           ],
         }),
-      ).pipe(Effect.orDie);
+      ).pipe(Effect.orDie)) as BetterAuthTeam | null;
 
       if (!team) {
         return teamErrorResponse(
@@ -1848,6 +1848,20 @@ const teamUpdateProductFields = FunctionImpl.make(api, "teams", "updateProductFi
           "team_not_found",
           "Team was not found in the active Church.",
         );
+      }
+
+      if ("defaultWorkflowId" in update.fields && update.fields.defaultWorkflowId !== null) {
+        const workflow = yield* Effect.promise(() =>
+          ctx.db.get(update.fields.defaultWorkflowId as Id<"workflows">),
+        ).pipe(Effect.orDie);
+
+        if (!workflow || workflow.churchId !== args.churchId || workflow.archivedAt !== null) {
+          return teamErrorResponse(
+            "updateTeamProductFields",
+            "workflow_not_found",
+            "Workflow was not found in the active Church.",
+          );
+        }
       }
 
       yield* Effect.promise(() =>
@@ -1859,6 +1873,28 @@ const teamUpdateProductFields = FunctionImpl.make(api, "teams", "updateProductFi
           },
         }),
       ).pipe(Effect.orDie);
+
+      if (
+        "defaultWorkflowId" in update.fields &&
+        (team.defaultWorkflowId ?? null) !== update.fields.defaultWorkflowId
+      ) {
+        yield* Effect.promise(() =>
+          writeActivity(ctx, {
+            churchId: args.churchId,
+            entityType: "team",
+            entityId: update.teamId,
+            eventType: "team.default_workflow_changed",
+            actorType: "user",
+            actorId: auth.authUser._id,
+            occurredAt: new Date().toISOString(),
+            cycleId: null,
+            metadata: {
+              previousWorkflowId: team.defaultWorkflowId ?? null,
+              workflowId: update.fields.defaultWorkflowId,
+            },
+          }),
+        ).pipe(Effect.orDie);
+      }
     }
 
     const teams = yield* listTeamsForChurch(args.churchId).pipe(
@@ -3193,11 +3229,22 @@ const workflowsRemapTaskTeam = FunctionImpl.make(api, "workflows", "remapTaskTea
         "Destination Team was not found in the active Church.",
       );
     }
-    if (!destinationTeam.defaultWorkflowId) {
+    const churchDefaultWorkflow = destinationTeam.defaultWorkflowId
+      ? null
+      : yield* Effect.promise(() =>
+          ctx.db
+            .query("workflows")
+            .withIndex("by_churchId", (q) => q.eq("churchId", args.churchId))
+            .filter((q) => q.eq(q.field("isDefault"), true))
+            .first(),
+        ).pipe(Effect.orDie);
+    const destinationWorkflowId = destinationTeam.defaultWorkflowId ?? churchDefaultWorkflow?._id;
+
+    if (!destinationWorkflowId) {
       return workflowErrorResponse(
         "remapTaskTeamWorkflow",
         "team_workflow_not_configured",
-        "Destination Team does not have a default Workflow.",
+        "Destination Team does not have a default Workflow and the Church default Workflow is missing.",
       );
     }
 
@@ -3206,7 +3253,7 @@ const workflowsRemapTaskTeam = FunctionImpl.make(api, "workflows", "remapTaskTea
         churchId: args.churchId,
         taskId: args.taskId,
         destinationTeamId: args.destinationTeamId,
-        destinationWorkflowId: destinationTeam.defaultWorkflowId!,
+        destinationWorkflowId,
       }),
     ).pipe(Effect.orDie);
 
@@ -3249,7 +3296,7 @@ const workflowsRemapTaskTeam = FunctionImpl.make(api, "workflows", "remapTaskTea
           fromTeamId: remapped.task.teamId,
           toTeamId: args.destinationTeamId,
           fromWorkflowId: remapped.task.workflowId,
-          toWorkflowId: destinationTeam.defaultWorkflowId,
+          toWorkflowId: destinationWorkflowId,
           previousWorkflowStatusId: remapped.currentStatus._id,
           restoredWorkflowStatusId: remapped.destinationStatus._id,
         },

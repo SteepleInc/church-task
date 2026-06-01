@@ -107,6 +107,7 @@ export const TeamOperationErrorResponse = Schema.Struct({
       Schema.Literal("not_church_member"),
       Schema.Literal("not_authorized"),
       Schema.Literal("team_not_found"),
+      Schema.Literal("workflow_not_found"),
       Schema.Literal("invalid_team_reorder"),
     ),
     message: Schema.String,

@@ -178,6 +178,10 @@ export const ActivityMetadataByEventType = {
     previousSortOrder: Schema.Number,
     sortOrder: Schema.Number,
   }),
+  "team.default_workflow_changed": Schema.Struct({
+    previousWorkflowId: Schema.Union(Schema.String, Schema.Null),
+    workflowId: Schema.Union(Schema.String, Schema.Null),
+  }),
   "team.member.added": Schema.Struct({
     memberUserId: Schema.String,
   }),
@@ -218,6 +222,7 @@ export const ActivityEventType = Schema.Literal(
   "team.renamed",
   "team.archived",
   "team.reordered",
+  "team.default_workflow_changed",
   "team.member.added",
   "team.member.removed",
 );
@@ -254,6 +259,7 @@ export const ActivityMetadata = Schema.Union(
   ActivityMetadataByEventType["team.renamed"],
   ActivityMetadataByEventType["team.archived"],
   ActivityMetadataByEventType["team.reordered"],
+  ActivityMetadataByEventType["team.default_workflow_changed"],
   ActivityMetadataByEventType["team.member.added"],
   ActivityMetadataByEventType["team.member.removed"],
 );
