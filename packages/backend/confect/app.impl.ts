@@ -187,6 +187,23 @@ const listTeamsForChurch = (churchId: string) =>
     ),
   );
 
+const activeTeamsForChurch = (churchId: string) =>
+  listTeamsForChurch(churchId).pipe(
+    Effect.map((teams) => teams.filter((team) => (team.archivedAt ?? null) === null)),
+  );
+
+const teamManageAuthError = (operation: Parameters<typeof teamErrorResponse>[0], role?: string) => {
+  if (role !== "owner" && role !== "admin") {
+    return teamErrorResponse(
+      operation,
+      "not_authorized",
+      "Only Church owners and admins can manage Teams.",
+    );
+  }
+
+  return null;
+};
+
 const getActiveChurch = (churchId: string | null) =>
   Effect.gen(function* () {
     const ctx = yield* QueryCtx.QueryCtx<DataModel>();
@@ -1158,9 +1175,280 @@ const teamListForChurch = FunctionImpl.make(api, "teams", "listForChurch", (args
       return teamErrorResponse("listTeams", "not_church_member", "Church membership is required.");
     }
 
-    const teams = yield* listTeamsForChurch(args.churchId);
+    const teams = yield* "includeArchived" in args && args.includeArchived
+      ? listTeamsForChurch(args.churchId)
+      : activeTeamsForChurch(args.churchId);
 
     return teamsResponse("listTeams", teams.map(serializeTeam));
+  }),
+);
+
+const teamCreateForChurch = FunctionImpl.make(api, "teams", "createForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    if (auth.status === "notAuthenticated") {
+      return teamErrorResponse("createTeam", "not_authenticated", "Authentication is required.");
+    }
+    if (auth.status === "notChurchMember") {
+      return teamErrorResponse("createTeam", "not_church_member", "Church membership is required.");
+    }
+    const authError = teamManageAuthError("createTeam", auth.membership.role);
+    if (authError) return authError;
+
+    const teams = yield* listTeamsForChurch(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+    const sortOrder = teams.reduce((max, team) => Math.max(max, team.sortOrder ?? -1), -1) + 1;
+    yield* Effect.promise(() =>
+      ctx.runMutation(components.betterAuth.adapter.create, {
+        input: {
+          model: "team",
+          data: {
+            name: args.name,
+            organizationId: args.churchId,
+            createdAt: Date.now(),
+            updatedAt: null,
+            archivedAt: null,
+            sortOrder,
+            defaultWorkflowId: null,
+          },
+        },
+      }),
+    ).pipe(Effect.orDie);
+
+    const createdTeams = yield* activeTeamsForChurch(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+    const createdTeam = [...createdTeams]
+      .reverse()
+      .find((team) => team.name === args.name && (team.sortOrder ?? 0) === sortOrder);
+
+    if (createdTeam) {
+      yield* Effect.promise(() =>
+        writeActivity(ctx, {
+          churchId: args.churchId,
+          entityType: "team",
+          entityId: createdTeam._id,
+          eventType: "team.created",
+          actorType: "user",
+          actorId: auth.authUser._id,
+          occurredAt: new Date().toISOString(),
+          cycleId: null,
+          metadata: { name: args.name },
+        }),
+      ).pipe(Effect.orDie);
+    }
+
+    return teamsResponse("createTeam", createdTeams.map(serializeTeam));
+  }),
+);
+
+const teamRenameForChurch = FunctionImpl.make(api, "teams", "renameForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    if (auth.status === "notAuthenticated") {
+      return teamErrorResponse("renameTeam", "not_authenticated", "Authentication is required.");
+    }
+    if (auth.status === "notChurchMember") {
+      return teamErrorResponse("renameTeam", "not_church_member", "Church membership is required.");
+    }
+    const authError = teamManageAuthError("renameTeam", auth.membership.role);
+    if (authError) return authError;
+
+    const team = (yield* Effect.promise(() =>
+      ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "team",
+        where: [
+          { field: "_id", value: args.teamId },
+          { field: "organizationId", value: args.churchId },
+        ],
+      }),
+    ).pipe(Effect.orDie)) as BetterAuthTeam | null;
+
+    if (!team) {
+      return teamErrorResponse(
+        "renameTeam",
+        "team_not_found",
+        "Team was not found in the active Church.",
+      );
+    }
+
+    yield* Effect.promise(() =>
+      ctx.runMutation(components.betterAuth.adapter.updateOne, {
+        input: {
+          model: "team",
+          where: [{ field: "_id", value: args.teamId }],
+          update: { name: args.name, updatedAt: Date.now() },
+        },
+      }),
+    ).pipe(Effect.orDie);
+    yield* Effect.promise(() =>
+      writeActivity(ctx, {
+        churchId: args.churchId,
+        entityType: "team",
+        entityId: args.teamId,
+        eventType: "team.renamed",
+        actorType: "user",
+        actorId: auth.authUser._id,
+        occurredAt: new Date().toISOString(),
+        cycleId: null,
+        metadata: { previousName: team.name, name: args.name },
+      }),
+    ).pipe(Effect.orDie);
+
+    const teams = yield* activeTeamsForChurch(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+    return teamsResponse("renameTeam", teams.map(serializeTeam));
+  }),
+);
+
+const teamArchiveForChurch = FunctionImpl.make(api, "teams", "archiveForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    if (auth.status === "notAuthenticated") {
+      return teamErrorResponse("archiveTeam", "not_authenticated", "Authentication is required.");
+    }
+    if (auth.status === "notChurchMember") {
+      return teamErrorResponse(
+        "archiveTeam",
+        "not_church_member",
+        "Church membership is required.",
+      );
+    }
+    const authError = teamManageAuthError("archiveTeam", auth.membership.role);
+    if (authError) return authError;
+
+    const team = (yield* Effect.promise(() =>
+      ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "team",
+        where: [
+          { field: "_id", value: args.teamId },
+          { field: "organizationId", value: args.churchId },
+        ],
+      }),
+    ).pipe(Effect.orDie)) as BetterAuthTeam | null;
+
+    if (!team) {
+      return teamErrorResponse(
+        "archiveTeam",
+        "team_not_found",
+        "Team was not found in the active Church.",
+      );
+    }
+
+    const archivedAt = new Date().toISOString();
+    yield* Effect.promise(() =>
+      ctx.runMutation(components.betterAuth.adapter.updateOne, {
+        input: {
+          model: "team",
+          where: [{ field: "_id", value: args.teamId }],
+          update: { archivedAt, updatedAt: Date.now() },
+        },
+      }),
+    ).pipe(Effect.orDie);
+    yield* Effect.promise(() =>
+      writeActivity(ctx, {
+        churchId: args.churchId,
+        entityType: "team",
+        entityId: args.teamId,
+        eventType: "team.archived",
+        actorType: "user",
+        actorId: auth.authUser._id,
+        occurredAt: archivedAt,
+        cycleId: null,
+        metadata: { name: team.name },
+      }),
+    ).pipe(Effect.orDie);
+
+    const teams = yield* activeTeamsForChurch(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+    return teamsResponse("archiveTeam", teams.map(serializeTeam));
+  }),
+);
+
+const teamReorderForChurch = FunctionImpl.make(api, "teams", "reorderForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    if (auth.status === "notAuthenticated") {
+      return teamErrorResponse("reorderTeams", "not_authenticated", "Authentication is required.");
+    }
+    if (auth.status === "notChurchMember") {
+      return teamErrorResponse(
+        "reorderTeams",
+        "not_church_member",
+        "Church membership is required.",
+      );
+    }
+    const authError = teamManageAuthError("reorderTeams", auth.membership.role);
+    if (authError) return authError;
+
+    const teams = yield* activeTeamsForChurch(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+    const teamsById = new Map(teams.map((team) => [team._id, team]));
+    const uniqueTeamIds = new Set(args.teamIds);
+    if (
+      uniqueTeamIds.size !== args.teamIds.length ||
+      args.teamIds.some((id) => !teamsById.has(id))
+    ) {
+      return teamErrorResponse(
+        "reorderTeams",
+        "invalid_team_reorder",
+        "Team reorder must include active Teams from the requested Church only.",
+      );
+    }
+
+    const occurredAt = new Date().toISOString();
+    for (const [sortOrder, teamId] of args.teamIds.entries()) {
+      const team = teamsById.get(teamId)!;
+      yield* Effect.promise(() =>
+        ctx.runMutation(components.betterAuth.adapter.updateOne, {
+          input: {
+            model: "team",
+            where: [{ field: "_id", value: teamId }],
+            update: { sortOrder, updatedAt: Date.now() },
+          },
+        }),
+      ).pipe(Effect.orDie);
+      if ((team.sortOrder ?? 0) !== sortOrder) {
+        yield* Effect.promise(() =>
+          writeActivity(ctx, {
+            churchId: args.churchId,
+            entityType: "team",
+            entityId: teamId,
+            eventType: "team.reordered",
+            actorType: "user",
+            actorId: auth.authUser._id,
+            occurredAt,
+            cycleId: null,
+            metadata: { previousSortOrder: team.sortOrder ?? 0, sortOrder },
+          }),
+        ).pipe(Effect.orDie);
+      }
+    }
+
+    const reorderedTeams = yield* activeTeamsForChurch(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+    return teamsResponse("reorderTeams", reorderedTeams.map(serializeTeam));
   }),
 );
 
@@ -2175,6 +2463,10 @@ export const activities = GroupImpl.make(api, "activities").pipe(
 );
 export const teams = GroupImpl.make(api, "teams").pipe(
   Layer.provide(teamListForChurch),
+  Layer.provide(teamCreateForChurch),
+  Layer.provide(teamRenameForChurch),
+  Layer.provide(teamArchiveForChurch),
+  Layer.provide(teamReorderForChurch),
   Layer.provide(teamUpdateProductFields),
 );
 export const tasks = GroupImpl.make(api, "tasks").pipe(

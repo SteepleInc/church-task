@@ -18,6 +18,28 @@ export const TeamProductUpdateArgs = Schema.Struct({
 
 export const TeamListArgs = Schema.Struct({
   churchId: Schema.String,
+  includeArchived: Schema.optional(Schema.Boolean),
+});
+
+export const TeamCreateArgs = Schema.Struct({
+  churchId: Schema.String,
+  name: Schema.String,
+});
+
+export const TeamRenameArgs = Schema.Struct({
+  churchId: Schema.String,
+  teamId: Schema.String,
+  name: Schema.String,
+});
+
+export const TeamArchiveArgs = Schema.Struct({
+  churchId: Schema.String,
+  teamId: Schema.String,
+});
+
+export const TeamReorderArgs = Schema.Struct({
+  churchId: Schema.String,
+  teamIds: Schema.Array(Schema.String),
 });
 
 export const Team = Schema.Struct({
@@ -31,7 +53,14 @@ export const Team = Schema.Struct({
 
 export const TeamOperationResponse = Schema.Struct({
   ok: Schema.Boolean,
-  operation: Schema.Union(Schema.Literal("listTeams"), Schema.Literal("updateTeamProductFields")),
+  operation: Schema.Union(
+    Schema.Literal("listTeams"),
+    Schema.Literal("createTeam"),
+    Schema.Literal("renameTeam"),
+    Schema.Literal("archiveTeam"),
+    Schema.Literal("reorderTeams"),
+    Schema.Literal("updateTeamProductFields"),
+  ),
   data: Schema.Struct({
     teams: Schema.Array(Team),
   }),
@@ -39,13 +68,21 @@ export const TeamOperationResponse = Schema.Struct({
 
 export const TeamOperationErrorResponse = Schema.Struct({
   ok: Schema.Literal(false),
-  operation: Schema.Union(Schema.Literal("listTeams"), Schema.Literal("updateTeamProductFields")),
+  operation: Schema.Union(
+    Schema.Literal("listTeams"),
+    Schema.Literal("createTeam"),
+    Schema.Literal("renameTeam"),
+    Schema.Literal("archiveTeam"),
+    Schema.Literal("reorderTeams"),
+    Schema.Literal("updateTeamProductFields"),
+  ),
   error: Schema.Struct({
     code: Schema.Union(
       Schema.Literal("not_authenticated"),
       Schema.Literal("not_church_member"),
       Schema.Literal("not_authorized"),
       Schema.Literal("team_not_found"),
+      Schema.Literal("invalid_team_reorder"),
     ),
     message: Schema.String,
   }),
@@ -55,7 +92,7 @@ export const TeamReadResponse = Schema.Union(TeamOperationResponse, TeamOperatio
 export const TeamWriteResponse = Schema.Union(TeamOperationResponse, TeamOperationErrorResponse);
 
 export const teamsResponse = (
-  operation: "listTeams" | "updateTeamProductFields",
+  operation: Schema.Schema.Type<typeof TeamOperationResponse>["operation"],
   teams: ReadonlyArray<Schema.Schema.Type<typeof Team>>,
 ) => ({
   ok: true,
@@ -64,7 +101,7 @@ export const teamsResponse = (
 });
 
 export const teamErrorResponse = (
-  operation: "listTeams" | "updateTeamProductFields",
+  operation: Schema.Schema.Type<typeof TeamOperationErrorResponse>["operation"],
   code: Schema.Schema.Type<typeof TeamOperationErrorResponse>["error"]["code"],
   message: string,
 ) => ({

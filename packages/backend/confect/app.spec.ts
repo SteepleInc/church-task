@@ -39,8 +39,12 @@ import {
   CurrentUserResponse,
 } from "../agent/operations";
 import {
+  TeamArchiveArgs,
+  TeamCreateArgs,
   TeamListArgs,
   TeamProductUpdateArgs,
+  TeamRenameArgs,
+  TeamReorderArgs,
   TeamReadResponse,
   TeamWriteResponse,
 } from "../agent/teamOperations";
@@ -224,6 +228,34 @@ export const teams = GroupSpec.make("teams")
       name: "listForChurch",
       args: TeamListArgs,
       returns: TeamReadResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "createForChurch",
+      args: TeamCreateArgs,
+      returns: TeamWriteResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "renameForChurch",
+      args: TeamRenameArgs,
+      returns: TeamWriteResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "archiveForChurch",
+      args: TeamArchiveArgs,
+      returns: TeamWriteResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "reorderForChurch",
+      args: TeamReorderArgs,
+      returns: TeamWriteResponse,
     }),
   )
   .addFunction(

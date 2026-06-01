@@ -1902,6 +1902,167 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("owners manage Teams through public setup operations", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-team-setup-owner-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Team Setup Church",
+        slug: `team-setup-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+
+      const created = yield* authenticated.mutation(refs.public.teams.createForChurch, {
+        churchId: church.id!,
+        name: "Care",
+      });
+      const care = created.data.teams.find((team) => team.name === "Care")!;
+      const renamed = yield* authenticated.mutation(refs.public.teams.renameForChurch, {
+        churchId: church.id!,
+        teamId: care.id,
+        name: "Pastoral Care",
+      });
+      const reordered = yield* authenticated.mutation(refs.public.teams.reorderForChurch, {
+        churchId: church.id!,
+        teamIds: [
+          care.id,
+          ...renamed.data.teams.filter((team) => team.id !== care.id).map((team) => team.id),
+        ],
+      });
+      const defaults = yield* authenticated.query(refs.public.workDefaults.readForChurch, {
+        churchId: church.id!,
+      });
+      const todoStatus = defaults.data.workflowStatuses.find(
+        (status) => status.taskState === "todo",
+      )!;
+      const createdTask = yield* authenticated.mutation(refs.public.tasks.createBatch, {
+        churchId: church.id!,
+        tasks: [
+          {
+            title: "Prepare care roster",
+            teamId: care.id,
+            workflowStatusId: todoStatus.id,
+            dueDate: "2026-06-07",
+            parentTaskId: null,
+          },
+        ],
+      });
+      const archived = yield* authenticated.mutation(refs.public.teams.archiveForChurch, {
+        churchId: church.id!,
+        teamId: care.id,
+      });
+      const tasks = yield* authenticated.query(refs.public.tasks.listForChurch, {
+        churchId: church.id!,
+      });
+      const withArchived = yield* authenticated.query(refs.public.teams.listForChurch, {
+        churchId: church.id!,
+        includeArchived: true,
+      });
+      const activities = yield* authenticated.query(refs.public.activities.listForEntity, {
+        churchId: church.id!,
+        entityType: "team",
+        entityId: care.id,
+      });
+
+      expect(created.ok).toBe(true);
+      expect(renamed.data.teams.find((team) => team.id === care.id)?.name).toBe("Pastoral Care");
+      expect(reordered.data.teams[0]).toMatchObject({ id: care.id, sortOrder: 0 });
+      expect(
+        createdTask.data.tasks.find((task) => task.title === "Prepare care roster"),
+      ).toMatchObject({
+        teamId: care.id,
+      });
+      expect(archived.data.teams.some((team) => team.id === care.id)).toBe(false);
+      expect(tasks.data.tasks.find((task) => task.title === "Prepare care roster")).toMatchObject({
+        teamId: care.id,
+      });
+      expect(withArchived.data.teams.find((team) => team.id === care.id)).toMatchObject({
+        id: care.id,
+        name: "Pastoral Care",
+        archivedAt: expect.any(String),
+      });
+      expect(activities.data.activities.map((activity) => activity.eventType)).toEqual([
+        "team.created",
+        "team.renamed",
+        "team.reordered",
+        "team.archived",
+      ]);
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("Church members can read but cannot mutate Team setup", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const ownerEmail = `agent-team-setup-owner-${crypto.randomUUID()}@example.com`;
+      const memberEmail = `agent-team-setup-member-${crypto.randomUUID()}@example.com`;
+      const ownerResponse = yield* signUpWithEmail(c, ownerEmail);
+      const memberResponse = yield* signUpWithEmail(c, memberEmail);
+      const owner = (yield* Effect.promise(() => ownerResponse.json())) as { token?: string };
+      const member = (yield* Effect.promise(() => memberResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: owner.token!,
+        name: "Team Setup Member Church",
+        slug: `team-setup-member-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      yield* c.run(
+        Effect.gen(function* () {
+          const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+          yield* Effect.promise(() =>
+            ctx.runMutation(components.betterAuth.adapter.create, {
+              input: {
+                model: "member",
+                data: {
+                  userId: member.user!.id!,
+                  organizationId: church.id!,
+                  role: "member",
+                  createdAt: Date.now(),
+                },
+              },
+            }),
+          );
+        }),
+        Schema.Void,
+      );
+      const memberAuthenticated = yield* authenticatedConfect(c, {
+        userId: member.user!.id!,
+        sessionToken: member.token!,
+      });
+
+      const read = yield* memberAuthenticated.query(refs.public.teams.listForChurch, {
+        churchId: church.id!,
+      });
+      const create = yield* memberAuthenticated.mutation(refs.public.teams.createForChurch, {
+        churchId: church.id!,
+        name: "Unauthorized Team",
+      });
+
+      expect(read.ok).toBe(true);
+      expect(read.data.teams.map((team) => team.name)).toContain("Worship");
+      expect(create).toEqual({
+        ok: false,
+        operation: "createTeam",
+        error: {
+          code: "not_authorized",
+          message: "Only Church owners and admins can manage Teams.",
+        },
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Workflow creation enforces required visible Task States", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;

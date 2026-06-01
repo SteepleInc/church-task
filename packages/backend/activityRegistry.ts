@@ -142,6 +142,17 @@ export const ActivityMetadataByEventType = {
   "team.created": Schema.Struct({
     name: Schema.String,
   }),
+  "team.renamed": Schema.Struct({
+    previousName: Schema.String,
+    name: Schema.String,
+  }),
+  "team.archived": Schema.Struct({
+    name: Schema.String,
+  }),
+  "team.reordered": Schema.Struct({
+    previousSortOrder: Schema.Number,
+    sortOrder: Schema.Number,
+  }),
   "team.member.added": Schema.Struct({
     memberUserId: Schema.String,
   }),
@@ -173,6 +184,9 @@ export const ActivityEventType = Schema.Literal(
   "church.invitation.rejected",
   "church.invitation.canceled",
   "team.created",
+  "team.renamed",
+  "team.archived",
+  "team.reordered",
   "team.member.added",
   "team.member.removed",
 );
@@ -200,6 +214,9 @@ export const ActivityMetadata = Schema.Union(
   ActivityMetadataByEventType["church.invitation.rejected"],
   ActivityMetadataByEventType["church.invitation.canceled"],
   ActivityMetadataByEventType["team.created"],
+  ActivityMetadataByEventType["team.renamed"],
+  ActivityMetadataByEventType["team.archived"],
+  ActivityMetadataByEventType["team.reordered"],
   ActivityMetadataByEventType["team.member.added"],
   ActivityMetadataByEventType["team.member.removed"],
 );
