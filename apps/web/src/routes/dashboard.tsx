@@ -59,33 +59,72 @@ import {
 import { QueryResult, useQuery as useConfectQuery } from "@confect/react";
 import { CheckoutLink, CustomerPortalLink } from "@convex-dev/polar/react";
 import { revalidateLogic } from "@tanstack/react-form";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
 import { Schema } from "effect";
 import { useState } from "react";
 
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
-import {
-  TaskExecutionSurface,
-  type ExecutionSurface,
-} from "@/components/tasks/task-execution-surface";
+import { TaskExecutionSurface } from "@/components/tasks/task-execution-surface";
 import UserMenu from "@/components/user-menu";
 import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/dashboard")({
+  validateSearch: (search): DashboardSearch => {
+    const work = search.work;
+    const teamId = search.teamId;
+
+    return {
+      work:
+        work === "our_work" || work === "team" || work === "settings" || work === "my_work"
+          ? work
+          : undefined,
+      teamId: typeof teamId === "string" && teamId.length > 0 ? teamId : undefined,
+    };
+  },
   component: RouteComponent,
 });
 
-type ActiveDashboardPanel = ExecutionSurface | "settings" | { kind: "team"; teamId: string };
+type ActiveDashboardPanel = "my_work" | "our_work" | "settings" | { kind: "team"; teamId: string };
+
+type DashboardSearch = {
+  readonly work?: "my_work" | "our_work" | "team" | "settings";
+  readonly teamId?: string;
+};
+
+export function getDashboardPanelFromSearch(search: DashboardSearch): ActiveDashboardPanel {
+  if (search.work === "team" && search.teamId) {
+    return { kind: "team", teamId: search.teamId };
+  }
+
+  if (search.work === "our_work" || search.work === "settings") {
+    return search.work;
+  }
+
+  return "my_work";
+}
+
+export function getDashboardSearchForPanel(panel: ActiveDashboardPanel): DashboardSearch {
+  if (typeof panel === "object") {
+    return { work: "team", teamId: panel.teamId };
+  }
+
+  return panel === "my_work" ? {} : { work: panel };
+}
 
 function PrivateDashboardContent() {
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: "/dashboard" });
   const privateData = useConfectQuery(refs.public.privateData.get);
   const currentUser = useConfectQuery(refs.public.auth.getCurrentUser);
   const products = useQuery(api.polar.listAllProducts);
   const subscription = useQuery(api.polar.getCurrentSubscription);
   const activeChurch = useQuery(api.dashboard.getActiveOrganization);
-  const [activePanel, setActivePanel] = useState<ActiveDashboardPanel>("my_work");
+  const activePanel = getDashboardPanelFromSearch(search);
+  const setActivePanel = (panel: ActiveDashboardPanel) => {
+    navigate({ search: getDashboardSearchForPanel(panel) });
+  };
   const currentUserId = QueryResult.isSuccess(currentUser) ? (currentUser.value?.id ?? null) : null;
   const teams = useQuery(
     api.teams.listForChurch,
