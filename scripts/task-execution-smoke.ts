@@ -165,6 +165,10 @@ const summary = buildTaskExecutionSmokeSummary({
   generatedAt: new Date().toISOString(),
   e2eReady,
   e2eSkipReason: e2eReady ? null : e2eSkipReason,
+  e2eRequirements: {
+    envFile: e2eEnvFile,
+    requiredEnvNames,
+  },
   results,
 });
 

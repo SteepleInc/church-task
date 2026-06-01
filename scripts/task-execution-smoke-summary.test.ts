@@ -15,12 +15,17 @@ describe("Task execution smoke summary", () => {
     exitCode: 0,
     status: "passed",
   };
+  const e2eRequirements = {
+    envFile: ".env.e2e",
+    requiredEnvNames: ["VITE_CONVEX_URL", "VITE_CONVEX_SITE_URL"],
+  };
 
   test("marks the smoke path passed when every step passes", () => {
     const summary = buildTaskExecutionSmokeSummary({
       generatedAt: "2026-06-01T00:00:00.000Z",
       e2eReady: true,
       e2eSkipReason: null,
+      e2eRequirements,
       results: [passedResult],
     });
 
@@ -38,6 +43,7 @@ describe("Task execution smoke summary", () => {
       generatedAt: "2026-06-01T00:00:00.000Z",
       e2eReady: false,
       e2eSkipReason: "Missing .env.e2e.",
+      e2eRequirements,
       results: [
         passedResult,
         {
@@ -71,6 +77,7 @@ describe("Task execution smoke summary", () => {
       generatedAt: "2026-06-01T00:00:00.000Z",
       e2eReady: false,
       e2eSkipReason: "Missing .env.e2e.",
+      e2eRequirements,
       results: [
         {
           ...passedResult,
@@ -107,6 +114,7 @@ describe("Task execution smoke summary", () => {
       generatedAt: "2026-06-01T00:00:00.000Z",
       e2eReady: true,
       e2eSkipReason: null,
+      e2eRequirements,
       results: [
         passedResult,
         {
@@ -141,6 +149,7 @@ describe("Task execution smoke summary", () => {
           generatedAt: "2026-06-01T00:00:00.000Z",
           e2eReady: false,
           e2eSkipReason: "Missing .env.e2e.",
+          e2eRequirements,
           results: [
             passedResult,
             {
@@ -165,6 +174,7 @@ describe("Task execution smoke summary", () => {
           generatedAt: "2026-06-01T00:00:00.000Z",
           e2eReady: false,
           e2eSkipReason: "Missing .env.e2e.",
+          e2eRequirements,
           results: [
             passedResult,
             {
@@ -188,6 +198,7 @@ describe("Task execution smoke summary", () => {
         generatedAt: "2026-06-01T00:00:00.000Z",
         e2eReady: false,
         e2eSkipReason: "Missing .env.e2e.",
+        e2eRequirements,
         results: [
           passedResult,
           {
@@ -203,6 +214,8 @@ describe("Task execution smoke summary", () => {
     );
 
     expect(report).toContain("Status: passed_with_skips");
+    expect(report).toContain("E2E env file: .env.e2e");
+    expect(report).toContain("E2E required env: VITE_CONVEX_URL, VITE_CONVEX_SITE_URL");
     expect(report).toContain("E2E skip reason: Missing .env.e2e.");
     expect(report).toContain("## Closure Gate");
     expect(report).toContain("Ready to close #71: no");

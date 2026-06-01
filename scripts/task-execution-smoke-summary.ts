@@ -35,6 +35,10 @@ export type TaskExecutionSmokeSummary = {
   readonly generatedAt: string;
   readonly e2eReady: boolean;
   readonly e2eSkipReason: string | null;
+  readonly e2eRequirements: {
+    readonly envFile: string;
+    readonly requiredEnvNames: readonly string[];
+  };
   readonly status: "passed" | "failed" | "passed_with_skips";
   readonly closureGate: {
     readonly ready: boolean;
@@ -97,6 +101,10 @@ export function buildTaskExecutionSmokeSummary(input: {
   readonly generatedAt: string;
   readonly e2eReady: boolean;
   readonly e2eSkipReason: string | null;
+  readonly e2eRequirements: {
+    readonly envFile: string;
+    readonly requiredEnvNames: readonly string[];
+  };
   readonly results: readonly TaskExecutionSmokeStepResult[];
 }): TaskExecutionSmokeSummary {
   const status = input.results.some((result) => result.status === "failed")
@@ -179,6 +187,8 @@ export function formatTaskExecutionSmokeMarkdown(summary: TaskExecutionSmokeSumm
     `Generated: ${summary.generatedAt}`,
     `Status: ${summary.status}`,
     `E2E ready: ${summary.e2eReady ? "yes" : "no"}`,
+    `E2E env file: ${summary.e2eRequirements.envFile}`,
+    `E2E required env: ${summary.e2eRequirements.requiredEnvNames.join(", ")}`,
   ];
 
   if (summary.e2eSkipReason) {
