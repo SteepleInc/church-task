@@ -29,10 +29,13 @@ if (hasE2eEnvFile) {
 
 const requiredEnvNames = ["VITE_CONVEX_URL", "VITE_CONVEX_SITE_URL"] as const;
 const missingEnvNames = requiredEnvNames.filter((name) => !process.env[name]);
-const e2eReady = hasE2eEnvFile && missingEnvNames.length === 0;
+const allowsProcessE2eEnv = Boolean(process.env.CI);
+const e2eReady = missingEnvNames.length === 0 && (hasE2eEnvFile || allowsProcessE2eEnv);
 const e2eSkipReason = hasE2eEnvFile
   ? `Missing ${missingEnvNames.join(", ")} in ${e2eEnvFile}. E2E tests must not fall back to normal development Convex state.`
-  : `Missing ${e2eEnvFile}. Copy .env.e2e.example to ${e2eEnvFile} and point it at an isolated Convex deployment before running E2E tests.`;
+  : allowsProcessE2eEnv
+    ? `Missing ${missingEnvNames.join(", ")} in the CI process environment. Export isolated Convex E2E values or copy .env.e2e.example to ${e2eEnvFile}.`
+    : `Missing ${e2eEnvFile}. Local E2E tests require an explicit isolated env file and must not fall back to normal development Convex state.`;
 
 const steps: readonly Step[] = [
   {
@@ -116,7 +119,7 @@ const steps: readonly Step[] = [
     covers: [
       "Web routes reflect backend state through browser-visible My Work, Our Work, lifecycle, and Team board workflows.",
       "ReUI Kanban drag/drop persists movement through backend state in browser smoke coverage.",
-      "Final #71 closure requires this step to pass, not skip, in an environment with .env.e2e.",
+      "Final #71 closure requires this step to pass, not skip, with isolated Convex E2E env values from .env.e2e or CI secrets.",
     ],
     acceptanceCriteria: [
       "cross_surface_lifecycle",
@@ -166,7 +169,7 @@ const summary = buildTaskExecutionSmokeSummary({
   e2eReady,
   e2eSkipReason: e2eReady ? null : e2eSkipReason,
   e2eRequirements: {
-    envFile: e2eEnvFile,
+    envFile: `${e2eEnvFile} or CI process environment`,
     requiredEnvNames,
   },
   results,
