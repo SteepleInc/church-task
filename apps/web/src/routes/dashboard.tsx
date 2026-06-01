@@ -392,7 +392,11 @@ function TeamSettingsCard({
               {pendingAction === "create" ? "Creating..." : "Create Team"}
             </Button>
           </form>
-        ) : null}
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Only Church owners and admins can change Teams.
+          </p>
+        )}
         <Table>
           <TableHeader>
             <TableRow>
@@ -627,7 +631,11 @@ function TeamMembershipSettingsCard({
               {pendingAction === "add" ? "Adding..." : "Add Team Member"}
             </Button>
           </form>
-        ) : null}
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Only Church owners and admins can change Team Memberships.
+          </p>
+        )}
         <ItemGroup className="gap-2">
           {visibleMemberships.map((membership) => {
             const team = teamsById.get(membership.teamId)!;

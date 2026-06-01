@@ -221,6 +221,10 @@ test("active Church member can navigate to readable setup settings", async ({ pa
   await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Workflow Statuses" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Church Time Zone" })).toBeVisible();
+  await expect(page.getByText("Only Church owners and admins can change Teams.")).toBeVisible();
+  await expect(
+    page.getByText("Only Church owners and admins can change Team Memberships."),
+  ).toBeVisible();
   await expect(page.getByText(/Organization|Org/)).not.toBeVisible();
   await expect(
     page.getByRole("button", { name: /Create Team|Archive Team|Update Time Zone/ }),
