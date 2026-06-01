@@ -35,6 +35,12 @@ const emptySetupWrite = {
   results: [],
 } as const;
 
+const taskToolResponse = (tool: string, body: Record<string, unknown>) => ({
+  ok: true,
+  tool,
+  ...body,
+});
+
 const fakeBackend = (overrides: Partial<BackendClientService>) =>
   Layer.succeed(BackendClient, {
     healthCheck: Effect.succeed("OK" as const),
@@ -52,6 +58,7 @@ const fakeBackend = (overrides: Partial<BackendClientService>) =>
     revokeCliCredential: () => Effect.succeed({ revoked: true }),
     setupBatchRead: () => Effect.succeed(emptySetupRead),
     setupBatchWrite: () => Effect.succeed(emptySetupWrite),
+    taskTool: () => Effect.succeed(taskToolResponse("unknown", {})),
     ...overrides,
   });
 
@@ -334,6 +341,256 @@ describe("church-task setup write", () => {
       ],
     });
     expect(result).toEqual({ exitCode: 0, stderr: "", stdout: `${JSON.stringify(setupWrite)}\n` });
+  });
+});
+
+describe("church-task task execution", () => {
+  it("updates a Task assignment and lists the assigned Task in My Work", async () => {
+    const requests: Array<{
+      readonly token: string;
+      readonly tool: string;
+      readonly body: Record<string, unknown>;
+    }> = [];
+    const updatedTask = {
+      id: "task_123",
+      title: "Prepare liturgy",
+      assignedUserId: "user_123",
+      taskState: "todo",
+    };
+
+    const result = await runCli(
+      [
+        "task",
+        "update",
+        "--church-id",
+        "church_123",
+        "--task-id",
+        "task_123",
+        "--assigned-user-id",
+        "user_123",
+      ],
+      {
+        env: { CHURCH_TASK_AUTH_TOKEN: "env-token" },
+        backendLayer: fakeBackend({
+          taskTool: (args) =>
+            Effect.sync(() => {
+              requests.push(args);
+              return taskToolResponse("update_task", { task: updatedTask });
+            }),
+        }),
+      },
+    );
+
+    expect(requests).toEqual([
+      {
+        token: "env-token",
+        tool: "update-task",
+        body: {
+          churchId: "church_123",
+          taskId: "task_123",
+          assignedUserId: "user_123",
+        },
+      },
+    ]);
+    expect(result).toEqual({
+      exitCode: 0,
+      stderr: "",
+      stdout: `${JSON.stringify(taskToolResponse("update_task", { task: updatedTask }))}\n`,
+    });
+
+    requests.length = 0;
+    const listResult = await runCli(
+      ["task", "list", "--church-id", "church_123", "--surface", "my_work"],
+      {
+        env: { CHURCH_TASK_AUTH_TOKEN: "env-token" },
+        backendLayer: fakeBackend({
+          taskTool: (args) =>
+            Effect.sync(() => {
+              requests.push(args);
+              return taskToolResponse("list_tasks", { tasks: [updatedTask] });
+            }),
+        }),
+      },
+    );
+
+    expect(requests).toEqual([
+      {
+        token: "env-token",
+        tool: "list-tasks",
+        body: { churchId: "church_123", surface: "my_work" },
+      },
+    ]);
+    expect(listResult.stdout).toBe(
+      `${JSON.stringify(taskToolResponse("list_tasks", { tasks: [updatedTask] }))}\n`,
+    );
+  });
+
+  it("maps task create, get, lifecycle, and lookup commands to compact backend tools", async () => {
+    const requests: Array<{
+      readonly token: string;
+      readonly tool: string;
+      readonly body: Record<string, unknown>;
+    }> = [];
+    const backendLayer = fakeBackend({
+      taskTool: (args) =>
+        Effect.sync(() => {
+          requests.push(args);
+          return taskToolResponse(args.tool.replaceAll("-", "_"), {});
+        }),
+    });
+    const env = { CHURCH_TASK_AUTH_TOKEN: "env-token" };
+
+    const commands = [
+      [
+        [
+          "task",
+          "create",
+          "--church-id",
+          "church_123",
+          "--title",
+          "Prepare liturgy",
+          "--workflow-status-id",
+          "status_todo",
+          "--due-date",
+          "2026-06-03",
+          "--team-id",
+          "team_123",
+          "--assigned-user-id",
+          "user_123",
+          "--parent-task-id",
+          "task_parent",
+        ],
+        {
+          tool: "create-task",
+          body: {
+            churchId: "church_123",
+            title: "Prepare liturgy",
+            workflowStatusId: "status_todo",
+            dueDate: "2026-06-03",
+            teamId: "team_123",
+            assignedUserId: "user_123",
+            parentTaskId: "task_parent",
+          },
+        },
+      ],
+      [
+        ["task", "get", "--church-id", "church_123", "--task-id", "task_123"],
+        { tool: "get-task", body: { churchId: "church_123", taskId: "task_123" } },
+      ],
+      [
+        [
+          "task",
+          "list",
+          "--church-id",
+          "church_123",
+          "--surface",
+          "our_work",
+          "--cycle-id",
+          "cycle_123",
+          "--team-id",
+          "team_123",
+          "--assignee-id",
+          "user_123",
+          "--workflow-status-id",
+          "status_todo",
+          "--task-state",
+          "todo",
+        ],
+        {
+          tool: "list-tasks",
+          body: {
+            churchId: "church_123",
+            surface: "our_work",
+            cycleId: "cycle_123",
+            teamId: "team_123",
+            assignedUserId: "user_123",
+            workflowStatusId: "status_todo",
+            taskState: "todo",
+          },
+        },
+      ],
+      [
+        [
+          "task",
+          "update",
+          "--church-id",
+          "church_123",
+          "--task-id",
+          "task_123",
+          "--title",
+          "Updated title",
+          "--workflow-status-id",
+          "status_doing",
+          "--due-date",
+          "2026-06-04",
+          "--cycle-id",
+          "cycle_next",
+          "--unassign-user",
+          "--unassign-team",
+          "--clear-parent",
+        ],
+        {
+          tool: "update-task",
+          body: {
+            churchId: "church_123",
+            taskId: "task_123",
+            title: "Updated title",
+            workflowStatusId: "status_doing",
+            dueDate: "2026-06-04",
+            cycleId: "cycle_next",
+            assignedUserId: null,
+            teamId: null,
+            parentTaskId: null,
+          },
+        },
+      ],
+      [
+        ["task", "complete", "--church-id", "church_123", "--task-id", "task_123"],
+        { tool: "complete-task", body: { churchId: "church_123", taskId: "task_123" } },
+      ],
+      [
+        ["task", "cancel", "--church-id", "church_123", "--task-id", "task_123"],
+        { tool: "cancel-task", body: { churchId: "church_123", taskId: "task_123" } },
+      ],
+      [
+        ["task", "reopen", "--church-id", "church_123", "--task-id", "task_123"],
+        { tool: "reopen-task", body: { churchId: "church_123", taskId: "task_123" } },
+      ],
+      [
+        ["lookup", "users", "--church-id", "church_123"],
+        { tool: "list-users", body: { churchId: "church_123" } },
+      ],
+      [
+        ["lookup", "teams", "--church-id", "church_123"],
+        { tool: "list-teams", body: { churchId: "church_123" } },
+      ],
+      [
+        ["lookup", "cycles", "--church-id", "church_123"],
+        { tool: "list-cycles", body: { churchId: "church_123" } },
+      ],
+      [
+        [
+          "lookup",
+          "workflow-statuses",
+          "--church-id",
+          "church_123",
+          "--workflow-id",
+          "workflow_123",
+        ],
+        {
+          tool: "list-workflow-statuses",
+          body: { churchId: "church_123", workflowId: "workflow_123" },
+        },
+      ],
+    ] as const;
+
+    for (const [command, expected] of commands) {
+      const result = await runCli(command, { env, backendLayer });
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(JSON.parse(result.stdout)).toMatchObject({ ok: true });
+      expect(requests.at(-1)).toEqual({ token: "env-token", ...expected });
+    }
   });
 });
 

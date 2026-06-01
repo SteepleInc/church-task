@@ -68,6 +68,11 @@ export type BackendClientService = {
     readonly token: string;
     readonly operations: CoreWorkBatchWriteArgs["operations"];
   }) => Effect.Effect<CoreWorkBatchWriteResponse, BackendError>;
+  readonly taskTool: (args: {
+    readonly token: string;
+    readonly tool: string;
+    readonly body: Record<string, unknown>;
+  }) => Effect.Effect<Record<string, unknown> & { readonly ok?: boolean }, BackendError>;
 };
 
 export type CredentialStorageService = {
@@ -323,6 +328,24 @@ const makeConvexBackendLayer = (env: CliEnv) =>
             },
             catch: (cause) => new BackendError({ cause }),
           }),
+        taskTool: ({ token, tool, body }) =>
+          Effect.tryPromise({
+            try: async () => {
+              const response = await fetch(`${authBaseUrl}/api/mcp/tools/${tool}`, {
+                method: "POST",
+                headers: {
+                  authorization: `Bearer ${token}`,
+                  "content-type": "application/json",
+                },
+                body: JSON.stringify(body),
+              });
+
+              if (!response.ok) throw new Error("Task tool request failed.");
+
+              return (await response.json()) as Record<string, unknown> & { readonly ok?: boolean };
+            },
+            catch: (cause) => new BackendError({ cause }),
+          }),
       };
     }),
   );
@@ -346,6 +369,38 @@ const churchIdFromArgs = (args: ReadonlyArray<string>) => {
   const churchId = churchIdIndex >= 0 ? args[churchIdIndex + 1]?.trim() : undefined;
 
   return churchId ?? null;
+};
+
+const optionValueFromArgs = (args: ReadonlyArray<string>, option: string) => {
+  const optionIndex = args.indexOf(option);
+  const value = optionIndex >= 0 ? args[optionIndex + 1]?.trim() : undefined;
+
+  return value || undefined;
+};
+
+const requiredOptionFromArgs = (args: ReadonlyArray<string>, option: string) => {
+  const value = optionValueFromArgs(args, option);
+
+  return value ? Effect.succeed(value) : Effect.fail(new MissingOptionError({ option }));
+};
+
+const nullableIdFromArgs = (args: ReadonlyArray<string>, option: string) => {
+  const value = optionValueFromArgs(args, option);
+  if (value === undefined) return undefined;
+  if (value === "null" || value === "none") return null;
+
+  return value;
+};
+
+const firstDefined = <T>(...values: ReadonlyArray<T | undefined>) =>
+  values.find((value) => value !== undefined);
+
+const addOptionalValue = (
+  body: Record<string, unknown>,
+  key: string,
+  value: string | null | undefined,
+) => {
+  if (value !== undefined) body[key] = value;
 };
 
 const readEnvToken = (env: CliEnv) => {
@@ -434,6 +489,126 @@ const runSetupWrite = (args: ReadonlyArray<string>) =>
     const result = yield* backend.setupBatchWrite({ token, operations });
 
     return success(result);
+  });
+
+const runTaskTool = (tool: string, body: Record<string, unknown>) =>
+  Effect.gen(function* () {
+    const backend = yield* BackendClient;
+    const token = yield* readAuthToken;
+    const result = yield* backend.taskTool({ token, tool, body });
+
+    return result.ok === false
+      ? operationFailure(result as { readonly ok: false; readonly error: unknown })
+      : success(result);
+  });
+
+const runTaskList = (args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const churchId = yield* requiredOptionFromArgs(args, "--church-id");
+    const body: Record<string, unknown> = { churchId };
+
+    addOptionalValue(body, "surface", optionValueFromArgs(args, "--surface"));
+    addOptionalValue(body, "cycleId", optionValueFromArgs(args, "--cycle-id"));
+    addOptionalValue(body, "teamId", nullableIdFromArgs(args, "--team-id"));
+    addOptionalValue(
+      body,
+      "assignedUserId",
+      firstDefined(
+        nullableIdFromArgs(args, "--assigned-user-id"),
+        nullableIdFromArgs(args, "--assignee-id"),
+      ),
+    );
+    addOptionalValue(body, "workflowStatusId", optionValueFromArgs(args, "--workflow-status-id"));
+    addOptionalValue(body, "taskState", optionValueFromArgs(args, "--task-state"));
+
+    return yield* runTaskTool("list-tasks", body);
+  });
+
+const runTaskGet = (args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    return yield* runTaskTool("get-task", {
+      churchId: yield* requiredOptionFromArgs(args, "--church-id"),
+      taskId: yield* requiredOptionFromArgs(args, "--task-id"),
+    });
+  });
+
+const runTaskCreate = (args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const body: Record<string, unknown> = {
+      churchId: yield* requiredOptionFromArgs(args, "--church-id"),
+      title: yield* requiredOptionFromArgs(args, "--title"),
+      workflowStatusId: yield* requiredOptionFromArgs(args, "--workflow-status-id"),
+      dueDate: yield* requiredOptionFromArgs(args, "--due-date"),
+    };
+
+    addOptionalValue(body, "teamId", nullableIdFromArgs(args, "--team-id"));
+    addOptionalValue(body, "assignedUserId", nullableIdFromArgs(args, "--assigned-user-id"));
+    addOptionalValue(body, "parentTaskId", nullableIdFromArgs(args, "--parent-task-id"));
+
+    return yield* runTaskTool("create-task", body);
+  });
+
+const runTaskUpdate = (args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const body: Record<string, unknown> = {
+      churchId: yield* requiredOptionFromArgs(args, "--church-id"),
+      taskId: yield* requiredOptionFromArgs(args, "--task-id"),
+    };
+
+    addOptionalValue(body, "title", optionValueFromArgs(args, "--title"));
+    addOptionalValue(body, "workflowStatusId", optionValueFromArgs(args, "--workflow-status-id"));
+    addOptionalValue(body, "dueDate", optionValueFromArgs(args, "--due-date"));
+    addOptionalValue(body, "cycleId", optionValueFromArgs(args, "--cycle-id"));
+
+    if (args.includes("--unassign-user")) {
+      body.assignedUserId = null;
+    } else {
+      addOptionalValue(body, "assignedUserId", nullableIdFromArgs(args, "--assigned-user-id"));
+    }
+
+    if (args.includes("--unassign-team")) {
+      body.teamId = null;
+    } else {
+      addOptionalValue(body, "teamId", nullableIdFromArgs(args, "--team-id"));
+    }
+
+    if (args.includes("--clear-parent")) {
+      body.parentTaskId = null;
+    } else {
+      addOptionalValue(body, "parentTaskId", nullableIdFromArgs(args, "--parent-task-id"));
+    }
+
+    return yield* runTaskTool("update-task", body);
+  });
+
+const runTaskTransition = (tool: string, args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    return yield* runTaskTool(tool, {
+      churchId: yield* requiredOptionFromArgs(args, "--church-id"),
+      taskId: yield* requiredOptionFromArgs(args, "--task-id"),
+    });
+  });
+
+const runLookup = (lookup: string | undefined, args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const churchId = yield* requiredOptionFromArgs(args, "--church-id");
+    const body: Record<string, unknown> = { churchId };
+    if (lookup === "workflow-statuses") {
+      addOptionalValue(body, "workflowId", optionValueFromArgs(args, "--workflow-id"));
+    }
+
+    switch (lookup) {
+      case "users":
+        return yield* runTaskTool("list-users", body);
+      case "teams":
+        return yield* runTaskTool("list-teams", body);
+      case "cycles":
+        return yield* runTaskTool("list-cycles", body);
+      case "workflow-statuses":
+        return yield* runTaskTool("list-workflow-statuses", body);
+      default:
+        return yield* Effect.fail(new UnknownCommandError({ command: lookup }));
+    }
   });
 
 const safeCredentialMetadata = (credential: CliCredential) => ({
@@ -572,6 +747,38 @@ const runCliEffect = (
     return runSetupWrite(args.slice(2));
   }
 
+  if (command === "task" && args[1] === "list") {
+    return runTaskList(args.slice(2));
+  }
+
+  if (command === "task" && args[1] === "get") {
+    return runTaskGet(args.slice(2));
+  }
+
+  if (command === "task" && args[1] === "create") {
+    return runTaskCreate(args.slice(2));
+  }
+
+  if (command === "task" && args[1] === "update") {
+    return runTaskUpdate(args.slice(2));
+  }
+
+  if (command === "task" && args[1] === "complete") {
+    return runTaskTransition("complete-task", args.slice(2));
+  }
+
+  if (command === "task" && args[1] === "cancel") {
+    return runTaskTransition("cancel-task", args.slice(2));
+  }
+
+  if (command === "task" && args[1] === "reopen") {
+    return runTaskTransition("reopen-task", args.slice(2));
+  }
+
+  if (command === "lookup") {
+    return runLookup(args[1], args.slice(2));
+  }
+
   if (command === "auth" && args[1] === "status") {
     return runAuthStatus;
   }
@@ -632,7 +839,7 @@ const formatError = (error: CliError) => {
       return failure({
         code: "unknown_command",
         message:
-          "Run `church-task health`, `church-task login --name <name>`, `church-task current-user`, `church-task active-church`, `church-task setup read --church-id <id>`, `church-task setup write --json <batch>`, `church-task auth status`, or `church-task auth logout`.",
+          "Run `church-task health`, `church-task login --name <name>`, `church-task current-user`, `church-task active-church`, `church-task setup read --church-id <id>`, `church-task setup write --json <batch>`, `church-task task <list|get|create|update|complete|cancel|reopen>`, `church-task lookup <users|teams|cycles|workflow-statuses>`, `church-task auth status`, or `church-task auth logout`.",
       });
   }
 };
