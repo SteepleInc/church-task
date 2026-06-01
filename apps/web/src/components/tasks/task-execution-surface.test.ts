@@ -28,4 +28,17 @@ describe("Task execution surface", () => {
       teamId: null,
     });
   });
+
+  test("defaults Team board Task creation to the selected Team", () => {
+    expect(
+      getTaskCreationDefaults({
+        surface: "team_board",
+        currentUserId: "user-1",
+        teamId: "team-1",
+      }),
+    ).toEqual({
+      assignedUserId: null,
+      teamId: "team-1",
+    });
+  });
 });

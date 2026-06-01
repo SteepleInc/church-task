@@ -77,15 +77,41 @@ export const Route = createFileRoute("/dashboard")({
   component: RouteComponent,
 });
 
+type ActiveDashboardPanel = ExecutionSurface | "settings" | { kind: "team"; teamId: string };
+
 function PrivateDashboardContent() {
   const privateData = useConfectQuery(refs.public.privateData.get);
   const currentUser = useConfectQuery(refs.public.auth.getCurrentUser);
   const products = useQuery(api.polar.listAllProducts);
   const subscription = useQuery(api.polar.getCurrentSubscription);
   const activeChurch = useQuery(api.dashboard.getActiveOrganization);
-  const [activePanel, setActivePanel] = useState<ExecutionSurface | "settings">("my_work");
+  const [activePanel, setActivePanel] = useState<ActiveDashboardPanel>("my_work");
+  const currentUserId = QueryResult.isSuccess(currentUser) ? (currentUser.value?.id ?? null) : null;
+  const teams = useQuery(
+    api.teams.listForChurch,
+    activeChurch ? { churchId: activeChurch.id } : "skip",
+  );
+  const teamMemberships = useQuery(
+    api.teams.listMembershipsForChurch,
+    activeChurch ? { churchId: activeChurch.id } : "skip",
+  );
   const pendingInvitations =
     activeChurch?.invitations.filter((invitation) => invitation.status === "pending") ?? [];
+  const activeTeams = teams?.ok && teams.operation === "listTeams" ? teams.data.teams : [];
+  const memberships =
+    teamMemberships?.ok && teamMemberships.operation === "listTeamMemberships"
+      ? teamMemberships.data.teamMemberships
+      : [];
+  const currentUserTeamIds = new Set(
+    memberships
+      .filter((membership) => membership.userId === currentUserId)
+      .map((membership) => membership.teamId),
+  );
+  const memberTeams = activeTeams.filter((team) => currentUserTeamIds.has(team.id));
+  const selectedTeam =
+    typeof activePanel === "object"
+      ? (activeTeams.find((team) => team.id === activePanel.teamId) ?? null)
+      : null;
 
   const product = products?.find((product: { isRecurring?: boolean }) => product.isRecurring);
   const hasActiveSubscription = Boolean(subscription);
@@ -133,6 +159,42 @@ function PrivateDashboardContent() {
           ) : null}
           {activeChurch ? (
             <SidebarGroup>
+              <SidebarGroupLabel>Teams</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {teamMemberships === undefined || teams === undefined ? (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton type="button" disabled>
+                        <span>Loading Teams...</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ) : memberTeams.length > 0 ? (
+                    memberTeams.map((team) => (
+                      <SidebarMenuItem key={team.id}>
+                        <SidebarMenuButton
+                          type="button"
+                          isActive={
+                            typeof activePanel === "object" && activePanel.teamId === team.id
+                          }
+                          onClick={() => setActivePanel({ kind: "team", teamId: team.id })}
+                        >
+                          <span>{team.name}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))
+                  ) : (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton type="button" disabled>
+                        <span>No Team memberships</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ) : null}
+          {activeChurch ? (
+            <SidebarGroup>
               <SidebarGroupLabel>Church Setup</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
@@ -163,7 +225,9 @@ function PrivateDashboardContent() {
                     ? "Active Church Settings"
                     : activePanel === "my_work"
                       ? "My Work"
-                      : "Our Work"}
+                      : activePanel === "our_work"
+                        ? "Our Work"
+                        : (selectedTeam?.name ?? "Team")}
                 </h1>
                 {activeChurch ? (
                   <p className="text-sm text-muted-foreground">
@@ -176,11 +240,25 @@ function PrivateDashboardContent() {
           </div>
           {activePanel === "settings" && activeChurch ? (
             <ActiveChurchSettings activeChurch={activeChurch} />
-          ) : activeChurch && QueryResult.isSuccess(currentUser) && currentUser.value?.id ? (
+          ) : typeof activePanel === "object" && !selectedTeam ? (
+            <section className="grid gap-4 rounded-xl border bg-background p-4 shadow-xs">
+              <h2 className="text-base font-semibold">Team board</h2>
+              <p className="text-sm text-muted-foreground">
+                {teams === undefined ? "Loading Team board..." : "Team board is unavailable."}
+              </p>
+            </section>
+          ) : activeChurch && currentUserId ? (
             <TaskExecutionSurface
               churchId={activeChurch.id}
-              currentUserId={currentUser.value.id}
-              surface={activePanel === "settings" ? "my_work" : activePanel}
+              currentUserId={currentUserId}
+              surface={
+                typeof activePanel === "object"
+                  ? "team_board"
+                  : activePanel === "settings"
+                    ? "my_work"
+                    : activePanel
+              }
+              team={selectedTeam}
             />
           ) : (
             <>

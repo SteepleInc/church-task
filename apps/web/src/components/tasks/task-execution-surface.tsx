@@ -8,7 +8,7 @@ import { useState } from "react";
 
 import { TaskKanbanBoard } from "./task-kanban-board";
 
-export type ExecutionSurface = "my_work" | "our_work";
+export type ExecutionSurface = "my_work" | "our_work" | "team_board";
 
 type ExecutionCycle = {
   readonly id: string;
@@ -54,10 +54,11 @@ export function selectCurrentExecutionCycle(
 export function getTaskCreationDefaults(args: {
   readonly surface: ExecutionSurface;
   readonly currentUserId: string;
+  readonly teamId?: string | null;
 }) {
   return {
     assignedUserId: args.surface === "my_work" ? args.currentUserId : null,
-    teamId: null,
+    teamId: args.surface === "team_board" ? (args.teamId ?? null) : null,
   };
 }
 
@@ -65,10 +66,16 @@ export function TaskExecutionSurface({
   churchId,
   currentUserId,
   surface,
+  team,
 }: {
   readonly churchId: string;
   readonly currentUserId: string;
   readonly surface: ExecutionSurface;
+  readonly team?: {
+    readonly id: string;
+    readonly name: string;
+    readonly defaultWorkflowId: string | null;
+  } | null;
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const [title, setTitle] = useState("");
@@ -80,15 +87,14 @@ export function TaskExecutionSurface({
 
   const cycles = cyclesResult?.ok ? cyclesResult.cycles : [];
   const currentCycle = selectCurrentExecutionCycle(cycles, today);
-  const defaultWorkflow = workDefaults?.ok
+  const churchDefaultWorkflow = workDefaults?.ok
     ? workDefaults.data.workflows.find((workflow) => workflow.isDefault)
     : null;
+  const workflowId = surface === "team_board" ? team?.defaultWorkflowId : churchDefaultWorkflow?.id;
 
   const workflowStatusesResult = useQuery(
     api.tasks.mcpListWorkflowStatuses,
-    defaultWorkflow
-      ? { churchId, actorUserId: currentUserId, workflowId: defaultWorkflow.id }
-      : "skip",
+    workflowId ? { churchId, actorUserId: currentUserId, workflowId } : "skip",
   );
   const tasksResult = useQuery(
     api.tasks.mcpListTasks,
@@ -97,7 +103,7 @@ export function TaskExecutionSurface({
       : {
           churchId,
           actorUserId: currentUserId,
-          surface,
+          ...(surface === "team_board" ? { teamId: team?.id ?? null } : { surface }),
           ...(currentCycle ? { cycleId: currentCycle.id } : {}),
         },
   );
@@ -119,17 +125,22 @@ export function TaskExecutionSurface({
   const isLoading =
     cyclesResult === undefined ||
     workDefaults === undefined ||
-    (defaultWorkflow !== null && workflowStatusesResult === undefined) ||
+    (workflowId !== undefined && workflowId !== null && workflowStatusesResult === undefined) ||
     tasksResult === undefined ||
     usersResult === undefined;
-  const surfaceTitle = surface === "my_work" ? "My Work" : "Our Work";
+  const surfaceTitle =
+    surface === "my_work"
+      ? "My Work"
+      : surface === "our_work"
+        ? "Our Work"
+        : (team?.name ?? "Team");
 
   const handleCreateTask = async () => {
     const trimmedTitle = title.trim();
     if (!trimmedTitle || !creationStatus) return;
 
     setError(null);
-    const defaults = getTaskCreationDefaults({ surface, currentUserId });
+    const defaults = getTaskCreationDefaults({ surface, currentUserId, teamId: team?.id ?? null });
     const result = await createTask({
       churchId,
       actorUserId: currentUserId,
@@ -157,7 +168,9 @@ export function TaskExecutionSurface({
           <CardDescription>
             {surface === "my_work"
               ? "Tasks assigned directly to you in the current execution window."
-              : "All Tasks in the active Church execution window."}
+              : surface === "our_work"
+                ? "All Tasks in the active Church execution window."
+                : "Team Tasks in the current execution window."}
           </CardDescription>
           {currentCycle ? (
             <p className="text-xs text-muted-foreground">
@@ -170,7 +183,11 @@ export function TaskExecutionSurface({
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder={
-              surface === "my_work" ? "Add a Task assigned to me" : "Add Church-wide Task"
+              surface === "my_work"
+                ? "Add a Task assigned to me"
+                : surface === "our_work"
+                  ? "Add Church-wide Task"
+                  : "Add Team Task"
             }
           />
           <Button
@@ -212,7 +229,8 @@ export function TaskExecutionSurface({
         />
       ) : !isLoading ? (
         <p className="text-sm text-muted-foreground">
-          Configure a default Workflow before using the Task board.
+          Configure {surface === "team_board" ? "this Team's" : "a default"} Workflow before using
+          the Task board.
         </p>
       ) : null}
 
