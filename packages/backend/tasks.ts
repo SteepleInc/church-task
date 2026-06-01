@@ -21,6 +21,7 @@ type TaskUpdateInput = {
     readonly title?: string;
     readonly assignedUserId?: string | null;
     readonly teamId?: string | null;
+    readonly workflowStatusId?: string;
   };
 };
 
@@ -261,6 +262,64 @@ export async function updateTasks(
       };
     }
 
+    let movedStatus: {
+      readonly previousTaskState: TaskState;
+      readonly taskState: TaskState;
+      readonly previousWorkflowStatusId: string;
+      readonly previousWorkflowStatusName: string | null;
+      readonly workflowStatusId: Id<"workflowStatuses">;
+      readonly workflowStatusName: string | null;
+    } | null = null;
+
+    if (
+      "workflowStatusId" in update.fields &&
+      update.fields.workflowStatusId !== task.workflowStatusId
+    ) {
+      if (task.taskState === "canceled") {
+        return { ok: false as const, code: "invalidTaskTransition" as const };
+      }
+
+      const [currentStatus, destinationStatus] = await Promise.all([
+        ctx.db.get(task.workflowStatusId as Id<"workflowStatuses">),
+        ctx.db.get(update.fields.workflowStatusId as Id<"workflowStatuses">),
+      ]);
+      const effectiveWorkflowId = patch.workflowId ?? task.workflowId;
+
+      if (
+        !currentStatus ||
+        currentStatus.churchId !== args.churchId ||
+        currentStatus.workflowId !== task.workflowId ||
+        currentStatus.archivedAt !== null ||
+        !destinationStatus ||
+        destinationStatus.churchId !== args.churchId ||
+        destinationStatus.archivedAt !== null
+      ) {
+        return { ok: false as const, code: "workflowStatusNotFound" as const };
+      }
+
+      if (destinationStatus.workflowId !== effectiveWorkflowId) {
+        return { ok: false as const, code: "workflowStatusNotInEffectiveWorkflow" as const };
+      }
+
+      patch.workflowStatusId = destinationStatus._id;
+      patch.taskState = destinationStatus.taskState;
+      if (destinationStatus.taskState === "done" && task.taskState !== "done") {
+        patch.finishedAt = args.occurredAt;
+      }
+      if (destinationStatus.taskState !== "done" && task.taskState === "done") {
+        patch.finishedAt = null;
+      }
+      updatedFields.push("workflowStatusId");
+      movedStatus = {
+        previousTaskState: task.taskState,
+        taskState: destinationStatus.taskState,
+        previousWorkflowStatusId: currentStatus._id,
+        previousWorkflowStatusName: currentStatus.name,
+        workflowStatusId: destinationStatus._id,
+        workflowStatusName: destinationStatus.name,
+      };
+    }
+
     if (updatedFields.length === 0) continue;
 
     updates.push(async () => {
@@ -359,8 +418,22 @@ export async function updateTasks(
         }
       }
 
+      if (movedStatus) {
+        await writeActivity(ctx, {
+          churchId: args.churchId,
+          entityType: "task",
+          entityId: task._id,
+          eventType: "task.status_moved",
+          actorType: "user",
+          actorId: args.actorId,
+          occurredAt: args.occurredAt,
+          cycleId: task.cycleId,
+          metadata: movedStatus,
+        });
+      }
+
       const nonAssignmentFields = updatedFields.filter(
-        (field) => field !== "assignedUserId" && field !== "teamId",
+        (field) => field !== "assignedUserId" && field !== "teamId" && field !== "workflowStatusId",
       );
       if (nonAssignmentFields.length > 0) {
         const metadata: {

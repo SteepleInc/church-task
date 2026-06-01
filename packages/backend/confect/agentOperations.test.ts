@@ -2538,6 +2538,157 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("Task status movement derives Task State and records Activity", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-task-status-move-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Task Status Move Church",
+        slug: `task-status-move-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+      const defaults = yield* authenticated.query(refs.public.workDefaults.readForChurch, {
+        churchId: church.id!,
+      });
+      const defaultWorkflow = defaults.data.workflows.find((candidate) => candidate.isDefault)!;
+      const todoStatus = defaults.data.workflowStatuses.find(
+        (status) => status.workflowId === defaultWorkflow.id && status.taskState === "todo",
+      )!;
+      const doingStatus = defaults.data.workflowStatuses.find(
+        (status) => status.workflowId === defaultWorkflow.id && status.taskState === "in_progress",
+      )!;
+      const doneStatus = defaults.data.workflowStatuses.find(
+        (status) => status.workflowId === defaultWorkflow.id && status.taskState === "done",
+      )!;
+      const otherWorkflow = yield* authenticated.mutation(refs.public.workflows.createForChurch, {
+        churchId: church.id!,
+        key: "status-move-other-workflow",
+        name: "Status Move Other Workflow",
+        isDefault: false,
+        sortOrder: 5,
+        statuses: [
+          { key: "todo", name: "To Do", taskState: "todo", sortOrder: 0 },
+          { key: "doing", name: "Doing", taskState: "in_progress", sortOrder: 1 },
+          { key: "done", name: "Done", taskState: "done", sortOrder: 2 },
+        ],
+      });
+      const otherTodoStatus = otherWorkflow.data.workflowStatuses.find(
+        (status) => status.key === "todo",
+      )!;
+      const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
+        churchId: church.id!,
+        tasks: [
+          {
+            title: "Move through board",
+            teamId: null,
+            workflowStatusId: todoStatus.id,
+            dueDate: "2026-06-03",
+            parentTaskId: null,
+          },
+        ],
+      });
+      const task = created.data.tasks.find(
+        (candidate) => candidate.title === "Move through board",
+      )!;
+
+      const moved = yield* authenticated.mutation(refs.public.tasks.updateBatch, {
+        churchId: church.id!,
+        updates: [{ taskId: task.id, fields: { workflowStatusId: doingStatus.id } }],
+      });
+      const movedTask = moved.data.tasks.find((candidate) => candidate.id === task.id)!;
+      const finished = yield* authenticated.mutation(refs.public.tasks.updateBatch, {
+        churchId: church.id!,
+        updates: [{ taskId: task.id, fields: { workflowStatusId: doneStatus.id } }],
+      });
+      const finishedTask = finished.data.tasks.find((candidate) => candidate.id === task.id)!;
+      const invalid = yield* authenticated.mutation(refs.public.tasks.updateBatch, {
+        churchId: church.id!,
+        updates: [{ taskId: task.id, fields: { workflowStatusId: otherTodoStatus.id } }],
+      });
+      const createdCanceled = yield* authenticated.mutation(refs.public.tasks.createBatch, {
+        churchId: church.id!,
+        tasks: [
+          {
+            title: "Canceled task stays action-only",
+            teamId: null,
+            workflowStatusId: todoStatus.id,
+            dueDate: "2026-06-03",
+            parentTaskId: null,
+          },
+        ],
+      });
+      const canceledTask = createdCanceled.data.tasks.find(
+        (candidate) => candidate.title === "Canceled task stays action-only",
+      )!;
+      yield* authenticated.mutation(refs.public.tasks.cancelBatch, {
+        churchId: church.id!,
+        taskIds: [canceledTask.id],
+      });
+      const canceledMove = yield* authenticated.mutation(refs.public.tasks.updateBatch, {
+        churchId: church.id!,
+        updates: [{ taskId: canceledTask.id, fields: { workflowStatusId: doingStatus.id } }],
+      });
+      const activities = yield* authenticated.query(refs.public.activities.listForEntity, {
+        churchId: church.id!,
+        entityType: "task",
+        entityId: task.id,
+      });
+
+      expect(movedTask).toMatchObject({
+        workflowStatusId: doingStatus.id,
+        taskState: "in_progress",
+        finishedAt: null,
+      });
+      expect(finishedTask).toMatchObject({
+        workflowStatusId: doneStatus.id,
+        taskState: "done",
+      });
+      expect(finishedTask.finishedAt).toEqual(expect.any(String));
+      expect(invalid).toEqual({
+        ok: false,
+        operation: "updateTasks",
+        error: {
+          code: "workflow_status_not_in_effective_workflow",
+          message: "Workflow Status must belong to the Task's effective Workflow.",
+        },
+      });
+      expect(canceledMove).toEqual({
+        ok: false,
+        operation: "updateTasks",
+        error: {
+          code: "invalid_task_transition",
+          message: "Task cannot perform that transition from its current state.",
+        },
+      });
+      expect(activities.data.activities.map((activity) => activity.eventType)).toEqual([
+        "task.created",
+        "task.status_moved",
+        "task.status_moved",
+      ]);
+      expect(activities.data.activities[1]).toMatchObject({
+        actorId: signUpBody.user!.id!,
+        metadata: {
+          previousTaskState: "todo",
+          taskState: "in_progress",
+          previousWorkflowStatusId: todoStatus.id,
+          previousWorkflowStatusName: todoStatus.name,
+          workflowStatusId: doingStatus.id,
+          workflowStatusName: doingStatus.name,
+        },
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Better Auth Teams can be created and updated through Team product fields", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;

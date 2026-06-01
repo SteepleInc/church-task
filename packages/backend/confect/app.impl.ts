@@ -2310,6 +2310,27 @@ const tasksUpdateBatch = FunctionImpl.make(api, "tasks", "updateBatch", (args) =
         "Destination Workflow cannot preserve the Task State.",
       );
     }
+    if (!updated.ok && updated.code === "workflowStatusNotFound") {
+      return taskErrorResponse(
+        "updateTasks",
+        "workflow_status_not_found",
+        "Workflow Status was not found in the active Church.",
+      );
+    }
+    if (!updated.ok && updated.code === "workflowStatusNotInEffectiveWorkflow") {
+      return taskErrorResponse(
+        "updateTasks",
+        "workflow_status_not_in_effective_workflow",
+        "Workflow Status must belong to the Task's effective Workflow.",
+      );
+    }
+    if (!updated.ok && updated.code === "invalidTaskTransition") {
+      return taskErrorResponse(
+        "updateTasks",
+        "invalid_task_transition",
+        "Task cannot perform that transition from its current state.",
+      );
+    }
     if (!updated.ok) {
       return yield* Effect.dieMessage("Unexpected Task update result.");
     }
