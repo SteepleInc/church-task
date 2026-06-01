@@ -1565,6 +1565,11 @@ describe("agent operation boundary", () => {
         entityType: "task",
         entityId: parentTask.id,
       });
+      const subtaskActivities = yield* authenticated.query(refs.public.activities.listForEntity, {
+        churchId: church.id!,
+        entityType: "task",
+        entityId: subtask.id,
+      });
 
       expect(parentTask).toMatchObject({
         dueDate: "2026-06-03",
@@ -1586,6 +1591,11 @@ describe("agent operation boundary", () => {
       expect(parentActivities.data.activities.map((activity) => activity.eventType)).toEqual([
         "task.created",
       ]);
+      expect(subtaskActivities.data.activities).toHaveLength(1);
+      expect(subtaskActivities.data.activities[0]).toMatchObject({
+        eventType: "task.created",
+        metadata: { parentTaskId: parentTask.id },
+      });
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
@@ -3812,7 +3822,7 @@ describe("agent operation boundary", () => {
           actorId: null,
           occurredAt: "2026-05-31T12:00:00.000Z",
           cycleId: null,
-          metadata: {},
+          metadata: { parentTaskId: null },
         },
       );
       const systemWithActor = yield* authenticated.mutation(
@@ -3826,7 +3836,7 @@ describe("agent operation boundary", () => {
           actorId: signUpBody.user!.id!,
           occurredAt: "2026-05-31T12:00:00.000Z",
           cycleId: null,
-          metadata: {},
+          metadata: { parentTaskId: null },
         },
       );
       const betterAuthMissingActor = yield* authenticated.mutation(
@@ -3840,7 +3850,7 @@ describe("agent operation boundary", () => {
           actorId: null,
           occurredAt: "2026-05-31T12:00:00.000Z",
           cycleId: null,
-          metadata: {},
+          metadata: { parentTaskId: null },
         },
       );
       const missingUserActorActivities = yield* authenticated.query(
@@ -3929,7 +3939,7 @@ describe("agent operation boundary", () => {
         actorId: signUpBody.user!.id!,
         occurredAt: "2026-05-31T12:00:00.000Z",
         cycleId: null,
-        metadata: {},
+        metadata: { parentTaskId: null },
       });
       yield* authenticated.mutation(refs.public.activities.recordForChurch, {
         churchId: church.id!,
@@ -3940,7 +3950,7 @@ describe("agent operation boundary", () => {
         actorId: signUpBody.user!.id!,
         occurredAt: "2026-05-31T12:01:00.000Z",
         cycleId: null,
-        metadata: {},
+        metadata: { parentTaskId: null },
       });
 
       const result = yield* authenticated.query(refs.public.activities.listForEntity, {

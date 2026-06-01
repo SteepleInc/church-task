@@ -2101,7 +2101,7 @@ const tasksCreateBatch = FunctionImpl.make(api, "tasks", "createBatch", (args) =
           actorId: auth.authUser._id,
           occurredAt,
           cycleId: task.cycleId,
-          metadata: {},
+          metadata: { parentTaskId: task.parentTaskId },
         }),
       ).pipe(Effect.orDie);
     }
@@ -2628,7 +2628,7 @@ const templatesMaterializeProjectedTasks = FunctionImpl.make(
             actorId: null,
             occurredAt,
             cycleId: task.cycleId,
-            metadata: {},
+            metadata: { parentTaskId: task.parentTaskId },
           }),
         ).pipe(Effect.orDie);
       }

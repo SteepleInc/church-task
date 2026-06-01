@@ -29,7 +29,9 @@ export const TaskState = Schema.Union(
 const EmptyMetadata = Schema.Struct({});
 
 export const ActivityMetadataByEventType = {
-  "task.created": EmptyMetadata,
+  "task.created": Schema.Struct({
+    parentTaskId: Schema.Union(Schema.String, Schema.Null),
+  }),
   "task.updated": Schema.Struct({
     updatedFields: Schema.Array(Schema.String),
   }),
@@ -254,6 +256,7 @@ export const ActivityEventType = Schema.Literal(
 
 export const ActivityMetadata = Schema.Union(
   EmptyMetadata,
+  ActivityMetadataByEventType["task.created"],
   ActivityMetadataByEventType["task.updated"],
   ActivityMetadataByEventType["task.user_assigned"],
   ActivityMetadataByEventType["task.user_unassigned"],

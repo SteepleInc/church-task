@@ -194,7 +194,7 @@ export async function maintainCyclesForChurch(
       actorId: null,
       occurredAt: args.now,
       cycleId: task.cycleId,
-      metadata: {},
+      metadata: { parentTaskId: task.parentTaskId },
     });
   }
 
