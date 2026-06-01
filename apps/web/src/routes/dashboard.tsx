@@ -163,8 +163,10 @@ export function getDashboardSearchForExecutionFilters(
   search: DashboardSearch,
   filters: TaskExecutionFilters,
 ): DashboardSearch {
+  const panelSearch = getDashboardSearchForPanel(getDashboardPanelFromSearch(search), search);
+
   return {
-    ...search,
+    ...panelSearch,
     taskState: filters.taskState,
     workflowStatusId: filters.workflowStatusId,
   };

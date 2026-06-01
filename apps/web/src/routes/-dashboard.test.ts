@@ -76,6 +76,33 @@ describe("dashboard execution route search", () => {
     ).toEqual({ work: "our_work", taskState: undefined, workflowStatusId: undefined });
   });
 
+  test("keeps Team board identity while changing temporary execution filters", () => {
+    expect(
+      getDashboardSearchForExecutionFilters(
+        { work: "team", teamId: "team-1", taskState: "todo" },
+        { taskState: "done", workflowStatusId: "status-1" },
+      ),
+    ).toEqual({
+      work: "team",
+      teamId: "team-1",
+      taskState: "done",
+      workflowStatusId: "status-1",
+    });
+  });
+
+  test("drops stale Team board identity while filtering non-Team execution routes", () => {
+    expect(
+      getDashboardSearchForExecutionFilters(
+        { work: "our_work", teamId: "stale-team" },
+        { taskState: "in_progress" },
+      ),
+    ).toEqual({
+      work: "our_work",
+      taskState: "in_progress",
+      workflowStatusId: undefined,
+    });
+  });
+
   test("offers execution route recovery actions for unavailable Team boards", () => {
     expect(getUnavailableTeamBoardActions()).toEqual([
       { panel: "my_work", label: "Open My Work" },
