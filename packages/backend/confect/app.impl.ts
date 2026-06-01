@@ -33,6 +33,7 @@ import { readDefaultWorkModel, seedDefaultWorkModel } from "../workDefaults";
 import { cancelTasks, completeTasks, createTasks, readTaskModel, reopenTasks } from "../tasks";
 import {
   createTemplates,
+  materializeProjectedTasks,
   previewCycleAdjustmentMerge,
   readTemplateModel,
   resolveTemplateTaskSchedules,
@@ -293,6 +294,10 @@ const serializeWorkflowModel = (data: Awaited<ReturnType<typeof readWorkflowMode
     workflowId: task.workflowId,
     workflowStatusId: task.workflowStatusId,
     taskState: task.taskState,
+    sourceTemplateId: task.sourceTemplateId ?? null,
+    sourceTemplateTaskId: task.sourceTemplateTaskId ?? null,
+    sourceTemplateCycleId: task.sourceTemplateCycleId ?? null,
+    sourceTemplateSyncEnabled: task.sourceTemplateSyncEnabled ?? false,
   })),
 });
 
@@ -317,6 +322,10 @@ const serializeTaskModel = (data: Awaited<ReturnType<typeof readTaskModel>>) => 
     workflowId: task.workflowId,
     workflowStatusId: task.workflowStatusId,
     taskState: task.taskState,
+    sourceTemplateId: task.sourceTemplateId ?? null,
+    sourceTemplateTaskId: task.sourceTemplateTaskId ?? null,
+    sourceTemplateCycleId: task.sourceTemplateCycleId ?? null,
+    sourceTemplateSyncEnabled: task.sourceTemplateSyncEnabled ?? false,
   })),
 });
 
@@ -1183,6 +1192,112 @@ const templatesPreviewCycleAdjustmentMerge = FunctionImpl.make(
     }),
 );
 
+const templatesMaterializeProjectedTasks = FunctionImpl.make(
+  api,
+  "templates",
+  "materializeProjectedTasks",
+  (args) =>
+    Effect.gen(function* () {
+      const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+      const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+        Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+      );
+
+      if (auth.status === "notAuthenticated") {
+        return templateErrorResponse(
+          "materializeProjectedTasks",
+          "not_authenticated",
+          "Authentication is required.",
+        );
+      }
+      if (auth.status === "notChurchMember") {
+        return templateErrorResponse(
+          "materializeProjectedTasks",
+          "not_church_member",
+          "Church membership is required.",
+        );
+      }
+      if (auth.membership.role !== "owner" && auth.membership.role !== "admin") {
+        return templateErrorResponse(
+          "materializeProjectedTasks",
+          "not_authorized",
+          "Only Church owners and admins can materialize Template work.",
+        );
+      }
+
+      const church = yield* findBetterAuthDoc<BetterAuthOrganization>({
+        model: "organization",
+        where: [{ field: "_id", value: args.churchId }],
+      }).pipe(Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx));
+
+      if (!church?.churchTimeZone) {
+        return templateErrorResponse(
+          "materializeProjectedTasks",
+          "church_time_zone_missing",
+          "Church Time Zone is required before Template Tasks can materialize.",
+        );
+      }
+
+      const materialized = yield* Effect.tryPromise(() =>
+        materializeProjectedTasks(ctx, {
+          ...args,
+          churchTimeZone: church.churchTimeZone!,
+        }),
+      ).pipe(
+        Effect.catchAll(() =>
+          Effect.succeed({ ok: false as const, code: "invalidTemplate" as const }),
+        ),
+      );
+
+      if (!materialized.ok && materialized.code === "workflowStatusNotFound") {
+        return templateErrorResponse(
+          "materializeProjectedTasks",
+          "workflow_status_not_found",
+          "A default To Do Workflow Status is required before Template Tasks can materialize.",
+        );
+      }
+      if (!materialized.ok && materialized.code === "templateTaskNotFound") {
+        return templateErrorResponse(
+          "materializeProjectedTasks",
+          "template_task_not_found",
+          "Template Task was not found in the active Church.",
+        );
+      }
+      if (!materialized.ok) {
+        return templateErrorResponse(
+          "materializeProjectedTasks",
+          "invalid_template",
+          "A Template Scheduling Rule could not materialize.",
+        );
+      }
+
+      const occurredAt = new Date().toISOString();
+      for (const taskId of materialized.createdTaskIds) {
+        const task = yield* Effect.promise(() => ctx.db.get(taskId)).pipe(Effect.orDie);
+        if (!task) continue;
+        yield* Effect.promise(() =>
+          writeActivity(ctx, {
+            churchId: args.churchId,
+            entityType: "task",
+            entityId: task._id,
+            eventType: "task.created",
+            actorType: "system",
+            actorId: null,
+            occurredAt,
+            cycleId: task.cycleId,
+            metadata: {},
+          }),
+        ).pipe(Effect.orDie);
+      }
+
+      const model = yield* Effect.promise(() => readTemplateModel(ctx, args.churchId)).pipe(
+        Effect.orDie,
+      );
+
+      return templateResponse("materializeProjectedTasks", serializeTemplateModel(model));
+    }),
+);
+
 const workflowsCreateForChurch = FunctionImpl.make(api, "workflows", "createForChurch", (args) =>
   Effect.gen(function* () {
     const ctx = yield* MutationCtx.MutationCtx<DataModel>();
@@ -1495,6 +1610,7 @@ export const templates = GroupImpl.make(api, "templates").pipe(
   Layer.provide(templatesResolveSchedules),
   Layer.provide(templatesSetCycleAdjustments),
   Layer.provide(templatesPreviewCycleAdjustmentMerge),
+  Layer.provide(templatesMaterializeProjectedTasks),
 );
 export const workflows = GroupImpl.make(api, "workflows").pipe(
   Layer.provide(workflowsCreateForChurch),

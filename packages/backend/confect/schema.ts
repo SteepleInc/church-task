@@ -61,10 +61,19 @@ export const Tasks = Table.make(
       Schema.Literal("done"),
       Schema.Literal("canceled"),
     ),
+    sourceTemplateId: Schema.Union(Schema.String, Schema.Null),
+    sourceTemplateTaskId: Schema.Union(Schema.String, Schema.Null),
+    sourceTemplateCycleId: Schema.Union(Schema.String, Schema.Null),
+    sourceTemplateSyncEnabled: Schema.Boolean,
   }),
 )
   .index("by_churchId", ["churchId"])
   .index("by_churchId_and_cycleId", ["churchId", "cycleId"])
+  .index("by_churchId_and_sourceTemplateTaskId_and_sourceTemplateCycleId", [
+    "churchId",
+    "sourceTemplateTaskId",
+    "sourceTemplateCycleId",
+  ])
   .index("by_parentTaskId", ["parentTaskId"])
   .index("by_workflowStatusId", ["workflowStatusId"]);
 

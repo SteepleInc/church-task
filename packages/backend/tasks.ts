@@ -127,6 +127,10 @@ export async function createTasks(
       workflowId,
       workflowStatusId,
       taskState,
+      sourceTemplateId: null,
+      sourceTemplateTaskId: null,
+      sourceTemplateCycleId: null,
+      sourceTemplateSyncEnabled: false,
     });
     createdTaskIds.push(taskId);
   }

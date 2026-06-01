@@ -50,6 +50,10 @@ const TaskSummary = Schema.Struct({
   workflowId: Schema.String,
   workflowStatusId: Schema.String,
   taskState: TaskState,
+  sourceTemplateId: Schema.Union(Schema.String, Schema.Null),
+  sourceTemplateTaskId: Schema.Union(Schema.String, Schema.Null),
+  sourceTemplateCycleId: Schema.Union(Schema.String, Schema.Null),
+  sourceTemplateSyncEnabled: Schema.Boolean,
 });
 
 export const TaskSuccessResponse = Schema.Struct({

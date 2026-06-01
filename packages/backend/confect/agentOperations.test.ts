@@ -781,6 +781,99 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect(
+    "Template Task materialization is idempotent and preserves Source Template traceability",
+    () =>
+      Effect.gen(function* () {
+        const c = yield* TestConfect.TestConfect;
+        const email = `agent-template-materialize-${crypto.randomUUID()}@example.com`;
+        const signUpResponse = yield* signUpWithEmail(c, email);
+        const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+          user?: { id?: string };
+          token?: string;
+        };
+        const churchResponse = yield* createChurch(c, {
+          token: signUpBody.token!,
+          name: "Template Materialization Church",
+          slug: `template-materialization-${crypto.randomUUID()}`,
+        });
+        const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+        const authenticated = yield* authenticatedConfect(c, {
+          userId: signUpBody.user!.id!,
+          sessionToken: signUpBody.token!,
+        });
+
+        const created = yield* authenticated.mutation(refs.public.templates.createForChurch, {
+          churchId: church.id!,
+          templates: [
+            {
+              key: "weekly-service",
+              name: "Weekly Service",
+              recurrence: "weekly",
+              focusWindows: [],
+              templateTasks: [
+                {
+                  key: "parent",
+                  title: "Prepare service plan",
+                  parentTemplateTaskKey: null,
+                  schedulingRule: { kind: "fixedDate", localDate: "2026-06-03" },
+                },
+                {
+                  key: "child-next-week",
+                  title: "Prepare follow-up email",
+                  parentTemplateTaskKey: "parent",
+                  schedulingRule: { kind: "fixedDate", localDate: "2026-06-10" },
+                },
+              ],
+            },
+          ],
+        });
+        const firstMaterialize = yield* authenticated.mutation(
+          refs.public.templates.materializeProjectedTasks,
+          { churchId: church.id!, occurrenceCycleIds: [] },
+        );
+        const secondMaterialize = yield* authenticated.mutation(
+          refs.public.templates.materializeProjectedTasks,
+          { churchId: church.id!, occurrenceCycleIds: [] },
+        );
+        const tasks = yield* authenticated.query(refs.public.tasks.listForChurch, {
+          churchId: church.id!,
+        });
+        const parentTemplate = created.data.templateTasks.find((task) => task.key === "parent")!;
+        const childTemplate = created.data.templateTasks.find(
+          (task) => task.key === "child-next-week",
+        )!;
+        const parent = tasks.data.tasks.find(
+          (task) => task.sourceTemplateTaskId === parentTemplate.id,
+        )!;
+        const child = tasks.data.tasks.find(
+          (task) => task.sourceTemplateTaskId === childTemplate.id,
+        )!;
+
+        expect(firstMaterialize.ok).toBe(true);
+        expect(secondMaterialize.ok).toBe(true);
+        expect(tasks.data.tasks.filter((task) => task.sourceTemplateTaskId)).toHaveLength(2);
+        expect(parent).toMatchObject({
+          title: "Prepare service plan",
+          dueDate: "2026-06-03",
+          parentTaskId: null,
+          sourceTemplateId: created.data.templates[0]!.id,
+          sourceTemplateTaskId: parentTemplate.id,
+          sourceTemplateSyncEnabled: true,
+        });
+        expect(child).toMatchObject({
+          title: "Prepare follow-up email",
+          dueDate: "2026-06-10",
+          parentTaskId: parent.id,
+          sourceTemplateId: created.data.templates[0]!.id,
+          sourceTemplateTaskId: childTemplate.id,
+          sourceTemplateSyncEnabled: true,
+        });
+        expect(child.cycleId).not.toBe(parent.cycleId);
+        expect(child.sourceTemplateCycleId).not.toBe(parent.sourceTemplateCycleId);
+      }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Task and Subtask creation assigns Cycles from Due Dates", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;
@@ -990,6 +1083,10 @@ describe("agent operation boundary", () => {
               workflowId: transitionWorkflow.id,
               workflowStatusId: todoStatus.id,
               taskState: "done",
+              sourceTemplateId: null,
+              sourceTemplateTaskId: null,
+              sourceTemplateCycleId: null,
+              sourceTemplateSyncEnabled: false,
             }),
           );
         }),
@@ -1362,6 +1459,10 @@ describe("agent operation boundary", () => {
               workflowId: workflow.id,
               workflowStatusId: todoStatus.id,
               taskState: "todo",
+              sourceTemplateId: null,
+              sourceTemplateTaskId: null,
+              sourceTemplateCycleId: null,
+              sourceTemplateSyncEnabled: false,
             }),
           );
         }),
@@ -1473,6 +1574,10 @@ describe("agent operation boundary", () => {
               workflowId: sourceWorkflow.id,
               workflowStatusId: sourceDoing.id,
               taskState: "in_progress",
+              sourceTemplateId: null,
+              sourceTemplateTaskId: null,
+              sourceTemplateCycleId: null,
+              sourceTemplateSyncEnabled: false,
             }),
           );
         }),
@@ -1508,6 +1613,10 @@ describe("agent operation boundary", () => {
               workflowId: sourceWorkflow.id,
               workflowStatusId: sourceReview.id,
               taskState: "in_progress",
+              sourceTemplateId: null,
+              sourceTemplateTaskId: null,
+              sourceTemplateCycleId: null,
+              sourceTemplateSyncEnabled: false,
             }),
           );
         }),

@@ -103,6 +103,11 @@ export const TemplatePreviewCycleAdjustmentMergeArgs = Schema.Struct({
   ),
 });
 
+export const TemplateMaterializeProjectedTasksArgs = Schema.Struct({
+  churchId: Schema.String,
+  occurrenceCycleIds: Schema.Array(Schema.String),
+});
+
 const TemplateSummary = Schema.Struct({
   id: Schema.String,
   key: Schema.String,
@@ -179,6 +184,7 @@ export const TemplateSuccessResponse = Schema.Struct({
     Schema.Literal("resolveTemplateSchedules"),
     Schema.Literal("setCycleAdjustments"),
     Schema.Literal("previewCycleAdjustmentMerge"),
+    Schema.Literal("materializeProjectedTasks"),
   ),
   data: Schema.Struct({
     templates: Schema.Array(TemplateSummary),
@@ -197,6 +203,7 @@ export const TemplateErrorResponse = Schema.Struct({
     Schema.Literal("resolveTemplateSchedules"),
     Schema.Literal("setCycleAdjustments"),
     Schema.Literal("previewCycleAdjustmentMerge"),
+    Schema.Literal("materializeProjectedTasks"),
   ),
   error: Schema.Struct({
     code: Schema.Union(
@@ -208,6 +215,7 @@ export const TemplateErrorResponse = Schema.Struct({
       Schema.Literal("cycle_not_found"),
       Schema.Literal("template_task_not_found"),
       Schema.Literal("invalid_cycle_adjustment"),
+      Schema.Literal("workflow_status_not_found"),
     ),
     message: Schema.String,
   }),

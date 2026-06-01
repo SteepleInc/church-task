@@ -283,6 +283,173 @@ export async function previewCycleAdjustmentMerge(
   return { ok: true as const, mergedProjectedTasks };
 }
 
+async function ensureCycleForProjection(
+  ctx: MutationCtx,
+  args: {
+    readonly churchId: string;
+    readonly dueDate: string;
+    readonly churchTimeZone: string;
+  },
+) {
+  const cycle = buildCycleForLocalDate({
+    localDate: args.dueDate,
+    churchTimeZone: args.churchTimeZone,
+  });
+  const existing = await ctx.db
+    .query("cycles")
+    .withIndex("by_churchId_and_startDate", (q) =>
+      q.eq("churchId", args.churchId).eq("startDate", cycle.startDate),
+    )
+    .unique();
+
+  if (existing) return existing._id;
+
+  return await ctx.db.insert("cycles", {
+    churchId: args.churchId,
+    ...cycle,
+  });
+}
+
+async function findDefaultTodoWorkflowStatus(ctx: MutationCtx, churchId: string) {
+  const workflows = await ctx.db
+    .query("workflows")
+    .withIndex("by_churchId", (q) => q.eq("churchId", churchId))
+    .collect();
+  const defaultWorkflow = [...workflows]
+    .filter((workflow) => workflow.archivedAt === null)
+    .sort((left, right) => {
+      if (left.isDefault !== right.isDefault) return left.isDefault ? -1 : 1;
+      return left.sortOrder - right.sortOrder;
+    })[0];
+
+  if (!defaultWorkflow) return null;
+
+  const statuses = await ctx.db
+    .query("workflowStatuses")
+    .withIndex("by_workflowId", (q) => q.eq("workflowId", defaultWorkflow._id))
+    .collect();
+
+  return (
+    [...statuses]
+      .filter((status) => status.archivedAt === null && status.taskState === "todo")
+      .sort((left, right) => left.sortOrder - right.sortOrder)[0] ?? null
+  );
+}
+
+export async function materializeProjectedTasks(
+  ctx: MutationCtx,
+  args: {
+    readonly churchId: string;
+    readonly churchTimeZone: string;
+    readonly occurrenceCycleIds: ReadonlyArray<string>;
+  },
+) {
+  const todoStatus = await findDefaultTodoWorkflowStatus(ctx, args.churchId);
+  if (!todoStatus) return { ok: false as const, code: "workflowStatusNotFound" as const };
+
+  const schedules = await resolveTemplateTaskSchedules(ctx, args);
+  const requestedCycleIds = new Set(args.occurrenceCycleIds);
+  const materializedByTemplateTaskId = new Map<string, Id<"tasks">>();
+  const pendingParentLinks: Array<{
+    readonly taskId: Id<"tasks">;
+    readonly parentTemplateTaskId: string;
+  }> = [];
+  const taskIds: Array<Id<"tasks">> = [];
+  const createdTaskIds: Array<Id<"tasks">> = [];
+
+  for (const schedule of schedules) {
+    const templateTask = await ctx.db.get(schedule.templateTaskId as Id<"templateTasks">);
+    if (
+      !templateTask ||
+      templateTask.churchId !== args.churchId ||
+      templateTask.archivedAt !== null
+    ) {
+      return { ok: false as const, code: "templateTaskNotFound" as const };
+    }
+
+    const occurrenceCycleId = await ensureCycleForProjection(ctx, {
+      churchId: args.churchId,
+      dueDate: schedule.dueDate,
+      churchTimeZone: args.churchTimeZone,
+    });
+    if (requestedCycleIds.size > 0 && !requestedCycleIds.has(occurrenceCycleId)) continue;
+
+    const adjustment = await ctx.db
+      .query("cycleAdjustments")
+      .withIndex("by_churchId_and_cycleId_and_templateTaskId", (q) =>
+        q
+          .eq("churchId", args.churchId)
+          .eq("cycleId", occurrenceCycleId)
+          .eq("templateTaskId", templateTask._id),
+      )
+      .unique();
+    const merged = mergeTemplateTaskProjection(
+      {
+        templateTaskId: templateTask._id,
+        templateTaskKey: templateTask.key,
+        title: templateTask.title,
+        dueDate: schedule.dueDate,
+        parentTemplateTaskId: templateTask.parentTemplateTaskId,
+      },
+      adjustment ? { lifecycle: adjustment.lifecycle, overrides: adjustment.overrides } : null,
+    );
+
+    if (merged.skipped || !merged.effectiveTask) continue;
+
+    const taskCycleId = await ensureCycleForProjection(ctx, {
+      churchId: args.churchId,
+      dueDate: merged.effectiveTask.dueDate,
+      churchTimeZone: args.churchTimeZone,
+    });
+    const existing = await ctx.db
+      .query("tasks")
+      .withIndex("by_churchId_and_sourceTemplateTaskId_and_sourceTemplateCycleId", (q) =>
+        q
+          .eq("churchId", args.churchId)
+          .eq("sourceTemplateTaskId", templateTask._id)
+          .eq("sourceTemplateCycleId", occurrenceCycleId),
+      )
+      .unique();
+
+    const taskId = existing?._id;
+    const materializedTaskId =
+      taskId ??
+      (await ctx.db.insert("tasks", {
+        churchId: args.churchId,
+        title: merged.effectiveTask.title,
+        teamId: null,
+        cycleId: taskCycleId,
+        dueDate: merged.effectiveTask.dueDate,
+        parentTaskId: null,
+        workflowId: todoStatus.workflowId,
+        workflowStatusId: todoStatus._id,
+        taskState: "todo",
+        sourceTemplateId: templateTask.templateId,
+        sourceTemplateTaskId: templateTask._id,
+        sourceTemplateCycleId: occurrenceCycleId,
+        sourceTemplateSyncEnabled: true,
+      }));
+    if (!taskId) createdTaskIds.push(materializedTaskId);
+
+    materializedByTemplateTaskId.set(templateTask._id, materializedTaskId);
+    taskIds.push(materializedTaskId);
+    if (merged.effectiveTask.parentTemplateTaskId) {
+      pendingParentLinks.push({
+        taskId: materializedTaskId,
+        parentTemplateTaskId: merged.effectiveTask.parentTemplateTaskId,
+      });
+    }
+  }
+
+  for (const link of pendingParentLinks) {
+    await ctx.db.patch(link.taskId, {
+      parentTaskId: materializedByTemplateTaskId.get(link.parentTemplateTaskId) ?? null,
+    });
+  }
+
+  return { ok: true as const, taskIds, createdTaskIds };
+}
+
 export async function createTemplates(
   ctx: MutationCtx,
   args: { readonly churchId: string; readonly templates: ReadonlyArray<TemplateInput> },
