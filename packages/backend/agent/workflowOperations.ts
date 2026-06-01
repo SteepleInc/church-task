@@ -23,6 +23,27 @@ export const WorkflowCreateArgs = Schema.Struct({
   statuses: Schema.Array(WorkflowStatusInput),
 });
 
+export const WorkflowRenameArgs = Schema.Struct({
+  churchId: Schema.String,
+  workflowId: Schema.String,
+  name: Schema.String,
+});
+
+export const WorkflowReorderArgs = Schema.Struct({
+  churchId: Schema.String,
+  workflowIds: Schema.Array(Schema.String),
+});
+
+export const WorkflowArchiveArgs = Schema.Struct({
+  churchId: Schema.String,
+  workflowId: Schema.String,
+});
+
+export const WorkflowSetDefaultArgs = Schema.Struct({
+  churchId: Schema.String,
+  workflowId: Schema.String,
+});
+
 export const WorkflowArchiveStatusArgs = Schema.Struct({
   churchId: Schema.String,
   statusId: Schema.String,
@@ -71,6 +92,10 @@ export const WorkflowSuccessResponse = Schema.Struct({
   ok: Schema.Literal(true),
   operation: Schema.Union(
     Schema.Literal("createWorkflow"),
+    Schema.Literal("renameWorkflow"),
+    Schema.Literal("reorderWorkflows"),
+    Schema.Literal("archiveWorkflow"),
+    Schema.Literal("setDefaultWorkflow"),
     Schema.Literal("archiveWorkflowStatus"),
     Schema.Literal("remapTaskTeamWorkflow"),
   ),
@@ -85,6 +110,10 @@ export const WorkflowErrorResponse = Schema.Struct({
   ok: Schema.Literal(false),
   operation: Schema.Union(
     Schema.Literal("createWorkflow"),
+    Schema.Literal("renameWorkflow"),
+    Schema.Literal("reorderWorkflows"),
+    Schema.Literal("archiveWorkflow"),
+    Schema.Literal("setDefaultWorkflow"),
     Schema.Literal("archiveWorkflowStatus"),
     Schema.Literal("remapTaskTeamWorkflow"),
   ),
@@ -94,7 +123,9 @@ export const WorkflowErrorResponse = Schema.Struct({
       Schema.Literal("not_church_member"),
       Schema.Literal("not_authorized"),
       Schema.Literal("invalid_workflow"),
+      Schema.Literal("invalid_workflow_reorder"),
       Schema.Literal("workflow_not_found"),
+      Schema.Literal("workflow_in_use"),
       Schema.Literal("workflow_status_not_found"),
       Schema.Literal("workflow_status_in_use"),
       Schema.Literal("task_not_found"),

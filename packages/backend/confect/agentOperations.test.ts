@@ -2183,6 +2183,220 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("owners can edit Workflows and assign the Church default Workflow", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-workflow-edit-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Workflow Edit Church",
+        slug: `workflow-edit-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+
+      const created = yield* authenticated.mutation(refs.public.workflows.createForChurch, {
+        churchId: church.id!,
+        key: "next-steps",
+        name: "Next Steps",
+        isDefault: false,
+        sortOrder: 1,
+        statuses: [
+          { key: "todo", name: "To Do", taskState: "todo", sortOrder: 0 },
+          { key: "doing", name: "Doing", taskState: "in_progress", sortOrder: 1 },
+          { key: "done", name: "Done", taskState: "done", sortOrder: 2 },
+        ],
+      });
+      const workflow = created.data.workflows.find((candidate) => candidate.key === "next-steps")!;
+      const defaultWorkflow = created.data.workflows.find((candidate) => candidate.isDefault)!;
+
+      const renamed = yield* authenticated.mutation(refs.public.workflows.renameForChurch, {
+        churchId: church.id!,
+        workflowId: workflow.id,
+        name: "Next Steps Workflow",
+      });
+      const reordered = yield* authenticated.mutation(refs.public.workflows.reorderForChurch, {
+        churchId: church.id!,
+        workflowIds: [workflow.id, defaultWorkflow.id],
+      });
+      const defaulted = yield* authenticated.mutation(refs.public.workflows.setDefaultForChurch, {
+        churchId: church.id!,
+        workflowId: workflow.id,
+      });
+      const archived = yield* authenticated.mutation(refs.public.workflows.archiveForChurch, {
+        churchId: church.id!,
+        workflowId: defaultWorkflow.id,
+      });
+      const activities = yield* authenticated.query(refs.public.activities.listForEntity, {
+        churchId: church.id!,
+        entityType: "workflow",
+        entityId: workflow.id,
+      });
+
+      expect(
+        renamed.data.workflows.find((candidate) => candidate.id === workflow.id),
+      ).toMatchObject({
+        name: "Next Steps Workflow",
+      });
+      expect(
+        reordered.data.workflows.map((candidate) => [candidate.id, candidate.sortOrder]),
+      ).toEqual([
+        [workflow.id, 0],
+        [defaultWorkflow.id, 1],
+      ]);
+      expect(
+        defaulted.data.workflows.find((candidate) => candidate.id === workflow.id),
+      ).toMatchObject({
+        isDefault: true,
+      });
+      expect(
+        defaulted.data.workflows.find((candidate) => candidate.id === defaultWorkflow.id),
+      ).toMatchObject({
+        isDefault: false,
+      });
+      expect(
+        archived.data.workflows.find((candidate) => candidate.id === defaultWorkflow.id),
+      ).toMatchObject({ archivedAt: expect.any(String) });
+      expect(activities.data.activities.map((activity) => activity.eventType)).toEqual(
+        expect.arrayContaining([
+          "workflow.created",
+          "workflow.renamed",
+          "workflow.reordered",
+          "workflow.default_changed",
+        ]),
+      );
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("Workflow archive is blocked while Teams or Tasks reference the Workflow", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-workflow-in-use-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Workflow In Use Church",
+        slug: `workflow-in-use-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const teamResponse = yield* createTeam(c, {
+        token: signUpBody.token!,
+        name: "Workflow Team",
+        organizationId: church.id!,
+      });
+      const team = (yield* Effect.promise(() => teamResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+
+      const teamWorkflowResult = yield* authenticated.mutation(
+        refs.public.workflows.createForChurch,
+        {
+          churchId: church.id!,
+          key: "team-workflow",
+          name: "Team Workflow",
+          isDefault: false,
+          sortOrder: 1,
+          statuses: [
+            { key: "todo", name: "To Do", taskState: "todo", sortOrder: 0 },
+            { key: "doing", name: "Doing", taskState: "in_progress", sortOrder: 1 },
+            { key: "done", name: "Done", taskState: "done", sortOrder: 2 },
+          ],
+        },
+      );
+      const taskWorkflowResult = yield* authenticated.mutation(
+        refs.public.workflows.createForChurch,
+        {
+          churchId: church.id!,
+          key: "task-workflow",
+          name: "Task Workflow",
+          isDefault: false,
+          sortOrder: 2,
+          statuses: [
+            { key: "todo", name: "To Do", taskState: "todo", sortOrder: 0 },
+            { key: "doing", name: "Doing", taskState: "in_progress", sortOrder: 1 },
+            { key: "done", name: "Done", taskState: "done", sortOrder: 2 },
+          ],
+        },
+      );
+      const teamWorkflow = teamWorkflowResult.data.workflows.find(
+        (candidate) => candidate.key === "team-workflow",
+      )!;
+      const taskWorkflow = taskWorkflowResult.data.workflows.find(
+        (candidate) => candidate.key === "task-workflow",
+      )!;
+      const taskStatus = taskWorkflowResult.data.workflowStatuses.find(
+        (status) => status.workflowId === taskWorkflow.id && status.taskState === "todo",
+      )!;
+
+      yield* authenticated.mutation(refs.public.teams.updateProductFields, {
+        churchId: church.id!,
+        updates: [{ teamId: team.id!, fields: { defaultWorkflowId: teamWorkflow.id } }],
+      });
+      yield* c.run(
+        Effect.gen(function* () {
+          const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+          yield* Effect.promise(() =>
+            ctx.db.insert("tasks", {
+              churchId: church.id!,
+              title: "Workflow reference task",
+              teamId: null,
+              cycleId: "cycle-workflow-in-use",
+              dueDate: "2026-06-03",
+              parentTaskId: null,
+              workflowId: taskWorkflow.id,
+              workflowStatusId: taskStatus.id,
+              taskState: "todo",
+              sourceTemplateId: null,
+              sourceTemplateTaskId: null,
+              sourceTemplateCycleId: null,
+              sourceTemplateSyncEnabled: false,
+            }),
+          );
+        }),
+      );
+
+      const teamReferencedArchive = yield* authenticated.mutation(
+        refs.public.workflows.archiveForChurch,
+        {
+          churchId: church.id!,
+          workflowId: teamWorkflow.id,
+        },
+      );
+      const taskReferencedArchive = yield* authenticated.mutation(
+        refs.public.workflows.archiveForChurch,
+        {
+          churchId: church.id!,
+          workflowId: taskWorkflow.id,
+        },
+      );
+
+      expect(teamReferencedArchive).toEqual({
+        ok: false,
+        operation: "archiveWorkflow",
+        error: {
+          code: "workflow_in_use",
+          message:
+            "Workflows referenced by the Church default, Teams, or Tasks cannot be archived before reassignment.",
+        },
+      });
+      expect(taskReferencedArchive).toEqual(teamReferencedArchive);
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Workflow mutations write Activities", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;

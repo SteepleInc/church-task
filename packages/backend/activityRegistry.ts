@@ -74,6 +74,21 @@ export const ActivityMetadataByEventType = {
     name: Schema.String,
     isDefault: Schema.Boolean,
   }),
+  "workflow.renamed": Schema.Struct({
+    previousName: Schema.String,
+    name: Schema.String,
+  }),
+  "workflow.reordered": Schema.Struct({
+    previousSortOrder: Schema.Number,
+    sortOrder: Schema.Number,
+  }),
+  "workflow.archived": Schema.Struct({
+    name: Schema.String,
+  }),
+  "workflow.default_changed": Schema.Struct({
+    previousWorkflowId: Schema.Union(Schema.String, Schema.Null),
+    workflowId: Schema.String,
+  }),
   "workflow.status.created": Schema.Struct({
     workflowId: Schema.String,
     name: Schema.String,
@@ -170,6 +185,10 @@ export const ActivityEventType = Schema.Literal(
   "template.updated",
   "cycle.created",
   "workflow.created",
+  "workflow.renamed",
+  "workflow.reordered",
+  "workflow.archived",
+  "workflow.default_changed",
   "workflow.status.created",
   "workflow.status.archived",
   "task.team.changed",
@@ -200,6 +219,10 @@ export const ActivityMetadata = Schema.Union(
   ActivityMetadataByEventType["template.updated"],
   ActivityMetadataByEventType["cycle.created"],
   ActivityMetadataByEventType["workflow.created"],
+  ActivityMetadataByEventType["workflow.renamed"],
+  ActivityMetadataByEventType["workflow.reordered"],
+  ActivityMetadataByEventType["workflow.archived"],
+  ActivityMetadataByEventType["workflow.default_changed"],
   ActivityMetadataByEventType["workflow.status.created"],
   ActivityMetadataByEventType["workflow.status.archived"],
   ActivityMetadataByEventType["task.team.changed"],

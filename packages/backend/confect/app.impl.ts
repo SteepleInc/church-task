@@ -57,10 +57,14 @@ import {
   updateTemplateTasksAndSyncFutureProjectedTasks,
 } from "../templates";
 import {
+  archiveWorkflow,
   archiveWorkflowStatus,
   createWorkflow,
   readWorkflowModel,
+  renameWorkflow,
   remapWorkflowStatusForTaskTeam,
+  reorderWorkflows,
+  setDefaultWorkflow,
 } from "../workflows";
 import api from "./_generated/api";
 
@@ -302,23 +306,27 @@ const serializeKeyDateModel = (
 });
 
 const serializeWorkflowModel = (data: Awaited<ReturnType<typeof readWorkflowModel>>) => ({
-  workflows: data.workflows.map((workflow) => ({
-    id: workflow._id,
-    key: workflow.key,
-    name: workflow.name,
-    isDefault: workflow.isDefault,
-    sortOrder: workflow.sortOrder,
-    archivedAt: workflow.archivedAt,
-  })),
-  workflowStatuses: data.workflowStatuses.map((status) => ({
-    id: status._id,
-    workflowId: status.workflowId,
-    key: status.key,
-    name: status.name,
-    taskState: status.taskState,
-    sortOrder: status.sortOrder,
-    archivedAt: status.archivedAt,
-  })),
+  workflows: [...data.workflows]
+    .sort((left, right) => left.sortOrder - right.sortOrder)
+    .map((workflow) => ({
+      id: workflow._id,
+      key: workflow.key,
+      name: workflow.name,
+      isDefault: workflow.isDefault,
+      sortOrder: workflow.sortOrder,
+      archivedAt: workflow.archivedAt,
+    })),
+  workflowStatuses: [...data.workflowStatuses]
+    .sort((left, right) => left.sortOrder - right.sortOrder)
+    .map((status) => ({
+      id: status._id,
+      workflowId: status.workflowId,
+      key: status.key,
+      name: status.name,
+      taskState: status.taskState,
+      sortOrder: status.sortOrder,
+      archivedAt: status.archivedAt,
+    })),
   tasks: data.tasks.map((task) => ({
     id: task._id,
     churchId: task.churchId,
@@ -779,6 +787,42 @@ const coreWorkBatchWrite = FunctionImpl.make(
               operation: operation.operation,
               result: yield* Effect.promise(() =>
                 ctx.runMutation(convexFunctionRefs.workflows.createForChurch, operation.input),
+              ).pipe(Effect.orDie),
+            });
+            break;
+          case "renameWorkflow":
+            results.push({
+              id: operation.id,
+              operation: operation.operation,
+              result: yield* Effect.promise(() =>
+                ctx.runMutation(convexFunctionRefs.workflows.renameForChurch, operation.input),
+              ).pipe(Effect.orDie),
+            });
+            break;
+          case "reorderWorkflows":
+            results.push({
+              id: operation.id,
+              operation: operation.operation,
+              result: yield* Effect.promise(() =>
+                ctx.runMutation(convexFunctionRefs.workflows.reorderForChurch, operation.input),
+              ).pipe(Effect.orDie),
+            });
+            break;
+          case "archiveWorkflow":
+            results.push({
+              id: operation.id,
+              operation: operation.operation,
+              result: yield* Effect.promise(() =>
+                ctx.runMutation(convexFunctionRefs.workflows.archiveForChurch, operation.input),
+              ).pipe(Effect.orDie),
+            });
+            break;
+          case "setDefaultWorkflow":
+            results.push({
+              id: operation.id,
+              operation: operation.operation,
+              result: yield* Effect.promise(() =>
+                ctx.runMutation(convexFunctionRefs.workflows.setDefaultForChurch, operation.input),
               ).pipe(Effect.orDie),
             });
             break;
@@ -2233,6 +2277,270 @@ const workflowsCreateForChurch = FunctionImpl.make(api, "workflows", "createForC
   }),
 );
 
+const workflowsRenameForChurch = FunctionImpl.make(api, "workflows", "renameForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    if (auth.status === "notAuthenticated") {
+      return workflowErrorResponse(
+        "renameWorkflow",
+        "not_authenticated",
+        "Authentication is required.",
+      );
+    }
+    if (auth.status === "notChurchMember") {
+      return workflowErrorResponse(
+        "renameWorkflow",
+        "not_church_member",
+        "Church membership is required.",
+      );
+    }
+    if (auth.membership.role !== "owner" && auth.membership.role !== "admin") {
+      return workflowErrorResponse(
+        "renameWorkflow",
+        "not_authorized",
+        "Only Church owners and admins can manage Workflows.",
+      );
+    }
+
+    const renamed = yield* Effect.promise(() => renameWorkflow(ctx, args)).pipe(Effect.orDie);
+    if (!renamed.ok) {
+      return workflowErrorResponse(
+        "renameWorkflow",
+        "workflow_not_found",
+        "Workflow was not found in the active Church.",
+      );
+    }
+
+    yield* Effect.promise(() =>
+      writeActivity(ctx, {
+        churchId: args.churchId,
+        entityType: "workflow",
+        entityId: args.workflowId,
+        eventType: "workflow.renamed",
+        actorType: "user",
+        actorId: auth.authUser._id,
+        occurredAt: new Date().toISOString(),
+        cycleId: null,
+        metadata: { previousName: renamed.workflow.name, name: args.name },
+      }),
+    ).pipe(Effect.orDie);
+
+    const model = yield* Effect.promise(() => readWorkflowModel(ctx, args.churchId)).pipe(
+      Effect.orDie,
+    );
+    return workflowResponse("renameWorkflow", serializeWorkflowModel(model));
+  }),
+);
+
+const workflowsReorderForChurch = FunctionImpl.make(api, "workflows", "reorderForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    if (auth.status === "notAuthenticated") {
+      return workflowErrorResponse(
+        "reorderWorkflows",
+        "not_authenticated",
+        "Authentication is required.",
+      );
+    }
+    if (auth.status === "notChurchMember") {
+      return workflowErrorResponse(
+        "reorderWorkflows",
+        "not_church_member",
+        "Church membership is required.",
+      );
+    }
+    if (auth.membership.role !== "owner" && auth.membership.role !== "admin") {
+      return workflowErrorResponse(
+        "reorderWorkflows",
+        "not_authorized",
+        "Only Church owners and admins can manage Workflows.",
+      );
+    }
+
+    const reordered = yield* Effect.promise(() => reorderWorkflows(ctx, args)).pipe(Effect.orDie);
+    if (!reordered.ok) {
+      return workflowErrorResponse(
+        "reorderWorkflows",
+        "invalid_workflow_reorder",
+        "Workflow reorder must include active Workflows from the requested Church only.",
+      );
+    }
+
+    const occurredAt = new Date().toISOString();
+    for (const [sortOrder, workflowId] of args.workflowIds.entries()) {
+      const workflow = reordered.workflowsById.get(workflowId);
+      if (workflow && workflow.sortOrder !== sortOrder) {
+        yield* Effect.promise(() =>
+          writeActivity(ctx, {
+            churchId: args.churchId,
+            entityType: "workflow",
+            entityId: workflowId,
+            eventType: "workflow.reordered",
+            actorType: "user",
+            actorId: auth.authUser._id,
+            occurredAt,
+            cycleId: null,
+            metadata: { previousSortOrder: workflow.sortOrder, sortOrder },
+          }),
+        ).pipe(Effect.orDie);
+      }
+    }
+
+    const model = yield* Effect.promise(() => readWorkflowModel(ctx, args.churchId)).pipe(
+      Effect.orDie,
+    );
+    return workflowResponse("reorderWorkflows", serializeWorkflowModel(model));
+  }),
+);
+
+const workflowsArchiveForChurch = FunctionImpl.make(api, "workflows", "archiveForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    if (auth.status === "notAuthenticated") {
+      return workflowErrorResponse(
+        "archiveWorkflow",
+        "not_authenticated",
+        "Authentication is required.",
+      );
+    }
+    if (auth.status === "notChurchMember") {
+      return workflowErrorResponse(
+        "archiveWorkflow",
+        "not_church_member",
+        "Church membership is required.",
+      );
+    }
+    if (auth.membership.role !== "owner" && auth.membership.role !== "admin") {
+      return workflowErrorResponse(
+        "archiveWorkflow",
+        "not_authorized",
+        "Only Church owners and admins can manage Workflows.",
+      );
+    }
+
+    const archivedAt = new Date().toISOString();
+    const archived = yield* Effect.promise(() =>
+      archiveWorkflow(ctx, { churchId: args.churchId, workflowId: args.workflowId, archivedAt }),
+    ).pipe(Effect.orDie);
+    if (!archived.ok && archived.code === "notFound") {
+      return workflowErrorResponse(
+        "archiveWorkflow",
+        "workflow_not_found",
+        "Workflow was not found in the active Church.",
+      );
+    }
+    if (!archived.ok && archived.code === "inUse") {
+      return workflowErrorResponse(
+        "archiveWorkflow",
+        "workflow_in_use",
+        "Workflows referenced by the Church default, Teams, or Tasks cannot be archived before reassignment.",
+      );
+    }
+    if (!archived.ok) return yield* Effect.dieMessage("Unexpected Workflow archive result.");
+
+    yield* Effect.promise(() =>
+      writeActivity(ctx, {
+        churchId: args.churchId,
+        entityType: "workflow",
+        entityId: args.workflowId,
+        eventType: "workflow.archived",
+        actorType: "user",
+        actorId: auth.authUser._id,
+        occurredAt: archivedAt,
+        cycleId: null,
+        metadata: { name: archived.workflow.name },
+      }),
+    ).pipe(Effect.orDie);
+
+    const model = yield* Effect.promise(() => readWorkflowModel(ctx, args.churchId)).pipe(
+      Effect.orDie,
+    );
+    return workflowResponse("archiveWorkflow", serializeWorkflowModel(model));
+  }),
+);
+
+const workflowsSetDefaultForChurch = FunctionImpl.make(
+  api,
+  "workflows",
+  "setDefaultForChurch",
+  (args) =>
+    Effect.gen(function* () {
+      const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+      const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+        Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+      );
+
+      if (auth.status === "notAuthenticated") {
+        return workflowErrorResponse(
+          "setDefaultWorkflow",
+          "not_authenticated",
+          "Authentication is required.",
+        );
+      }
+      if (auth.status === "notChurchMember") {
+        return workflowErrorResponse(
+          "setDefaultWorkflow",
+          "not_church_member",
+          "Church membership is required.",
+        );
+      }
+      if (auth.membership.role !== "owner" && auth.membership.role !== "admin") {
+        return workflowErrorResponse(
+          "setDefaultWorkflow",
+          "not_authorized",
+          "Only Church owners and admins can manage Workflows.",
+        );
+      }
+
+      const defaulted = yield* Effect.promise(() => setDefaultWorkflow(ctx, args)).pipe(
+        Effect.orDie,
+      );
+      if (!defaulted.ok) {
+        return workflowErrorResponse(
+          "setDefaultWorkflow",
+          "workflow_not_found",
+          "Workflow was not found in the active Church.",
+        );
+      }
+
+      if (defaulted.previousDefault?._id !== defaulted.workflow._id) {
+        yield* Effect.promise(() =>
+          writeActivity(ctx, {
+            churchId: args.churchId,
+            entityType: "workflow",
+            entityId: args.workflowId,
+            eventType: "workflow.default_changed",
+            actorType: "user",
+            actorId: auth.authUser._id,
+            occurredAt: new Date().toISOString(),
+            cycleId: null,
+            metadata: {
+              previousWorkflowId: defaulted.previousDefault?._id ?? null,
+              workflowId: defaulted.workflow._id,
+            },
+          }),
+        ).pipe(Effect.orDie);
+      }
+
+      const model = yield* Effect.promise(() => readWorkflowModel(ctx, args.churchId)).pipe(
+        Effect.orDie,
+      );
+      return workflowResponse("setDefaultWorkflow", serializeWorkflowModel(model));
+    }),
+);
+
 const workflowsArchiveStatus = FunctionImpl.make(api, "workflows", "archiveStatus", (args) =>
   Effect.gen(function* () {
     const ctx = yield* MutationCtx.MutationCtx<DataModel>();
@@ -2486,6 +2794,10 @@ export const templates = GroupImpl.make(api, "templates").pipe(
 );
 export const workflows = GroupImpl.make(api, "workflows").pipe(
   Layer.provide(workflowsCreateForChurch),
+  Layer.provide(workflowsRenameForChurch),
+  Layer.provide(workflowsReorderForChurch),
+  Layer.provide(workflowsArchiveForChurch),
+  Layer.provide(workflowsSetDefaultForChurch),
   Layer.provide(workflowsArchiveStatus),
   Layer.provide(workflowsRemapTaskTeam),
 );

@@ -1,5 +1,6 @@
 import type { GenericDatabaseReader, GenericMutationCtx } from "convex/server";
 
+import { components } from "./convex/_generated/api";
 import type { DataModel, Id } from "./convex/_generated/dataModel";
 
 export type TaskState = "todo" | "in_progress" | "done" | "canceled";
@@ -98,6 +99,18 @@ export async function createWorkflow(
     archivedAt: null,
   });
 
+  if (args.isDefault) {
+    const workflows = await ctx.db
+      .query("workflows")
+      .withIndex("by_churchId", (q) => q.eq("churchId", args.churchId))
+      .collect();
+    for (const workflow of workflows) {
+      if (workflow._id !== workflowId && workflow.isDefault) {
+        await ctx.db.patch(workflow._id, { isDefault: false });
+      }
+    }
+  }
+
   for (const status of args.statuses) {
     await ctx.db.insert("workflowStatuses", {
       churchId: args.churchId,
@@ -108,6 +121,111 @@ export async function createWorkflow(
   }
 
   return { ok: true as const, workflowId };
+}
+
+export async function renameWorkflow(
+  ctx: MutationCtx,
+  args: { readonly churchId: string; readonly workflowId: string; readonly name: string },
+) {
+  const workflow = await ctx.db.get(args.workflowId as Id<"workflows">);
+  if (!workflow || workflow.churchId !== args.churchId) {
+    return { ok: false as const, code: "notFound" };
+  }
+
+  await ctx.db.patch(workflow._id, { name: args.name });
+
+  return { ok: true as const, workflow };
+}
+
+export async function reorderWorkflows(
+  ctx: MutationCtx,
+  args: { readonly churchId: string; readonly workflowIds: ReadonlyArray<string> },
+) {
+  const workflows = await ctx.db
+    .query("workflows")
+    .withIndex("by_churchId", (q) => q.eq("churchId", args.churchId))
+    .collect();
+  const activeWorkflows = workflows.filter((workflow) => workflow.archivedAt === null);
+  const workflowsById = new Map(activeWorkflows.map((workflow) => [String(workflow._id), workflow]));
+  const uniqueWorkflowIds = new Set(args.workflowIds);
+
+  if (
+    uniqueWorkflowIds.size !== args.workflowIds.length ||
+    uniqueWorkflowIds.size !== activeWorkflows.length ||
+    args.workflowIds.some((workflowId) => !workflowsById.has(workflowId))
+  ) {
+    return { ok: false as const, code: "invalidReorder" };
+  }
+
+  for (const [sortOrder, workflowId] of args.workflowIds.entries()) {
+    await ctx.db.patch(workflowId as Id<"workflows">, { sortOrder });
+  }
+
+  return { ok: true as const, workflowsById };
+}
+
+export async function setDefaultWorkflow(
+  ctx: MutationCtx,
+  args: { readonly churchId: string; readonly workflowId: string },
+) {
+  const workflow = await ctx.db.get(args.workflowId as Id<"workflows">);
+  if (!workflow || workflow.churchId !== args.churchId || workflow.archivedAt !== null) {
+    return { ok: false as const, code: "notFound" };
+  }
+
+  const workflows = await ctx.db
+    .query("workflows")
+    .withIndex("by_churchId", (q) => q.eq("churchId", args.churchId))
+    .collect();
+  const previousDefault = workflows.find((candidate) => candidate.isDefault);
+
+  for (const candidate of workflows) {
+    if (candidate.isDefault !== (candidate._id === workflow._id)) {
+      await ctx.db.patch(candidate._id, { isDefault: candidate._id === workflow._id });
+    }
+  }
+
+  return { ok: true as const, workflow, previousDefault };
+}
+
+export async function archiveWorkflow(
+  ctx: MutationCtx,
+  args: { readonly churchId: string; readonly workflowId: string; readonly archivedAt: string },
+) {
+  const workflow = await ctx.db.get(args.workflowId as Id<"workflows">);
+  if (!workflow || workflow.churchId !== args.churchId) {
+    return { ok: false as const, code: "notFound" };
+  }
+  if (workflow.isDefault) return { ok: false as const, code: "inUse", workflow };
+
+  const teams = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+    model: "team",
+    where: [{ field: "organizationId", value: args.churchId }],
+    paginationOpts: { cursor: null, numItems: 100 },
+  })) as { readonly page: ReadonlyArray<unknown> };
+  if (
+    teams.page.some(
+      (team) =>
+        typeof team === "object" &&
+        team !== null &&
+        "defaultWorkflowId" in team &&
+        team.defaultWorkflowId === args.workflowId,
+    )
+  ) {
+    return { ok: false as const, code: "inUse", workflow };
+  }
+
+  const tasks = await ctx.db
+    .query("tasks")
+    .withIndex("by_churchId", (q) => q.eq("churchId", args.churchId))
+    .collect();
+  if (tasks.some((task) => task.workflowId === args.workflowId)) {
+    return { ok: false as const, code: "inUse", workflow };
+  }
+
+  await ctx.db.patch(workflow._id, { archivedAt: args.archivedAt });
+
+  return { ok: true as const, workflow };
 }
 
 export async function archiveWorkflowStatus(
