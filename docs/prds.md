@@ -22,7 +22,7 @@ Church Onboarding and Membership lets a new User create their first Church, acce
 
 ## 4. Core Work Data Model
 
-Status: Speced in [GitHub issue #30](https://github.com/SteepleInc/church-task/issues/30).
+Status: PRD completed in [GitHub issue #30](https://github.com/SteepleInc/church-task/issues/30).
 
 Core Work Data Model establishes the durable Convex-backed domain model for Tasks, Subtasks, Cycles, Templates, Template Tasks, Scheduling Rules, Key Dates, Teams, Workflows, Workflow Statuses, Source Templates, Cycle Adjustments, Activities, and Church Time Zone before the product builds deeper workflows on top of them. It proves the full Template-to-Cycle-to-Task projection path in the data layer, makes explicit that every Task belongs to a Cycle, and ensures Cycle Adjustments can change a week's work without changing the Source Template. It includes Convex schema, invariants, batch-shaped read/write API boundaries, projection behavior, and MCP/CLI-safe operation foundations, but does not require full end-user UI for every concept yet.
 
