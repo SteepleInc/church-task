@@ -21,6 +21,7 @@ type TaskState = "todo" | "in_progress" | "done" | "canceled";
 type TaskSummary = {
   readonly id: string;
   readonly title: string;
+  readonly teamId: string | null;
   readonly assignedUserId: string | null;
   readonly workflowStatusId: string;
   readonly taskState: TaskState;
@@ -38,6 +39,11 @@ type UserSummary = {
   readonly id: string;
   readonly name: string | null;
   readonly email: string | null;
+};
+
+type TeamSummary = {
+  readonly id: string;
+  readonly name: string;
 };
 
 export function selectCurrentExecutionCycle(
@@ -72,6 +78,16 @@ export function getTaskTitleUpdateFields(currentTitle: string, nextTitle: string
   return { title: trimmedTitle };
 }
 
+export function getTaskTeamUpdateFields(currentTeamId: string | null, nextTeamId: string) {
+  const teamId = nextTeamId || null;
+
+  if (teamId === currentTeamId) {
+    return null;
+  }
+
+  return { teamId };
+}
+
 export function TaskExecutionSurface({
   churchId,
   currentUserId,
@@ -94,6 +110,7 @@ export function TaskExecutionSurface({
   const cyclesResult = useQuery(api.tasks.mcpListCycles, { churchId, actorUserId: currentUserId });
   const workDefaults = useQuery(api.workDefaults.readForChurch, { churchId });
   const usersResult = useQuery(api.tasks.mcpListUsers, { churchId, actorUserId: currentUserId });
+  const teamsResult = useQuery(api.tasks.mcpListTeams, { churchId, actorUserId: currentUserId });
 
   const cycles = cyclesResult?.ok ? cyclesResult.cycles : [];
   const currentCycle = selectCurrentExecutionCycle(cycles, today);
@@ -129,6 +146,7 @@ export function TaskExecutionSurface({
     : [];
   const tasks = tasksResult?.ok ? tasksResult.data.tasks : [];
   const users = usersResult?.ok ? usersResult.users : [];
+  const teams = teamsResult?.ok ? teamsResult.teams : [];
   const creationStatus =
     workflowStatuses.find((status) => status.taskState === "todo") ?? workflowStatuses[0];
   const dueDate = currentCycle?.endDate ?? today;
@@ -137,7 +155,8 @@ export function TaskExecutionSurface({
     workDefaults === undefined ||
     (workflowId !== undefined && workflowId !== null && workflowStatusesResult === undefined) ||
     tasksResult === undefined ||
-    usersResult === undefined;
+    usersResult === undefined ||
+    teamsResult === undefined;
   const surfaceTitle =
     surface === "my_work"
       ? "My Work"
@@ -250,6 +269,7 @@ export function TaskExecutionSurface({
           currentUserId={currentUserId}
           tasks={tasks}
           users={users}
+          teams={teams}
           updateTask={(taskId, fields) =>
             updateTask({ churchId, actorUserId: currentUserId, taskId, fields })
           }
@@ -265,6 +285,7 @@ export function TaskExecutionSurface({
 function TaskActionList({
   tasks,
   users,
+  teams,
   updateTask,
   completeTask,
   cancelTask,
@@ -274,9 +295,14 @@ function TaskActionList({
   readonly currentUserId: string;
   readonly tasks: readonly TaskSummary[];
   readonly users: readonly UserSummary[];
+  readonly teams: readonly TeamSummary[];
   readonly updateTask: (
     taskId: string,
-    fields: { readonly title?: string; readonly assignedUserId?: string | null },
+    fields: {
+      readonly title?: string;
+      readonly assignedUserId?: string | null;
+      readonly teamId?: string | null;
+    },
   ) => void | Promise<unknown>;
   readonly completeTask: (taskId: string) => void | Promise<unknown>;
   readonly cancelTask: (taskId: string) => void | Promise<unknown>;
@@ -287,7 +313,7 @@ function TaskActionList({
       <CardHeader>
         <CardTitle>Task Actions</CardTitle>
         <CardDescription>
-          Update assignment and lifecycle without leaving the board.
+          Update assignment, Team, and lifecycle without leaving the board.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3">
@@ -296,6 +322,7 @@ function TaskActionList({
             key={task.id}
             task={task}
             users={users}
+            teams={teams}
             updateTask={updateTask}
             completeTask={completeTask}
             cancelTask={cancelTask}
@@ -310,6 +337,7 @@ function TaskActionList({
 function TaskActionRow({
   task,
   users,
+  teams,
   updateTask,
   completeTask,
   cancelTask,
@@ -317,9 +345,14 @@ function TaskActionRow({
 }: {
   readonly task: TaskSummary;
   readonly users: readonly UserSummary[];
+  readonly teams: readonly TeamSummary[];
   readonly updateTask: (
     taskId: string,
-    fields: { readonly title?: string; readonly assignedUserId?: string | null },
+    fields: {
+      readonly title?: string;
+      readonly assignedUserId?: string | null;
+      readonly teamId?: string | null;
+    },
   ) => void | Promise<unknown>;
   readonly completeTask: (taskId: string) => void | Promise<unknown>;
   readonly cancelTask: (taskId: string) => void | Promise<unknown>;
@@ -329,7 +362,7 @@ function TaskActionRow({
   const titleUpdateFields = getTaskTitleUpdateFields(task.title, draftTitle);
 
   return (
-    <div className="grid gap-3 rounded-lg border p-3 md:grid-cols-[minmax(12rem,1fr)_auto_auto] md:items-center">
+    <div className="grid gap-3 rounded-lg border p-3 lg:grid-cols-[minmax(12rem,1fr)_auto_auto_auto] lg:items-center">
       <div className="grid gap-2">
         <Input
           aria-label={`Title for ${task.title}`}
@@ -366,6 +399,23 @@ function TaskActionRow({
           </NativeSelectOption>
         ))}
       </NativeSelect>
+      <NativeSelect
+        size="sm"
+        value={task.teamId ?? ""}
+        aria-label={`Assign Team for ${task.title}`}
+        onChange={(event) => {
+          const fields = getTaskTeamUpdateFields(task.teamId, event.target.value);
+          if (!fields) return;
+          void updateTask(task.id, fields);
+        }}
+      >
+        <NativeSelectOption value="">No Team</NativeSelectOption>
+        {teams.map((team) => (
+          <NativeSelectOption key={team.id} value={team.id}>
+            {team.name}
+          </NativeSelectOption>
+        ))}
+      </NativeSelect>
       <div className="flex flex-wrap gap-2">
         {task.taskState === "canceled" ? (
           <Button type="button" size="sm" variant="outline" onClick={() => reopenTask(task.id)}>
@@ -399,6 +449,7 @@ function toBoardTask(task: TaskSummary) {
   return {
     id: task.id,
     title: task.title,
+    teamId: task.teamId,
     workflowStatusId: task.workflowStatusId,
     taskState: task.taskState,
   };

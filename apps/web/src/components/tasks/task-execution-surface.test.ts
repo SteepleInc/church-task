@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   getTaskCreationDefaults,
+  getTaskTeamUpdateFields,
   getTaskTitleUpdateFields,
   selectCurrentExecutionCycle,
 } from "./task-execution-surface";
@@ -52,5 +53,13 @@ describe("Task execution surface", () => {
     });
     expect(getTaskTitleUpdateFields("Call volunteer", " Call volunteer ")).toBeNull();
     expect(getTaskTitleUpdateFields("Call volunteer", "   ")).toBeNull();
+  });
+
+  test("builds Team update fields for Team assignment, changes, and unassignment", () => {
+    expect(getTaskTeamUpdateFields(null, "team-1")).toEqual({ teamId: "team-1" });
+    expect(getTaskTeamUpdateFields("team-1", "team-2")).toEqual({ teamId: "team-2" });
+    expect(getTaskTeamUpdateFields("team-1", "")).toEqual({ teamId: null });
+    expect(getTaskTeamUpdateFields("team-1", "team-1")).toBeNull();
+    expect(getTaskTeamUpdateFields(null, "")).toBeNull();
   });
 });
