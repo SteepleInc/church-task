@@ -2,6 +2,11 @@ import { FunctionImpl, GroupImpl, MutationCtx, QueryCtx } from "@confect/server"
 import { Effect, Layer } from "effect";
 
 import {
+  invalidActivityMetadataResponse,
+  listActivitiesForEntityResponse,
+  recordActivityResponse,
+} from "../agent/activityOperations";
+import {
   activeChurchResponse,
   batchReadResponse,
   currentUserResponse,
@@ -9,6 +14,7 @@ import {
   notChurchMemberResponse,
 } from "../agent/operations";
 import { workDefaultsResponse } from "../agent/workDefaultsOperations";
+import { listActivitiesForEntity, serializeActivity, writeActivity } from "../activityRegistry";
 import { authComponent } from "../authCore";
 import { components } from "../convex/_generated/api";
 import type { DataModel } from "../convex/_generated/dataModel";
@@ -221,6 +227,33 @@ const workDefaultsReadForChurch = FunctionImpl.make(api, "workDefaults", "readFo
   }),
 );
 
+const activitiesRecordForChurch = FunctionImpl.make(api, "activities", "recordForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+    const activityId = yield* Effect.tryPromise(() => writeActivity(ctx, args));
+    const activity = yield* Effect.promise(() => ctx.db.get(activityId)).pipe(Effect.orDie);
+
+    if (!activity) {
+      return yield* Effect.dieMessage("Activity was not readable after insert.");
+    }
+
+    return recordActivityResponse(serializeActivity(activity));
+  }).pipe(Effect.catchAll(() => Effect.succeed(invalidActivityMetadataResponse()))),
+);
+
+const activitiesListForEntity = FunctionImpl.make(api, "activities", "listForEntity", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* QueryCtx.QueryCtx<DataModel>();
+    const activities = yield* Effect.promise(() => listActivitiesForEntity(ctx, args)).pipe(
+      Effect.orDie,
+    );
+
+    return listActivitiesForEntityResponse(
+      activities.map((activity) => serializeActivity(activity)),
+    );
+  }),
+);
+
 export const healthCheck = GroupImpl.make(api, "healthCheck").pipe(Layer.provide(healthCheckGet));
 
 export const privateData = GroupImpl.make(api, "privateData").pipe(Layer.provide(privateDataGet));
@@ -233,4 +266,8 @@ export const agent = GroupImpl.make(api, "agent").pipe(
 export const workDefaults = GroupImpl.make(api, "workDefaults").pipe(
   Layer.provide(workDefaultsSeedForChurch),
   Layer.provide(workDefaultsReadForChurch),
+);
+export const activities = GroupImpl.make(api, "activities").pipe(
+  Layer.provide(activitiesRecordForChurch),
+  Layer.provide(activitiesListForEntity),
 );

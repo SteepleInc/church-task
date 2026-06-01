@@ -1,6 +1,13 @@
 import { DatabaseSchema, Table } from "@confect/server";
 import { Schema } from "effect";
 
+import {
+  ActivityActorType,
+  ActivityEntityType,
+  ActivityEventType,
+  ActivityMetadata,
+} from "../activityRegistry";
+
 export const Workflows = Table.make(
   "workflows",
   Schema.Struct({
@@ -64,7 +71,25 @@ export const KeyDates = Table.make(
   .index("by_churchId_and_key", ["churchId", "key"])
   .index("by_churchId", ["churchId"]);
 
+export const Activities = Table.make(
+  "activities",
+  Schema.Struct({
+    churchId: Schema.String,
+    entityType: ActivityEntityType,
+    entityId: Schema.String,
+    eventType: ActivityEventType,
+    actorType: ActivityActorType,
+    actorId: Schema.Union(Schema.String, Schema.Null),
+    occurredAt: Schema.String,
+    cycleId: Schema.Union(Schema.String, Schema.Null),
+    metadata: ActivityMetadata,
+  }),
+)
+  .index("by_churchId_and_entity", ["churchId", "entityType", "entityId"])
+  .index("by_churchId", ["churchId"]);
+
 export default DatabaseSchema.make()
   .addTable(Workflows)
   .addTable(WorkflowStatuses)
-  .addTable(KeyDates);
+  .addTable(KeyDates)
+  .addTable(Activities);

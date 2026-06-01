@@ -365,6 +365,238 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("Activity registry records typed Activity metadata", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-activity-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Activity Church",
+        slug: `activity-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+      const taskId = `task-${crypto.randomUUID()}`;
+
+      const result = yield* authenticated.mutation(refs.public.activities.recordForChurch, {
+        churchId: church.id!,
+        entityType: "task",
+        entityId: taskId,
+        eventType: "task.canceled",
+        actorType: "user",
+        actorId: signUpBody.user!.id!,
+        occurredAt: "2026-05-31T12:00:00.000Z",
+        cycleId: null,
+        metadata: {
+          previousTaskState: "in_progress",
+          previousWorkflowStatusId: "workflow-status-1",
+          previousWorkflowStatusName: "In Progress",
+        },
+      });
+
+      expect(result).toMatchObject({
+        ok: true,
+        operation: "recordActivity",
+        data: {
+          activity: {
+            churchId: church.id,
+            entityType: "task",
+            entityId: taskId,
+            eventType: "task.canceled",
+            actorType: "user",
+            actorId: signUpBody.user!.id,
+            occurredAt: "2026-05-31T12:00:00.000Z",
+            cycleId: null,
+            metadata: {
+              previousTaskState: "in_progress",
+              previousWorkflowStatusId: "workflow-status-1",
+              previousWorkflowStatusName: "In Progress",
+            },
+          },
+        },
+      });
+      expect(result.data.activity.id).toEqual(expect.any(String));
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("Activity registry rejects invalid metadata before insert", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-invalid-activity-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Invalid Activity Church",
+        slug: `invalid-activity-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+      const taskId = `task-${crypto.randomUUID()}`;
+
+      const invalidResult = yield* authenticated.mutation(refs.public.activities.recordForChurch, {
+        churchId: church.id!,
+        entityType: "task",
+        entityId: taskId,
+        eventType: "task.canceled",
+        actorType: "user",
+        actorId: signUpBody.user!.id!,
+        occurredAt: "2026-05-31T12:00:00.000Z",
+        cycleId: null,
+        metadata: {
+          previousTaskState: "canceled",
+          previousWorkflowStatusId: "workflow-status-1",
+          previousWorkflowStatusName: "In Progress",
+        },
+      });
+      const result = yield* authenticated.query(refs.public.activities.listForEntity, {
+        churchId: church.id!,
+        entityType: "task",
+        entityId: taskId,
+      });
+
+      expect(invalidResult).toEqual({
+        ok: false,
+        operation: "recordActivity",
+        error: {
+          code: "invalid_activity_metadata",
+          message: "Activity metadata does not match the registered event schema.",
+        },
+      });
+      expect(result.data.activities).toEqual([]);
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("Activity reads are scoped to the requested entity", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-activity-scope-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Activity Scope Church",
+        slug: `activity-scope-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+      const matchingTaskId = `task-${crypto.randomUUID()}`;
+      const otherTaskId = `task-${crypto.randomUUID()}`;
+
+      yield* authenticated.mutation(refs.public.activities.recordForChurch, {
+        churchId: church.id!,
+        entityType: "task",
+        entityId: matchingTaskId,
+        eventType: "task.created",
+        actorType: "user",
+        actorId: signUpBody.user!.id!,
+        occurredAt: "2026-05-31T12:00:00.000Z",
+        cycleId: null,
+        metadata: {},
+      });
+      yield* authenticated.mutation(refs.public.activities.recordForChurch, {
+        churchId: church.id!,
+        entityType: "task",
+        entityId: otherTaskId,
+        eventType: "task.created",
+        actorType: "user",
+        actorId: signUpBody.user!.id!,
+        occurredAt: "2026-05-31T12:01:00.000Z",
+        cycleId: null,
+        metadata: {},
+      });
+
+      const result = yield* authenticated.query(refs.public.activities.listForEntity, {
+        churchId: church.id!,
+        entityType: "task",
+        entityId: matchingTaskId,
+      });
+
+      expect(result.data.activities).toHaveLength(1);
+      expect(result.data.activities[0]!.entityId).toBe(matchingTaskId);
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("Activity metadata supports targeted restore for canceled Tasks", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-activity-restore-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Activity Restore Church",
+        slug: `activity-restore-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+      const taskId = `task-${crypto.randomUUID()}`;
+      const cancel = yield* authenticated.mutation(refs.public.activities.recordForChurch, {
+        churchId: church.id!,
+        entityType: "task",
+        entityId: taskId,
+        eventType: "task.canceled",
+        actorType: "user",
+        actorId: signUpBody.user!.id!,
+        occurredAt: "2026-05-31T12:00:00.000Z",
+        cycleId: "cycle-1",
+        metadata: {
+          previousTaskState: "todo",
+          previousWorkflowStatusId: "workflow-status-to-do",
+          previousWorkflowStatusName: "To Do",
+        },
+      });
+
+      const reopen = yield* authenticated.mutation(refs.public.activities.recordForChurch, {
+        churchId: church.id!,
+        entityType: "task",
+        entityId: taskId,
+        eventType: "task.reopened",
+        actorType: "user",
+        actorId: signUpBody.user!.id!,
+        occurredAt: "2026-05-31T12:05:00.000Z",
+        cycleId: "cycle-1",
+        metadata: {
+          restoredTaskState: "todo",
+          restoredWorkflowStatusId: "workflow-status-to-do",
+          cancelActivityId: cancel.data.activity.id,
+        },
+      });
+
+      expect(reopen.data.activity.metadata).toEqual({
+        restoredTaskState: "todo",
+        restoredWorkflowStatusId: "workflow-status-to-do",
+        cancelActivityId: cancel.data.activity.id,
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Church creation rejects an invalid Church Time Zone", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;

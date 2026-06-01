@@ -2,6 +2,12 @@ import { FunctionSpec, GroupSpec } from "@confect/core";
 import { Schema } from "effect";
 
 import {
+  ListActivitiesForEntityArgs,
+  ListActivitiesForEntityResponse,
+  RecordActivityArgs,
+  RecordActivityOperationResponse,
+} from "../agent/activityOperations";
+import {
   ActiveChurchArgs,
   ActiveChurchResponse,
   BatchReadArgs,
@@ -70,5 +76,21 @@ export const workDefaults = GroupSpec.make("workDefaults")
       name: "readForChurch",
       args: WorkDefaultsChurchArgs,
       returns: WorkDefaultsResponse,
+    }),
+  );
+
+export const activities = GroupSpec.make("activities")
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "recordForChurch",
+      args: RecordActivityArgs,
+      returns: RecordActivityOperationResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicQuery({
+      name: "listForEntity",
+      args: ListActivitiesForEntityArgs,
+      returns: ListActivitiesForEntityResponse,
     }),
   );
