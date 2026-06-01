@@ -28,7 +28,12 @@ import {
   noActiveChurchResponse,
   notChurchMemberResponse,
 } from "../agent/operations";
-import { teamErrorResponse, teamsResponse } from "../agent/teamOperations";
+import {
+  teamErrorResponse,
+  teamMembershipErrorResponse,
+  teamMembershipsResponse,
+  teamsResponse,
+} from "../agent/teamOperations";
 import { templateErrorResponse, templateResponse } from "../agent/templateOperations";
 import { taskErrorResponse, taskResponse } from "../agent/taskOperations";
 import { workDefaultsResponse } from "../agent/workDefaultsOperations";
@@ -75,6 +80,9 @@ type BetterAuthSession = {
 };
 
 type BetterAuthMember = {
+  readonly _id: string;
+  readonly organizationId: string;
+  readonly userId: string;
   readonly role: string;
 };
 
@@ -94,10 +102,17 @@ type BetterAuthTeam = {
   readonly defaultWorkflowId?: string | null;
 };
 
-type BetterAuthModel = "member" | "organization" | "session" | "team";
+type BetterAuthTeamMember = {
+  readonly _id: string;
+  readonly teamId: string;
+  readonly userId: string;
+  readonly createdAt: number;
+};
+
+type BetterAuthModel = "member" | "organization" | "session" | "team" | "teamMember";
 type BetterAuthWhere = {
   field: string;
-  operator?: "eq" | "gt";
+  operator?: "eq" | "gt" | "in";
   value: string | number | boolean | Array<string> | Array<number> | null;
 };
 
@@ -156,6 +171,13 @@ const serializeTeam = (team: BetterAuthTeam) => ({
   defaultWorkflowId: team.defaultWorkflowId ?? null,
 });
 
+const serializeTeamMembership = (churchId: string, membership: BetterAuthTeamMember) => ({
+  id: membership._id,
+  churchId,
+  teamId: membership.teamId,
+  userId: membership.userId,
+});
+
 const getAuthenticatedChurchMember = (churchId: string) =>
   Effect.gen(function* () {
     const ctx = yield* QueryCtx.QueryCtx<DataModel>();
@@ -196,12 +218,44 @@ const activeTeamsForChurch = (churchId: string) =>
     Effect.map((teams) => teams.filter((team) => (team.archivedAt ?? null) === null)),
   );
 
+const listTeamMembershipsForChurch = (churchId: string) =>
+  Effect.gen(function* () {
+    const teams = yield* listTeamsForChurch(churchId);
+    if (teams.length === 0) return [];
+
+    const teamIds = teams.map((team) => team._id);
+    const memberships = yield* findBetterAuthDocs<BetterAuthTeamMember>({
+      model: "teamMember",
+      where: [{ field: "teamId", operator: "in", value: teamIds }],
+    });
+
+    return [...memberships].sort((left, right) => {
+      const teamDifference = left.teamId.localeCompare(right.teamId);
+      return teamDifference === 0 ? left.userId.localeCompare(right.userId) : teamDifference;
+    });
+  });
+
 const teamManageAuthError = (operation: Parameters<typeof teamErrorResponse>[0], role?: string) => {
   if (role !== "owner" && role !== "admin") {
     return teamErrorResponse(
       operation,
       "not_authorized",
       "Only Church owners and admins can manage Teams.",
+    );
+  }
+
+  return null;
+};
+
+const teamMembershipManageAuthError = (
+  operation: Parameters<typeof teamMembershipErrorResponse>[0],
+  role?: string,
+) => {
+  if (role !== "owner" && role !== "admin") {
+    return teamMembershipErrorResponse(
+      operation,
+      "not_authorized",
+      "Only Church owners and admins can manage Team Membership.",
     );
   }
 
@@ -1224,6 +1278,228 @@ const teamListForChurch = FunctionImpl.make(api, "teams", "listForChurch", (args
       : activeTeamsForChurch(args.churchId);
 
     return teamsResponse("listTeams", teams.map(serializeTeam));
+  }),
+);
+
+const teamListMembershipsForChurch = FunctionImpl.make(
+  api,
+  "teams",
+  "listMembershipsForChurch",
+  (args) =>
+    Effect.gen(function* () {
+      const auth = yield* getAuthenticatedChurchMember(args.churchId);
+
+      if (auth.status === "notAuthenticated") {
+        return teamMembershipErrorResponse(
+          "listTeamMemberships",
+          "not_authenticated",
+          "Authentication is required.",
+        );
+      }
+      if (auth.status === "notChurchMember") {
+        return teamMembershipErrorResponse(
+          "listTeamMemberships",
+          "not_church_member",
+          "Church membership is required.",
+        );
+      }
+
+      const memberships = yield* listTeamMembershipsForChurch(args.churchId);
+
+      return teamMembershipsResponse(
+        "listTeamMemberships",
+        memberships.map((membership) => serializeTeamMembership(args.churchId, membership)),
+      );
+    }),
+);
+
+const teamAddMemberForChurch = FunctionImpl.make(api, "teams", "addMemberForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    if (auth.status === "notAuthenticated") {
+      return teamMembershipErrorResponse(
+        "addTeamMember",
+        "not_authenticated",
+        "Authentication is required.",
+      );
+    }
+    if (auth.status === "notChurchMember") {
+      return teamMembershipErrorResponse(
+        "addTeamMember",
+        "not_church_member",
+        "Church membership is required.",
+      );
+    }
+    const authError = teamMembershipManageAuthError("addTeamMember", auth.membership.role);
+    if (authError) return authError;
+
+    const team = (yield* Effect.promise(() =>
+      ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "team",
+        where: [
+          { field: "_id", value: args.teamId },
+          { field: "organizationId", value: args.churchId },
+          { field: "archivedAt", value: null },
+        ],
+      }),
+    ).pipe(Effect.orDie)) as BetterAuthTeam | null;
+    if (!team) {
+      return teamMembershipErrorResponse(
+        "addTeamMember",
+        "team_not_found",
+        "Team was not found in the active Church.",
+      );
+    }
+
+    const churchMember = (yield* Effect.promise(() =>
+      ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "member",
+        where: [
+          { field: "organizationId", value: args.churchId },
+          { field: "userId", value: args.userId },
+        ],
+      }),
+    ).pipe(Effect.orDie)) as BetterAuthMember | null;
+    if (!churchMember) {
+      return teamMembershipErrorResponse(
+        "addTeamMember",
+        "member_not_found",
+        "Church Member was not found in the active Church.",
+      );
+    }
+
+    const existing = (yield* Effect.promise(() =>
+      ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "teamMember",
+        where: [
+          { field: "teamId", value: args.teamId },
+          { field: "userId", value: args.userId },
+        ],
+      }),
+    ).pipe(Effect.orDie)) as BetterAuthTeamMember | null;
+
+    if (!existing) {
+      yield* Effect.promise(() =>
+        ctx.runMutation(components.betterAuth.adapter.create, {
+          input: {
+            model: "teamMember",
+            data: { teamId: args.teamId, userId: args.userId, createdAt: Date.now() },
+          },
+        }),
+      ).pipe(Effect.orDie);
+      yield* Effect.promise(() =>
+        writeActivity(ctx, {
+          churchId: args.churchId,
+          entityType: "team",
+          entityId: args.teamId,
+          eventType: "team.member.added",
+          actorType: "user",
+          actorId: auth.authUser._id,
+          occurredAt: new Date().toISOString(),
+          cycleId: null,
+          metadata: { memberUserId: args.userId },
+        }),
+      ).pipe(Effect.orDie);
+    }
+
+    const memberships = yield* listTeamMembershipsForChurch(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    return teamMembershipsResponse(
+      "addTeamMember",
+      memberships.map((membership) => serializeTeamMembership(args.churchId, membership)),
+    );
+  }),
+);
+
+const teamRemoveMemberForChurch = FunctionImpl.make(api, "teams", "removeMemberForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    if (auth.status === "notAuthenticated") {
+      return teamMembershipErrorResponse(
+        "removeTeamMember",
+        "not_authenticated",
+        "Authentication is required.",
+      );
+    }
+    if (auth.status === "notChurchMember") {
+      return teamMembershipErrorResponse(
+        "removeTeamMember",
+        "not_church_member",
+        "Church membership is required.",
+      );
+    }
+    const authError = teamMembershipManageAuthError("removeTeamMember", auth.membership.role);
+    if (authError) return authError;
+
+    const team = (yield* Effect.promise(() =>
+      ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "team",
+        where: [
+          { field: "_id", value: args.teamId },
+          { field: "organizationId", value: args.churchId },
+        ],
+      }),
+    ).pipe(Effect.orDie)) as BetterAuthTeam | null;
+    if (!team) {
+      return teamMembershipErrorResponse(
+        "removeTeamMember",
+        "team_not_found",
+        "Team was not found in the active Church.",
+      );
+    }
+
+    const existing = (yield* Effect.promise(() =>
+      ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "teamMember",
+        where: [
+          { field: "teamId", value: args.teamId },
+          { field: "userId", value: args.userId },
+        ],
+      }),
+    ).pipe(Effect.orDie)) as BetterAuthTeamMember | null;
+
+    if (existing) {
+      yield* Effect.promise(() =>
+        ctx.runMutation(components.betterAuth.adapter.deleteOne, {
+          input: {
+            model: "teamMember",
+            where: [{ field: "_id", value: existing._id }],
+          },
+        }),
+      ).pipe(Effect.orDie);
+      yield* Effect.promise(() =>
+        writeActivity(ctx, {
+          churchId: args.churchId,
+          entityType: "team",
+          entityId: args.teamId,
+          eventType: "team.member.removed",
+          actorType: "user",
+          actorId: auth.authUser._id,
+          occurredAt: new Date().toISOString(),
+          cycleId: null,
+          metadata: { memberUserId: args.userId },
+        }),
+      ).pipe(Effect.orDie);
+    }
+
+    const memberships = yield* listTeamMembershipsForChurch(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    return teamMembershipsResponse(
+      "removeTeamMember",
+      memberships.map((membership) => serializeTeamMembership(args.churchId, membership)),
+    );
   }),
 );
 
@@ -2771,10 +3047,13 @@ export const activities = GroupImpl.make(api, "activities").pipe(
 );
 export const teams = GroupImpl.make(api, "teams").pipe(
   Layer.provide(teamListForChurch),
+  Layer.provide(teamListMembershipsForChurch),
   Layer.provide(teamCreateForChurch),
   Layer.provide(teamRenameForChurch),
   Layer.provide(teamArchiveForChurch),
   Layer.provide(teamReorderForChurch),
+  Layer.provide(teamAddMemberForChurch),
+  Layer.provide(teamRemoveMemberForChurch),
   Layer.provide(teamUpdateProductFields),
 );
 export const tasks = GroupImpl.make(api, "tasks").pipe(

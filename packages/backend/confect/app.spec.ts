@@ -42,6 +42,7 @@ import {
   TeamArchiveArgs,
   TeamCreateArgs,
   TeamListArgs,
+  TeamMembershipArgs,
   TeamProductUpdateArgs,
   TeamRenameArgs,
   TeamReorderArgs,
@@ -235,6 +236,13 @@ export const teams = GroupSpec.make("teams")
     }),
   )
   .addFunction(
+    FunctionSpec.publicQuery({
+      name: "listMembershipsForChurch",
+      args: TeamListArgs,
+      returns: TeamReadResponse,
+    }),
+  )
+  .addFunction(
     FunctionSpec.publicMutation({
       name: "createForChurch",
       args: TeamCreateArgs,
@@ -259,6 +267,20 @@ export const teams = GroupSpec.make("teams")
     FunctionSpec.publicMutation({
       name: "reorderForChurch",
       args: TeamReorderArgs,
+      returns: TeamWriteResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "addMemberForChurch",
+      args: TeamMembershipArgs,
+      returns: TeamWriteResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "removeMemberForChurch",
+      args: TeamMembershipArgs,
       returns: TeamWriteResponse,
     }),
   )

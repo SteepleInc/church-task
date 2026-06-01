@@ -2063,6 +2063,187 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("owners manage Team Membership through public setup operations", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const ownerEmail = `agent-team-membership-owner-${crypto.randomUUID()}@example.com`;
+      const adminEmail = `agent-team-membership-admin-${crypto.randomUUID()}@example.com`;
+      const memberEmail = `agent-team-membership-member-${crypto.randomUUID()}@example.com`;
+      const ownerResponse = yield* signUpWithEmail(c, ownerEmail);
+      const adminResponse = yield* signUpWithEmail(c, adminEmail);
+      const memberResponse = yield* signUpWithEmail(c, memberEmail);
+      const owner = (yield* Effect.promise(() => ownerResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const admin = (yield* Effect.promise(() => adminResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const member = (yield* Effect.promise(() => memberResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: owner.token!,
+        name: "Team Membership Church",
+        slug: `team-membership-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      yield* c.run(
+        Effect.gen(function* () {
+          const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+          yield* Effect.promise(() =>
+            ctx.runMutation(components.betterAuth.adapter.create, {
+              input: {
+                model: "member",
+                data: {
+                  userId: admin.user!.id!,
+                  organizationId: church.id!,
+                  role: "admin",
+                  createdAt: Date.now(),
+                },
+              },
+            }),
+          );
+          yield* Effect.promise(() =>
+            ctx.runMutation(components.betterAuth.adapter.create, {
+              input: {
+                model: "member",
+                data: {
+                  userId: member.user!.id!,
+                  organizationId: church.id!,
+                  role: "member",
+                  createdAt: Date.now(),
+                },
+              },
+            }),
+          );
+        }),
+        Schema.Void,
+      );
+      const ownerAuthenticated = yield* authenticatedConfect(c, {
+        userId: owner.user!.id!,
+        sessionToken: owner.token!,
+      });
+      const adminAuthenticated = yield* authenticatedConfect(c, {
+        userId: admin.user!.id!,
+        sessionToken: admin.token!,
+      });
+      const memberAuthenticated = yield* authenticatedConfect(c, {
+        userId: member.user!.id!,
+        sessionToken: member.token!,
+      });
+      const teams = yield* ownerAuthenticated.query(refs.public.teams.listForChurch, {
+        churchId: church.id!,
+      });
+      const team = teams.data.teams.find((candidate) => candidate.name === "Worship")!;
+      const defaults = yield* ownerAuthenticated.query(refs.public.workDefaults.readForChurch, {
+        churchId: church.id!,
+      });
+      const todoStatus = defaults.data.workflowStatuses.find(
+        (status) => status.taskState === "todo",
+      )!;
+      const createdTask = yield* ownerAuthenticated.mutation(refs.public.tasks.createBatch, {
+        churchId: church.id!,
+        tasks: [
+          {
+            title: "Plan Sunday set",
+            teamId: team.id,
+            workflowStatusId: todoStatus.id,
+            dueDate: "2026-06-07",
+            parentTaskId: null,
+          },
+        ],
+      });
+
+      const added = yield* ownerAuthenticated.mutation(refs.public.teams.addMemberForChurch, {
+        churchId: church.id!,
+        teamId: team.id,
+        userId: member.user!.id!,
+      });
+      const unauthorized = yield* memberAuthenticated.mutation(
+        refs.public.teams.removeMemberForChurch,
+        {
+          churchId: church.id!,
+          teamId: team.id,
+          userId: member.user!.id!,
+        },
+      );
+      const removed = yield* ownerAuthenticated.mutation(refs.public.teams.removeMemberForChurch, {
+        churchId: church.id!,
+        teamId: team.id,
+        userId: member.user!.id!,
+      });
+      const adminAdded = yield* adminAuthenticated.mutation(refs.public.teams.addMemberForChurch, {
+        churchId: church.id!,
+        teamId: team.id,
+        userId: member.user!.id!,
+      });
+      const adminRemoved = yield* adminAuthenticated.mutation(
+        refs.public.teams.removeMemberForChurch,
+        {
+          churchId: church.id!,
+          teamId: team.id,
+          userId: member.user!.id!,
+        },
+      );
+      const memberTasks = yield* memberAuthenticated.query(refs.public.tasks.listForChurch, {
+        churchId: church.id!,
+      });
+      const activities = yield* ownerAuthenticated.query(refs.public.activities.listForEntity, {
+        churchId: church.id!,
+        entityType: "team",
+        entityId: team.id,
+      });
+
+      expect(added.data.teamMemberships).toContainEqual({
+        id: expect.any(String),
+        churchId: church.id!,
+        teamId: team.id,
+        userId: member.user!.id!,
+      });
+      expect(unauthorized).toEqual({
+        ok: false,
+        operation: "removeTeamMember",
+        error: {
+          code: "not_authorized",
+          message: "Only Church owners and admins can manage Team Membership.",
+        },
+      });
+      expect(
+        removed.data.teamMemberships.some(
+          (membership) => membership.teamId === team.id && membership.userId === member.user!.id!,
+        ),
+      ).toBe(false);
+      expect(adminAdded.data.teamMemberships).toContainEqual({
+        id: expect.any(String),
+        churchId: church.id!,
+        teamId: team.id,
+        userId: member.user!.id!,
+      });
+      expect(
+        adminRemoved.data.teamMemberships.some(
+          (membership) => membership.teamId === team.id && membership.userId === member.user!.id!,
+        ),
+      ).toBe(false);
+      expect(createdTask.data.tasks.find((task) => task.title === "Plan Sunday set")).toMatchObject(
+        { teamId: team.id },
+      );
+      expect(memberTasks.data.tasks.find((task) => task.title === "Plan Sunday set")).toMatchObject(
+        {
+          teamId: team.id,
+        },
+      );
+      expect(activities.data.activities.map((activity) => activity.eventType)).toEqual([
+        "team.member.added",
+        "team.member.removed",
+        "team.member.added",
+        "team.member.removed",
+      ]);
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Workflow creation enforces required visible Task States", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;

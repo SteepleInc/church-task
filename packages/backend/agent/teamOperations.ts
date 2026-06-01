@@ -42,6 +42,12 @@ export const TeamReorderArgs = Schema.Struct({
   teamIds: Schema.Array(Schema.String),
 });
 
+export const TeamMembershipArgs = Schema.Struct({
+  churchId: Schema.String,
+  teamId: Schema.String,
+  userId: Schema.String,
+});
+
 export const Team = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
@@ -63,6 +69,25 @@ export const TeamOperationResponse = Schema.Struct({
   ),
   data: Schema.Struct({
     teams: Schema.Array(Team),
+  }),
+});
+
+export const TeamMembership = Schema.Struct({
+  id: Schema.String,
+  churchId: Schema.String,
+  teamId: Schema.String,
+  userId: Schema.String,
+});
+
+export const TeamMembershipOperationResponse = Schema.Struct({
+  ok: Schema.Boolean,
+  operation: Schema.Union(
+    Schema.Literal("listTeamMemberships"),
+    Schema.Literal("addTeamMember"),
+    Schema.Literal("removeTeamMember"),
+  ),
+  data: Schema.Struct({
+    teamMemberships: Schema.Array(TeamMembership),
   }),
 });
 
@@ -88,8 +113,37 @@ export const TeamOperationErrorResponse = Schema.Struct({
   }),
 });
 
-export const TeamReadResponse = Schema.Union(TeamOperationResponse, TeamOperationErrorResponse);
-export const TeamWriteResponse = Schema.Union(TeamOperationResponse, TeamOperationErrorResponse);
+export const TeamMembershipOperationErrorResponse = Schema.Struct({
+  ok: Schema.Literal(false),
+  operation: Schema.Union(
+    Schema.Literal("listTeamMemberships"),
+    Schema.Literal("addTeamMember"),
+    Schema.Literal("removeTeamMember"),
+  ),
+  error: Schema.Struct({
+    code: Schema.Union(
+      Schema.Literal("not_authenticated"),
+      Schema.Literal("not_church_member"),
+      Schema.Literal("not_authorized"),
+      Schema.Literal("team_not_found"),
+      Schema.Literal("member_not_found"),
+    ),
+    message: Schema.String,
+  }),
+});
+
+export const TeamReadResponse = Schema.Union(
+  TeamOperationResponse,
+  TeamOperationErrorResponse,
+  TeamMembershipOperationResponse,
+  TeamMembershipOperationErrorResponse,
+);
+export const TeamWriteResponse = Schema.Union(
+  TeamOperationResponse,
+  TeamOperationErrorResponse,
+  TeamMembershipOperationResponse,
+  TeamMembershipOperationErrorResponse,
+);
 
 export const teamsResponse = (
   operation: Schema.Schema.Type<typeof TeamOperationResponse>["operation"],
@@ -103,6 +157,25 @@ export const teamsResponse = (
 export const teamErrorResponse = (
   operation: Schema.Schema.Type<typeof TeamOperationErrorResponse>["operation"],
   code: Schema.Schema.Type<typeof TeamOperationErrorResponse>["error"]["code"],
+  message: string,
+) => ({
+  ok: false as const,
+  operation,
+  error: { code, message },
+});
+
+export const teamMembershipsResponse = (
+  operation: Schema.Schema.Type<typeof TeamMembershipOperationResponse>["operation"],
+  teamMemberships: ReadonlyArray<Schema.Schema.Type<typeof TeamMembership>>,
+) => ({
+  ok: true,
+  operation,
+  data: { teamMemberships },
+});
+
+export const teamMembershipErrorResponse = (
+  operation: Schema.Schema.Type<typeof TeamMembershipOperationErrorResponse>["operation"],
+  code: Schema.Schema.Type<typeof TeamMembershipOperationErrorResponse>["error"]["code"],
   message: string,
 ) => ({
   ok: false as const,
