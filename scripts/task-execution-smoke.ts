@@ -18,7 +18,7 @@ type Step = {
 };
 
 const browserSmokePattern =
-  "authenticated dashboard lands on My Work|Our Work assignment feeds My Work|My Work lifecycle actions|Team sidebar navigation opens a Team board filtered to that Team";
+  "authenticated dashboard lands on My Work|Our Work assignment feeds My Work|My Work lifecycle actions|My Work updates Task fields and creates Subtasks|Team sidebar navigation opens a Team board filtered to that Team";
 const e2eEnvFile = ".env.e2e";
 const hasE2eEnvFile = existsSync(e2eEnvFile);
 const requireFull = process.argv.includes("--require-full");

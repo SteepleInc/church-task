@@ -241,6 +241,48 @@ test("My Work lifecycle actions complete, cancel, and reopen Tasks", async ({ pa
   await expect(canceledTaskActions.getByText(/reopened by User/)).toBeVisible();
 });
 
+test("My Work updates Task fields and creates Subtasks", async ({ page }, testInfo) => {
+  const uniqueEmail = `e2e-my-work-updates-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const taskTitle = `Editable My Work Task ${Date.now()}`;
+  const renamedTaskTitle = `Renamed My Work Task ${Date.now()}`;
+  const subtaskTitle = `Follow-up Subtask ${Date.now()}`;
+
+  await signUpThroughDashboard(page, uniqueEmail, "E2E My Work Update User");
+  await createFirstChurch(page, `E2E My Work Update Church ${Date.now()}`);
+
+  await page.getByPlaceholder("Add a Task assigned to me").fill(taskTitle);
+  await page.getByRole("button", { name: "Create Task" }).click();
+
+  const taskActions = page.getByRole("group", { name: `Actions for ${taskTitle}` });
+  await expect(taskActions).toBeVisible();
+
+  await taskActions.getByLabel(`Title for ${taskTitle}`).fill(renamedTaskTitle);
+  await taskActions.getByRole("button", { name: "Save Title" }).click();
+  await expect(page.getByText(renamedTaskTitle).first()).toBeVisible();
+  await expect(page.getByText(taskTitle)).not.toBeVisible();
+
+  const cycleLabel = await page
+    .getByText(/Cycle: .+ to .+/)
+    .first()
+    .innerText();
+  const [, cycleStartDate] = /Cycle: (\d{4}-\d{2}-\d{2}) to /.exec(cycleLabel) ?? [];
+  if (!cycleStartDate) {
+    throw new Error(`Could not read current Cycle from label: ${cycleLabel}`);
+  }
+
+  const renamedTaskActions = page.getByRole("group", { name: `Actions for ${renamedTaskTitle}` });
+  await renamedTaskActions.getByLabel(`Due Date for ${renamedTaskTitle}`).fill(cycleStartDate);
+  await renamedTaskActions.getByRole("button", { name: "Save" }).click();
+  await expect(renamedTaskActions.getByLabel(`Due Date for ${renamedTaskTitle}`)).toHaveValue(
+    cycleStartDate,
+  );
+
+  await renamedTaskActions.getByLabel(`Subtask title for ${renamedTaskTitle}`).fill(subtaskTitle);
+  await renamedTaskActions.getByRole("button", { name: "Add Subtask" }).click();
+  await expect(page.getByText(subtaskTitle).first()).toBeVisible();
+  await expect(page.getByText(`Parent: ${renamedTaskTitle}`).first()).toBeVisible();
+});
+
 test("Team sidebar navigation opens a Team board filtered to that Team", async ({
   page,
 }, testInfo) => {
