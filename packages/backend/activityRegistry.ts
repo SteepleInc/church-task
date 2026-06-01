@@ -30,6 +30,16 @@ const EmptyMetadata = Schema.Struct({});
 
 export const ActivityMetadataByEventType = {
   "task.created": EmptyMetadata,
+  "task.updated": Schema.Struct({
+    updatedFields: Schema.Array(Schema.String),
+  }),
+  "task.user_assigned": Schema.Struct({
+    previousAssignedUserId: Schema.Union(Schema.String, Schema.Null),
+    assignedUserId: Schema.String,
+  }),
+  "task.user_unassigned": Schema.Struct({
+    previousAssignedUserId: Schema.String,
+  }),
   "task.completed": Schema.Struct({
     previousTaskState: Schema.Union(
       Schema.Literal("todo"),
@@ -203,6 +213,9 @@ export const ActivityMetadataByEventType = {
 
 export const ActivityEventType = Schema.Literal(
   "task.created",
+  "task.updated",
+  "task.user_assigned",
+  "task.user_unassigned",
   "task.completed",
   "task.canceled",
   "task.reopened",
@@ -241,6 +254,9 @@ export const ActivityEventType = Schema.Literal(
 
 export const ActivityMetadata = Schema.Union(
   EmptyMetadata,
+  ActivityMetadataByEventType["task.updated"],
+  ActivityMetadataByEventType["task.user_assigned"],
+  ActivityMetadataByEventType["task.user_unassigned"],
   ActivityMetadataByEventType["task.completed"],
   ActivityMetadataByEventType["task.canceled"],
   ActivityMetadataByEventType["task.reopened"],

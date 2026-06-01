@@ -51,7 +51,14 @@ import {
   resolveKeyDateOccurrences,
 } from "../keyDateScheduling";
 import { readDefaultWorkModel, seedDefaultWorkModel } from "../workDefaults";
-import { cancelTasks, completeTasks, createTasks, readTaskModel, reopenTasks } from "../tasks";
+import {
+  cancelTasks,
+  completeTasks,
+  createTasks,
+  readTaskModel,
+  reopenTasks,
+  updateTasks,
+} from "../tasks";
 import {
   createTemplates,
   materializeProjectedTasks,
@@ -2105,6 +2112,72 @@ const tasksCreateBatch = FunctionImpl.make(api, "tasks", "createBatch", (args) =
   }),
 );
 
+const tasksUpdateBatch = FunctionImpl.make(api, "tasks", "updateBatch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    if (auth.status === "notAuthenticated") {
+      return taskErrorResponse("updateTasks", "not_authenticated", "Authentication is required.");
+    }
+    if (auth.status === "notChurchMember") {
+      return taskErrorResponse(
+        "updateTasks",
+        "not_church_member",
+        "Church membership is required.",
+      );
+    }
+
+    const assignedUserIds = [
+      ...new Set(
+        args.updates
+          .map((update) => update.fields.assignedUserId ?? null)
+          .filter((userId): userId is string => userId !== null),
+      ),
+    ];
+    for (const assignedUserId of assignedUserIds) {
+      const assignedMembership = yield* findBetterAuthDoc<BetterAuthMember>({
+        model: "member",
+        where: [
+          { field: "organizationId", value: args.churchId },
+          { field: "userId", value: assignedUserId },
+        ],
+      }).pipe(Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx));
+
+      if (!assignedMembership) {
+        return taskErrorResponse(
+          "updateTasks",
+          "assigned_user_not_church_member",
+          "Assigned User must be a Church Member of the Task's Church.",
+        );
+      }
+    }
+
+    const updated = yield* Effect.promise(() =>
+      updateTasks(ctx, {
+        churchId: args.churchId,
+        updates: args.updates,
+        actorId: auth.authUser._id,
+        occurredAt: new Date().toISOString(),
+      }),
+    ).pipe(Effect.orDie);
+
+    if (!updated.ok) {
+      return taskErrorResponse(
+        "updateTasks",
+        "task_not_found",
+        "Task was not found in the active Church.",
+      );
+    }
+
+    const model = yield* Effect.promise(() => readTaskModel(ctx, args.churchId)).pipe(Effect.orDie);
+
+    return taskResponse("updateTasks", serializeTaskModel(model));
+  }),
+);
+
 const tasksListForChurch = FunctionImpl.make(api, "tasks", "listForChurch", (args) =>
   Effect.gen(function* () {
     const ctx = yield* QueryCtx.QueryCtx<DataModel>();
@@ -3474,6 +3547,7 @@ export const teams = GroupImpl.make(api, "teams").pipe(
 );
 export const tasks = GroupImpl.make(api, "tasks").pipe(
   Layer.provide(tasksCreateBatch),
+  Layer.provide(tasksUpdateBatch),
   Layer.provide(tasksCompleteBatch),
   Layer.provide(tasksCancelBatch),
   Layer.provide(tasksReopenBatch),

@@ -21,6 +21,21 @@ export const TaskCreateBatchArgs = Schema.Struct({
   tasks: Schema.Array(TaskCreateInput),
 });
 
+const TaskUpdateFields = Schema.Struct({
+  title: Schema.optional(Schema.String),
+  assignedUserId: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+});
+
+export const TaskUpdateBatchArgs = Schema.Struct({
+  churchId: Schema.String,
+  updates: Schema.Array(
+    Schema.Struct({
+      taskId: Schema.String,
+      fields: TaskUpdateFields,
+    }),
+  ),
+});
+
 export const TaskListArgs = Schema.Struct({
   churchId: Schema.String,
   surface: Schema.optional(Schema.Union(Schema.Literal("my_work"), Schema.Literal("our_work"))),
@@ -65,6 +80,7 @@ export const TaskSuccessResponse = Schema.Struct({
   ok: Schema.Literal(true),
   operation: Schema.Union(
     Schema.Literal("createTasks"),
+    Schema.Literal("updateTasks"),
     Schema.Literal("listTasks"),
     Schema.Literal("completeTasks"),
     Schema.Literal("cancelTasks"),
@@ -80,6 +96,7 @@ export const TaskErrorResponse = Schema.Struct({
   ok: Schema.Literal(false),
   operation: Schema.Union(
     Schema.Literal("createTasks"),
+    Schema.Literal("updateTasks"),
     Schema.Literal("listTasks"),
     Schema.Literal("completeTasks"),
     Schema.Literal("cancelTasks"),

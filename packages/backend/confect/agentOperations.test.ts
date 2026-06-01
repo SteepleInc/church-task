@@ -1691,6 +1691,134 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("Task update assigns and unassigns Users with Activity history", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const ownerResponse = yield* signUpWithEmail(
+        c,
+        `agent-task-update-owner-${crypto.randomUUID()}@example.com`,
+      );
+      const memberResponse = yield* signUpWithEmail(
+        c,
+        `agent-task-update-member-${crypto.randomUUID()}@example.com`,
+      );
+      const outsiderResponse = yield* signUpWithEmail(
+        c,
+        `agent-task-update-outsider-${crypto.randomUUID()}@example.com`,
+      );
+      const owner = (yield* Effect.promise(() => ownerResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const member = (yield* Effect.promise(() => memberResponse.json())) as {
+        user?: { id?: string };
+      };
+      const outsider = (yield* Effect.promise(() => outsiderResponse.json())) as {
+        user?: { id?: string };
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: owner.token!,
+        name: "Task Update Assignment Church",
+        slug: `task-update-assignment-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      yield* c.run(
+        Effect.gen(function* () {
+          const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+          yield* Effect.promise(() =>
+            ctx.runMutation(components.betterAuth.adapter.create, {
+              input: {
+                model: "member",
+                data: {
+                  userId: member.user!.id!,
+                  organizationId: church.id!,
+                  role: "member",
+                  createdAt: Date.now(),
+                },
+              },
+            }),
+          );
+        }),
+        Schema.Void,
+      );
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: owner.user!.id!,
+        sessionToken: owner.token!,
+      });
+      const defaults = yield* authenticated.query(refs.public.workDefaults.readForChurch, {
+        churchId: church.id!,
+      });
+      const todoStatus = defaults.data.workflowStatuses.find(
+        (status) => status.taskState === "todo",
+      )!;
+      const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
+        churchId: church.id!,
+        tasks: [
+          {
+            title: "Assign through update",
+            teamId: null,
+            workflowStatusId: todoStatus.id,
+            dueDate: "2026-06-03",
+            parentTaskId: null,
+          },
+        ],
+      });
+      const task = created.data.tasks.find(
+        (candidate) => candidate.title === "Assign through update",
+      )!;
+
+      const assigned = yield* authenticated.mutation(refs.public.tasks.updateBatch, {
+        churchId: church.id!,
+        updates: [{ taskId: task.id, fields: { assignedUserId: member.user!.id! } }],
+      });
+      const unassigned = yield* authenticated.mutation(refs.public.tasks.updateBatch, {
+        churchId: church.id!,
+        updates: [{ taskId: task.id, fields: { assignedUserId: null } }],
+      });
+      const rejected = yield* authenticated.mutation(refs.public.tasks.updateBatch, {
+        churchId: church.id!,
+        updates: [{ taskId: task.id, fields: { assignedUserId: outsider.user!.id! } }],
+      });
+      const activities = yield* authenticated.query(refs.public.activities.listForEntity, {
+        churchId: church.id!,
+        entityType: "task",
+        entityId: task.id,
+      });
+
+      expect(assigned.data.tasks.find((candidate) => candidate.id === task.id)).toMatchObject({
+        assignedUserId: member.user!.id!,
+      });
+      expect(unassigned.data.tasks.find((candidate) => candidate.id === task.id)).toMatchObject({
+        assignedUserId: null,
+      });
+      expect(rejected).toEqual({
+        ok: false,
+        operation: "updateTasks",
+        error: {
+          code: "assigned_user_not_church_member",
+          message: "Assigned User must be a Church Member of the Task's Church.",
+        },
+      });
+      expect(activities.data.activities.map((activity) => activity.eventType)).toEqual([
+        "task.created",
+        "task.user_assigned",
+        "task.user_unassigned",
+      ]);
+      expect(activities.data.activities.map((activity) => activity.actorId)).toEqual([
+        owner.user!.id!,
+        owner.user!.id!,
+        owner.user!.id!,
+      ]);
+      expect(activities.data.activities[1]!.metadata).toEqual({
+        previousAssignedUserId: null,
+        assignedUserId: member.user!.id!,
+      });
+      expect(activities.data.activities[2]!.metadata).toEqual({
+        previousAssignedUserId: member.user!.id!,
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Task execution-window reads filter My Work and Our Work", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;

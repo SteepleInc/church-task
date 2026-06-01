@@ -64,6 +64,7 @@ import {
   TaskListArgs,
   TaskReadResponse,
   TaskTransitionBatchArgs,
+  TaskUpdateBatchArgs,
   TaskWriteResponse,
 } from "../agent/taskOperations";
 import { WorkDefaultsChurchArgs, WorkDefaultsResponse } from "../agent/workDefaultsOperations";
@@ -300,6 +301,13 @@ export const tasks = GroupSpec.make("tasks")
     FunctionSpec.publicMutation({
       name: "createBatch",
       args: TaskCreateBatchArgs,
+      returns: TaskWriteResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "updateBatch",
+      args: TaskUpdateBatchArgs,
       returns: TaskWriteResponse,
     }),
   )

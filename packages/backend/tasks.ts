@@ -15,6 +15,14 @@ type TaskCreateInput = {
   readonly parentTaskId: string | null;
 };
 
+type TaskUpdateInput = {
+  readonly taskId: string;
+  readonly fields: {
+    readonly title?: string;
+    readonly assignedUserId?: string | null;
+  };
+};
+
 type TaskState = "todo" | "in_progress" | "done" | "canceled";
 type RestorableTaskState = Exclude<TaskState, "canceled">;
 type TransitionCode =
@@ -159,6 +167,99 @@ export async function createTasks(
   }
 
   return { ok: true as const, createdTaskIds };
+}
+
+export async function updateTasks(
+  ctx: MutationCtx,
+  args: {
+    readonly churchId: string;
+    readonly updates: ReadonlyArray<TaskUpdateInput>;
+    readonly actorId: string | null;
+    readonly occurredAt: string;
+  },
+) {
+  const updates: Array<() => Promise<void>> = [];
+
+  for (const update of args.updates) {
+    const task = await ctx.db.get(update.taskId as Id<"tasks">);
+    if (!task || task.churchId !== args.churchId) {
+      return { ok: false as const, code: "taskNotFound" as const };
+    }
+
+    const patch: Partial<DataModel["tasks"]["document"]> = {};
+    const updatedFields: Array<string> = [];
+
+    if ("title" in update.fields && update.fields.title !== task.title) {
+      patch.title = update.fields.title;
+      updatedFields.push("title");
+    }
+
+    if (
+      "assignedUserId" in update.fields &&
+      (update.fields.assignedUserId ?? null) !== task.assignedUserId
+    ) {
+      patch.assignedUserId = update.fields.assignedUserId ?? null;
+      updatedFields.push("assignedUserId");
+    }
+
+    if (updatedFields.length === 0) continue;
+
+    updates.push(async () => {
+      await ctx.db.patch(task._id, patch);
+
+      if ("assignedUserId" in patch) {
+        if (patch.assignedUserId === null) {
+          if (task.assignedUserId !== null) {
+            await writeActivity(ctx, {
+              churchId: args.churchId,
+              entityType: "task",
+              entityId: task._id,
+              eventType: "task.user_unassigned",
+              actorType: "user",
+              actorId: args.actorId,
+              occurredAt: args.occurredAt,
+              cycleId: task.cycleId,
+              metadata: { previousAssignedUserId: task.assignedUserId },
+            });
+          }
+        } else {
+          await writeActivity(ctx, {
+            churchId: args.churchId,
+            entityType: "task",
+            entityId: task._id,
+            eventType: "task.user_assigned",
+            actorType: "user",
+            actorId: args.actorId,
+            occurredAt: args.occurredAt,
+            cycleId: task.cycleId,
+            metadata: {
+              previousAssignedUserId: task.assignedUserId,
+              assignedUserId: patch.assignedUserId,
+            },
+          });
+        }
+      }
+
+      const nonAssignmentFields = updatedFields.filter((field) => field !== "assignedUserId");
+      if (nonAssignmentFields.length > 0) {
+        await writeActivity(ctx, {
+          churchId: args.churchId,
+          entityType: "task",
+          entityId: task._id,
+          eventType: "task.updated",
+          actorType: "user",
+          actorId: args.actorId,
+          occurredAt: args.occurredAt,
+          cycleId: task.cycleId,
+          metadata: { updatedFields: nonAssignmentFields },
+        });
+      }
+    });
+  }
+
+  for (const update of updates) await update();
+
+  return { ok: true as const };
 }
 
 async function readTransitionTask(ctx: MutationCtx, churchId: string, taskId: string) {
