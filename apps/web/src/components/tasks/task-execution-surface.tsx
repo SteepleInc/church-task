@@ -88,6 +88,27 @@ export function getTaskCreationDefaults(args: {
   };
 }
 
+export function getSubtaskCreationFields(args: {
+  readonly parentTask: TaskSummary;
+  readonly title: string;
+  readonly workflowStatusId?: string | null;
+}) {
+  const trimmedTitle = args.title.trim();
+
+  if (!trimmedTitle || !args.workflowStatusId) {
+    return null;
+  }
+
+  return {
+    title: trimmedTitle,
+    teamId: args.parentTask.teamId,
+    assignedUserId: args.parentTask.assignedUserId,
+    workflowStatusId: args.workflowStatusId,
+    dueDate: args.parentTask.dueDate,
+    parentTaskId: args.parentTask.id,
+  };
+}
+
 export function getTaskTitleUpdateFields(currentTitle: string, nextTitle: string) {
   const trimmedTitle = nextTitle.trim();
 
@@ -436,6 +457,10 @@ export function TaskExecutionSurface({
           cycles={cycles}
           users={users}
           teams={teams}
+          creationStatusId={creationStatus?.id ?? null}
+          createSubtask={(fields) =>
+            createTask({ churchId, actorUserId: currentUserId, ...fields })
+          }
           updateTask={(taskId, fields) =>
             updateTask({ churchId, actorUserId: currentUserId, taskId, fields })
           }
@@ -454,6 +479,8 @@ function TaskActionList({
   cycles,
   users,
   teams,
+  creationStatusId,
+  createSubtask,
   updateTask,
   completeTask,
   cancelTask,
@@ -465,6 +492,15 @@ function TaskActionList({
   readonly cycles: readonly ExecutionCycle[];
   readonly users: readonly UserSummary[];
   readonly teams: readonly TeamSummary[];
+  readonly creationStatusId: string | null;
+  readonly createSubtask: (fields: {
+    readonly title: string;
+    readonly teamId: string | null;
+    readonly assignedUserId: string | null;
+    readonly workflowStatusId: string;
+    readonly dueDate: string;
+    readonly parentTaskId: string;
+  }) => void | Promise<unknown>;
   readonly updateTask: (
     taskId: string,
     fields: {
@@ -496,6 +532,8 @@ function TaskActionList({
             cycles={cycles}
             users={users}
             teams={teams}
+            creationStatusId={creationStatusId}
+            createSubtask={createSubtask}
             updateTask={updateTask}
             completeTask={completeTask}
             cancelTask={cancelTask}
@@ -513,6 +551,8 @@ function TaskActionRow({
   cycles,
   users,
   teams,
+  creationStatusId,
+  createSubtask,
   updateTask,
   completeTask,
   cancelTask,
@@ -523,6 +563,15 @@ function TaskActionRow({
   readonly cycles: readonly ExecutionCycle[];
   readonly users: readonly UserSummary[];
   readonly teams: readonly TeamSummary[];
+  readonly creationStatusId: string | null;
+  readonly createSubtask: (fields: {
+    readonly title: string;
+    readonly teamId: string | null;
+    readonly assignedUserId: string | null;
+    readonly workflowStatusId: string;
+    readonly dueDate: string;
+    readonly parentTaskId: string;
+  }) => void | Promise<unknown>;
   readonly updateTask: (
     taskId: string,
     fields: {
@@ -539,8 +588,14 @@ function TaskActionRow({
 }) {
   const [draftTitle, setDraftTitle] = useState(task.title);
   const [draftDueDate, setDraftDueDate] = useState(task.dueDate);
+  const [subtaskTitle, setSubtaskTitle] = useState("");
   const titleUpdateFields = getTaskTitleUpdateFields(task.title, draftTitle);
   const dueDateUpdateFields = getTaskDueDateUpdateFields(task.dueDate, draftDueDate);
+  const subtaskCreationFields = getSubtaskCreationFields({
+    parentTask: task,
+    title: subtaskTitle,
+    workflowStatusId: creationStatusId,
+  });
   const assigneeOptions = getTaskAssigneeOptions(users);
 
   return (
@@ -557,6 +612,27 @@ function TaskActionRow({
         />
         <p className="text-xs text-muted-foreground">State: {task.taskState}</p>
         <TaskActivityList churchId={churchId} taskId={task.id} />
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+          <Input
+            aria-label={`Subtask title for ${task.title}`}
+            value={subtaskTitle}
+            onChange={(event) => setSubtaskTitle(event.target.value)}
+            placeholder="Add Subtask"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!subtaskCreationFields}
+            onClick={() => {
+              if (!subtaskCreationFields) return;
+              void createSubtask(subtaskCreationFields);
+              setSubtaskTitle("");
+            }}
+          >
+            Add Subtask
+          </Button>
+        </div>
         <Button
           type="button"
           size="sm"

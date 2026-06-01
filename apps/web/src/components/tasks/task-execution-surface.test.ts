@@ -8,6 +8,7 @@ import {
   getTaskCreationDefaults,
   getTaskDueDateUpdateFields,
   getExecutionWorkflowId,
+  getSubtaskCreationFields,
   getTaskExecutionReadArgs,
   getTaskParentContext,
   getTaskTeamUpdateFields,
@@ -263,5 +264,41 @@ describe("Task execution surface", () => {
     });
     expect(getTaskParentContext(childTask, [childTask])).toBeNull();
     expect(getTaskParentContext(parentTask, [parentTask, childTask])).toBeNull();
+  });
+
+  test("builds Subtask creation fields from parent Task context", () => {
+    const parentTask = {
+      id: "parent-task",
+      title: "Prepare service",
+      teamId: "team-1",
+      assignedUserId: "user-1",
+      cycleId: "cycle-1",
+      dueDate: "2026-06-03",
+      parentTaskId: null,
+      workflowStatusId: "in-progress",
+      taskState: "in_progress" as const,
+    };
+
+    expect(
+      getSubtaskCreationFields({
+        parentTask,
+        title: " Print handouts ",
+        workflowStatusId: "todo",
+      }),
+    ).toEqual({
+      title: "Print handouts",
+      teamId: "team-1",
+      assignedUserId: "user-1",
+      workflowStatusId: "todo",
+      dueDate: "2026-06-03",
+      parentTaskId: "parent-task",
+    });
+
+    expect(
+      getSubtaskCreationFields({ parentTask, title: "   ", workflowStatusId: "todo" }),
+    ).toBeNull();
+    expect(
+      getSubtaskCreationFields({ parentTask, title: "Print handouts", workflowStatusId: null }),
+    ).toBeNull();
   });
 });
