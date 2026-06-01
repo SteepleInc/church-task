@@ -15,6 +15,21 @@ export type TaskExecutionSmokeSummary = {
   readonly results: readonly TaskExecutionSmokeStepResult[];
 };
 
+export function getTaskExecutionSmokeExitCode(
+  summary: Pick<TaskExecutionSmokeSummary, "status">,
+  options: { readonly requireFull: boolean },
+) {
+  if (summary.status === "failed") {
+    return 1;
+  }
+
+  if (options.requireFull && summary.status === "passed_with_skips") {
+    return 1;
+  }
+
+  return 0;
+}
+
 export function buildTaskExecutionSmokeSummary(input: {
   readonly generatedAt: string;
   readonly e2eReady: boolean;

@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildTaskExecutionSmokeSummary,
   formatTaskExecutionSmokeMarkdown,
+  getTaskExecutionSmokeExitCode,
   type TaskExecutionSmokeStepResult,
 } from "./task-execution-smoke-summary";
 
@@ -61,6 +62,50 @@ describe("Task execution smoke summary", () => {
         ],
       }).status,
     ).toBe("failed");
+  });
+
+  test("allows local smoke runs to pass with skips by default", () => {
+    expect(
+      getTaskExecutionSmokeExitCode(
+        buildTaskExecutionSmokeSummary({
+          generatedAt: "2026-06-01T00:00:00.000Z",
+          e2eReady: false,
+          e2eSkipReason: "Missing .env.e2e.",
+          results: [
+            passedResult,
+            {
+              name: "browser execution smoke",
+              command: "bun run test:e2e tests/e2e/app-shell.spec.ts",
+              exitCode: 0,
+              status: "skipped",
+            },
+          ],
+        }),
+        { requireFull: false },
+      ),
+    ).toBe(0);
+  });
+
+  test("fails full smoke runs when browser verification is skipped", () => {
+    expect(
+      getTaskExecutionSmokeExitCode(
+        buildTaskExecutionSmokeSummary({
+          generatedAt: "2026-06-01T00:00:00.000Z",
+          e2eReady: false,
+          e2eSkipReason: "Missing .env.e2e.",
+          results: [
+            passedResult,
+            {
+              name: "browser execution smoke",
+              command: "bun run test:e2e tests/e2e/app-shell.spec.ts",
+              exitCode: 0,
+              status: "skipped",
+            },
+          ],
+        }),
+        { requireFull: true },
+      ),
+    ).toBe(1);
   });
 
   test("formats a human-readable report with the E2E gap and commands", () => {

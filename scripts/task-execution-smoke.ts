@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import {
   buildTaskExecutionSmokeSummary,
   formatTaskExecutionSmokeMarkdown,
+  getTaskExecutionSmokeExitCode,
   type TaskExecutionSmokeStepResult,
 } from "./task-execution-smoke-summary";
 
@@ -17,6 +18,7 @@ const browserSmokePattern =
   "authenticated dashboard lands on My Work|Our Work assignment feeds My Work|My Work lifecycle actions|Team sidebar navigation opens a Team board filtered to that Team";
 const e2eEnvFile = ".env.e2e";
 const hasE2eEnvFile = existsSync(e2eEnvFile);
+const requireFull = process.argv.includes("--require-full");
 
 if (hasE2eEnvFile) {
   config({ path: e2eEnvFile, quiet: true });
@@ -121,6 +123,14 @@ console.log(
   "\nTask execution smoke summary written to test-results/task-execution-smoke.json and test-results/task-execution-smoke.md",
 );
 
-if (summary.status === "failed") {
-  process.exitCode = 1;
+const exitCode = getTaskExecutionSmokeExitCode(summary, { requireFull });
+
+if (requireFull && summary.status === "passed_with_skips") {
+  console.error(
+    "\nFull Task execution smoke requires browser E2E verification; skipped browser smoke is not accepted.",
+  );
+}
+
+if (exitCode !== 0) {
+  process.exitCode = exitCode;
 }

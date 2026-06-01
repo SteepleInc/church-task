@@ -40,6 +40,7 @@
     "test:cli": "turbo -F @church-task/cli test:cli",
     "test:e2e": "playwright test",
     "test:task-execution-smoke": "bun scripts/task-execution-smoke.ts",
+    "test:task-execution-smoke:full": "bun scripts/task-execution-smoke.ts --require-full",
     "check": "oxlint && oxfmt --write"
   },
   "dependencies": {
