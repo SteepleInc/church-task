@@ -15,6 +15,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import {
   Select,
   SelectContent,
@@ -42,7 +43,7 @@ import { QueryResult, useQuery as useConfectQuery } from "@confect/react";
 import { CheckoutLink, CustomerPortalLink } from "@convex-dev/polar/react";
 import { revalidateLogic } from "@tanstack/react-form";
 import { createFileRoute } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
+import { Authenticated, AuthLoading, Unauthenticated, useMutation, useQuery } from "convex/react";
 import { Schema } from "effect";
 import { useState } from "react";
 
@@ -247,18 +248,93 @@ function ActiveChurchSettings({ activeChurch }: { activeChurch: ActiveChurch }) 
           </p>
         </CardContent>
       </Card>
-      <Card className="md:col-span-2">
-        <CardHeader>
-          <CardTitle>Church Time Zone</CardTitle>
-          <CardDescription>
-            Weekly Cycle boundaries use this Church-local time zone.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">{churchTimeZone}</p>
-        </CardContent>
-      </Card>
+      <ChurchTimeZoneSettings activeChurch={activeChurch} churchTimeZone={churchTimeZone} />
     </section>
+  );
+}
+
+function ChurchTimeZoneSettings({
+  activeChurch,
+  churchTimeZone,
+}: {
+  activeChurch: ActiveChurch;
+  churchTimeZone: string;
+}) {
+  const updateTimeZone = useMutation(api.churchSettings.updateTimeZone);
+  const canUpdate = canMutateChurchSettings(activeChurch.role);
+  const [selectedTimeZone, setSelectedTimeZone] = useState(
+    activeChurch.churchTimeZone ?? detectedChurchTimeZone(),
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  return (
+    <Card className="md:col-span-2" role="region" aria-labelledby="church-time-zone-title">
+      <CardHeader>
+        <CardTitle id="church-time-zone-title">Church Time Zone</CardTitle>
+        <CardDescription>Weekly Cycle boundaries use this Church-local time zone.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        <p className="text-sm text-muted-foreground">Current Church Time Zone: {churchTimeZone}</p>
+        {error ? (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+        {success ? (
+          <Alert>
+            <AlertDescription>{success}</AlertDescription>
+          </Alert>
+        ) : null}
+        {canUpdate ? (
+          <form
+            className="flex flex-col gap-3 sm:flex-row sm:items-end"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setError(null);
+              setSuccess(null);
+              setIsSaving(true);
+
+              const result = await updateTimeZone({
+                churchId: activeChurch.id,
+                churchTimeZone: selectedTimeZone,
+              });
+              setIsSaving(false);
+
+              if (!result.ok) {
+                setError(result.error.message);
+                return;
+              }
+
+              setSuccess(`Updated Church Time Zone to ${result.data.church.churchTimeZone}.`);
+            }}
+          >
+            <div className="grid gap-2">
+              <Label htmlFor="church-time-zone-select">Church Time Zone</Label>
+              <NativeSelect
+                id="church-time-zone-select"
+                value={selectedTimeZone}
+                disabled={isSaving}
+                onChange={(event) => setSelectedTimeZone(event.currentTarget.value)}
+              >
+                {churchTimeZoneOptions(activeChurch.churchTimeZone).map((timeZone) => (
+                  <NativeSelectOption key={timeZone} value={timeZone}>
+                    {timeZone}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+            <Button
+              type="submit"
+              disabled={isSaving || selectedTimeZone === activeChurch.churchTimeZone}
+            >
+              {isSaving ? "Updating..." : "Update Time Zone"}
+            </Button>
+          </form>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -335,6 +411,35 @@ const ChurchNameSchema = Schema.Struct({
 
 function detectedChurchTimeZone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
+}
+
+const supportedChurchTimeZones = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Phoenix",
+  "America/Los_Angeles",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "America/Toronto",
+  "America/Vancouver",
+  "Europe/London",
+  "Europe/Paris",
+  "Africa/Johannesburg",
+  "Asia/Tokyo",
+  "Australia/Sydney",
+];
+
+function churchTimeZoneOptions(churchTimeZone: string | null) {
+  if (!churchTimeZone || supportedChurchTimeZones.includes(churchTimeZone)) {
+    return supportedChurchTimeZones;
+  }
+
+  return [churchTimeZone, ...supportedChurchTimeZones];
+}
+
+function canMutateChurchSettings(role: string | string[]) {
+  return memberHasRole(role, "owner") || memberHasRole(role, "admin");
 }
 
 const ChurchInvitationSchema = Schema.Struct({

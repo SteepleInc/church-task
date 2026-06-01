@@ -11,6 +11,9 @@
 import type * as activities from "../activities.js";
 import type * as agent from "../agent.js";
 import type * as auth from "../auth.js";
+import type * as churchSettings from "../churchSettings.js";
+import type * as coreWork from "../coreWork.js";
+import type * as crons from "../crons.js";
 import type * as cycleMaintenance from "../cycleMaintenance.js";
 import type * as dashboard from "../dashboard.js";
 import type * as healthCheck from "../healthCheck.js";
@@ -34,6 +37,9 @@ declare const fullApi: ApiFromModules<{
   activities: typeof activities;
   agent: typeof agent;
   auth: typeof auth;
+  churchSettings: typeof churchSettings;
+  coreWork: typeof coreWork;
+  crons: typeof crons;
   cycleMaintenance: typeof cycleMaintenance;
   dashboard: typeof dashboard;
   healthCheck: typeof healthCheck;

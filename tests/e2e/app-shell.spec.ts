@@ -227,6 +227,24 @@ test("active Church member can navigate to readable setup settings", async ({ pa
   ).not.toBeVisible();
 });
 
+test("owner updates Church Time Zone from settings", async ({ page }, testInfo) => {
+  const ownerEmail = `e2e-time-zone-owner-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const churchName = `E2E Time Zone Church ${Date.now()}`;
+
+  await signUpThroughDashboard(page, ownerEmail, "E2E Time Zone Owner");
+  await createFirstChurch(page, churchName);
+
+  await page.getByRole("button", { name: "Active Church Settings" }).click();
+  const timeZoneSettings = page.getByRole("region", { name: "Church Time Zone" });
+  await timeZoneSettings.getByLabel("Church Time Zone").selectOption("America/Los_Angeles");
+  await timeZoneSettings.getByRole("button", { name: "Update Time Zone" }).click();
+
+  await expect(page.getByText("Updated Church Time Zone to America/Los_Angeles.")).toBeVisible();
+  await expect(
+    timeZoneSettings.getByText("Current Church Time Zone: America/Los_Angeles"),
+  ).toBeVisible();
+});
+
 test("owner manages Church Member role and removal", async ({ page }, testInfo) => {
   const ownerEmail = `e2e-member-owner-${Date.now()}-${testInfo.workerIndex}@example.com`;
   const memberEmail = `e2e-managed-member-${Date.now()}-${testInfo.workerIndex}@example.com`;
