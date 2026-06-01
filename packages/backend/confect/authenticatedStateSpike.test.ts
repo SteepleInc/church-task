@@ -712,6 +712,21 @@ describe("Better Auth authenticated state spike", () => {
         churchId: church.id!,
         surface: "my_work",
       });
+      const assignCancelableResponse = yield* postTool("update-task", {
+        churchId: church.id!,
+        taskId: cancelableTask.id,
+        assignedUserId: owner.user!.id!,
+      });
+      const assignCancelableBody = (yield* Effect.promise(() =>
+        assignCancelableResponse.json(),
+      )) as { task?: { id: string; assignedUserId: string | null } };
+      const publicMyWorkAfterAssignment = yield* authenticated.query(
+        refs.public.tasks.listForChurch,
+        {
+          churchId: church.id!,
+          surface: "my_work",
+        },
+      );
       const moved = yield* authenticated.mutation(refs.public.tasks.updateBatch, {
         churchId: church.id!,
         updates: [{ taskId: assignedTask.id, fields: { workflowStatusId: doingStatus.id } }],
@@ -770,6 +785,20 @@ describe("Better Auth authenticated state spike", () => {
           expect.objectContaining({ id: assignedTask.id, assignedUserId: owner.user!.id! }),
         ]),
       );
+      expect(assignCancelableResponse.status).toBe(200);
+      expect(assignCancelableBody).toMatchObject({
+        ok: true,
+        tool: "update_task",
+        task: expect.objectContaining({
+          id: cancelableTask.id,
+          assignedUserId: owner.user!.id!,
+        }),
+      });
+      expect(publicMyWorkAfterAssignment.data.tasks).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: cancelableTask.id, assignedUserId: owner.user!.id! }),
+        ]),
+      );
       expect(movedTask).toMatchObject({
         id: assignedTask.id,
         workflowStatusId: doingStatus.id,
@@ -808,10 +837,12 @@ describe("Better Auth authenticated state spike", () => {
       ]);
       expect(cancelActivities.data.activities.map((activity) => activity.eventType)).toEqual([
         "task.created",
+        "task.user_assigned",
         "task.canceled",
         "task.reopened",
       ]);
       expect(cancelActivities.data.activities.map((activity) => activity.actorId)).toEqual([
+        owner.user!.id!,
         owner.user!.id!,
         owner.user!.id!,
         owner.user!.id!,
