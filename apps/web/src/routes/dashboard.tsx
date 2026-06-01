@@ -66,6 +66,10 @@ import { useState } from "react";
 
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
+import {
+  TaskExecutionSurface,
+  type ExecutionSurface,
+} from "@/components/tasks/task-execution-surface";
 import UserMenu from "@/components/user-menu";
 import { authClient } from "@/lib/auth-client";
 
@@ -75,10 +79,11 @@ export const Route = createFileRoute("/dashboard")({
 
 function PrivateDashboardContent() {
   const privateData = useConfectQuery(refs.public.privateData.get);
+  const currentUser = useConfectQuery(refs.public.auth.getCurrentUser);
   const products = useQuery(api.polar.listAllProducts);
   const subscription = useQuery(api.polar.getCurrentSubscription);
   const activeChurch = useQuery(api.dashboard.getActiveOrganization);
-  const [activePanel, setActivePanel] = useState<"dashboard" | "settings">("dashboard");
+  const [activePanel, setActivePanel] = useState<ExecutionSurface | "settings">("my_work");
   const pendingInvitations =
     activeChurch?.invitations.filter((invitation) => invitation.status === "pending") ?? [];
 
@@ -99,6 +104,33 @@ function PrivateDashboardContent() {
             activeChurchId={activeChurch?.id ?? null}
             activeChurchName={activeChurch?.name}
           />
+          {activeChurch ? (
+            <SidebarGroup>
+              <SidebarGroupLabel>Work</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      type="button"
+                      isActive={activePanel === "my_work"}
+                      onClick={() => setActivePanel("my_work")}
+                    >
+                      <span>My Work</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      type="button"
+                      isActive={activePanel === "our_work"}
+                      onClick={() => setActivePanel("our_work")}
+                    >
+                      <span>Our Work</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ) : null}
           {activeChurch ? (
             <SidebarGroup>
               <SidebarGroupLabel>Church Setup</SidebarGroupLabel>
@@ -127,7 +159,11 @@ function PrivateDashboardContent() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Church Task</p>
                 <h1 className="text-2xl font-semibold tracking-tight">
-                  {activePanel === "settings" ? "Active Church Settings" : "Dashboard"}
+                  {activePanel === "settings"
+                    ? "Active Church Settings"
+                    : activePanel === "my_work"
+                      ? "My Work"
+                      : "Our Work"}
                 </h1>
                 {activeChurch ? (
                   <p className="text-sm text-muted-foreground">
@@ -140,6 +176,12 @@ function PrivateDashboardContent() {
           </div>
           {activePanel === "settings" && activeChurch ? (
             <ActiveChurchSettings activeChurch={activeChurch} />
+          ) : activeChurch && QueryResult.isSuccess(currentUser) && currentUser.value?.id ? (
+            <TaskExecutionSurface
+              churchId={activeChurch.id}
+              currentUserId={currentUser.value.id}
+              surface={activePanel === "settings" ? "my_work" : activePanel}
+            />
           ) : (
             <>
               <section className="grid gap-4 rounded-xl border bg-background p-4 shadow-xs">
