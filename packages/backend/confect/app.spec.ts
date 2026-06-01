@@ -20,6 +20,12 @@ import {
   TeamReadResponse,
   TeamWriteResponse,
 } from "../agent/teamOperations";
+import {
+  TaskCreateBatchArgs,
+  TaskListArgs,
+  TaskReadResponse,
+  TaskWriteResponse,
+} from "../agent/taskOperations";
 import { WorkDefaultsChurchArgs, WorkDefaultsResponse } from "../agent/workDefaultsOperations";
 import {
   WorkflowArchiveStatusArgs,
@@ -120,6 +126,22 @@ export const teams = GroupSpec.make("teams")
       name: "updateProductFields",
       args: TeamProductUpdateArgs,
       returns: TeamWriteResponse,
+    }),
+  );
+
+export const tasks = GroupSpec.make("tasks")
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "createBatch",
+      args: TaskCreateBatchArgs,
+      returns: TaskWriteResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicQuery({
+      name: "listForChurch",
+      args: TaskListArgs,
+      returns: TaskReadResponse,
     }),
   );
 

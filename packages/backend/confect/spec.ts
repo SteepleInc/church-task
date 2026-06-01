@@ -6,6 +6,7 @@ import {
   auth,
   healthCheck,
   privateData,
+  tasks,
   teams,
   workDefaults,
   workflows,
@@ -17,6 +18,7 @@ export default Spec.make()
   .add(auth)
   .add(healthCheck)
   .add(privateData)
+  .add(tasks)
   .add(teams)
   .add(workDefaults)
   .add(workflows);

@@ -16,8 +16,10 @@ import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as polar from "../polar.js";
 import type * as privateData from "../privateData.js";
+import type * as tasks from "../tasks.js";
 import type * as teams from "../teams.js";
 import type * as workDefaults from "../workDefaults.js";
+import type * as workflows from "../workflows.js";
 
 import type {
   ApiFromModules,
@@ -34,8 +36,10 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   polar: typeof polar;
   privateData: typeof privateData;
+  tasks: typeof tasks;
   teams: typeof teams;
   workDefaults: typeof workDefaults;
+  workflows: typeof workflows;
 }>;
 
 /**

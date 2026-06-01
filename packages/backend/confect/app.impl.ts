@@ -14,6 +14,7 @@ import {
   notChurchMemberResponse,
 } from "../agent/operations";
 import { teamErrorResponse, teamsResponse } from "../agent/teamOperations";
+import { taskErrorResponse, taskResponse } from "../agent/taskOperations";
 import { workDefaultsResponse } from "../agent/workDefaultsOperations";
 import { workflowErrorResponse, workflowResponse } from "../agent/workflowOperations";
 import { listActivitiesForEntity, serializeActivity, writeActivity } from "../activityRegistry";
@@ -21,6 +22,7 @@ import { authComponent } from "../authCore";
 import { components } from "../convex/_generated/api";
 import type { DataModel } from "../convex/_generated/dataModel";
 import { readDefaultWorkModel, seedDefaultWorkModel } from "../workDefaults";
+import { createTasks, readTaskModel } from "../tasks";
 import {
   archiveWorkflowStatus,
   createWorkflow,
@@ -249,6 +251,33 @@ const serializeWorkflowModel = (data: Awaited<ReturnType<typeof readWorkflowMode
     churchId: task.churchId,
     title: task.title,
     teamId: task.teamId,
+    cycleId: task.cycleId,
+    dueDate: task.dueDate,
+    parentTaskId: task.parentTaskId,
+    workflowId: task.workflowId,
+    workflowStatusId: task.workflowStatusId,
+    taskState: task.taskState,
+  })),
+});
+
+const serializeTaskModel = (data: Awaited<ReturnType<typeof readTaskModel>>) => ({
+  cycles: data.cycles.map((cycle) => ({
+    id: cycle._id,
+    churchId: cycle.churchId,
+    startDate: cycle.startDate,
+    endDate: cycle.endDate,
+    startsAt: cycle.startsAt,
+    endsAt: cycle.endsAt,
+    churchTimeZone: cycle.churchTimeZone,
+  })),
+  tasks: data.tasks.map((task) => ({
+    id: task._id,
+    churchId: task.churchId,
+    title: task.title,
+    teamId: task.teamId,
+    cycleId: task.cycleId,
+    dueDate: task.dueDate,
+    parentTaskId: task.parentTaskId,
     workflowId: task.workflowId,
     workflowStatusId: task.workflowStatusId,
     taskState: task.taskState,
@@ -425,6 +454,114 @@ const teamUpdateProductFields = FunctionImpl.make(api, "teams", "updateProductFi
     );
 
     return teamsResponse("updateTeamProductFields", teams.map(serializeTeam));
+  }),
+);
+
+const tasksCreateBatch = FunctionImpl.make(api, "tasks", "createBatch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    if (auth.status === "notAuthenticated") {
+      return taskErrorResponse("createTasks", "not_authenticated", "Authentication is required.");
+    }
+    if (auth.status === "notChurchMember") {
+      return taskErrorResponse(
+        "createTasks",
+        "not_church_member",
+        "Church membership is required.",
+      );
+    }
+
+    const church = yield* findBetterAuthDoc<BetterAuthOrganization>({
+      model: "organization",
+      where: [{ field: "_id", value: args.churchId }],
+    }).pipe(Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx));
+
+    if (!church?.churchTimeZone) {
+      return taskErrorResponse(
+        "createTasks",
+        "church_time_zone_missing",
+        "Church Time Zone is required before Tasks can be scheduled.",
+      );
+    }
+
+    const created = yield* Effect.promise(() =>
+      createTasks(ctx, {
+        churchId: args.churchId,
+        churchTimeZone: church.churchTimeZone!,
+        tasks: args.tasks,
+      }),
+    ).pipe(Effect.orDie);
+
+    if (!created.ok && created.code === "workflowStatusNotFound") {
+      return taskErrorResponse(
+        "createTasks",
+        "workflow_status_not_found",
+        "Workflow Status was not found in the active Church.",
+      );
+    }
+    if (!created.ok && created.code === "parentTaskNotFound") {
+      return taskErrorResponse(
+        "createTasks",
+        "parent_task_not_found",
+        "Parent Task was not found in the active Church.",
+      );
+    }
+    if (!created.ok && created.code === "invalidDueDate") {
+      return taskErrorResponse(
+        "createTasks",
+        "invalid_due_date",
+        "Task Due Date must be a real Church-local date in YYYY-MM-DD format.",
+      );
+    }
+    if (!created.ok) {
+      return yield* Effect.dieMessage("Unexpected Task creation result.");
+    }
+
+    const occurredAt = new Date().toISOString();
+    for (const taskId of created.createdTaskIds) {
+      const task = yield* Effect.promise(() => ctx.db.get(taskId)).pipe(Effect.orDie);
+      if (!task) continue;
+
+      yield* Effect.promise(() =>
+        writeActivity(ctx, {
+          churchId: args.churchId,
+          entityType: "task",
+          entityId: task._id,
+          eventType: "task.created",
+          actorType: "user",
+          actorId: null,
+          occurredAt,
+          cycleId: task.cycleId,
+          metadata: {},
+        }),
+      ).pipe(Effect.orDie);
+    }
+
+    const model = yield* Effect.promise(() => readTaskModel(ctx, args.churchId)).pipe(Effect.orDie);
+
+    return taskResponse("createTasks", serializeTaskModel(model));
+  }),
+);
+
+const tasksListForChurch = FunctionImpl.make(api, "tasks", "listForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* QueryCtx.QueryCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId);
+
+    if (auth.status === "notAuthenticated") {
+      return taskErrorResponse("listTasks", "not_authenticated", "Authentication is required.");
+    }
+    if (auth.status === "notChurchMember") {
+      return taskErrorResponse("listTasks", "not_church_member", "Church membership is required.");
+    }
+
+    const model = yield* Effect.promise(() => readTaskModel(ctx, args.churchId)).pipe(Effect.orDie);
+
+    return taskResponse("listTasks", serializeTaskModel(model));
   }),
 );
 
@@ -721,6 +858,10 @@ export const activities = GroupImpl.make(api, "activities").pipe(
 export const teams = GroupImpl.make(api, "teams").pipe(
   Layer.provide(teamListForChurch),
   Layer.provide(teamUpdateProductFields),
+);
+export const tasks = GroupImpl.make(api, "tasks").pipe(
+  Layer.provide(tasksCreateBatch),
+  Layer.provide(tasksListForChurch),
 );
 export const workflows = GroupImpl.make(api, "workflows").pipe(
   Layer.provide(workflowsCreateForChurch),

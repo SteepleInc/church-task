@@ -49,6 +49,9 @@ export const Tasks = Table.make(
     churchId: Schema.String,
     title: Schema.String,
     teamId: Schema.Union(Schema.String, Schema.Null),
+    cycleId: Schema.String,
+    dueDate: Schema.String,
+    parentTaskId: Schema.Union(Schema.String, Schema.Null),
     workflowId: Schema.String,
     workflowStatusId: Schema.String,
     taskState: Schema.Union(
@@ -60,7 +63,27 @@ export const Tasks = Table.make(
   }),
 )
   .index("by_churchId", ["churchId"])
+  .index("by_churchId_and_cycleId", ["churchId", "cycleId"])
+  .index("by_parentTaskId", ["parentTaskId"])
   .index("by_workflowStatusId", ["workflowStatusId"]);
+
+export const Cycles = Table.make(
+  "cycles",
+  Schema.Struct({
+    churchId: Schema.String,
+    /** Church-local Monday that identifies the Cycle. */
+    startDate: Schema.String,
+    /** Church-local Sunday displayed as the Cycle's final calendar date. */
+    endDate: Schema.String,
+    /** UTC instant for the inclusive start boundary of the local Cycle. */
+    startsAt: Schema.String,
+    /** UTC instant for the exclusive end boundary immediately after local Sunday. */
+    endsAt: Schema.String,
+    churchTimeZone: Schema.String,
+  }),
+)
+  .index("by_churchId_and_startDate", ["churchId", "startDate"])
+  .index("by_churchId", ["churchId"]);
 
 export const KeyDates = Table.make(
   "keyDates",
@@ -112,5 +135,6 @@ export default DatabaseSchema.make()
   .addTable(Workflows)
   .addTable(WorkflowStatuses)
   .addTable(Tasks)
+  .addTable(Cycles)
   .addTable(KeyDates)
   .addTable(Activities);

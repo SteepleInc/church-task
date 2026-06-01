@@ -387,6 +387,111 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("Task and Subtask creation assigns Cycles from Due Dates", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-task-create-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Task Create Church",
+        slug: `task-create-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+      const defaults = yield* authenticated.query(refs.public.workDefaults.readForChurch, {
+        churchId: church.id!,
+      });
+      const todoStatus = defaults.data.workflowStatuses.find(
+        (status) => status.taskState === "todo",
+      )!;
+      const doneStatus = defaults.data.workflowStatuses.find(
+        (status) => status.taskState === "done",
+      )!;
+
+      const createdParent = yield* authenticated.mutation(refs.public.tasks.createBatch, {
+        churchId: church.id!,
+        tasks: [
+          {
+            title: "Prepare Sunday slides",
+            teamId: null,
+            workflowStatusId: todoStatus.id,
+            dueDate: "2026-06-03",
+            parentTaskId: null,
+          },
+          {
+            title: "Plan next month volunteers",
+            teamId: null,
+            workflowStatusId: todoStatus.id,
+            dueDate: "2026-06-17",
+            parentTaskId: null,
+          },
+        ],
+      });
+      const parentTask = createdParent.data.tasks.find(
+        (task) => task.title === "Prepare Sunday slides",
+      )!;
+      const futureTask = createdParent.data.tasks.find(
+        (task) => task.title === "Plan next month volunteers",
+      )!;
+
+      const createdSubtask = yield* authenticated.mutation(refs.public.tasks.createBatch, {
+        churchId: church.id!,
+        tasks: [
+          {
+            title: "Export final slide deck",
+            teamId: null,
+            workflowStatusId: doneStatus.id,
+            dueDate: "2026-06-10",
+            parentTaskId: parentTask.id,
+          },
+        ],
+      });
+      const subtask = createdSubtask.data.tasks.find(
+        (task) => task.title === "Export final slide deck",
+      )!;
+      const listed = yield* authenticated.query(refs.public.tasks.listForChurch, {
+        churchId: church.id!,
+      });
+      const parentCycle = listed.data.cycles.find((cycle) => cycle.id === parentTask.cycleId)!;
+      const futureCycle = listed.data.cycles.find((cycle) => cycle.id === futureTask.cycleId)!;
+      const subtaskCycle = listed.data.cycles.find((cycle) => cycle.id === subtask.cycleId)!;
+      const parentActivities = yield* authenticated.query(refs.public.activities.listForEntity, {
+        churchId: church.id!,
+        entityType: "task",
+        entityId: parentTask.id,
+      });
+
+      expect(parentTask).toMatchObject({
+        dueDate: "2026-06-03",
+        parentTaskId: null,
+        taskState: "todo",
+      });
+      expect(parentCycle).toMatchObject({
+        startDate: "2026-06-01",
+        endDate: "2026-06-07",
+        startsAt: "2026-06-01T04:00:00.000Z",
+      });
+      expect(futureCycle).toMatchObject({ startDate: "2026-06-15", endDate: "2026-06-21" });
+      expect(subtask).toMatchObject({
+        parentTaskId: parentTask.id,
+        taskState: "done",
+      });
+      expect(subtask.cycleId).not.toBe(parentTask.cycleId);
+      expect(subtaskCycle).toMatchObject({ startDate: "2026-06-08", endDate: "2026-06-14" });
+      expect(parentActivities.data.activities.map((activity) => activity.eventType)).toEqual([
+        "task.created",
+      ]);
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Better Auth Teams can be created and updated through Team product fields", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;
@@ -710,6 +815,9 @@ describe("agent operation boundary", () => {
               churchId: church.id!,
               title: "Task using To Do",
               teamId: null,
+              cycleId: "cycle-status-in-use",
+              dueDate: "2026-06-03",
+              parentTaskId: null,
               workflowId: workflow.id,
               workflowStatusId: todoStatus.id,
               taskState: "todo",
@@ -818,6 +926,9 @@ describe("agent operation boundary", () => {
               churchId: church.id!,
               title: "Remapped Task",
               teamId: null,
+              cycleId: "cycle-remap",
+              dueDate: "2026-06-03",
+              parentTaskId: null,
               workflowId: sourceWorkflow.id,
               workflowStatusId: sourceDoing.id,
               taskState: "in_progress",
@@ -850,6 +961,9 @@ describe("agent operation boundary", () => {
               churchId: church.id!,
               title: "Fallback Remapped Task",
               teamId: null,
+              cycleId: "cycle-remap",
+              dueDate: "2026-06-03",
+              parentTaskId: null,
               workflowId: sourceWorkflow.id,
               workflowStatusId: sourceReview.id,
               taskState: "in_progress",
