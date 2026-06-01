@@ -190,6 +190,13 @@ export function getTaskAssigneeOptions(users: readonly UserSummary[]) {
   return users;
 }
 
+export function getTaskLifecycleActions(taskState: TaskState) {
+  if (taskState === "canceled") return ["reopen"] as const;
+  if (taskState === "done") return ["cancel"] as const;
+
+  return ["complete", "cancel"] as const;
+}
+
 export function getExecutionWorkflowId(args: {
   readonly surface: ExecutionSurface;
   readonly churchDefaultWorkflowId?: string | null;
@@ -674,6 +681,7 @@ function TaskActionRow({
     workflowStatusId: creationStatusId,
   });
   const assigneeOptions = getTaskAssigneeOptions(users);
+  const lifecycleActions = getTaskLifecycleActions(task.taskState);
 
   return (
     <div
@@ -812,20 +820,47 @@ function TaskActionRow({
         ))}
       </NativeSelect>
       <div className="flex flex-wrap gap-2">
-        {task.taskState === "canceled" ? (
-          <Button type="button" size="sm" variant="outline" onClick={() => reopenTask(task.id)}>
-            Reopen
-          </Button>
-        ) : (
-          <>
-            <Button type="button" size="sm" variant="outline" onClick={() => completeTask(task.id)}>
-              Complete
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => cancelTask(task.id)}>
+        {lifecycleActions.map((action) => {
+          if (action === "reopen") {
+            return (
+              <Button
+                key={action}
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => reopenTask(task.id)}
+              >
+                Reopen
+              </Button>
+            );
+          }
+
+          if (action === "complete") {
+            return (
+              <Button
+                key={action}
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => completeTask(task.id)}
+              >
+                Complete
+              </Button>
+            );
+          }
+
+          return (
+            <Button
+              key={action}
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => cancelTask(task.id)}
+            >
               Cancel
             </Button>
-          </>
-        )}
+          );
+        })}
       </div>
     </div>
   );

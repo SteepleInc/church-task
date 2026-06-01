@@ -11,6 +11,7 @@ import {
   getExecutionWorkflowId,
   getSubtaskCreationFields,
   getTaskExecutionReadArgs,
+  getTaskLifecycleActions,
   getTaskParentContext,
   getTaskTeamUpdateFields,
   getTaskTitleUpdateFields,
@@ -259,6 +260,13 @@ describe("Task execution surface", () => {
     ];
 
     expect(getTaskAssigneeOptions(churchUsers)).toEqual(churchUsers);
+  });
+
+  test("shows lifecycle actions that match the current Task State", () => {
+    expect(getTaskLifecycleActions("todo")).toEqual(["complete", "cancel"]);
+    expect(getTaskLifecycleActions("in_progress")).toEqual(["complete", "cancel"]);
+    expect(getTaskLifecycleActions("done")).toEqual(["cancel"]);
+    expect(getTaskLifecycleActions("canceled")).toEqual(["reopen"]);
   });
 
   test("formats recent Task Activity for the execution surface", () => {
