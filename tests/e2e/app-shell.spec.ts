@@ -1,5 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
 
+test.skip(
+  process.env.CHURCH_TASK_E2E_READY !== "1",
+  process.env.CHURCH_TASK_E2E_SKIP_REASON ?? "E2E environment is not configured.",
+);
+
 async function signUpThroughDashboard(page: Page, email: string, name = "E2E Signup User") {
   await page.goto("/dashboard");
 
