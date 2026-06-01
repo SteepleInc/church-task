@@ -571,4 +571,151 @@ describe("Better Auth authenticated state spike", () => {
         expect(cancelActivities.data.activities[2]).toMatchObject({ actorId: owner.user!.id! });
       }).pipe(Effect.provide(TestConfect.layer())),
   );
+
+  it.effect("MCP task tools create, read, list, and expose execution lookups", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `mcp-task-surface-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const owner = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: owner.token!,
+        name: "MCP Task Surface Church",
+        slug: `mcp-task-surface-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: owner.user!.id!,
+        sessionToken: owner.token!,
+      });
+      const defaults = yield* authenticated.query(refs.public.workDefaults.readForChurch, {
+        churchId: church.id!,
+      });
+      const todoStatus = defaults.data.workflowStatuses.find(
+        (status) => status.taskState === "todo",
+      )!;
+      const postTool = (toolPath: string, body: Record<string, unknown>) =>
+        c.fetch(`/api/mcp/tools/${toolPath}`, {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${owner.token}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+
+      const createResponse = yield* postTool("create-task", {
+        churchId: church.id!,
+        title: "Create from MCP",
+        assignedUserId: owner.user!.id!,
+        workflowStatusId: todoStatus.id,
+        dueDate: "2026-06-03",
+      });
+      const createBody = (yield* Effect.promise(() => createResponse.json())) as {
+        result?: {
+          data?: { tasks?: Array<{ id: string; title: string; assignedUserId: string }> };
+        };
+      };
+      const createdTask = createBody.result!.data!.tasks!.find(
+        (task) => task.title === "Create from MCP",
+      )!;
+      const listResponse = yield* postTool("list-tasks", {
+        churchId: church.id!,
+        surface: "my_work",
+        assignedUserId: owner.user!.id!,
+        workflowStatusId: todoStatus.id,
+        taskState: "todo",
+      });
+      const listBody = (yield* Effect.promise(() => listResponse.json())) as unknown;
+      const getResponse = yield* postTool("get-task", {
+        churchId: church.id!,
+        taskId: createdTask.id,
+      });
+      const getBody = (yield* Effect.promise(() => getResponse.json())) as unknown;
+      const usersResponse = yield* postTool("list-users", { churchId: church.id! });
+      const usersBody = (yield* Effect.promise(() => usersResponse.json())) as unknown;
+      const teamsResponse = yield* postTool("list-teams", { churchId: church.id! });
+      const teamsBody = (yield* Effect.promise(() => teamsResponse.json())) as {
+        teams?: Array<{ name: string }>;
+      };
+      const cyclesResponse = yield* postTool("list-cycles", { churchId: church.id! });
+      const cyclesBody = (yield* Effect.promise(() => cyclesResponse.json())) as unknown;
+      const statusesResponse = yield* postTool("list-workflow-statuses", { churchId: church.id! });
+      const statusesBody = (yield* Effect.promise(() => statusesResponse.json())) as {
+        workflowStatuses?: Array<{ id: string; taskState: string }>;
+      };
+
+      expect(createResponse.status).toBe(200);
+      expect(createBody).toMatchObject({
+        ok: true,
+        tool: "create_task",
+        result: {
+          ok: true,
+          operation: "createTasks",
+          data: {
+            tasks: expect.arrayContaining([
+              expect.objectContaining({
+                id: createdTask.id,
+                title: "Create from MCP",
+                assignedUserId: owner.user!.id!,
+              }),
+            ]),
+          },
+        },
+      });
+      expect(listResponse.status).toBe(200);
+      expect(listBody).toMatchObject({
+        ok: true,
+        tool: "list_tasks",
+        result: {
+          ok: true,
+          operation: "listTasks",
+          data: {
+            tasks: [expect.objectContaining({ id: createdTask.id, title: "Create from MCP" })],
+          },
+        },
+      });
+      expect(getResponse.status).toBe(200);
+      expect(getBody).toMatchObject({
+        ok: true,
+        tool: "get_task",
+        result: {
+          ok: true,
+          operation: "listTasks",
+          data: { tasks: [expect.objectContaining({ id: createdTask.id })] },
+        },
+      });
+      expect(usersResponse.status).toBe(200);
+      expect(usersBody).toMatchObject({
+        ok: true,
+        tool: "list_users",
+        users: [expect.objectContaining({ id: owner.user!.id!, email })],
+      });
+      expect(teamsResponse.status).toBe(200);
+      expect(teamsBody).toMatchObject({
+        ok: true,
+        tool: "list_teams",
+      });
+      expect(teamsBody.teams).toEqual(
+        expect.arrayContaining([expect.objectContaining({ name: "Worship" })]),
+      );
+      expect(cyclesResponse.status).toBe(200);
+      expect(cyclesBody).toMatchObject({
+        ok: true,
+        tool: "list_cycles",
+        cycles: [expect.objectContaining({ id: expect.any(String), startDate: "2026-06-01" })],
+      });
+      expect(statusesResponse.status).toBe(200);
+      expect(statusesBody).toMatchObject({
+        ok: true,
+        tool: "list_workflow_statuses",
+      });
+      expect(statusesBody.workflowStatuses).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: todoStatus.id, taskState: "todo" })]),
+      );
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
 });

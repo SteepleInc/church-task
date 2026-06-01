@@ -67,6 +67,11 @@ export async function readTaskModel(
     readonly surface?: "my_work" | "our_work";
     readonly cycleId?: string;
     readonly currentUserId?: string;
+    readonly taskId?: string;
+    readonly teamId?: string | null;
+    readonly assignedUserId?: string | null;
+    readonly workflowStatusId?: string;
+    readonly taskState?: TaskState;
   } = {},
 ) {
   const cycles = await ctx.db
@@ -81,9 +86,19 @@ export async function readTaskModel(
     ? cycles.find((cycle) => cycle._id === filters.cycleId)
     : null;
   const tasks = allTasks.filter((task) => {
+    if (filters.taskId && task._id !== filters.taskId) return false;
+
     if (filters.surface === "my_work" && task.assignedUserId !== filters.currentUserId) {
       return false;
     }
+
+    if ("teamId" in filters && task.teamId !== filters.teamId) return false;
+    if ("assignedUserId" in filters && (task.assignedUserId ?? null) !== filters.assignedUserId) {
+      return false;
+    }
+    if (filters.workflowStatusId && task.workflowStatusId !== filters.workflowStatusId)
+      return false;
+    if (filters.taskState && task.taskState !== filters.taskState) return false;
 
     if (!executionCycle) return true;
 

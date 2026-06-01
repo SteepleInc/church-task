@@ -154,6 +154,160 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/api/mcp/tools/create-task",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const session = await createAuth(ctx).api.getSession({ headers: request.headers });
+
+    if (!session?.user) {
+      return unauthenticatedResponse();
+    }
+
+    const body = (await request.json()) as {
+      readonly churchId: string;
+      readonly title: string;
+      readonly teamId?: string | null;
+      readonly assignedUserId?: string | null;
+      readonly workflowStatusId: string;
+      readonly dueDate: string;
+      readonly parentTaskId?: string | null;
+    };
+
+    const result = await ctx.runMutation(convexFunctionRefs.tasks.mcpCreateTask, {
+      ...body,
+      actorUserId: session.user.id,
+    });
+
+    return Response.json({ ok: result.ok, tool: "create_task", result });
+  }),
+});
+
+http.route({
+  path: "/api/mcp/tools/list-tasks",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const session = await createAuth(ctx).api.getSession({ headers: request.headers });
+
+    if (!session?.user) {
+      return unauthenticatedResponse();
+    }
+
+    const body = (await request.json()) as {
+      readonly churchId: string;
+      readonly surface?: "my_work" | "our_work";
+      readonly cycleId?: string;
+      readonly teamId?: string | null;
+      readonly assignedUserId?: string | null;
+      readonly workflowStatusId?: string;
+      readonly taskState?: "todo" | "in_progress" | "done" | "canceled";
+    };
+    const result = await ctx.runQuery(convexFunctionRefs.tasks.mcpListTasks, {
+      ...body,
+      actorUserId: session.user.id,
+    });
+
+    return Response.json({ ok: result.ok, tool: "list_tasks", result });
+  }),
+});
+
+http.route({
+  path: "/api/mcp/tools/get-task",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const session = await createAuth(ctx).api.getSession({ headers: request.headers });
+
+    if (!session?.user) {
+      return unauthenticatedResponse();
+    }
+
+    const body = (await request.json()) as { readonly churchId: string; readonly taskId: string };
+    const result = await ctx.runQuery(convexFunctionRefs.tasks.mcpListTasks, {
+      churchId: body.churchId,
+      actorUserId: session.user.id,
+      taskId: body.taskId,
+    });
+
+    return Response.json({ ok: result.ok, tool: "get_task", result });
+  }),
+});
+
+const handleMcpLookup = async (
+  ctx: ActionCtx,
+  request: Request,
+  args: { readonly tool: string; readonly query: any; readonly resultKey: string },
+) => {
+  const session = await createAuth(ctx).api.getSession({ headers: request.headers });
+
+  if (!session?.user) {
+    return unauthenticatedResponse();
+  }
+
+  const body = (await request.json()) as {
+    readonly churchId: string;
+    readonly workflowId?: string;
+  };
+  const result = await ctx.runQuery(args.query, {
+    ...body,
+    actorUserId: session.user.id,
+  });
+
+  return Response.json({
+    ok: result.ok,
+    tool: args.tool,
+    ...(result.error ? { error: result.error } : {}),
+    [args.resultKey]: result[args.resultKey] ?? [],
+  });
+};
+
+http.route({
+  path: "/api/mcp/tools/list-users",
+  method: "POST",
+  handler: httpAction((ctx, request) =>
+    handleMcpLookup(ctx, request, {
+      tool: "list_users",
+      query: convexFunctionRefs.tasks.mcpListUsers,
+      resultKey: "users",
+    }),
+  ),
+});
+
+http.route({
+  path: "/api/mcp/tools/list-teams",
+  method: "POST",
+  handler: httpAction((ctx, request) =>
+    handleMcpLookup(ctx, request, {
+      tool: "list_teams",
+      query: convexFunctionRefs.tasks.mcpListTeams,
+      resultKey: "teams",
+    }),
+  ),
+});
+
+http.route({
+  path: "/api/mcp/tools/list-cycles",
+  method: "POST",
+  handler: httpAction((ctx, request) =>
+    handleMcpLookup(ctx, request, {
+      tool: "list_cycles",
+      query: convexFunctionRefs.tasks.mcpListCycles,
+      resultKey: "cycles",
+    }),
+  ),
+});
+
+http.route({
+  path: "/api/mcp/tools/list-workflow-statuses",
+  method: "POST",
+  handler: httpAction((ctx, request) =>
+    handleMcpLookup(ctx, request, {
+      tool: "list_workflow_statuses",
+      query: convexFunctionRefs.tasks.mcpListWorkflowStatuses,
+      resultKey: "workflowStatuses",
+    }),
+  ),
+});
+
 const handleMcpTaskTransition = async (
   ctx: ActionCtx,
   request: Request,
