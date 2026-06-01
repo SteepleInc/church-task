@@ -169,6 +169,58 @@ test("authenticated dashboard lands on My Work and filters to directly assigned 
   await expect(page.getByText(sharedTaskTitle)).not.toBeVisible();
 });
 
+test("Team sidebar navigation opens a Team board filtered to that Team", async ({
+  page,
+}, testInfo) => {
+  const ownerEmail = `e2e-team-board-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const ownerName = "E2E Team Board Owner";
+  const teamName = `Care Team ${Date.now()}`;
+  const teamTaskTitle = `Team Board Task ${Date.now()}`;
+  const churchTaskTitle = `Church Wide Task ${Date.now()}`;
+
+  await signUpThroughDashboard(page, ownerEmail, ownerName);
+  await createFirstChurch(page, `E2E Team Board Church ${Date.now()}`);
+  await page.getByRole("button", { name: "Active Church Settings" }).click();
+
+  const teamsSettings = page.getByRole("region", { name: "Teams" });
+  await teamsSettings.getByLabel("New Team Name").fill(teamName);
+  await teamsSettings.getByRole("button", { name: "Create Team" }).click();
+  await expect(page.getByText(`Created Team ${teamName}.`)).toBeVisible();
+
+  const workflowsSettings = page.getByRole("region", { name: "Workflows" });
+  await workflowsSettings.getByLabel(`Default Workflow for ${teamName}`).selectOption({
+    label: "Default Workflow",
+  });
+  await expect(page.getByText(`Set ${teamName} to use Default Workflow by default.`)).toBeVisible();
+
+  const membershipsSettings = page.getByRole("region", { name: "Team Memberships" });
+  await membershipsSettings.getByLabel("Team").selectOption({ label: teamName });
+  await membershipsSettings.getByLabel("Church Member").selectOption({ label: ownerEmail });
+  await membershipsSettings.getByRole("button", { name: "Add Team Member" }).click();
+  await expect(page.getByText(`Added ${ownerEmail} to ${teamName}.`)).toBeVisible();
+
+  await page.getByRole("button", { name: teamName }).first().click();
+  await expect(page.getByRole("heading", { name: teamName, level: 1 })).toBeVisible();
+  await expect(page.getByText("Team Tasks in the current execution window.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "To Do", level: 2 })).toBeVisible();
+
+  await page.getByPlaceholder("Add Team Task").fill(teamTaskTitle);
+  await page.getByRole("button", { name: "Create Task" }).click();
+  await expect(page.getByText(teamTaskTitle).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Our Work" }).click();
+  await expect(page.getByRole("heading", { name: "Our Work", level: 1 })).toBeVisible();
+  await page.getByPlaceholder("Add Church-wide Task").fill(churchTaskTitle);
+  await page.getByRole("button", { name: "Create Task" }).click();
+  await expect(page.getByText(teamTaskTitle).first()).toBeVisible();
+  await expect(page.getByText(churchTaskTitle).first()).toBeVisible();
+
+  await page.getByRole("button", { name: teamName }).first().click();
+  await expect(page.getByRole("heading", { name: teamName, level: 1 })).toBeVisible();
+  await expect(page.getByText(teamTaskTitle).first()).toBeVisible();
+  await expect(page.getByText(churchTaskTitle)).not.toBeVisible();
+});
+
 test("church switcher creates another Church and switches Active Church", async ({
   page,
 }, testInfo) => {
