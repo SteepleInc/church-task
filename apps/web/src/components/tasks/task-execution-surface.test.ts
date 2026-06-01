@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   formatTaskActivity,
+  getEffectiveTaskExecutionFilters,
   getMyWorkEmptyStateActions,
   getTaskAssigneeOptions,
   getTaskCycleUpdatePreview,
@@ -142,6 +143,35 @@ describe("Task execution surface", () => {
       taskState: "in_progress",
       workflowStatusId: "status-1",
     });
+  });
+
+  test("drops stale Workflow Status filters outside the effective Workflow", () => {
+    expect(
+      getEffectiveTaskExecutionFilters(
+        { taskState: "in_progress", workflowStatusId: "church-status" },
+        [
+          {
+            id: "team-status",
+            workflowId: "team-workflow",
+            name: "In Progress",
+            taskState: "in_progress",
+            sortOrder: 1,
+          },
+        ],
+      ),
+    ).toEqual({ taskState: "in_progress", workflowStatusId: undefined });
+
+    expect(
+      getEffectiveTaskExecutionFilters({ workflowStatusId: "team-status" }, [
+        {
+          id: "team-status",
+          workflowId: "team-workflow",
+          name: "In Progress",
+          taskState: "in_progress",
+          sortOrder: 1,
+        },
+      ]),
+    ).toEqual({ taskState: undefined, workflowStatusId: "team-status" });
   });
 
   test("does not broaden execution reads when no current Cycle is available", () => {

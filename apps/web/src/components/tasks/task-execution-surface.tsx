@@ -198,6 +198,22 @@ export function getExecutionWorkflowId(args: {
   return args.surface === "team_board" ? args.teamDefaultWorkflowId : args.churchDefaultWorkflowId;
 }
 
+export function getEffectiveTaskExecutionFilters(
+  filters: TaskExecutionFilters | undefined,
+  workflowStatuses: readonly WorkflowStatus[],
+): TaskExecutionFilters {
+  const workflowStatusIds = new Set(workflowStatuses.map((status) => status.id));
+  const workflowStatusId =
+    filters?.workflowStatusId && workflowStatusIds.has(filters.workflowStatusId)
+      ? filters.workflowStatusId
+      : undefined;
+
+  return {
+    taskState: filters?.taskState,
+    workflowStatusId,
+  };
+}
+
 export function getTaskExecutionReadArgs(args: {
   readonly churchId: string;
   readonly currentUserId: string;
@@ -301,13 +317,17 @@ export function TaskExecutionSurface({
     api.tasks.mcpListWorkflowStatuses,
     workflowId ? { churchId, actorUserId: currentUserId, workflowId } : "skip",
   );
+  const workflowStatuses = workflowStatusesResult?.ok
+    ? workflowStatusesResult.workflowStatuses
+    : [];
+  const effectiveFilters = getEffectiveTaskExecutionFilters(filters, workflowStatuses);
   const taskReadArgs = getTaskExecutionReadArgs({
     churchId,
     currentUserId,
     surface,
     teamId: team?.id ?? null,
     cycleId: currentCycle?.id ?? null,
-    filters,
+    filters: effectiveFilters,
   });
   const tasksResult = useQuery(
     api.tasks.mcpListTasks,
@@ -320,9 +340,6 @@ export function TaskExecutionSurface({
   const cancelTask = useMutation(api.tasks.mcpCancelTask);
   const reopenTask = useMutation(api.tasks.mcpReopenTask);
 
-  const workflowStatuses = workflowStatusesResult?.ok
-    ? workflowStatusesResult.workflowStatuses
-    : [];
   const tasks = tasksResult?.ok ? tasksResult.data.tasks : [];
   const users = usersResult?.ok ? usersResult.users : [];
   const teams = teamsResult?.ok ? teamsResult.teams : [];
@@ -420,7 +437,7 @@ export function TaskExecutionSurface({
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <NativeSelect
             size="sm"
-            value={filters?.taskState ?? ""}
+            value={effectiveFilters.taskState ?? ""}
             aria-label="Filter Task State"
             onChange={(event) => {
               onFiltersChange?.({
@@ -437,7 +454,7 @@ export function TaskExecutionSurface({
           </NativeSelect>
           <NativeSelect
             size="sm"
-            value={filters?.workflowStatusId ?? ""}
+            value={effectiveFilters.workflowStatusId ?? ""}
             aria-label="Filter Workflow Status"
             disabled={workflowStatuses.length === 0}
             onChange={(event) => {
