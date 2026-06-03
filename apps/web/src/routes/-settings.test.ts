@@ -17,6 +17,14 @@ describe("settings route sections", () => {
       "Members",
       "Invitations",
     ]);
+    expect(
+      settingsSections.map((section) => ({ params: section.params, to: section.to })),
+    ).toEqual([
+      { params: undefined, to: "/settings/profile" },
+      { params: undefined, to: "/settings/org" },
+      { params: { teamTab: "members" }, to: "/settings/team/$teamTab" },
+      { params: { teamTab: "invites" }, to: "/settings/team/$teamTab" },
+    ]);
   });
 
   it("does not expose excluded PreachX settings sections", () => {
