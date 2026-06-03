@@ -17,6 +17,7 @@ import { Route as OrgSettingsRouteImport } from './routes/_org/settings'
 import { Route as OrgOurWorkRouteImport } from './routes/_org/our-work'
 import { Route as OrgMyWorkRouteImport } from './routes/_org/my-work'
 import { Route as OnboardingOnboardingRouteImport } from './routes/_onboarding/onboarding'
+import { Route as MarketingLibraryRouteImport } from './routes/_marketing/library'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as OrgTeamTeamIdRouteImport } from './routes/_org/team.$teamId'
 import { Route as OrgSettingsTeamRouteImport } from './routes/_org/settings.team'
@@ -65,6 +66,11 @@ const OnboardingOnboardingRoute = OnboardingOnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
   getParentRoute: () => OnboardingRouteRoute,
+} as any)
+const MarketingLibraryRoute = MarketingLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => MarketingRouteRoute,
 } as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
   id: '/_auth/sign-in',
@@ -125,6 +131,7 @@ const OrgSettingsTeamTeamTabRoute = OrgSettingsTeamTeamTabRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof MarketingIndexRoute
   '/sign-in': typeof AuthSignInRoute
+  '/library': typeof MarketingLibraryRoute
   '/onboarding': typeof OnboardingOnboardingRoute
   '/my-work': typeof OrgMyWorkRoute
   '/our-work': typeof OrgOurWorkRoute
@@ -143,6 +150,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof MarketingIndexRoute
   '/sign-in': typeof AuthSignInRoute
+  '/library': typeof MarketingLibraryRoute
   '/onboarding': typeof OnboardingOnboardingRoute
   '/my-work': typeof OrgMyWorkRoute
   '/our-work': typeof OrgOurWorkRoute
@@ -164,6 +172,7 @@ export interface FileRoutesById {
   '/_onboarding': typeof OnboardingRouteRouteWithChildren
   '/_org': typeof OrgRouteRouteWithChildren
   '/_auth/sign-in': typeof AuthSignInRoute
+  '/_marketing/library': typeof MarketingLibraryRoute
   '/_onboarding/onboarding': typeof OnboardingOnboardingRoute
   '/_org/my-work': typeof OrgMyWorkRoute
   '/_org/our-work': typeof OrgOurWorkRoute
@@ -185,6 +194,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/sign-in'
+    | '/library'
     | '/onboarding'
     | '/my-work'
     | '/our-work'
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/sign-in'
+    | '/library'
     | '/onboarding'
     | '/my-work'
     | '/our-work'
@@ -223,6 +234,7 @@ export interface FileRouteTypes {
     | '/_onboarding'
     | '/_org'
     | '/_auth/sign-in'
+    | '/_marketing/library'
     | '/_onboarding/onboarding'
     | '/_org/my-work'
     | '/_org/our-work'
@@ -306,6 +318,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingOnboardingRouteImport
       parentRoute: typeof OnboardingRouteRoute
     }
+    '/_marketing/library': {
+      id: '/_marketing/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof MarketingLibraryRouteImport
+      parentRoute: typeof MarketingRouteRoute
+    }
     '/_auth/sign-in': {
       id: '/_auth/sign-in'
       path: '/sign-in'
@@ -387,10 +406,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface MarketingRouteRouteChildren {
+  MarketingLibraryRoute: typeof MarketingLibraryRoute
   MarketingIndexRoute: typeof MarketingIndexRoute
 }
 
 const MarketingRouteRouteChildren: MarketingRouteRouteChildren = {
+  MarketingLibraryRoute: MarketingLibraryRoute,
   MarketingIndexRoute: MarketingIndexRoute,
 }
 

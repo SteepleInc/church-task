@@ -1,6 +1,6 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
-import type { ReactNode } from "react";
+import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,10 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
+        "marketing-hero":
+          "rounded-2xl bg-[#FF0000] font-medium text-black transition-colors hover:bg-[#FF0000]/90 [&_svg]:size-8",
+        "marketing-secondary":
+          "rounded-2xl bg-cream font-medium text-black transition-colors hover:bg-cream/90 [&_svg]:size-8",
       },
       size: {
         default:
@@ -27,6 +31,7 @@ const buttonVariants = cva(
         xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
+        marketing: "gap-4 px-6 py-[9px] text-[28px]",
         icon: "size-8",
         "icon-xs":
           "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",
@@ -46,6 +51,7 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  asChild = false,
   loading = false,
   disabled = false,
   children,
@@ -53,18 +59,13 @@ function Button({
   ...props
 }: ButtonPrimitive.Props &
   VariantProps<typeof buttonVariants> & {
+    asChild?: boolean;
     loading?: boolean;
     contentWrapperClassName?: string;
     children?: ReactNode;
   }) {
-  return (
-    <ButtonPrimitive
-      data-slot="button"
-      data-loading={loading}
-      disabled={disabled || loading}
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    >
+  const content = (child: ReactNode) => (
+    <>
       <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
         <Spinner className="size-4 opacity-0 group-data-[loading=true]/button:opacity-100" />
       </span>
@@ -74,8 +75,39 @@ function Button({
           contentWrapperClassName,
         )}
       >
-        {children}
+        {child}
       </span>
+    </>
+  );
+
+  if (asChild && isValidElement(children)) {
+    const child = children as ReactElement<Record<string, unknown>>;
+    const childClassName =
+      typeof child.props.className === "string" ? child.props.className : undefined;
+    const childChildren = child.props.children as ReactNode;
+
+    return cloneElement(
+      child,
+      {
+        ...props,
+        "aria-disabled": disabled || loading || undefined,
+        className: cn(buttonVariants({ variant, size, className }), childClassName),
+        "data-loading": loading,
+        "data-slot": "button",
+      },
+      content(childChildren),
+    );
+  }
+
+  return (
+    <ButtonPrimitive
+      data-slot="button"
+      data-loading={loading}
+      disabled={disabled || loading}
+      className={cn(buttonVariants({ variant, size, className }))}
+      {...props}
+    >
+      {content(children)}
     </ButtonPrimitive>
   );
 }
