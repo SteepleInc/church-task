@@ -24,5 +24,7 @@ describe("app shell route behavior", () => {
     expect(getBreadcrumbLabel("/our-work")).toBe("Our Work");
     expect(getBreadcrumbLabel("/settings")).toBe("Settings");
     expect(getBreadcrumbLabel("/team/team-1")).toBe("Team Work");
+    expect(getBreadcrumbLabel("/dev/session")).toBe("Dev Session");
+    expect(getBreadcrumbLabel("/admin/orgs")).toBe("App Admin Churches");
   });
 });

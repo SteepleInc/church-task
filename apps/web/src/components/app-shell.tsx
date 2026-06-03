@@ -4,6 +4,10 @@ import { useEffect } from "react";
 
 import { ModeToggle } from "@/components/mode-toggle";
 import { OrgSwitcher } from "@/components/org-switcher";
+import {
+  InternalNavigationSections,
+  getInternalRouteBreadcrumbLabel,
+} from "@/components/navigation/internal-navigation";
 import SignInForm from "@/components/sign-in-form";
 import {
   Breadcrumb,
@@ -51,6 +55,12 @@ export function getPrimaryAppShellNavItems(): AppShellNavItem[] {
 }
 
 export function getBreadcrumbLabel(pathname: string): string {
+  const internalRouteLabel = getInternalRouteBreadcrumbLabel(pathname);
+
+  if (internalRouteLabel) {
+    return internalRouteLabel;
+  }
+
   if (pathname.startsWith("/our-work")) {
     return "Our Work";
   }
@@ -179,6 +189,7 @@ function AppNavigation() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        <InternalNavigationSections role={activeChurch?.role ?? ""} />
       </SidebarContent>
     </Sidebar>
   );

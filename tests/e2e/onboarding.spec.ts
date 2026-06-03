@@ -197,6 +197,27 @@ test("switching to an incomplete Church routes back to onboarding", async ({ pag
   await expect(page.getByText("Onboarding incomplete")).toBeVisible();
 });
 
+test("Church owners can use dev and app-admin navigation", async ({ page }, testInfo) => {
+  const email = `internal-nav-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const churchName = `E2E Internal Nav Church ${Date.now()}`;
+
+  await signInWithOtp(page, email);
+  await completeOnboarding(page, churchName);
+
+  await expect(page.getByText("Dev", { exact: true })).toBeVisible();
+  await expect(page.getByText("App Admin", { exact: true })).toBeVisible();
+
+  await page.getByRole("link", { name: "Session" }).click();
+  await expect(page).toHaveURL(/\/dev\/session$/);
+  await expect(page.getByRole("heading", { name: "Session", level: 1 })).toBeVisible();
+  await expect(page.getByText("Active Church", { exact: true })).toBeVisible();
+
+  await page.getByRole("link", { name: "Churches" }).click();
+  await expect(page).toHaveURL(/\/admin\/orgs$/);
+  await expect(page.getByRole("heading", { name: "Churches", level: 1 })).toBeVisible();
+  await expect(page.getByLabel(`Admin Church ${churchName}`)).toBeVisible();
+});
+
 test("Google Places lookup autofills editable Church profile fields", async ({
   page,
 }, testInfo) => {

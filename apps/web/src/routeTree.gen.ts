@@ -22,6 +22,10 @@ import { Route as OrgTeamTeamIdRouteImport } from './routes/_org/team.$teamId'
 import { Route as OrgSettingsTeamRouteImport } from './routes/_org/settings.team'
 import { Route as OrgSettingsProfileRouteImport } from './routes/_org/settings.profile'
 import { Route as OrgSettingsOrgRouteImport } from './routes/_org/settings.org'
+import { Route as OrgDevSessionRouteImport } from './routes/_org/dev.session'
+import { Route as OrgDevDataRouteImport } from './routes/_org/dev.data'
+import { Route as OrgAdminUsersRouteImport } from './routes/_org/admin.users'
+import { Route as OrgAdminOrgsRouteImport } from './routes/_org/admin.orgs'
 import { Route as OrgSettingsTeamTeamTabRouteImport } from './routes/_org/settings.team.$teamTab'
 
 const OrgRouteRoute = OrgRouteRouteImport.update({
@@ -86,6 +90,26 @@ const OrgSettingsOrgRoute = OrgSettingsOrgRouteImport.update({
   path: '/org',
   getParentRoute: () => OrgSettingsRoute,
 } as any)
+const OrgDevSessionRoute = OrgDevSessionRouteImport.update({
+  id: '/dev/session',
+  path: '/dev/session',
+  getParentRoute: () => OrgRouteRoute,
+} as any)
+const OrgDevDataRoute = OrgDevDataRouteImport.update({
+  id: '/dev/data',
+  path: '/dev/data',
+  getParentRoute: () => OrgRouteRoute,
+} as any)
+const OrgAdminUsersRoute = OrgAdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
+  getParentRoute: () => OrgRouteRoute,
+} as any)
+const OrgAdminOrgsRoute = OrgAdminOrgsRouteImport.update({
+  id: '/admin/orgs',
+  path: '/admin/orgs',
+  getParentRoute: () => OrgRouteRoute,
+} as any)
 const OrgSettingsTeamTeamTabRoute = OrgSettingsTeamTeamTabRouteImport.update({
   id: '/$teamTab',
   path: '/$teamTab',
@@ -99,6 +123,10 @@ export interface FileRoutesByFullPath {
   '/my-work': typeof OrgMyWorkRoute
   '/our-work': typeof OrgOurWorkRoute
   '/settings': typeof OrgSettingsRouteWithChildren
+  '/admin/orgs': typeof OrgAdminOrgsRoute
+  '/admin/users': typeof OrgAdminUsersRoute
+  '/dev/data': typeof OrgDevDataRoute
+  '/dev/session': typeof OrgDevSessionRoute
   '/settings/org': typeof OrgSettingsOrgRoute
   '/settings/profile': typeof OrgSettingsProfileRoute
   '/settings/team': typeof OrgSettingsTeamRouteWithChildren
@@ -112,6 +140,10 @@ export interface FileRoutesByTo {
   '/my-work': typeof OrgMyWorkRoute
   '/our-work': typeof OrgOurWorkRoute
   '/settings': typeof OrgSettingsRouteWithChildren
+  '/admin/orgs': typeof OrgAdminOrgsRoute
+  '/admin/users': typeof OrgAdminUsersRoute
+  '/dev/data': typeof OrgDevDataRoute
+  '/dev/session': typeof OrgDevSessionRoute
   '/settings/org': typeof OrgSettingsOrgRoute
   '/settings/profile': typeof OrgSettingsProfileRoute
   '/settings/team': typeof OrgSettingsTeamRouteWithChildren
@@ -129,6 +161,10 @@ export interface FileRoutesById {
   '/_org/our-work': typeof OrgOurWorkRoute
   '/_org/settings': typeof OrgSettingsRouteWithChildren
   '/_marketing/': typeof MarketingIndexRoute
+  '/_org/admin/orgs': typeof OrgAdminOrgsRoute
+  '/_org/admin/users': typeof OrgAdminUsersRoute
+  '/_org/dev/data': typeof OrgDevDataRoute
+  '/_org/dev/session': typeof OrgDevSessionRoute
   '/_org/settings/org': typeof OrgSettingsOrgRoute
   '/_org/settings/profile': typeof OrgSettingsProfileRoute
   '/_org/settings/team': typeof OrgSettingsTeamRouteWithChildren
@@ -144,6 +180,10 @@ export interface FileRouteTypes {
     | '/my-work'
     | '/our-work'
     | '/settings'
+    | '/admin/orgs'
+    | '/admin/users'
+    | '/dev/data'
+    | '/dev/session'
     | '/settings/org'
     | '/settings/profile'
     | '/settings/team'
@@ -157,6 +197,10 @@ export interface FileRouteTypes {
     | '/my-work'
     | '/our-work'
     | '/settings'
+    | '/admin/orgs'
+    | '/admin/users'
+    | '/dev/data'
+    | '/dev/session'
     | '/settings/org'
     | '/settings/profile'
     | '/settings/team'
@@ -173,6 +217,10 @@ export interface FileRouteTypes {
     | '/_org/our-work'
     | '/_org/settings'
     | '/_marketing/'
+    | '/_org/admin/orgs'
+    | '/_org/admin/users'
+    | '/_org/dev/data'
+    | '/_org/dev/session'
     | '/_org/settings/org'
     | '/_org/settings/profile'
     | '/_org/settings/team'
@@ -280,6 +328,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrgSettingsOrgRouteImport
       parentRoute: typeof OrgSettingsRoute
     }
+    '/_org/dev/session': {
+      id: '/_org/dev/session'
+      path: '/dev/session'
+      fullPath: '/dev/session'
+      preLoaderRoute: typeof OrgDevSessionRouteImport
+      parentRoute: typeof OrgRouteRoute
+    }
+    '/_org/dev/data': {
+      id: '/_org/dev/data'
+      path: '/dev/data'
+      fullPath: '/dev/data'
+      preLoaderRoute: typeof OrgDevDataRouteImport
+      parentRoute: typeof OrgRouteRoute
+    }
+    '/_org/admin/users': {
+      id: '/_org/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof OrgAdminUsersRouteImport
+      parentRoute: typeof OrgRouteRoute
+    }
+    '/_org/admin/orgs': {
+      id: '/_org/admin/orgs'
+      path: '/admin/orgs'
+      fullPath: '/admin/orgs'
+      preLoaderRoute: typeof OrgAdminOrgsRouteImport
+      parentRoute: typeof OrgRouteRoute
+    }
     '/_org/settings/team/$teamTab': {
       id: '/_org/settings/team/$teamTab'
       path: '/$teamTab'
@@ -346,6 +422,10 @@ interface OrgRouteRouteChildren {
   OrgMyWorkRoute: typeof OrgMyWorkRoute
   OrgOurWorkRoute: typeof OrgOurWorkRoute
   OrgSettingsRoute: typeof OrgSettingsRouteWithChildren
+  OrgAdminOrgsRoute: typeof OrgAdminOrgsRoute
+  OrgAdminUsersRoute: typeof OrgAdminUsersRoute
+  OrgDevDataRoute: typeof OrgDevDataRoute
+  OrgDevSessionRoute: typeof OrgDevSessionRoute
   OrgTeamTeamIdRoute: typeof OrgTeamTeamIdRoute
 }
 
@@ -353,6 +433,10 @@ const OrgRouteRouteChildren: OrgRouteRouteChildren = {
   OrgMyWorkRoute: OrgMyWorkRoute,
   OrgOurWorkRoute: OrgOurWorkRoute,
   OrgSettingsRoute: OrgSettingsRouteWithChildren,
+  OrgAdminOrgsRoute: OrgAdminOrgsRoute,
+  OrgAdminUsersRoute: OrgAdminUsersRoute,
+  OrgDevDataRoute: OrgDevDataRoute,
+  OrgDevSessionRoute: OrgDevSessionRoute,
   OrgTeamTeamIdRoute: OrgTeamTeamIdRoute,
 }
 
