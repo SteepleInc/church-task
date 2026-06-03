@@ -26,6 +26,7 @@ import { Route as OrgDevSessionRouteImport } from './routes/_org/dev.session'
 import { Route as OrgDevDataRouteImport } from './routes/_org/dev.data'
 import { Route as OrgAdminUsersRouteImport } from './routes/_org/admin.users'
 import { Route as OrgAdminOrgsRouteImport } from './routes/_org/admin.orgs'
+import { Route as AuthAcceptInvitationIdRouteImport } from './routes/_auth/accept-invitation.$id'
 import { Route as OrgSettingsTeamTeamTabRouteImport } from './routes/_org/settings.team.$teamTab'
 
 const OrgRouteRoute = OrgRouteRouteImport.update({
@@ -110,6 +111,11 @@ const OrgAdminOrgsRoute = OrgAdminOrgsRouteImport.update({
   path: '/admin/orgs',
   getParentRoute: () => OrgRouteRoute,
 } as any)
+const AuthAcceptInvitationIdRoute = AuthAcceptInvitationIdRouteImport.update({
+  id: '/_auth/accept-invitation/$id',
+  path: '/accept-invitation/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OrgSettingsTeamTeamTabRoute = OrgSettingsTeamTeamTabRouteImport.update({
   id: '/$teamTab',
   path: '/$teamTab',
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/my-work': typeof OrgMyWorkRoute
   '/our-work': typeof OrgOurWorkRoute
   '/settings': typeof OrgSettingsRouteWithChildren
+  '/accept-invitation/$id': typeof AuthAcceptInvitationIdRoute
   '/admin/orgs': typeof OrgAdminOrgsRoute
   '/admin/users': typeof OrgAdminUsersRoute
   '/dev/data': typeof OrgDevDataRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/my-work': typeof OrgMyWorkRoute
   '/our-work': typeof OrgOurWorkRoute
   '/settings': typeof OrgSettingsRouteWithChildren
+  '/accept-invitation/$id': typeof AuthAcceptInvitationIdRoute
   '/admin/orgs': typeof OrgAdminOrgsRoute
   '/admin/users': typeof OrgAdminUsersRoute
   '/dev/data': typeof OrgDevDataRoute
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/_org/our-work': typeof OrgOurWorkRoute
   '/_org/settings': typeof OrgSettingsRouteWithChildren
   '/_marketing/': typeof MarketingIndexRoute
+  '/_auth/accept-invitation/$id': typeof AuthAcceptInvitationIdRoute
   '/_org/admin/orgs': typeof OrgAdminOrgsRoute
   '/_org/admin/users': typeof OrgAdminUsersRoute
   '/_org/dev/data': typeof OrgDevDataRoute
@@ -180,6 +189,7 @@ export interface FileRouteTypes {
     | '/my-work'
     | '/our-work'
     | '/settings'
+    | '/accept-invitation/$id'
     | '/admin/orgs'
     | '/admin/users'
     | '/dev/data'
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/my-work'
     | '/our-work'
     | '/settings'
+    | '/accept-invitation/$id'
     | '/admin/orgs'
     | '/admin/users'
     | '/dev/data'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
     | '/_org/our-work'
     | '/_org/settings'
     | '/_marketing/'
+    | '/_auth/accept-invitation/$id'
     | '/_org/admin/orgs'
     | '/_org/admin/users'
     | '/_org/dev/data'
@@ -233,6 +245,7 @@ export interface RootRouteChildren {
   OnboardingRouteRoute: typeof OnboardingRouteRouteWithChildren
   OrgRouteRoute: typeof OrgRouteRouteWithChildren
   AuthSignInRoute: typeof AuthSignInRoute
+  AuthAcceptInvitationIdRoute: typeof AuthAcceptInvitationIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -356,6 +369,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OrgAdminOrgsRouteImport
       parentRoute: typeof OrgRouteRoute
     }
+    '/_auth/accept-invitation/$id': {
+      id: '/_auth/accept-invitation/$id'
+      path: '/accept-invitation/$id'
+      fullPath: '/accept-invitation/$id'
+      preLoaderRoute: typeof AuthAcceptInvitationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_org/settings/team/$teamTab': {
       id: '/_org/settings/team/$teamTab'
       path: '/$teamTab'
@@ -449,6 +469,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRouteRoute: OnboardingRouteRouteWithChildren,
   OrgRouteRoute: OrgRouteRouteWithChildren,
   AuthSignInRoute: AuthSignInRoute,
+  AuthAcceptInvitationIdRoute: AuthAcceptInvitationIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

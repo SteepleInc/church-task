@@ -6,6 +6,7 @@ import { OtpForm } from "@/components/otp-form";
 import { SignInState, signInStateAtom } from "@/features/auth/sign-in-state";
 import { revalidateLogic } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { Match, Schema } from "effect";
 import { useAtom } from "jotai";
 import { ArrowRight } from "lucide-react";
@@ -21,7 +22,12 @@ const SignInSchema = Schema.Struct({
   ),
 });
 
-export default function SignInForm() {
+type SignInFormProps = {
+  readonly defaultEmail?: string;
+  readonly invitationId?: string;
+};
+
+export default function SignInForm({ defaultEmail = "", invitationId }: SignInFormProps) {
   const [signInState, setSignInState] = useAtom(signInStateAtom);
   const navigate = useNavigate({
     from: "/",
@@ -29,7 +35,7 @@ export default function SignInForm() {
 
   const form = useAppForm({
     defaultValues: {
-      email: "",
+      email: defaultEmail,
     },
     validationLogic: revalidateLogic({
       mode: "submit",
@@ -53,6 +59,12 @@ export default function SignInForm() {
       },
     },
   });
+
+  useEffect(() => {
+    if (defaultEmail) {
+      form.setFieldValue("email", defaultEmail);
+    }
+  }, [defaultEmail, form]);
 
   return (
     <Card className="w-96 max-w-[calc(100vw-2.5rem)]">
@@ -114,6 +126,12 @@ export default function SignInForm() {
               autoSubmit
               email={email}
               onSuccess={async () => {
+                if (invitationId) {
+                  await navigate({ params: { id: invitationId }, to: "/accept-invitation/$id" });
+                  toast.success("Sign in successful");
+                  return;
+                }
+
                 await navigate({ to: "/my-work" });
                 toast.success("Sign in successful");
               }}

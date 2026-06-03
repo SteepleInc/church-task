@@ -5,10 +5,10 @@ import { expect } from "vitest";
 import { churchInvitationUrl, sendChurchInvitationEmail } from "../churchInvitationEmail";
 
 describe("Church Invitation email", () => {
-  it.effect("builds a dashboard invitation URL with the invitation id", () =>
+  it.effect("builds an accept-invitation URL with the invitation id", () =>
     Effect.sync(() => {
       expect(churchInvitationUrl("https://app.example.com", "inv_123")).toBe(
-        "https://app.example.com/dashboard?churchInvitationId=inv_123",
+        "https://app.example.com/accept-invitation/inv_123",
       );
     }),
   );
@@ -57,7 +57,7 @@ describe("Church Invitation email", () => {
         text: [
           "Admin User invited you to join Grace Church as admin.",
           "",
-          "Accept the Church Invitation: https://app.example.com/dashboard?churchInvitationId=inv_123",
+          "Accept the Church Invitation: https://app.example.com/accept-invitation/inv_123",
         ].join("\n"),
       });
     }),

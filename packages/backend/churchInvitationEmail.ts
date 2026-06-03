@@ -21,8 +21,7 @@ type SendChurchInvitationEmailOptions = {
 };
 
 export function churchInvitationUrl(siteUrl: string, invitationId: string) {
-  const url = new URL("/dashboard", siteUrl);
-  url.searchParams.set("churchInvitationId", invitationId);
+  const url = new URL(`/accept-invitation/${encodeURIComponent(invitationId)}`, siteUrl);
   return url.toString();
 }
 
