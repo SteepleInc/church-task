@@ -1,6 +1,13 @@
 import { Link } from "@tanstack/react-router";
+import { revalidateLogic } from "@tanstack/react-form";
+import { Schema } from "effect";
 import type { ReactNode } from "react";
+import { useState } from "react";
+import { toast } from "sonner";
 
+import { useAppForm } from "@/components/form/ts-form";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { authClient } from "@/lib/auth-client";
@@ -51,6 +58,20 @@ export function getSettingsSectionIds() {
   return settingsSections.map((section) => section.id);
 }
 
+export function normalizeProfileName(value: string) {
+  return value.trim().replaceAll(/\s+/g, " ");
+}
+
+const ProfileSettingsSchema = Schema.Struct({
+  name: Schema.String.pipe(
+    Schema.transform(Schema.String, {
+      decode: normalizeProfileName,
+      encode: (value) => value,
+    }),
+    Schema.minLength(1, { message: () => "Name is required." }),
+  ),
+});
+
 export function SettingsFrame({
   activeSection,
   children,
@@ -97,19 +118,103 @@ export function SettingsFrame({
 }
 
 export function SettingsProfilePanel() {
-  const session = authClient.useSession();
-  const user = session.data?.user;
+  const { data, refetch: refetchSession } = authClient.useSession();
+  const user = data?.user;
+
+  if (!user) {
+    return <p className="text-sm text-muted-foreground">Loading profile settings...</p>;
+  }
+
+  return <SettingsProfileForm refetchSession={refetchSession} user={user} />;
+}
+
+function SettingsProfileForm({
+  refetchSession,
+  user,
+}: {
+  readonly refetchSession: () => Promise<unknown>;
+  readonly user: { readonly id: string; readonly name: string; readonly email: string };
+}) {
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  const form = useAppForm({
+    defaultValues: {
+      name: user.name,
+    },
+    validationLogic: revalidateLogic({
+      mode: "submit",
+      modeAfterSubmission: "blur",
+    }),
+    validators: {
+      onSubmit: Schema.standardSchemaV1(ProfileSettingsSchema),
+    },
+    onSubmit: async ({ value, formApi }) => {
+      const name = normalizeProfileName(value.name);
+      setProfileError(null);
+
+      const result = await authClient.updateUser({ name });
+      if (result.error) {
+        setProfileError(result.error.message ?? "Could not update profile.");
+        return;
+      }
+
+      formApi.reset({ name });
+      await refetchSession();
+      toast.success("Profile updated.");
+    },
+  });
 
   return (
     <div className="grid gap-4">
       <Card>
         <CardHeader>
-          <CardTitle>Profile</CardTitle>
-          <CardDescription>Your Church Task account details.</CardDescription>
+          <CardTitle>Profile Settings</CardTitle>
+          <CardDescription>Manage your Church Task account details.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 text-sm">
-          <SettingDetail label="Name" value={user?.name ?? "Not set"} />
-          <SettingDetail label="Email" value={user?.email ?? "Not set"} />
+        <CardContent>
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              form.handleSubmit();
+            }}
+          >
+            <form.AppField name="name">
+              {(field) => (
+                <field.InputField
+                  autoCapitalize="words"
+                  autoComplete="name"
+                  label="Name"
+                  placeholder="Jane Doe"
+                  required
+                />
+              )}
+            </form.AppField>
+            <SettingDetail label="Email" value={user.email} />
+            {profileError ? (
+              <Alert variant="destructive">
+                <AlertDescription>{profileError}</AlertDescription>
+              </Alert>
+            ) : null}
+            <form.Subscribe
+              selector={(state) => ({
+                isDefaultValue: state.isDefaultValue,
+                isSubmitting: state.isSubmitting,
+              })}
+            >
+              {({ isDefaultValue, isSubmitting }) => (
+                <Button
+                  className="mr-auto"
+                  disabled={isDefaultValue}
+                  loading={isSubmitting}
+                  type="submit"
+                >
+                  Update Profile
+                </Button>
+              )}
+            </form.Subscribe>
+          </form>
         </CardContent>
       </Card>
 
@@ -119,7 +224,7 @@ export function SettingsProfilePanel() {
           <CardDescription>Details you may need when contacting support.</CardDescription>
         </CardHeader>
         <CardContent>
-          <SettingDetail label="User Id" value={user?.id ?? "Loading..."} />
+          <SettingDetail label="User Id" value={user.id} />
         </CardContent>
       </Card>
     </div>
@@ -141,7 +246,9 @@ export function SettingsTeamTabPanel({ teamTab }: { readonly teamTab: string }) 
 function SettingDetail({ label, value }: { readonly label: string; readonly value: string }) {
   return (
     <div className="grid gap-1">
-      <div className="font-medium text-muted-foreground text-xs uppercase tracking-wide">{label}</div>
+      <div className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+        {label}
+      </div>
       <div className="break-all">{value}</div>
     </div>
   );

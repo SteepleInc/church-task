@@ -232,12 +232,13 @@ test("Church owners can use dev and app-admin navigation", async ({ page }, test
   await expect(page.getByLabel(`Admin Church ${churchName}`)).toBeVisible();
 });
 
-test("settings navigation exposes profile, Church, members, and pending invitations", async ({
+test("settings navigation exposes profile, Church, members, and invitation actions", async ({
   page,
 }, testInfo) => {
   const email = `settings-${Date.now()}-${testInfo.workerIndex}@example.com`;
   const inviteEmail = `settings-invite-${Date.now()}-${testInfo.workerIndex}@example.com`;
   const churchName = `E2E Settings Church ${Date.now()}`;
+  const profileName = `Settings Member ${Date.now()}`;
 
   await signInWithOtp(page, email);
   await completeOnboarding(page, churchName);
@@ -250,8 +251,11 @@ test("settings navigation exposes profile, Church, members, and pending invitati
   await expect(settingsNav.getByRole("link", { name: /^Church\b/ })).toBeVisible();
   await expect(settingsNav.getByRole("link", { name: /Members/ })).toBeVisible();
   await expect(settingsNav.getByRole("link", { name: /Invitations/ })).toBeVisible();
-  await expect(page.getByText("Your Church Task account details.")).toBeVisible();
+  await expect(page.getByText("Manage your Church Task account details.")).toBeVisible();
   await expect(page.getByText(email).first()).toBeVisible();
+  await page.getByLabel("Name").fill(profileName);
+  await page.getByRole("button", { name: "Update Profile" }).click();
+  await expect(page.getByText("Profile updated.")).toBeVisible();
 
   await settingsNav.getByRole("link", { name: /^Church\b/ }).click();
   await expect(page).toHaveURL(/\/settings\/org$/);
@@ -274,6 +278,19 @@ test("settings navigation exposes profile, Church, members, and pending invitati
   await page.getByLabel("Email Addresses").fill(inviteEmail);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Invite Member" })).not.toBeVisible();
+});
+
+test("settings pending invitations list renders seeded pending invitations", async ({
+  page,
+}, testInfo) => {
+  const email = `settings-pending-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const inviteEmail = `settings-pending-invite-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const churchName = `E2E Pending Invite Church ${Date.now()}`;
+
+  await signInWithOtp(page, email);
+  await completeOnboarding(page, churchName);
+  await page.goto("/settings/team/invites");
+  await expect(page.getByText("No pending invitations.")).toBeVisible();
 
   await createTestInvitation(page, { email: inviteEmail, role: "member" });
 

@@ -501,7 +501,9 @@ export function TeamInvitationsSettingsPanel() {
 function SettingsDetail({ label, value }: { readonly label: string; readonly value: string }) {
   return (
     <div className="grid gap-1">
-      <div className="font-medium text-muted-foreground text-xs uppercase tracking-wide">{label}</div>
+      <div className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+        {label}
+      </div>
       <div className="break-all">{value}</div>
     </div>
   );

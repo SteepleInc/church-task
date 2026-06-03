@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { getSettingsSectionIds, settingsSections } from "@/routes/-settings";
+import { getSettingsSectionIds, normalizeProfileName, settingsSections } from "@/routes/-settings";
 
 describe("settings route sections", () => {
   it("keeps the copied sectioned settings structure focused on active Church Task areas", () => {
@@ -16,5 +16,9 @@ describe("settings route sections", () => {
   it("does not expose excluded PreachX settings sections", () => {
     expect(getSettingsSectionIds()).not.toContain("billing");
     expect(getSettingsSectionIds()).not.toContain("prompts");
+  });
+
+  it("normalizes profile names like the copied profile settings form", () => {
+    expect(normalizeProfileName("  Jane   Q.   Member  ")).toBe("Jane Q. Member");
   });
 });

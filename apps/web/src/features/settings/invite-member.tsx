@@ -77,8 +77,8 @@ export function InviteMemberQuickAction({ activeChurchId }: { readonly activeChu
             Invite Member
           </DialogTitle>
           <DialogDescription>
-            Invite one or more people to this Church. Separate email addresses with spaces,
-            commas, or new lines.
+            Invite one or more people to this Church. Separate email addresses with spaces, commas,
+            or new lines.
           </DialogDescription>
         </DialogHeader>
         <InviteMemberForm

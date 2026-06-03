@@ -9,7 +9,9 @@ import {
 describe("invite member settings helpers", () => {
   it("normalizes pasted email lists like the copied invite member action", () => {
     expect(
-      parseInviteMemberEmails(" Alice@Example.com, bob@example.com\nBOB@example.com; carol@example.com "),
+      parseInviteMemberEmails(
+        " Alice@Example.com, bob@example.com\nBOB@example.com; carol@example.com ",
+      ),
     ).toEqual(["alice@example.com", "bob@example.com", "carol@example.com"]);
   });
 
