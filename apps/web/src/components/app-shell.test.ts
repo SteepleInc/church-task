@@ -11,6 +11,7 @@ import {
 } from "@/features/global-search/global-search-utils";
 import { buildChurchTaskQuickActions } from "@/features/quick-actions/quick-actions-state";
 import { ListTodoIcon, UsersIcon } from "lucide-react";
+import { getUserMenuAvatarFallback } from "@/components/user-menu";
 
 describe("app shell route behavior", () => {
   test("lands completed app users on My Work", () => {
@@ -110,5 +111,15 @@ describe("global search behavior", () => {
     expect(results.some((result) => /video|preacher|sermon|billing/i.test(result.type))).toBe(
       false,
     );
+  });
+});
+
+describe("user menu behavior", () => {
+  test("uses PreachX-style avatar initials instead of a text account button", () => {
+    expect(getUserMenuAvatarFallback({ email: "alex@example.com", name: "Alex Rivera" })).toBe(
+      "AR",
+    );
+    expect(getUserMenuAvatarFallback({ email: "solo@example.com", name: null })).toBe("SO");
+    expect(getUserMenuAvatarFallback(null)).toBe("US");
   });
 });
