@@ -11,6 +11,20 @@ describe("onboarding PreachX fidelity guards", () => {
     expect(onboardingSource).not.toContain("Step 2 of 2");
   });
 
+  test("keeps the copied PreachX onboarding frame spacing", () => {
+    expect(routeSource).toContain(
+      "flex h-[100dvh] w-full shrink-0 flex-col overflow-hidden bg-black md:flex-row dark:bg-cream",
+    );
+    expect(routeSource).toContain("mt-4 flex flex-col gap-4 pb-2 md:mt-24 md:pb-0");
+    expect(routeSource).not.toContain("mt-8 flex flex-col gap-4 pb-2 md:mt-24 md:pb-0");
+    expect(onboardingSource).toContain(
+      "mx-auto flex max-h-full w-full max-w-2xl flex-col items-start gap-4 md:m-auto md:max-h-[90%]",
+    );
+    expect(onboardingSource).toContain(
+      "m-auto flex w-full flex-col gap-0 overflow-hidden rounded-2xl border border-neutral-200 bg-background p-0 shadow-2xl",
+    );
+  });
+
   test("keeps manual Church profile details behind an explicit edit affordance", () => {
     expect(onboardingSource).toContain("Find Your Church");
     expect(onboardingSource).toContain("Edit Details");

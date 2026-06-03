@@ -30,9 +30,9 @@ function OnboardingLayout() {
                 </div>
               </div>
 
-              <div className="mt-8 flex flex-col gap-4 pb-2 md:mt-24 md:pb-0">
+              <div className="mt-4 flex flex-col gap-4 pb-2 md:mt-24 md:pb-0">
                 <p className="font-serif text-5xl font-bold tracking-tight">Welcome!</p>
-                <p className="hidden max-w-sm text-cream text-md leading-6 md:block dark:text-black/70">
+                <p className="hidden text-cream text-md md:block dark:text-black/70">
                   Set up your Church profile so Church Task can build work around the right local
                   time, teams, and ministry context.
                 </p>
