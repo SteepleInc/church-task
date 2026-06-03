@@ -80,6 +80,7 @@ export function QuickActions() {
         <InviteMemberQuickAction
           activeChurchId={activeChurch.id}
           activeChurchRole={activeChurch.role}
+          source="quick-actions"
         />
       ) : null}
     </>

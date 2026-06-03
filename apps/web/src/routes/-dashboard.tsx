@@ -1,8 +1,6 @@
-import { api } from "@church-task/backend/convex/_generated/api";
 import refs from "@church-task/backend/confect/_generated/refs";
 import { useAppForm } from "@/components/form/ts-form";
 import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -41,10 +39,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { QueryResult, useQuery as useConfectQuery } from "@confect/react";
-import { CheckoutLink, CustomerPortalLink } from "@convex-dev/polar/react";
 import { revalidateLogic } from "@tanstack/react-form";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { Authenticated, AuthLoading, Unauthenticated, useQuery } from "convex/react";
+import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import { Schema } from "effect";
 import { useState } from "react";
 
@@ -182,8 +179,6 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
   const search = useSearch({ strict: false }) as DashboardSearch;
   const navigate = useNavigate();
   const privateData = useConfectQuery(refs.public.privateData.get);
-  const products = useQuery(api.polar.listAllProducts);
-  const subscription = useQuery(api.polar.getCurrentSubscription);
   const { currentOrgOpt: activeChurch } = useCurrentOrgOpt();
   const setActivePanel = (panel: ActiveDashboardPanel) => {
     const routeSearch = getDashboardSearchForPanel(search);
@@ -237,9 +232,6 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
       ? (activeTeams.find((team) => team.id === activePanel.teamId) ?? null)
       : null;
   const unavailableTeamBoardActions = getUnavailableTeamBoardActions();
-
-  const product = products?.find((product: { isRecurring?: boolean }) => product.isRecurring);
-  const hasActiveSubscription = Boolean(subscription);
 
   return (
     <main className="flex flex-1 flex-col gap-6 overflow-auto p-4 sm:p-6">
@@ -313,33 +305,7 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
                 privateData:{" "}
                 {QueryResult.isSuccess(privateData) ? privateData.value.message : "Loading..."}
               </p>
-              <p className="text-sm text-muted-foreground">
-                Plan: {hasActiveSubscription ? "Active" : "Free"}
-              </p>
             </div>
-            {subscription === undefined ? (
-              <p className="text-sm text-muted-foreground">Loading subscription options...</p>
-            ) : hasActiveSubscription ? (
-              <CustomerPortalLink
-                polarApi={api.polar}
-                className={buttonVariants({ variant: "outline" })}
-              >
-                Manage Subscription
-              </CustomerPortalLink>
-            ) : products === undefined ? (
-              <p className="text-sm text-muted-foreground">Loading subscription options...</p>
-            ) : product ? (
-              <CheckoutLink
-                polarApi={api.polar}
-                productIds={[product.id]}
-                embed={false}
-                className={buttonVariants({ variant: "default" })}
-              >
-                Upgrade
-              </CheckoutLink>
-            ) : (
-              <p className="text-sm text-muted-foreground">No recurring plans available.</p>
-            )}
           </section>
           <ActiveChurchInvitationPrompt />
           {activeChurch ? (
@@ -1969,6 +1935,7 @@ function ChurchInvitationPanel({
         <InviteMemberQuickAction
           activeChurchId={activeChurchId}
           activeChurchRole={activeChurchRole}
+          source="settings"
         />
         <div className="grid gap-3">
           <h2 className="text-base font-semibold">Pending Invitations</h2>

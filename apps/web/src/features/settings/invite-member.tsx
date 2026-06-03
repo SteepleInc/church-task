@@ -21,7 +21,9 @@ import { authClient } from "@/lib/auth-client";
 type InvitationRole = "member" | "admin";
 type CurrentMemberRole = string | readonly string[] | null | undefined;
 
-export const inviteMemberIsOpenAtom = atom(false);
+export type InviteMemberDialogSource = "settings" | "quick-actions";
+
+export const inviteMemberDialogSourceAtom = atom<InviteMemberDialogSource | null>(null);
 
 export const inviteMemberRoleOptions: readonly {
   readonly label: string;
@@ -62,10 +64,10 @@ export function getInvalidInviteMemberEmails(emails: readonly string[]) {
 type InviteMemberButtonProps = Omit<ComponentPropsWithoutRef<typeof Button>, "onClick">;
 
 export function InviteMemberButton(props: InviteMemberButtonProps) {
-  const [, setInviteMemberIsOpen] = useAtom(inviteMemberIsOpenAtom);
+  const [, setInviteMemberDialogSource] = useAtom(inviteMemberDialogSourceAtom);
 
   return (
-    <Button onClick={() => setInviteMemberIsOpen(true)} {...props}>
+    <Button onClick={() => setInviteMemberDialogSource("settings")} {...props}>
       <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} data-icon="inline-start" />
       Invite Member
     </Button>
@@ -75,15 +77,23 @@ export function InviteMemberButton(props: InviteMemberButtonProps) {
 export function InviteMemberQuickAction({
   activeChurchId,
   activeChurchRole,
+  source,
 }: {
   readonly activeChurchId: string;
   readonly activeChurchRole: CurrentMemberRole;
+  readonly source: InviteMemberDialogSource;
 }) {
-  const [inviteMemberIsOpen, setInviteMemberIsOpen] = useAtom(inviteMemberIsOpenAtom);
+  const [inviteMemberDialogSource, setInviteMemberDialogSource] = useAtom(
+    inviteMemberDialogSourceAtom,
+  );
   const canInvite = canInviteChurchMembers(activeChurchRole);
+  const isOpen = inviteMemberDialogSource === source;
 
   return (
-    <Dialog open={inviteMemberIsOpen} onOpenChange={setInviteMemberIsOpen}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => setInviteMemberDialogSource(open ? source : null)}
+    >
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="inline-flex items-center gap-2">
@@ -98,7 +108,7 @@ export function InviteMemberQuickAction({
         {canInvite ? (
           <InviteMemberForm
             activeChurchId={activeChurchId}
-            onInvited={() => setInviteMemberIsOpen(false)}
+            onInvited={() => setInviteMemberDialogSource(null)}
           />
         ) : (
           <Alert>

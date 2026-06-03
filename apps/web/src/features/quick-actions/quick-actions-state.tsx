@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useMemo } from "react";
 
-import { inviteMemberIsOpenAtom } from "@/features/settings/invite-member";
+import { inviteMemberDialogSourceAtom } from "@/features/settings/invite-member";
 import type { QuickActionDefinition } from "@/features/quick-actions/quick-actions-types";
 
 export const disableQuickActionsAtom = atom(false);
@@ -99,12 +99,12 @@ export function buildChurchTaskQuickActions({
 }
 
 export function useQuickActionOpeners() {
-  const setInviteMemberIsOpen = useSetAtom(inviteMemberIsOpenAtom);
+  const setInviteMemberDialogSource = useSetAtom(inviteMemberDialogSourceAtom);
 
   return useMemo(
     () => ({
-      openInviteMember: () => setInviteMemberIsOpen(true),
+      openInviteMember: () => setInviteMemberDialogSource("quick-actions"),
     }),
-    [setInviteMemberIsOpen],
+    [setInviteMemberDialogSource],
   );
 }
