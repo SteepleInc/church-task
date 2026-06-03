@@ -24,6 +24,15 @@ const mobileSidebarContentSource = await Bun.file(
   new URL("./navigation/mobile-sidebar-content.tsx", import.meta.url),
 ).text();
 const orgSwitcherSource = await Bun.file(new URL("./org-switcher.tsx", import.meta.url)).text();
+const quickActionsSource = await Bun.file(
+  new URL("../features/quick-actions/quick-actions.tsx", import.meta.url),
+).text();
+const bigActionsSource = await Bun.file(
+  new URL("../features/big-actions/big-actions.tsx", import.meta.url),
+).text();
+const inviteMemberSource = await Bun.file(
+  new URL("../features/settings/invite-member.tsx", import.meta.url),
+).text();
 const dashboardRouteSource = await Bun.file(
   new URL("../routes/-dashboard.tsx", import.meta.url),
 ).text();
@@ -116,15 +125,15 @@ describe("quick action route behavior", () => {
     const actions = buildChurchTaskQuickActions({
       canInviteMembers: true,
       closeQuickActions: () => {},
-      navigateToMyWork: () => {},
-      navigateToOurWork: () => {},
+      openCreateChurchTask: () => {},
+      openCreateMyTask: () => {},
       navigateToSettings: () => {},
       openInviteMember: () => {},
     });
 
     expect(actions.map((action) => [action.group, action.name])).toEqual([
-      ["big-action", "Create My Task"],
-      ["big-action", "Create Church Task"],
+      ["quick-action", "Create My Task"],
+      ["quick-action", "Create Church Task"],
       ["quick-action", "Invite Member"],
       ["quick-action", "Team Settings"],
       ["quick-action", "Church Settings"],
@@ -139,8 +148,8 @@ describe("quick action route behavior", () => {
     const actions = buildChurchTaskQuickActions({
       canInviteMembers: false,
       closeQuickActions: () => {},
-      navigateToMyWork: () => {},
-      navigateToOurWork: () => {},
+      openCreateChurchTask: () => {},
+      openCreateMyTask: () => {},
       navigateToSettings: () => {},
       openInviteMember: () => {},
     });
@@ -149,6 +158,22 @@ describe("quick action route behavior", () => {
       enabled: false,
       disabledReason: "Only Church owners and admins can invite members.",
     });
+  });
+
+  test("keeps quick actions copied as one command group separated from big action dialogs", () => {
+    expect(quickActionsSource).toContain('<CommandGroup heading="Quick Action">');
+    expect(quickActionsSource).not.toContain("Big Actions");
+    expect(quickActionsSource).not.toContain("action.description");
+    expect(bigActionsSource).toContain("export function BigActions()");
+    expect(bigActionsSource).toContain("createTaskBigActionStateAtom");
+    expect(bigActionsSource).toContain("CreateTaskBigAction");
+  });
+
+  test("keeps invite member quick action in the copied PreachX header/body/footer shape", () => {
+    expect(inviteMemberSource).toContain('className="gap-0 overflow-hidden p-0 sm:max-w-xl"');
+    expect(inviteMemberSource).toContain('<DialogHeader className="p-4">');
+    expect(inviteMemberSource).toContain('className="sm:max-w-56"');
+    expect(inviteMemberSource).toContain("<DialogFooter>");
   });
 });
 

@@ -11,6 +11,7 @@ import { useMemo } from "react";
 
 import { inviteMemberDialogSourceAtom } from "@/features/settings/invite-member";
 import type { QuickActionDefinition } from "@/features/quick-actions/quick-actions-types";
+import { createTaskBigActionStateAtom } from "@/features/big-actions/big-actions";
 
 export const disableQuickActionsAtom = atom(false);
 export const quickActionsIsOpenAtom = atom(false);
@@ -18,8 +19,8 @@ export const quickActionsIsOpenAtom = atom(false);
 type BuildChurchTaskQuickActionsInput = {
   readonly canInviteMembers: boolean;
   readonly closeQuickActions: () => void;
-  readonly navigateToMyWork: () => void;
-  readonly navigateToOurWork: () => void;
+  readonly openCreateChurchTask: () => void;
+  readonly openCreateMyTask: () => void;
   readonly navigateToSettings: () => void;
   readonly openInviteMember: () => void;
 };
@@ -27,8 +28,8 @@ type BuildChurchTaskQuickActionsInput = {
 export function buildChurchTaskQuickActions({
   canInviteMembers,
   closeQuickActions,
-  navigateToMyWork,
-  navigateToOurWork,
+  openCreateChurchTask,
+  openCreateMyTask,
   navigateToSettings,
   openInviteMember,
 }: BuildChurchTaskQuickActionsInput): QuickActionDefinition[] {
@@ -39,22 +40,22 @@ export function buildChurchTaskQuickActions({
 
   return [
     {
-      group: "big-action",
+      group: "quick-action",
       icon: ClipboardPlusIcon,
       name: "Create My Task",
-      description: "Go to My Work to create a Task assigned to you.",
+      description: "Open the task creation dialog assigned to you.",
       keywords: ["task", "my work", "create", "todo"],
       enabled: true,
-      onSelect: selectAndClose(navigateToMyWork),
+      onSelect: selectAndClose(openCreateMyTask),
     },
     {
-      group: "big-action",
+      group: "quick-action",
       icon: ListTodoIcon,
       name: "Create Church Task",
-      description: "Go to Our Work to create a Church-wide Task.",
+      description: "Open the Church-wide task creation dialog.",
       keywords: ["task", "our work", "church", "create"],
       enabled: true,
-      onSelect: selectAndClose(navigateToOurWork),
+      onSelect: selectAndClose(openCreateChurchTask),
     },
     {
       group: "quick-action",
@@ -100,11 +101,14 @@ export function buildChurchTaskQuickActions({
 
 export function useQuickActionOpeners() {
   const setInviteMemberDialogSource = useSetAtom(inviteMemberDialogSourceAtom);
+  const setCreateTaskBigActionState = useSetAtom(createTaskBigActionStateAtom);
 
   return useMemo(
     () => ({
+      openCreateChurchTask: () => setCreateTaskBigActionState({ type: "church" }),
+      openCreateMyTask: () => setCreateTaskBigActionState({ type: "my" }),
       openInviteMember: () => setInviteMemberDialogSource("quick-actions"),
     }),
-    [setInviteMemberDialogSource],
+    [setCreateTaskBigActionState, setInviteMemberDialogSource],
   );
 }

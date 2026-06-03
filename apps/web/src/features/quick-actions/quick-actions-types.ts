@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 
-export type QuickActionGroup = "big-action" | "quick-action";
+export type QuickActionGroup = "quick-action";
 
 export type QuickActionDefinition = {
   readonly group: QuickActionGroup;

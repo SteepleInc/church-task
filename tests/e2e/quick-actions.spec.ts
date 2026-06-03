@@ -1,5 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
+import { completeOnboarding as completeRepairedOnboarding } from "./helpers";
+
 test.skip(
   process.env.CHURCH_TASK_E2E_READY !== "1",
   process.env.CHURCH_TASK_E2E_SKIP_REASON ?? "E2E environment is not configured.",
@@ -46,17 +48,7 @@ async function signInWithOtp(page: Page, email: string) {
 }
 
 async function completeOnboarding(page: Page, churchName: string) {
-  await page.getByLabel("Church Name").fill(churchName);
-  await page.getByLabel("Street").fill("123 Main Street");
-  await page.getByLabel("City").fill("Nashville");
-  await page.getByLabel("State / Region").fill("TN");
-  await page.getByLabel("Postal Code").fill("37203");
-  await page.getByLabel("Country Code").fill("US");
-  await page.getByLabel("Church Time Zone").fill("America/Chicago");
-  await page.getByLabel("Website").fill("https://example.org");
-  await page.getByRole("button", { name: "Continue to Teams" }).click();
-  await page.getByRole("button", { name: "Enter Church Task" }).click();
-  await expect(page).toHaveURL(/\/my-work$/, { timeout: 20_000 });
+  await completeRepairedOnboarding(page, churchName);
 }
 
 test("opens Quick Actions and completes a copied create-task action", async ({
@@ -71,12 +63,14 @@ test("opens Quick Actions and completes a copied create-task action", async ({
 
   await page.getByRole("button", { name: "Open quick actions" }).click();
   await expect(page.getByRole("dialog", { name: "Quick Actions Menu" })).toBeVisible();
-  await expect(page.getByText("Big Actions", { exact: true })).toBeVisible();
+  await expect(page.getByText("Quick Action", { exact: true })).toBeVisible();
+  await expect(page.getByText("Big Actions", { exact: true })).not.toBeVisible();
   await page.getByText("Create Church Task", { exact: true }).click();
 
-  await expect(page).toHaveURL(/\/our-work$/);
+  await expect(page.getByRole("dialog", { name: "Create Church Task" })).toBeVisible();
   await page.getByPlaceholder("Add Church-wide Task").fill(taskTitle);
   await page.getByRole("button", { name: "Create Task" }).click();
+  await expect(page).toHaveURL(/\/our-work$/);
   await expect(page.getByText(taskTitle).first()).toBeVisible();
 
   await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");

@@ -10,7 +10,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandShortcut,
 } from "@/components/ui/command";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { canInviteChurchMembers, InviteMemberQuickAction } from "@/features/settings/invite-member";
@@ -20,22 +19,14 @@ import {
   quickActionsIsOpenAtom,
   useQuickActionOpeners,
 } from "@/features/quick-actions/quick-actions-state";
-import type {
-  QuickActionDefinition,
-  QuickActionGroup,
-} from "@/features/quick-actions/quick-actions-types";
-
-const groupLabels = {
-  "big-action": "Big Actions",
-  "quick-action": "Quick Actions",
-} satisfies Record<QuickActionGroup, string>;
+import type { QuickActionDefinition } from "@/features/quick-actions/quick-actions-types";
 
 export function QuickActions() {
   const [quickActionsIsOpen, setQuickActionsIsOpen] = useAtom(quickActionsIsOpenAtom);
   const disableQuickActions = useAtomValue(disableQuickActionsAtom);
   const { currentOrgOpt: activeChurch } = useCurrentOrgOpt();
   const navigate = useNavigate();
-  const { openInviteMember } = useQuickActionOpeners();
+  const { openCreateChurchTask, openCreateMyTask, openInviteMember } = useQuickActionOpeners();
 
   useEffect(() => {
     if (disableQuickActions) return;
@@ -58,12 +49,19 @@ export function QuickActions() {
       buildChurchTaskQuickActions({
         canInviteMembers: canInviteChurchMembers(activeChurch?.role),
         closeQuickActions: () => setQuickActionsIsOpen(false),
-        navigateToMyWork: () => void navigate({ to: "/my-work" }),
-        navigateToOurWork: () => void navigate({ to: "/our-work" }),
+        openCreateChurchTask,
+        openCreateMyTask,
         navigateToSettings: () => void navigate({ to: "/settings" }),
         openInviteMember,
       }),
-    [activeChurch?.role, navigate, openInviteMember, setQuickActionsIsOpen],
+    [
+      activeChurch?.role,
+      navigate,
+      openCreateChurchTask,
+      openCreateMyTask,
+      openInviteMember,
+      setQuickActionsIsOpen,
+    ],
   );
 
   return (
@@ -93,15 +91,11 @@ function CommandMenuContent({ actions }: { readonly actions: readonly QuickActio
       <CommandInput placeholder="Type a command or search..." />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
-        {(["big-action", "quick-action"] as const).map((group) => (
-          <CommandGroup heading={groupLabels[group]} key={group}>
-            {actions
-              .filter((action) => action.group === group)
-              .map((action) => (
-                <QuickActionCommandItem action={action} key={action.name} />
-              ))}
-          </CommandGroup>
-        ))}
+        <CommandGroup heading="Quick Action">
+          {actions.map((action) => (
+            <QuickActionCommandItem action={action} key={action.name} />
+          ))}
+        </CommandGroup>
       </CommandList>
     </>
   );
@@ -112,20 +106,14 @@ function QuickActionCommandItem({ action }: { readonly action: QuickActionDefini
 
   return (
     <CommandItem
-      className="items-start gap-3"
+      className="gap-2"
       disabled={!action.enabled}
       keywords={[...action.keywords]}
       onSelect={action.onSelect}
-      value={`${action.name} ${action.description}`}
+      value={action.name}
     >
-      <Icon className="mt-0.5 size-4 text-muted-foreground" />
-      <span className="grid gap-0.5">
-        <span>{action.name}</span>
-        <span className="text-xs text-muted-foreground">
-          {action.enabled ? action.description : action.disabledReason}
-        </span>
-      </span>
-      {action.shortcut ? <CommandShortcut>{action.shortcut}</CommandShortcut> : null}
+      <Icon className="size-4" />
+      {action.name}
     </CommandItem>
   );
 }

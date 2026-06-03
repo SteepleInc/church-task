@@ -13,6 +13,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -94,11 +95,13 @@ export function InviteMemberQuickAction({
       open={isOpen}
       onOpenChange={(open) => setInviteMemberDialogSource(open ? source : null)}
     >
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="inline-flex items-center gap-2">
-            <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="size-4" />
-            Invite Member
+      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-xl">
+        <DialogHeader className="p-4">
+          <DialogTitle>
+            <span className="inline-flex flex-row items-center">
+              <HugeiconsIcon icon={PlusSignIcon} strokeWidth={2} className="mr-2 size-4" />
+              Invite Member
+            </span>
           </DialogTitle>
           <DialogDescription>
             Invite one or more people to this Church. Separate email addresses with spaces, commas,
@@ -111,7 +114,7 @@ export function InviteMemberQuickAction({
             onInvited={() => setInviteMemberDialogSource(null)}
           />
         ) : (
-          <Alert>
+          <Alert className="m-4 mt-0">
             <AlertDescription>
               Only Church owners and admins can invite Church members.
             </AlertDescription>
@@ -178,44 +181,50 @@ function InviteMemberForm({
 
   return (
     <form
-      className="grid gap-4"
+      className="grid gap-0"
       onSubmit={(event) => {
         event.preventDefault();
         event.stopPropagation();
         form.handleSubmit();
       }}
     >
-      <form.AppField name="emails">
-        {(field) => (
-          <field.TextareaField
-            label="Email Addresses"
-            placeholder="member@example.com, admin@example.com"
-            required
-          />
-        )}
-      </form.AppField>
-      <form.AppField name="role">
-        {(field) => (
-          <field.SelectField
-            label="Role"
-            options={inviteMemberRoleOptions}
-            placeholder="Select a role"
-            required
-          />
-        )}
-      </form.AppField>
-      {inviteError ? (
-        <Alert variant="destructive">
-          <AlertDescription>{inviteError}</AlertDescription>
-        </Alert>
-      ) : null}
+      <div className="grid gap-4 px-4 pb-4">
+        <form.AppField name="emails">
+          {(field) => (
+            <field.TextareaField
+              label="Email Addresses"
+              placeholder="member@example.com, admin@example.com"
+              required
+            />
+          )}
+        </form.AppField>
+        <div className="sm:max-w-56">
+          <form.AppField name="role">
+            {(field) => (
+              <field.SelectField
+                label="Role"
+                options={inviteMemberRoleOptions}
+                placeholder="Select a role"
+                required
+              />
+            )}
+          </form.AppField>
+        </div>
+        {inviteError ? (
+          <Alert variant="destructive">
+            <AlertDescription>{inviteError}</AlertDescription>
+          </Alert>
+        ) : null}
+      </div>
       <form.Subscribe
         selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}
       >
         {({ canSubmit, isSubmitting }) => (
-          <Button className="ml-auto" type="submit" loading={isSubmitting} disabled={!canSubmit}>
-            Invite Members
-          </Button>
+          <DialogFooter>
+            <Button type="submit" loading={isSubmitting} disabled={!canSubmit}>
+              Invite Members
+            </Button>
+          </DialogFooter>
         )}
       </form.Subscribe>
     </form>
