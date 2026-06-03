@@ -18,22 +18,53 @@ describe("admin route fidelity", () => {
 
     expect(orgsRouteSource).toContain("<MainContainer>");
     expect(orgsRouteSource).toContain('<OrgsCollection _tag="global" />');
+    expect(orgsRouteSource).toContain('from "@/features/orgs/orgsCollection"');
     expect(usersRouteSource).toContain("<MainContainer>");
     expect(usersRouteSource).toContain('<UsersCollection _tag="global" />');
+    expect(usersRouteSource).toContain('from "@/features/users/usersCollection"');
     expect(orgsRouteSource).not.toContain("AppAdminChurchesPanel");
     expect(usersRouteSource).not.toContain("AppAdminUsersPanel");
   });
 
-  it("keeps Church Task admin collections free of excluded PreachX product surfaces", () => {
-    const collectionsSource = readFileSync(
-      "apps/web/src/features/admin/admin-collections.tsx",
+  it("uses copied PreachX AdminNav instead of inline app navigation admin markup", () => {
+    const adminNavSource = readFileSync("apps/web/src/components/navigation/adminNav.tsx", "utf8");
+    const appNavigationSource = readFileSync(
+      "apps/web/src/components/navigation/app-navigation.tsx",
       "utf8",
     );
 
-    expect(collectionsSource).toContain("export function OrgsCollection");
-    expect(collectionsSource).toContain("export function UsersCollection");
-    expect(collectionsSource).toContain("placeholder={filterPlaceholder}");
-    expect(collectionsSource).toContain("<Table>");
-    expect(collectionsSource).not.toMatch(/preacher|sermon|video|channel|agreement|royalty/i);
+    expect(adminNavSource).toContain("export function AdminNav");
+    expect(adminNavSource).toContain(
+      '<SidebarGroupLabel className="gap-2">Admin</SidebarGroupLabel>',
+    );
+    expect(adminNavSource).toContain("adminNavItems.map");
+    expect(appNavigationSource).toContain("<AdminNav />");
+    expect(appNavigationSource).not.toContain("<SidebarGroupLabel>App Admin</SidebarGroupLabel>");
+  });
+
+  it("keeps Church Task admin collections in copied feature paths and free of excluded PreachX product surfaces", () => {
+    const collectionSource = readFileSync(
+      "apps/web/src/components/collections/collection.tsx",
+      "utf8",
+    );
+    const orgsCollectionSource = readFileSync(
+      "apps/web/src/features/orgs/orgsCollection.tsx",
+      "utf8",
+    );
+    const usersCollectionSource = readFileSync(
+      "apps/web/src/features/users/usersCollection.tsx",
+      "utf8",
+    );
+    const combinedSource = [collectionSource, orgsCollectionSource, usersCollectionSource].join(
+      "\n",
+    );
+
+    expect(orgsCollectionSource).toContain("export function OrgsCollection");
+    expect(orgsCollectionSource).toContain("<Collection<OrgCollectionItem>");
+    expect(usersCollectionSource).toContain("export function UsersCollection");
+    expect(usersCollectionSource).toContain("<Collection<UserCollectionItem>");
+    expect(collectionSource).toContain("placeholder={filterPlaceHolder}");
+    expect(collectionSource).toContain("<Table>");
+    expect(combinedSource).not.toMatch(/preacher|sermon|video|channel|agreement|royalty/i);
   });
 });

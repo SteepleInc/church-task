@@ -71,7 +71,7 @@ export const devNavItems: readonly NavItem[] = [
   },
 ];
 
-export const appAdminNavItems: readonly NavItem[] = [
+export const adminNavItems: readonly NavItem[] = [
   {
     icon: <ChurchIcon />,
     title: "Churches",
@@ -83,6 +83,8 @@ export const appAdminNavItems: readonly NavItem[] = [
     to: "/admin/users",
   },
 ];
+
+export const appAdminNavItems = adminNavItems;
 
 export const homeNavItem: NavItem = {
   icon: <HomeIcon />,

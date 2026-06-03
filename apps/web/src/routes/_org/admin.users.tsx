@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { MainContainer } from "@/components/pageComponents";
-import { UsersCollection } from "@/features/admin/admin-collections";
+import { UsersCollection } from "@/features/users/usersCollection";
 
 export const Route = createFileRoute("/_org/admin/users")({
   component: AdminUsersPage,

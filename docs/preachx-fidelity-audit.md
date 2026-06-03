@@ -222,7 +222,10 @@ Church Task files:
 - `apps/web/src/routes/_org/admin.tsx`
 - `apps/web/src/routes/_org/admin.orgs.tsx`
 - `apps/web/src/routes/_org/admin.users.tsx`
-- `apps/web/src/features/admin/admin-collections.tsx`
+- `apps/web/src/components/navigation/adminNav.tsx`
+- `apps/web/src/features/orgs/orgsCollection.tsx`
+- `apps/web/src/features/users/usersCollection.tsx`
+- `apps/web/src/components/collections/collection.tsx`
 - `apps/web/src/components/navigation/nav-shared.tsx`
 - `apps/web/src/components/navigation/app-navigation.tsx`
 
@@ -236,7 +239,7 @@ Repairs confirmed:
 
 Remaining mismatch:
 
-- PreachX gates admin with global `session.user.role === "admin"` and `requireAdmin`; Church Task gates App Admin/Dev through active Church owner/admin role. If App Admin is intended to mean global app administration, this needs a domain-level global role gate or a documented product decision.
+- PreachX gates admin with global `session.user.role === "admin"` and `requireAdmin`; Church Task intentionally gates Admin/Dev through active Church owner/admin role until a global app-admin role exists in the Convex-backed domain model.
 
 ## Quick Actions And Big Actions
 
@@ -477,12 +480,13 @@ Fidelity verdict: pass for placement and structure, with one product/auth questi
 Repairs confirmed:
 
 - Dev menu sits in the copied PreachX bottom-sidebar position.
-- App Admin and Dev groups have copied sidebar group styling and active states.
+- Admin and Dev groups have copied sidebar group styling and active states.
 - Dev pages expose Church Task session/data debugging surfaces rather than PreachX product surfaces.
+- Admin is intentionally scoped to active-Church owner/admin access until Church Task has a global app-admin role source of truth.
 
 Remaining question:
 
-- App Admin appears to be gated by current Church role rather than global app role. This should be documented as intentional or repaired with a global-role source of truth before closing #97.
+- None for this admin/dev navigation slice.
 
 ## Required Follow-Ups Before Closing #97
 
@@ -491,4 +495,3 @@ Remaining question:
 - Repair or file a follow-up for BigActions to copy PreachX `BigActionWrapper` desktop full-screen and mobile drawer chrome.
 - Repair or file a follow-up for auth/sign-in/invitation layout and passed-email auto-submit fidelity.
 - Decide whether settings/forms must copy PreachX `CardForm` and `TagInputField`; if yes, file or implement that repair.
-- Decide whether App Admin is a global admin role or active-Church owner/admin capability; document or repair the gate accordingly.

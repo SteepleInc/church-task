@@ -242,7 +242,7 @@ test("Church owners can use dev and app-admin navigation", async ({ page }, test
   await completeOnboarding(page, churchName);
 
   await expect(page.getByText("Dev", { exact: true })).toBeVisible();
-  await expect(page.getByText("App Admin", { exact: true })).toBeVisible();
+  await expect(page.getByText("Admin", { exact: true })).toBeVisible();
 
   await page.getByRole("link", { name: "Session" }).click();
   await expect(page).toHaveURL(/\/dev\/session$/);

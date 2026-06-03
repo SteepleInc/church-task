@@ -5,12 +5,12 @@ import { HugeiconsIcon } from "@hugeicons/react";
 
 import { CommentTextIcon } from "@/components/icons/commentText";
 import {
-  appAdminNavItems,
   devNavItems,
   homeNavItem,
   settingsNavItems,
   workspaceNavItems,
 } from "@/components/navigation/nav-shared";
+import { AdminNav } from "@/components/navigation/adminNav";
 import { DevMenu } from "@/components/navigation/dev-menu";
 import { MobileSidebarContent } from "@/components/navigation/mobile-sidebar-content";
 import { SideBarItem } from "@/components/navigation/sidebar-item";
@@ -141,14 +141,7 @@ function AppNavigationBody() {
 
       {canAccessInternalNav ? (
         <>
-          <SidebarGroup>
-            <SidebarGroupLabel>App Admin</SidebarGroupLabel>
-            <SidebarMenu>
-              {appAdminNavItems.map((item) => (
-                <SideBarItem key={item.to} {...item} />
-              ))}
-            </SidebarMenu>
-          </SidebarGroup>
+          <AdminNav />
 
           <SidebarGroup>
             <SidebarGroupLabel>Dev</SidebarGroupLabel>
