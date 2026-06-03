@@ -1,9 +1,12 @@
+import type { BetterAuthPlugin } from "better-auth";
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { apiKey } from "@better-auth/api-key";
 import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthEndpoint, sessionMiddleware } from "better-auth/api";
+import { setSessionCookie } from "better-auth/cookies";
 import { betterAuth } from "better-auth/minimal";
 import { bearer, emailOTP, mcp, organization } from "better-auth/plugins";
+import { z } from "zod";
 
 import { components, internal } from "./convex/_generated/api";
 import type { DataModel } from "./convex/_generated/dataModel";
@@ -70,6 +73,65 @@ const recordAuthHookActivity = async (
   }
 };
 
+const completeOnboarding = () =>
+  ({
+    endpoints: {
+      completeOnboarding: createAuthEndpoint(
+        "/complete-onboarding",
+        {
+          body: z.object({ orgId: z.string() }),
+          method: "POST",
+          use: [sessionMiddleware],
+        },
+        async (ctx) => {
+          const session = ctx.context.session;
+          const { orgId } = ctx.body;
+
+          const membership = await ctx.context.adapter.findOne({
+            model: "member",
+            where: [
+              { field: "organizationId", value: orgId },
+              { field: "userId", value: session.user.id },
+            ],
+          });
+
+          if (!membership) {
+            throw ctx.error("FORBIDDEN", {
+              message: "User is not a member of this Church.",
+            });
+          }
+
+          await ctx.context.adapter.update({
+            model: "organization",
+            update: { completedOnboarding: true },
+            where: [{ field: "id", value: orgId }],
+          });
+
+          const updatedSession = await ctx.context.internalAdapter.updateSession(
+            session.session.token,
+            {
+              activeOrganizationId: orgId,
+            },
+          );
+
+          if (!updatedSession) {
+            throw ctx.error("INTERNAL_SERVER_ERROR", {
+              message: "Failed to update session.",
+            });
+          }
+
+          await setSessionCookie(ctx, {
+            session: updatedSession,
+            user: session.user,
+          });
+
+          return ctx.json({ status: true });
+        },
+      ),
+    },
+    id: "complete-onboarding",
+  }) satisfies BetterAuthPlugin;
+
 export function createAuth(ctx: GenericCtx<DataModel>) {
   return betterAuth({
     baseURL: process.env.CONVEX_SITE_URL,
@@ -117,6 +179,7 @@ export function createAuth(ctx: GenericCtx<DataModel>) {
           }
         },
       }),
+      completeOnboarding(),
       apiKey({
         apiKeyHeaders: "authorization",
         customAPIKeyGetter: (ctx) => {

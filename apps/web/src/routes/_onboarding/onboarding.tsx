@@ -70,6 +70,7 @@ type ChurchProfileValue = {
 
 function OnboardingRoute() {
   const navigate = useNavigate();
+  const { refetch: refetchSession } = authClient.useSession();
   const { currentOrgOpt: activeChurch, loading } = useCurrentOrgOpt();
   const [error, setError] = useState<string | null>(null);
   const defaultValues: ChurchProfileValue = {
@@ -148,6 +149,14 @@ function OnboardingRoute() {
         setError(activeResult.error.message ?? "Could not select the active Church.");
         return;
       }
+
+      const completeResult = await authClient.completeOnboarding({ orgId: organizationId });
+      if (completeResult.error) {
+        setError(completeResult.error.message ?? "Could not complete Church onboarding.");
+        return;
+      }
+
+      await refetchSession();
 
       toast.success("Church profile saved.");
       await navigate({ to: "/my-work" });

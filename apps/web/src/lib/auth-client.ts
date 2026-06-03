@@ -1,12 +1,26 @@
 import { env } from "@church-task/env/web";
 import { convexClient, crossDomainClient } from "@convex-dev/better-auth/client/plugins";
+import type { BetterAuthClientPlugin } from "better-auth/client";
 import { emailOTPClient, organizationClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
+
+const completeOnboardingClient = () =>
+  ({
+    getActions: ($fetch) => ({
+      completeOnboarding: async (data: { readonly orgId: string }) =>
+        await $fetch<{ status: boolean }>("/complete-onboarding", {
+          body: data,
+          method: "POST",
+        }),
+    }),
+    id: "complete-onboarding",
+  }) satisfies BetterAuthClientPlugin;
 
 export const authClient = createAuthClient({
   baseURL: env.VITE_CONVEX_SITE_URL,
   plugins: [
     emailOTPClient(),
+    completeOnboardingClient(),
     organizationClient({
       teams: { enabled: true },
       schema: {
