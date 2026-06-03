@@ -23,6 +23,9 @@ const devMenuContentSource = await Bun.file(
 const mobileSidebarContentSource = await Bun.file(
   new URL("./navigation/mobile-sidebar-content.tsx", import.meta.url),
 ).text();
+const sideBarItemSource = await Bun.file(
+  new URL("./navigation/sidebar-item.tsx", import.meta.url),
+).text();
 const orgSwitcherSource = await Bun.file(new URL("./org-switcher.tsx", import.meta.url)).text();
 const sidebarPrimitiveSource = await Bun.file(new URL("./ui/sidebar.tsx", import.meta.url)).text();
 const sideBarIconSource = await Bun.file(
@@ -121,6 +124,14 @@ describe("app shell route behavior", () => {
     expect(orgSwitcherSource).toContain('<span className="line-clamp-2">{org.name}</span>');
     expect(orgSwitcherSource).not.toContain("Onboarding incomplete");
     expect(orgSwitcherSource).not.toContain("DropdownMenuGroup");
+  });
+
+  test("keeps sidebar links scoped to the copied PreachX global details search param", () => {
+    expect(sideBarItemSource).toContain("search={(previousSearch) => ({");
+    expect(sideBarItemSource).toContain(
+      '"details-pane": (previousSearch as { readonly "details-pane"?: unknown })',
+    );
+    expect(sideBarItemSource).not.toContain("...previousSearch");
   });
 
   test("keeps the copied PreachX inset sidebar inner treatment", () => {

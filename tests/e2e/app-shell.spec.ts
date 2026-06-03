@@ -73,3 +73,24 @@ test("shell navigation keeps work and settings routes inside the sidebar layout"
   await expect(page).toHaveURL(/\/my-work$/);
   await expect(page.getByRole("heading", { name: "My Work", level: 1 })).toBeVisible();
 });
+
+test("mobile sidebar drawer exposes the shared PreachX header controls", async ({
+  page,
+}, testInfo) => {
+  const email = `app-shell-mobile-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const churchName = `E2E Mobile Shell Church ${Date.now()}`;
+
+  await page.setViewportSize({ height: 844, width: 390 });
+  await signInAndCompleteOnboarding(page, { email, churchName });
+
+  await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+
+  const sidebar = page.locator('[data-sidebar="sidebar"]');
+  await expect(sidebar.getByText(churchName).first()).toBeVisible();
+  await expect(sidebar.getByRole("button", { name: "Open quick actions" })).toBeVisible();
+  await expect(sidebar.getByRole("button", { name: "Open global search" })).toBeVisible();
+
+  await sidebar.getByRole("link", { name: "Our Work" }).click();
+  await expect(page).toHaveURL(/\/our-work$/);
+  await expect(page.getByRole("heading", { name: "Our Work", level: 1 })).toBeVisible();
+});
