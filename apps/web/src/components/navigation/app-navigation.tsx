@@ -3,6 +3,7 @@ import type { ComponentProps } from "react";
 import { Message01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 
+import { CommentTextIcon } from "@/components/icons/commentText";
 import {
   appAdminNavItems,
   devNavItems,
@@ -174,7 +175,7 @@ function AppNavigationBody() {
                 />
               }
             >
-              <HugeiconsIcon className="size-4" icon={Message01Icon} strokeWidth={2} />
+              <CommentTextIcon />
               Feedback
             </SidebarMenuButton>
           </SidebarMenuItem>

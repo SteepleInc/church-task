@@ -17,6 +17,9 @@ import { getUserMenuAvatarFallback } from "@/components/user-menu";
 const appNavigationSource = await Bun.file(
   new URL("./navigation/app-navigation.tsx", import.meta.url),
 ).text();
+const navSharedSource = await Bun.file(
+  new URL("./navigation/nav-shared.tsx", import.meta.url),
+).text();
 const devMenuContentSource = await Bun.file(
   new URL("./navigation/dev-menu-content.tsx", import.meta.url),
 ).text();
@@ -113,6 +116,27 @@ describe("app shell route behavior", () => {
     );
     expect(devMenuContentSource).toContain("<CopyableValue value={orgId} />");
     expect(devMenuContentSource).toContain("<CopyableValue value={userId} />");
+  });
+
+  test("uses copied PreachX icons for matching sidebar surfaces", () => {
+    expect(navSharedSource).toContain(
+      'import { ChurchIcon } from "@/components/icons/churchIcon";',
+    );
+    expect(navSharedSource).toContain('import { HomeIcon } from "@/components/icons/homeIcon";');
+    expect(navSharedSource).toContain(
+      'import { PersonIcon } from "@/components/icons/personIcon";',
+    );
+    expect(navSharedSource).toContain(
+      'import { UserCircleIcon } from "@/components/icons/userCircleIcon";',
+    );
+    expect(appNavigationSource).toContain(
+      'import { CommentTextIcon } from "@/components/icons/commentText";',
+    );
+    expect(navSharedSource).toContain("icon: <ChurchIcon />");
+    expect(navSharedSource).toContain("icon: <HomeIcon />");
+    expect(navSharedSource).toContain("icon: <PersonIcon />");
+    expect(navSharedSource).toContain("icon: <UserCircleIcon />");
+    expect(appNavigationSource).toContain("<CommentTextIcon />");
   });
 
   test("keeps the org switcher dropdown close to the copied PreachX structure", () => {

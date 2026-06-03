@@ -1,15 +1,16 @@
 import type { ComponentProps, ReactNode } from "react";
 import {
   AiFolder01Icon,
-  Building03Icon,
   CheckListIcon,
   Database01Icon,
-  Home01Icon,
   Settings01Icon,
-  UserCircleIcon,
-  UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+
+import { ChurchIcon } from "@/components/icons/churchIcon";
+import { HomeIcon } from "@/components/icons/homeIcon";
+import { PersonIcon } from "@/components/icons/personIcon";
+import { UserCircleIcon } from "@/components/icons/userCircleIcon";
 
 export type NavItem = {
   readonly title: string | ReactNode;
@@ -40,17 +41,17 @@ export const workspaceNavItems: readonly NavItem[] = [
 
 export const settingsNavItems: readonly NavItem[] = [
   {
-    icon: <NavIcon icon={UserCircleIcon} />,
+    icon: <PersonIcon />,
     title: "Profile",
     to: "/settings/profile",
   },
   {
-    icon: <NavIcon icon={Building03Icon} />,
+    icon: <ChurchIcon />,
     title: "Church",
     to: "/settings/org",
   },
   {
-    icon: <NavIcon icon={UserGroupIcon} />,
+    icon: <UserCircleIcon />,
     matchPath: "/settings/team",
     title: "Team",
     to: "/settings/team/members",
@@ -72,19 +73,19 @@ export const devNavItems: readonly NavItem[] = [
 
 export const appAdminNavItems: readonly NavItem[] = [
   {
-    icon: <NavIcon icon={Building03Icon} />,
+    icon: <ChurchIcon />,
     title: "Churches",
     to: "/admin/orgs",
   },
   {
-    icon: <NavIcon icon={UserCircleIcon} />,
+    icon: <PersonIcon />,
     title: "Users",
     to: "/admin/users",
   },
 ];
 
 export const homeNavItem: NavItem = {
-  icon: <NavIcon icon={Home01Icon} />,
+  icon: <HomeIcon />,
   title: "Home",
   to: "/",
 };
