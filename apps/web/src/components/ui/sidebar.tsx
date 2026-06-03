@@ -9,7 +9,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, useTouchPrimary } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
@@ -361,6 +361,7 @@ function SidebarContent({
   scrollAreaMaskClassName?: string;
 }) {
   const { isMobile } = useSidebar();
+  const isTouch = useTouchPrimary();
 
   const content = (
     <div
@@ -374,11 +375,25 @@ function SidebarContent({
     />
   );
 
+  if (isMobile) {
+    return (
+      <ScrollArea
+        className={cn("flex min-h-0", scrollAreaClassName)}
+        maskClassName={scrollAreaMaskClassName}
+      >
+        {content}
+      </ScrollArea>
+    );
+  }
+
   return (
     <ScrollArea
-      className={cn(isMobile && "flex min-h-0", scrollAreaClassName)}
+      className={scrollAreaClassName}
       maskClassName={scrollAreaMaskClassName}
-      viewportClassName={cn("[&>div]:!inline [&>div]:min-h-full", scrollAreaViewportClassName)}
+      viewportClassName={cn(
+        isTouch ? "" : "[&>div]:!inline [&>div]:min-h-full",
+        scrollAreaViewportClassName,
+      )}
     >
       {content}
     </ScrollArea>

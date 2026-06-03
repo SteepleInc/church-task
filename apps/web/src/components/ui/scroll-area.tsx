@@ -24,7 +24,7 @@ function mergeRefs<T>(refs: Array<React.Ref<T> | undefined>) {
   };
 }
 
-function useTouchPrimary() {
+export function useTouchPrimary() {
   const [isTouch, setIsTouch] = React.useState(false);
 
   React.useEffect(() => {

@@ -151,6 +151,16 @@ describe("app shell route behavior", () => {
       'lg: "h-12 text-sm group-data-[collapsible=icon]:p-0!"',
     );
   });
+
+  test("keeps mobile and touch sidebar scrolling branched like PreachX", () => {
+    expect(sidebarPrimitiveSource).toContain(
+      'import { ScrollArea, useTouchPrimary } from "@/components/ui/scroll-area";',
+    );
+    expect(sidebarPrimitiveSource).toContain("const isTouch = useTouchPrimary();");
+    expect(sidebarPrimitiveSource).toContain("if (isMobile) {");
+    expect(sidebarPrimitiveSource).toContain('className={cn("flex min-h-0", scrollAreaClassName)}');
+    expect(sidebarPrimitiveSource).toContain('isTouch ? "" : "[&>div]:!inline [&>div]:min-h-full"');
+  });
 });
 
 describe("quick action route behavior", () => {
