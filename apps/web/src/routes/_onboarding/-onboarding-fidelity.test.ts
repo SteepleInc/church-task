@@ -25,6 +25,15 @@ describe("onboarding PreachX fidelity guards", () => {
     );
   });
 
+  test("keeps onboarding step navigation URL-addressed like PreachX", () => {
+    expect(onboardingSource).toContain("validateSearch: Schema.standardSchemaV1");
+    expect(onboardingSource).toContain("const search = Route.useSearch();");
+    expect(onboardingSource).toContain("search: { step: newStep }");
+    expect(onboardingSource).not.toContain(
+      'const [step, setStep] = useState<OnboardingStep>({ _tag: "churchProfile" })',
+    );
+  });
+
   test("keeps manual Church profile details behind an explicit edit affordance", () => {
     expect(onboardingSource).toContain("Find Your Church");
     expect(onboardingSource).toContain("Edit Details");

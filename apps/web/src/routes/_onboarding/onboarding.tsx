@@ -19,9 +19,9 @@ import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { useCreateTeamMutation } from "@/data/teams/teamsData.app";
 import {
   getOnboardingStepTitle,
+  OnboardingStep,
   ONBOARDING_TOTAL_STEPS,
   onboardingStepLookup,
-  type OnboardingStep,
 } from "@/features/onboarding/onboardingState";
 import { OnboardingProgress } from "@/features/onboarding/onboardingProgress";
 import { authClient } from "@/lib/auth-client";
@@ -43,6 +43,11 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_onboarding/onboarding")({
   component: OnboardingRoute,
+  validateSearch: Schema.standardSchemaV1(
+    Schema.Struct({
+      step: Schema.optional(OnboardingStep),
+    }),
+  ),
 });
 
 const CHURCH_SIZE_OPTIONS = [
@@ -103,11 +108,11 @@ type InitialTeamDraft = {
 
 function OnboardingRoute() {
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const { refetch: refetchSession } = authClient.useSession();
   const { currentOrgOpt: activeChurch, loading } = useCurrentOrgOpt();
   const createTeam = useCreateTeamMutation();
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<OnboardingStep>({ _tag: "churchProfile" });
   const [churchProfile, setChurchProfile] = useState<ChurchProfileValue | null>(null);
   const [showProfileDetails, setShowProfileDetails] = useState(false);
   const [initialTeams, setInitialTeams] = useState<readonly InitialTeamDraft[]>(() =>
@@ -139,13 +144,26 @@ function OnboardingRoute() {
     onSubmit: async ({ value }) => {
       setError(null);
       setChurchProfile(value);
-      setStep({ _tag: "initialTeams" });
+      await setStep({ _tag: "initialTeams" });
     },
   });
 
+  const requestedStep: OnboardingStep = search.step ?? { _tag: "churchProfile" };
+  const step: OnboardingStep =
+    requestedStep._tag === "initialTeams" && !churchProfile
+      ? { _tag: "churchProfile" }
+      : requestedStep;
+
+  const setStep = async (newStep: OnboardingStep) => {
+    await navigate({
+      search: { step: newStep },
+      to: "/onboarding",
+    });
+  };
+
   const completeOnboarding = async () => {
     if (!churchProfile) {
-      setStep({ _tag: "churchProfile" });
+      void setStep({ _tag: "churchProfile" });
       return;
     }
 
@@ -159,7 +177,7 @@ function OnboardingRoute() {
 
       if (!slug) {
         setError("Church name is required.");
-        setStep({ _tag: "churchProfile" });
+        void setStep({ _tag: "churchProfile" });
         return;
       }
 
@@ -292,7 +310,7 @@ function OnboardingRoute() {
             newTeamName={newTeamName}
             onBack={() => {
               setError(null);
-              setStep({ _tag: "churchProfile" });
+              void setStep({ _tag: "churchProfile" });
             }}
             onComplete={completeOnboarding}
             removeTeam={removeTeam}
