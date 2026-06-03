@@ -14,6 +14,13 @@ import { buildChurchTaskQuickActions } from "@/features/quick-actions/quick-acti
 import { ListTodoIcon, UsersIcon } from "lucide-react";
 import { getUserMenuAvatarFallback } from "@/components/user-menu";
 
+const appNavigationSource = await Bun.file(
+  new URL("./navigation/app-navigation.tsx", import.meta.url),
+).text();
+const mobileSidebarContentSource = await Bun.file(
+  new URL("./navigation/mobile-sidebar-content.tsx", import.meta.url),
+).text();
+
 describe("app shell route behavior", () => {
   test("lands completed app users on My Work", () => {
     expect(COMPLETED_APP_LANDING_PATH).toBe("/my-work");
@@ -43,6 +50,18 @@ describe("app shell route behavior", () => {
       "BigActions",
       "GlobalSearch",
     ]);
+  });
+
+  test("uses the copied PreachX mobile sidebar content split", () => {
+    expect(appNavigationSource).toContain("function AppNavigationContent()");
+    expect(appNavigationSource).toContain("const { isMobile } = useSidebar();");
+    expect(appNavigationSource).toContain(
+      "return <MobileSidebarContent appContent={appContent} />;",
+    );
+    expect(mobileSidebarContentSource).toContain('<SidebarHeader className="mx-2 pb-0">');
+    expect(mobileSidebarContentSource).toContain("<OrgSwitcher />");
+    expect(mobileSidebarContentSource).toContain("<QuickActionsToggle />");
+    expect(mobileSidebarContentSource).toContain("<GlobalSearchToggle />");
   });
 });
 

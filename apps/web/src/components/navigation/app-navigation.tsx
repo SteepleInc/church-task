@@ -10,6 +10,7 @@ import {
   settingsNavItems,
   workspaceNavItems,
 } from "@/components/navigation/nav-shared";
+import { MobileSidebarContent } from "@/components/navigation/mobile-sidebar-content";
 import { SideBarItem } from "@/components/navigation/sidebar-item";
 import { OrgSwitcher } from "@/components/org-switcher";
 import {
@@ -22,6 +23,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { useTeamMembershipsCollection, useTeamsCollection } from "@/data/teams/teamsData.app";
@@ -34,9 +36,24 @@ type AppSidebarProps = ComponentProps<typeof Sidebar>;
 export function AppNavigation(props: AppSidebarProps) {
   return (
     <Sidebar className="px-0 pb-0" collapsible="icon" variant="inset" {...props}>
-      <AppNavigationHeader />
-      <AppNavigationBody />
+      <AppNavigationContent />
     </Sidebar>
+  );
+}
+
+function AppNavigationContent() {
+  const { isMobile } = useSidebar();
+  const appContent = <AppNavigationBody />;
+
+  if (isMobile) {
+    return <MobileSidebarContent appContent={appContent} />;
+  }
+
+  return (
+    <>
+      <AppNavigationHeader />
+      {appContent}
+    </>
   );
 }
 
