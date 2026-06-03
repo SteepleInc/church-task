@@ -40,6 +40,7 @@ export function OTPField({
     >
       <InputOTP
         aria-invalid={Boolean(processedError)}
+        id={field.name}
         maxLength={6}
         onChange={(value) => field.handleChange(value)}
         pattern={REGEXP_ONLY_DIGITS}

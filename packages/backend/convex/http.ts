@@ -38,7 +38,22 @@ const jsonHeaders = {
   "Content-Type": "application/json",
 };
 
-const isOtpCaptureEnabled = () => process.env.NODE_ENV !== "production";
+const isLocalSiteUrl = (siteUrl: string | undefined) => {
+  if (!siteUrl) {
+    return false;
+  }
+
+  try {
+    const { hostname } = new URL(siteUrl);
+    return hostname === "localhost" || hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+};
+
+export const isOtpCaptureEnabled = () =>
+  process.env.NODE_ENV !== "production" ||
+  (process.env.OTP_CAPTURE_ENABLED === "1" && isLocalSiteUrl(process.env.SITE_URL));
 
 const extractOtp = (value: string) => {
   const separatorIndex = value.lastIndexOf(":");

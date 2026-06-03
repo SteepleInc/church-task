@@ -11,6 +11,7 @@ export const serverEnv = createEnv({
     E2E_SITE_URL: z.url().optional(),
     GOOGLE_PLACES_API_KEY: z.string().optional(),
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    OTP_CAPTURE_ENABLED: z.enum(["0", "1"]).optional(),
     RESEND_API_KEY: z.string().optional(),
     SITE_URL: z.url().optional(),
   },
