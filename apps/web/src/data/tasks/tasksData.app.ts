@@ -1,9 +1,8 @@
 import { api } from "@church-task/backend/convex/_generated/api";
+import type { TaskStatus } from "@church-task/domain";
 import { useQuery } from "convex/react";
 
 import { successfulResponseCollection } from "@/data/convex-query-adapter";
-
-export type TaskState = "todo" | "in_progress" | "done" | "canceled";
 
 export type TaskCollectionFilters = {
   readonly surface?: "my_work" | "our_work";
@@ -11,7 +10,7 @@ export type TaskCollectionFilters = {
   readonly teamId?: string | null;
   readonly assignedUserId?: string | null;
   readonly workflowStatusId?: string;
-  readonly taskState?: TaskState;
+  readonly taskState?: TaskStatus;
   readonly taskId?: string;
 };
 

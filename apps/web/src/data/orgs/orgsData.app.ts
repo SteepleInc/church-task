@@ -1,13 +1,11 @@
 import { api } from "@church-task/backend/convex/_generated/api";
+import type { Org } from "@church-task/domain";
 import { useQuery } from "convex/react";
 
 import { collectionFromQueryResult } from "@/data/convex-query-adapter";
 
-export type OrgCollectionItem = {
-  readonly id: string;
-  readonly name: string;
-  readonly slug: string | null;
-  readonly churchTimeZone: string | null;
+export type OrgCollectionItem = Pick<Org, "id" | "name" | "slug"> & {
+  readonly churchTimeZone: Org["churchTimeZone"] | null;
 };
 
 export function useUserOrgsCollection() {

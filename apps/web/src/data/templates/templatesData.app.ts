@@ -1,9 +1,8 @@
+import type { Template } from "@church-task/domain";
+
 import { collectionFromQueryResult } from "@/data/convex-query-adapter";
 
-export type TemplateCollectionItem = {
-  readonly id: string;
-  readonly name: string;
-};
+export type TemplateCollectionItem = Pick<Template, "id" | "name">;
 
 export function useTemplatesCollection() {
   const state = collectionFromQueryResult<TemplateCollectionItem>([]);

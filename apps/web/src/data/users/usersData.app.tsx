@@ -1,12 +1,11 @@
 import { api } from "@church-task/backend/convex/_generated/api";
+import type { User } from "@church-task/domain";
 import { useQuery } from "convex/react";
 
 import { collectionFromQueryResult } from "@/data/convex-query-adapter";
 
-export type UserCollectionItem = {
-  readonly id: string;
-  readonly name: string | null;
-  readonly email: string | null;
+export type UserCollectionItem = Pick<User, "id" | "name"> & {
+  readonly email: User["email"] | null;
   readonly memberId: string;
   readonly role: string;
 };

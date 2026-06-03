@@ -1,13 +1,11 @@
 import { api } from "@church-task/backend/convex/_generated/api";
+import type { ChurchInvitation } from "@church-task/domain";
 import { useQuery } from "convex/react";
 
 import { collectionFromQueryResult } from "@/data/convex-query-adapter";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 
-export type InvitationCollectionItem = {
-  readonly id: string;
-  readonly email: string;
-  readonly role: string;
+export type InvitationCollectionItem = Pick<ChurchInvitation, "id" | "email" | "role"> & {
   readonly status: string;
   readonly organizationName?: string;
 };

@@ -1,20 +1,12 @@
 import { api } from "@church-task/backend/convex/_generated/api";
+import type { Team, TeamMembership } from "@church-task/domain";
 import { useQuery } from "convex/react";
 
 import { successfulResponseCollection } from "@/data/convex-query-adapter";
 
-export type TeamCollectionItem = {
-  readonly id: string;
-  readonly name: string;
-  readonly defaultWorkflowId: string | null;
-  readonly sortOrder: number;
-};
+export type TeamCollectionItem = Pick<Team, "id" | "name" | "defaultWorkflowId" | "sortOrder">;
 
-export type TeamMembershipCollectionItem = {
-  readonly id?: string;
-  readonly teamId: string;
-  readonly userId: string;
-};
+export type TeamMembershipCollectionItem = Pick<TeamMembership, "id" | "teamId" | "userId">;
 
 export function useTeamsCollection(params: { readonly churchId: string | null }) {
   const result = useQuery(
