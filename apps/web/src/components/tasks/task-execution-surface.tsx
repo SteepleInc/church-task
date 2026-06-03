@@ -15,7 +15,10 @@ import {
 } from "@/data/tasks/tasksData.app";
 import { useTeamsCollection } from "@/data/teams/teamsData.app";
 import { useChurchUsersCollection } from "@/data/users/usersData.app";
-import { useWorkflowStatusesCollection, useWorkflowsCollection } from "@/data/workflows/workflowsData.app";
+import {
+  useWorkflowStatusesCollection,
+  useWorkflowsCollection,
+} from "@/data/workflows/workflowsData.app";
 import { useState } from "react";
 
 import { TaskKanbanBoard } from "./task-kanban-board";
@@ -324,7 +327,9 @@ export function TaskExecutionSurface({
 
   const cycles = cyclesCollection.cyclesCollection;
   const currentCycle = selectCurrentExecutionCycle(cycles, today);
-  const churchDefaultWorkflow = workflows.workflowsCollection.find((workflow) => workflow.isDefault);
+  const churchDefaultWorkflow = workflows.workflowsCollection.find(
+    (workflow) => workflow.isDefault,
+  );
   const workflowId = getExecutionWorkflowId({
     surface,
     churchDefaultWorkflowId: churchDefaultWorkflow?.id,
