@@ -25,6 +25,9 @@ const mobileSidebarContentSource = await Bun.file(
 ).text();
 const orgSwitcherSource = await Bun.file(new URL("./org-switcher.tsx", import.meta.url)).text();
 const sidebarPrimitiveSource = await Bun.file(new URL("./ui/sidebar.tsx", import.meta.url)).text();
+const sideBarIconSource = await Bun.file(
+  new URL("./icons/sideBarIcon.tsx", import.meta.url),
+).text();
 const quickActionsSource = await Bun.file(
   new URL("../features/quick-actions/quick-actions.tsx", import.meta.url),
 ).text();
@@ -125,6 +128,19 @@ describe("app shell route behavior", () => {
     expect(sidebarPrimitiveSource).toContain("group-data-[variant=inset]:border");
     expect(sidebarPrimitiveSource).toContain("group-data-[variant=inset]:border-sidebar-border");
     expect(sidebarPrimitiveSource).toContain("group-data-[variant=inset]:shadow-sm");
+  });
+
+  test("uses the copied PreachX animated sidebar trigger icon", () => {
+    expect(sidebarPrimitiveSource).toContain(
+      'import { SideBarIcon } from "@/components/icons/sideBarIcon";',
+    );
+    expect(sidebarPrimitiveSource).toContain("const { open, toggleSidebar } = useSidebar();");
+    expect(sidebarPrimitiveSource).toContain('className={cn("size-7", className)}');
+    expect(sidebarPrimitiveSource).toContain("<SideBarIcon isOpen={open} />");
+    expect(sideBarIconSource).toContain("group-hover:translate-x-[-6px]");
+    expect(sideBarIconSource).toContain(
+      'transition: "transform 200ms ease 0s, opacity 120ms ease 0s"',
+    );
   });
 });
 
