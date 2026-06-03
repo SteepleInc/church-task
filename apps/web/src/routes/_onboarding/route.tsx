@@ -2,6 +2,7 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { OnboardingOrgSwitcher } from "@/components/onboarding-org-switcher";
 import { Button } from "@/components/ui/button";
 import UserMenu from "@/components/user-menu";
+import { QuickActions } from "@/features/quick-actions/quick-actions";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import { ArrowRight, Church } from "lucide-react";
@@ -51,6 +52,8 @@ function OnboardingLayout() {
           <main className="relative flex h-full w-auto flex-col overflow-hidden bg-cream p-4 text-foreground xs:p-6 md:h-auto md:flex-1 md:p-4 lg:p-8 dark:bg-black">
             <Outlet />
           </main>
+
+          <QuickActions />
         </div>
       </Authenticated>
       <Unauthenticated>

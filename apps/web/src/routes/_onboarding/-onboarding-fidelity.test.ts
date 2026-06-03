@@ -25,6 +25,14 @@ describe("onboarding PreachX fidelity guards", () => {
     );
   });
 
+  test("keeps PreachX shell-level quick actions mounted in onboarding", () => {
+    expect(routeSource).toContain(
+      'import { QuickActions } from "@/features/quick-actions/quick-actions";',
+    );
+    expect(routeSource).toContain("<QuickActions />");
+    expect(routeSource.indexOf("<Outlet />")).toBeLessThan(routeSource.indexOf("<QuickActions />"));
+  });
+
   test("keeps onboarding step navigation URL-addressed like PreachX", () => {
     expect(onboardingSource).toContain("validateSearch: Schema.standardSchemaV1");
     expect(onboardingSource).toContain("const search = Route.useSearch();");

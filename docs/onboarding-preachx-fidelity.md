@@ -23,6 +23,7 @@ Fidelity verdict: complete for the #91 scoped onboarding repair.
 Repairs confirmed:
 
 - The authenticated onboarding shell uses the copied PreachX black/cream split frame, mobile-only top controls, left-panel org switcher placement, and right-panel card host.
+- The onboarding shell mounts `QuickActions` as a shell-level sibling after the outlet, matching the cited PreachX route placement.
 - The left welcome block now matches PreachX spacing (`mt-4 ... md:mt-24`) while retaining Church Task copy.
 - The onboarding page uses the copied PreachX centered progress-plus-card frame, rounded card, separator, and shadow treatment.
 - The generated `Step 1 of 2` / `Step 2 of 2` labels and `Next up` card are absent.
