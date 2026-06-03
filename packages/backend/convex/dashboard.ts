@@ -163,7 +163,7 @@ export const listOrganizations = query({
               name: organization.name,
               slug: organization.slug ?? null,
               churchTimeZone: organization.churchTimeZone ?? null,
-              completedOnboarding: organization.completedOnboarding ?? true,
+              completedOnboarding: organization.completedOnboarding ?? false,
             }
           : null;
       }),
@@ -212,7 +212,7 @@ export const getActiveOrganization = query({
       name: organization.name,
       slug: organization.slug ?? null,
       churchTimeZone: organization.churchTimeZone ?? null,
-      completedOnboarding: organization.completedOnboarding ?? true,
+      completedOnboarding: organization.completedOnboarding ?? false,
       url: organization.url ?? null,
       street: organization.street ?? null,
       city: organization.city ?? null,

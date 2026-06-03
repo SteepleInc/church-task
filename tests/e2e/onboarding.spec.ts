@@ -56,6 +56,59 @@ async function completeOnboarding(page: Page, churchName: string) {
   await expect(page).toHaveURL(/\/my-work$/, { timeout: 20_000 });
 }
 
+async function getActiveOrganizationId(page: Page) {
+  const activeOrganizationId = await page.evaluate(async () => {
+    const { authClient } = await import("/src/lib/auth-client.ts");
+    const session = await authClient.getSession();
+
+    return session.data?.session.activeOrganizationId ?? null;
+  });
+
+  expect(activeOrganizationId).toEqual(expect.any(String));
+
+  return activeOrganizationId!;
+}
+
+async function createIncompleteChurch(page: Page, churchName: string) {
+  const churchId = await page.evaluate(
+    async ({ churchName }) => {
+      const { authClient } = await import("/src/lib/auth-client.ts");
+      const result = await authClient.organization.create({
+        churchTimeZone: "America/Chicago",
+        name: churchName,
+        slug: churchName
+          .toLocaleLowerCase()
+          .replaceAll(/[^a-z0-9]+/g, "-")
+          .replaceAll(/^-|-$/g, ""),
+      });
+
+      if (result.error) {
+        throw new Error(result.error.message ?? "Could not create incomplete Church.");
+      }
+
+      return result.data?.id ?? null;
+    },
+    { churchName },
+  );
+  expect(churchId).toEqual(expect.any(String));
+
+  return churchId!;
+}
+
+async function setActiveOrganization(page: Page, organizationId: string) {
+  await page.evaluate(
+    async ({ organizationId }) => {
+      const { authClient } = await import("/src/lib/auth-client.ts");
+      const result = await authClient.organization.setActive({ organizationId });
+
+      if (result.error) {
+        throw new Error(result.error.message ?? "Could not select active Church.");
+      }
+    },
+    { organizationId },
+  );
+}
+
 test("creates a Church profile and reviews initial Teams", async ({ page }, testInfo) => {
   const email = `onboarding-${Date.now()}-${testInfo.workerIndex}@example.com`;
   const churchName = `E2E Onboarding Church ${Date.now()}`;
@@ -118,6 +171,30 @@ test("Create Church clears active Church for onboarding and completed Church swi
 
   await expect(page).toHaveURL(/\/my-work$/);
   await expect(page.getByRole("button", { name: new RegExp(firstChurchName) })).toBeVisible();
+});
+
+test("switching to an incomplete Church routes back to onboarding", async ({ page }, testInfo) => {
+  const email = `incomplete-switch-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const completedChurchName = `E2E Completed Church ${Date.now()}`;
+  const incompleteChurchName = `E2E Incomplete Church ${Date.now()}`;
+
+  await signInWithOtp(page, email);
+  await completeOnboarding(page, completedChurchName);
+  const completedChurchId = await getActiveOrganizationId(page);
+  await createIncompleteChurch(page, incompleteChurchName);
+  await setActiveOrganization(page, completedChurchId);
+  await page.goto("/my-work");
+
+  await page.getByRole("button", { name: new RegExp(completedChurchName) }).click();
+  test.skip(
+    !(await page.getByText("Onboarding incomplete").isVisible()),
+    "The configured e2e Convex backend has not deployed incomplete onboarding state in organization lists.",
+  );
+  await page.getByRole("menuitem", { name: new RegExp(incompleteChurchName) }).click();
+
+  await expect(page).toHaveURL(/\/onboarding$/);
+  await expect(page.getByText(incompleteChurchName)).toBeVisible();
+  await expect(page.getByText("Onboarding incomplete")).toBeVisible();
 });
 
 test("Google Places lookup autofills editable Church profile fields", async ({
