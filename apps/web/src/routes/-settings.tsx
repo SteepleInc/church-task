@@ -10,12 +10,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useCurrentOrgOpt, type CurrentOrg } from "@/data/orgs/orgData.app";
 import { authClient } from "@/lib/auth-client";
-import {
-  ChurchSettingsPanel,
-  TeamInvitationsSettingsPanel,
-  TeamMembersSettingsPanel,
-} from "@/routes/-dashboard";
+import { TeamInvitationsSettingsPanel, TeamMembersSettingsPanel } from "@/routes/-dashboard";
 
 type SettingsSection = "profile" | "church" | "members" | "invites";
 
@@ -62,6 +59,44 @@ export function normalizeProfileName(value: string) {
   return value.trim().replaceAll(/\s+/g, " ");
 }
 
+export function normalizeOptionalChurchProfileValue(value: string) {
+  const trimmedValue = value.trim();
+  return trimmedValue.length === 0 || trimmedValue === "none" ? undefined : trimmedValue;
+}
+
+export function getChurchProfileSettingsDefaultValues(activeChurch: CurrentOrg) {
+  return {
+    churchTimeZone: activeChurch.churchTimeZone ?? detectedChurchTimeZone(),
+    city: activeChurch.city ?? "",
+    countryCode: activeChurch.countryCode ?? "",
+    name: activeChurch.name,
+    size: activeChurch.size ?? "none",
+    state: activeChurch.state ?? "",
+    street: activeChurch.street ?? "",
+    url: activeChurch.url ?? "",
+    zip: activeChurch.zip ?? "",
+  };
+}
+
+function detectedChurchTimeZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
+}
+
+function churchTimeZoneOptions(churchTimeZone: string | null) {
+  const timeZones =
+    churchTimeZone && !supportedChurchTimeZones.includes(churchTimeZone)
+      ? [churchTimeZone, ...supportedChurchTimeZones]
+      : supportedChurchTimeZones;
+
+  return timeZones.map((timeZone) => ({ label: timeZone, value: timeZone }));
+}
+
+function canUpdateChurchSettings(role: string | string[]) {
+  return Array.isArray(role)
+    ? role.includes("owner") || role.includes("admin")
+    : role === "owner" || role === "admin";
+}
+
 const ProfileSettingsSchema = Schema.Struct({
   name: Schema.String.pipe(
     Schema.transform(Schema.String, {
@@ -70,6 +105,46 @@ const ProfileSettingsSchema = Schema.Struct({
     }),
     Schema.minLength(1, { message: () => "Name is required." }),
   ),
+});
+
+const CHURCH_SIZE_OPTIONS = [
+  { label: "Not set", value: "none" },
+  { label: "Under 100 people", value: "under_100" },
+  { label: "100-250 people", value: "100_250" },
+  { label: "251-500 people", value: "251_500" },
+  { label: "501-1,000 people", value: "501_1000" },
+  { label: "More than 1,000 people", value: "over_1000" },
+];
+
+const supportedChurchTimeZones = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Phoenix",
+  "America/Los_Angeles",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "America/Toronto",
+  "America/Vancouver",
+  "Europe/London",
+  "Europe/Paris",
+  "Africa/Johannesburg",
+  "Asia/Tokyo",
+  "Australia/Sydney",
+];
+
+const ChurchProfileSettingsSchema = Schema.Struct({
+  churchTimeZone: Schema.String.pipe(
+    Schema.minLength(1, { message: () => "Church Time Zone is required." }),
+  ),
+  city: Schema.String,
+  countryCode: Schema.String,
+  name: Schema.String.pipe(Schema.minLength(2, { message: () => "Church name is required." })),
+  size: Schema.String,
+  state: Schema.String,
+  street: Schema.String,
+  url: Schema.String,
+  zip: Schema.String,
 });
 
 export function SettingsFrame({
@@ -232,7 +307,176 @@ function SettingsProfileForm({
 }
 
 export function SettingsChurchPanel() {
-  return <ChurchSettingsPanel />;
+  const { currentOrgOpt: activeChurch, loading } = useCurrentOrgOpt();
+  const { refetch: refetchSession } = authClient.useSession();
+
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">Loading Church settings...</p>;
+  }
+
+  if (!activeChurch) {
+    return <p className="text-sm text-muted-foreground">No active Church selected.</p>;
+  }
+
+  return <SettingsChurchForm activeChurch={activeChurch} refetchSession={refetchSession} />;
+}
+
+function SettingsChurchForm({
+  activeChurch,
+  refetchSession,
+}: {
+  readonly activeChurch: CurrentOrg;
+  readonly refetchSession: () => Promise<unknown>;
+}) {
+  const [churchError, setChurchError] = useState<string | null>(null);
+  const canUpdate = canUpdateChurchSettings(activeChurch.role);
+
+  const form = useAppForm({
+    defaultValues: getChurchProfileSettingsDefaultValues(activeChurch),
+    validationLogic: revalidateLogic({
+      mode: "submit",
+      modeAfterSubmission: "blur",
+    }),
+    validators: {
+      onSubmit: Schema.standardSchemaV1(ChurchProfileSettingsSchema),
+    },
+    onSubmit: async ({ value, formApi }) => {
+      setChurchError(null);
+
+      const name = normalizeProfileName(value.name);
+      const result = await authClient.organization.update({
+        data: {
+          churchTimeZone: value.churchTimeZone.trim(),
+          city: normalizeOptionalChurchProfileValue(value.city),
+          countryCode: normalizeOptionalChurchProfileValue(value.countryCode),
+          name,
+          size: normalizeOptionalChurchProfileValue(value.size),
+          state: normalizeOptionalChurchProfileValue(value.state),
+          street: normalizeOptionalChurchProfileValue(value.street),
+          url: normalizeOptionalChurchProfileValue(value.url),
+          zip: normalizeOptionalChurchProfileValue(value.zip),
+        },
+        organizationId: activeChurch.id,
+      });
+
+      if (result.error) {
+        setChurchError(result.error.message ?? "Could not update Church profile.");
+        return;
+      }
+
+      const nextValues = {
+        churchTimeZone: value.churchTimeZone.trim(),
+        city: value.city.trim(),
+        countryCode: value.countryCode.trim(),
+        name,
+        size: value.size,
+        state: value.state.trim(),
+        street: value.street.trim(),
+        url: value.url.trim(),
+        zip: value.zip.trim(),
+      };
+      formApi.reset(nextValues);
+      await refetchSession();
+      toast.success("Church profile updated.");
+    },
+  });
+
+  return (
+    <section className="grid gap-4 md:grid-cols-2">
+      <Card className="md:col-span-2">
+        <CardHeader>
+          <CardTitle>Church Profile</CardTitle>
+          <CardDescription>
+            Manage the Church details used across onboarding, invitations, and Cycle boundaries.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              form.handleSubmit();
+            }}
+          >
+            <fieldset className="grid gap-4 md:grid-cols-2" disabled={!canUpdate}>
+              <form.AppField name="name">
+                {(field) => <field.InputField label="Church Name" required />}
+              </form.AppField>
+              <form.AppField name="churchTimeZone">
+                {(field) => (
+                  <field.SelectField
+                    label="Church Time Zone"
+                    options={churchTimeZoneOptions(activeChurch.churchTimeZone)}
+                    required
+                  />
+                )}
+              </form.AppField>
+              <form.AppField name="url">
+                {(field) => <field.InputField label="Website" placeholder="https://example.org" />}
+              </form.AppField>
+              <form.AppField name="size">
+                {(field) => <field.SelectField label="Church Size" options={CHURCH_SIZE_OPTIONS} />}
+              </form.AppField>
+              <form.AppField name="street">
+                {(field) => <field.InputField label="Street" />}
+              </form.AppField>
+              <form.AppField name="city">
+                {(field) => <field.InputField label="City" />}
+              </form.AppField>
+              <form.AppField name="state">
+                {(field) => <field.InputField label="State / Region" />}
+              </form.AppField>
+              <form.AppField name="zip">
+                {(field) => <field.InputField label="Postal Code" />}
+              </form.AppField>
+              <form.AppField name="countryCode">
+                {(field) => <field.InputField label="Country Code" />}
+              </form.AppField>
+            </fieldset>
+            {!canUpdate ? (
+              <Alert>
+                <AlertDescription>
+                  Only Church owners and admins can update Church settings.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {churchError ? (
+              <Alert variant="destructive">
+                <AlertDescription>{churchError}</AlertDescription>
+              </Alert>
+            ) : null}
+            <form.Subscribe
+              selector={(state) => ({
+                isDefaultValue: state.isDefaultValue,
+                isSubmitting: state.isSubmitting,
+              })}
+            >
+              {({ isDefaultValue, isSubmitting }) => (
+                <Button
+                  className="mr-auto"
+                  disabled={!canUpdate || isDefaultValue}
+                  loading={isSubmitting}
+                  type="submit"
+                >
+                  Update Church Profile
+                </Button>
+              )}
+            </form.Subscribe>
+          </form>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Technical</CardTitle>
+          <CardDescription>Details you may need when contacting support.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SettingDetail label="Org Id" value={activeChurch.id} />
+        </CardContent>
+      </Card>
+    </section>
+  );
 }
 
 export function SettingsTeamTabPanel({ teamTab }: { readonly teamTab: string }) {

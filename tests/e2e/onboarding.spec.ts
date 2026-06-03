@@ -260,8 +260,10 @@ test("settings navigation exposes profile, Church, members, and invitation actio
   await settingsNav.getByRole("link", { name: /^Church\b/ }).click();
   await expect(page).toHaveURL(/\/settings\/org$/);
   await expect(page.getByText("Church Profile", { exact: true })).toBeVisible();
-  await expect(page.getByText(churchName, { exact: true }).last()).toBeVisible();
-  await expect(page.getByText(/Current Church Time Zone:/)).toBeVisible();
+  await expect(page.getByLabel("Church Name")).toHaveValue(churchName);
+  await page.getByLabel("Website").fill("https://settings.example.org");
+  await page.getByRole("button", { name: "Update Church Profile" }).click();
+  await expect(page.getByText("Church profile updated.")).toBeVisible();
 
   await settingsNav.getByRole("link", { name: /Members/ }).click();
   await expect(page).toHaveURL(/\/settings\/team\/members$/);
