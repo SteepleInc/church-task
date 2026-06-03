@@ -188,15 +188,15 @@ test("switching to an incomplete Church routes back to onboarding", async ({ pag
   await page.goto("/my-work");
 
   await page.getByRole("button", { name: new RegExp(completedChurchName) }).click();
-  test.skip(
-    !(await page.getByText("Onboarding incomplete").isVisible()),
-    "The configured e2e Convex backend has not deployed incomplete onboarding state in organization lists.",
-  );
-  await page.getByRole("menuitem", { name: new RegExp(incompleteChurchName) }).click();
+  const incompleteChurchItem = page.getByRole("menuitem", {
+    name: new RegExp(incompleteChurchName),
+  });
+  await expect(incompleteChurchItem).toBeVisible();
+  await expect(incompleteChurchItem.getByText("Onboarding incomplete")).toBeVisible();
+  await incompleteChurchItem.click();
 
   await expect(page).toHaveURL(/\/onboarding$/);
   await expect(page.getByText(incompleteChurchName)).toBeVisible();
-  await expect(page.getByText("Onboarding incomplete")).toBeVisible();
 });
 
 test("Church owners can use dev and app-admin navigation", async ({ page }, testInfo) => {

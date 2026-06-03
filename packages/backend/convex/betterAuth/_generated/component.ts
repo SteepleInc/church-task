@@ -54,6 +54,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   createdAt: number;
                   expiresAt: number;
                   ipAddress?: null | string;
+                  skipOrgFallback?: null | boolean;
                   token: string;
                   updatedAt: number;
                   userAgent?: null | string;
@@ -301,6 +302,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "userId"
                     | "activeOrganizationId"
                     | "activeTeamId"
+                    | "skipOrgFallback"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -893,6 +895,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "userId"
                     | "activeOrganizationId"
                     | "activeTeamId"
+                    | "skipOrgFallback"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -1599,6 +1602,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   createdAt?: number;
                   expiresAt?: number;
                   ipAddress?: null | string;
+                  skipOrgFallback?: null | boolean;
                   token?: string;
                   updatedAt?: number;
                   userAgent?: null | string;
@@ -1616,6 +1620,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "userId"
                     | "activeOrganizationId"
                     | "activeTeamId"
+                    | "skipOrgFallback"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -2353,6 +2358,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   createdAt?: number;
                   expiresAt?: number;
                   ipAddress?: null | string;
+                  skipOrgFallback?: null | boolean;
                   token?: string;
                   updatedAt?: number;
                   userAgent?: null | string;
@@ -2370,6 +2376,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "userId"
                     | "activeOrganizationId"
                     | "activeTeamId"
+                    | "skipOrgFallback"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:

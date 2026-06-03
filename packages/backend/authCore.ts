@@ -132,7 +132,7 @@ const completeOnboarding = () =>
     id: "complete-onboarding",
   }) satisfies BetterAuthPlugin;
 
-const clearOrgForOnboarding = () =>
+export const clearOrgForOnboarding = () =>
   ({
     endpoints: {
       clearOrgForOnboarding: createAuthEndpoint(
