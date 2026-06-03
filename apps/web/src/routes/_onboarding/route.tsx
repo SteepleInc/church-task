@@ -14,12 +14,12 @@ function OnboardingLayout() {
   return (
     <>
       <Authenticated>
-        <div className="flex h-[100dvh] w-full shrink-0 flex-col overflow-hidden bg-foreground text-background md:flex-row dark:bg-background dark:text-foreground">
+        <div className="flex h-[100dvh] w-full shrink-0 flex-col overflow-hidden bg-black md:flex-row dark:bg-cream">
           <aside className="flex shrink-0 flex-col md:w-[36%] md:max-w-[500px] lg:w-[40%]">
-            <div className="relative flex h-full flex-col items-start overflow-hidden px-4 pt-4 text-background md:p-4 lg:p-8 dark:text-foreground">
+            <div className="relative flex h-full flex-col items-start overflow-hidden px-4 pt-4 text-white xs:px-6 xs:pt-6 md:p-4 lg:p-8 dark:text-black">
               <div className="flex w-full items-center justify-between md:block">
                 <div className="flex items-center gap-2 text-lg font-semibold">
-                  <span className="flex size-10 items-center justify-center rounded-xl bg-background text-foreground dark:bg-foreground dark:text-background">
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-cream text-black dark:bg-black dark:text-cream">
                     <Church className="size-5" />
                   </span>
                   Church Task
@@ -32,26 +32,23 @@ function OnboardingLayout() {
 
               <div className="mt-8 flex flex-col gap-4 pb-2 md:mt-24 md:pb-0">
                 <p className="font-serif text-5xl font-bold tracking-tight">Welcome!</p>
-                <p className="hidden max-w-sm text-sm text-background/70 leading-6 md:block dark:text-foreground/70">
+                <p className="hidden max-w-sm text-cream text-md leading-6 md:block dark:text-black/70">
                   Set up your Church profile so Church Task can build work around the right local
                   time, teams, and ministry context.
                 </p>
               </div>
 
-              <OnboardingOrgSwitcher className="mt-8" />
+              <div className="w-full md:hidden">
+                <OnboardingOrgSwitcher className="mb-4" />
+              </div>
 
-              <div className="mt-auto hidden w-full rounded-2xl border border-background/15 bg-background/10 p-4 text-sm text-background/80 md:block dark:border-foreground/15 dark:bg-foreground/10 dark:text-foreground/80">
-                <p className="font-medium text-background dark:text-foreground">Next up</p>
-                <p className="mt-1">Review your initial Teams before entering the app.</p>
+              <div className="mt-auto hidden w-full flex-row items-center gap-2 md:flex">
+                <OnboardingOrgSwitcher />
               </div>
             </div>
           </aside>
 
-          <main className="relative flex h-full flex-1 flex-col overflow-hidden bg-muted/30 p-4 text-foreground md:p-4 lg:p-8">
-            <div className="absolute top-4 right-4 hidden flex-row items-center gap-2 md:flex lg:top-8 lg:right-8">
-              <ModeToggle />
-              <UserMenu />
-            </div>
+          <main className="relative flex h-full w-auto flex-col overflow-hidden bg-cream p-4 text-foreground xs:p-6 md:h-auto md:flex-1 md:p-4 lg:p-8 dark:bg-black">
             <Outlet />
           </main>
         </div>

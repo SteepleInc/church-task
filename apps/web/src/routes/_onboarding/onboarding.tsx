@@ -1,18 +1,43 @@
-import { Form } from "@/components/form/form";
 import type { CompositeAddressValue } from "@/components/form/address-location-field";
+import { Form } from "@/components/form/form";
 import { useAppForm } from "@/components/form/ts-form";
+import { ActionRow } from "@/components/ui/action-row";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import {
+  Card,
+  CardAction,
+  CardAdornment,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { useCreateTeamMutation } from "@/data/teams/teamsData.app";
+import {
+  getOnboardingStepTitle,
+  ONBOARDING_TOTAL_STEPS,
+  onboardingStepLookup,
+  type OnboardingStep,
+} from "@/features/onboarding/onboardingState";
+import { OnboardingProgress } from "@/features/onboarding/onboardingProgress";
 import { authClient } from "@/lib/auth-client";
 import { revalidateLogic } from "@tanstack/react-form";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Schema } from "effect";
-import { ArrowLeft, ArrowRight, Church, Plus, Trash2, UsersRound } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Building2,
+  Church,
+  Pencil,
+  Plus,
+  Trash2,
+  UsersRound,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -82,8 +107,9 @@ function OnboardingRoute() {
   const { currentOrgOpt: activeChurch, loading } = useCurrentOrgOpt();
   const createTeam = useCreateTeamMutation();
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<"church-profile" | "initial-teams">("church-profile");
+  const [step, setStep] = useState<OnboardingStep>({ _tag: "churchProfile" });
   const [churchProfile, setChurchProfile] = useState<ChurchProfileValue | null>(null);
+  const [showProfileDetails, setShowProfileDetails] = useState(false);
   const [initialTeams, setInitialTeams] = useState<readonly InitialTeamDraft[]>(() =>
     DEFAULT_INITIAL_TEAMS.map((name) => ({ id: crypto.randomUUID(), name })),
   );
@@ -113,13 +139,13 @@ function OnboardingRoute() {
     onSubmit: async ({ value }) => {
       setError(null);
       setChurchProfile(value);
-      setStep("initial-teams");
+      setStep({ _tag: "initialTeams" });
     },
   });
 
   const completeOnboarding = async () => {
     if (!churchProfile) {
-      setStep("church-profile");
+      setStep({ _tag: "churchProfile" });
       return;
     }
 
@@ -133,7 +159,7 @@ function OnboardingRoute() {
 
       if (!slug) {
         setError("Church name is required.");
-        setStep("church-profile");
+        setStep({ _tag: "churchProfile" });
         return;
       }
 
@@ -227,6 +253,7 @@ function OnboardingRoute() {
   };
 
   const teamNames = uniqueTrimmedTeamNames(initialTeams.map((team) => team.name));
+  const currentStepNumber = onboardingStepLookup[step._tag];
 
   if (loading) {
     return (
@@ -236,243 +263,316 @@ function OnboardingRoute() {
     );
   }
 
-  if (step === "initial-teams") {
-    return (
-      <div className="mx-auto flex max-h-full w-full max-w-2xl flex-col items-start gap-4 md:m-auto md:max-h-[90%]">
-        <div className="w-full space-y-2">
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>Step 2 of 2</span>
-            <span>Initial Teams</span>
-          </div>
-          <Progress value={100} />
+  return (
+    <div className="mx-auto flex max-h-full w-full max-w-2xl flex-col items-start gap-4 md:m-auto md:max-h-[90%]">
+      <OnboardingProgress currentStep={currentStepNumber} totalSteps={ONBOARDING_TOTAL_STEPS} />
+
+      <div className="m-auto flex w-full flex-col gap-0 overflow-hidden rounded-2xl border border-neutral-200 bg-background p-0 shadow-2xl">
+        <div className="flex flex-col space-y-1.5 p-4 text-left">
+          <span className="font-semibold text-lg leading-none tracking-tight">
+            <span className="inline-flex flex-row items-center">
+              {step._tag === "churchProfile" ? (
+                <Church className="mr-2 size-4" />
+              ) : (
+                <UsersRound className="mr-2 size-4" />
+              )}
+              {getOnboardingStepTitle(step)}
+            </span>
+          </span>
         </div>
 
-        <Card className="w-full overflow-hidden rounded-2xl shadow-2xl">
-          <CardHeader>
-            <CardTitle className="inline-flex items-center gap-2">
-              <UsersRound className="size-5" />
-              Review your initial Teams
-            </CardTitle>
-            <CardDescription>
-              These Teams will be created for your Church now. You can rename, remove, or add Teams
-              before entering the app.
-            </CardDescription>
-          </CardHeader>
-          <Separator />
-          <CardContent className="max-h-[calc(100dvh-14rem)] overflow-y-auto p-6">
-            <div className="space-y-5">
-              <div className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
-                You can adjust this starting structure now and continue refining Teams later in
-                settings.
-              </div>
+        <Separator />
 
-              <div className="space-y-3" aria-label="Initial Teams">
-                {initialTeams.length > 0 ? (
-                  initialTeams.map((team, index) => (
-                    <div className="flex items-center gap-2" key={team.id}>
-                      <label className="sr-only" htmlFor={`initial-team-${team.id}`}>
-                        Team {index + 1} Name
-                      </label>
-                      <input
-                        className="h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        id={`initial-team-${team.id}`}
-                        onChange={(event) => updateTeamName(team.id, event.target.value)}
-                        value={team.name}
-                      />
+        {step._tag === "initialTeams" ? (
+          <InitialTeamsStep
+            addTeam={addTeam}
+            error={error}
+            initialTeams={initialTeams}
+            isCompleting={isCompleting}
+            newTeamName={newTeamName}
+            onBack={() => {
+              setError(null);
+              setStep({ _tag: "churchProfile" });
+            }}
+            onComplete={completeOnboarding}
+            removeTeam={removeTeam}
+            setNewTeamName={setNewTeamName}
+            teamNames={teamNames}
+            updateTeamName={updateTeamName}
+          />
+        ) : (
+          <div className="flex flex-col gap-4 overflow-hidden p-4">
+            <Form form={form}>
+              <div className="flex flex-col gap-4">
+                <form.AppField name="location">
+                  {(field) => (
+                    <field.AddressLocationField
+                      label="Find Your Church"
+                      onLocationSelect={(location) => {
+                        if (!location) return;
+
+                        form.setFieldValue("name", location.name);
+                        form.setFieldValue("street", location.street ?? "");
+                        form.setFieldValue("city", location.city ?? "");
+                        form.setFieldValue("state", location.state ?? "");
+                        form.setFieldValue("zip", location.postcode ?? "");
+                        form.setFieldValue("countryCode", location.countrycode ?? "");
+                        form.setFieldValue("url", location.url ?? "");
+                      }}
+                      placeholder="Search for your church on Google Maps"
+                    />
+                  )}
+                </form.AppField>
+
+                <Card className="w-full overflow-hidden">
+                  <CardHeader className="items-center sm:items-start">
+                    <CardAdornment className="row-span-1 mr-2 self-center sm:row-span-2 sm:self-start">
+                      <Church className="size-5" />
+                    </CardAdornment>
+                    <CardTitle className="self-center sm:self-start">Church Profile</CardTitle>
+                    <CardAction className="row-span-1 self-center sm:row-span-2 sm:self-start">
                       <Button
-                        aria-label={`Remove ${team.name || `Team ${index + 1}`}`}
-                        onClick={() => removeTeam(team.id)}
-                        size="icon"
+                        onClick={() => setShowProfileDetails(!showProfileDetails)}
                         type="button"
                         variant="outline"
                       >
-                        <Trash2 />
+                        <Pencil />
+                        {showProfileDetails ? "Hide Details" : "Edit Details"}
                       </Button>
-                    </div>
-                  ))
-                ) : (
-                  <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-                    No Teams will be created yet. Add one now or create Teams later in settings.
-                  </p>
-                )}
+                    </CardAction>
+                    <CardDescription className="col-span-2 col-start-2 sm:col-span-1">
+                      Search Google Maps to fill your profile quickly. Edit details only when
+                      something needs correction.
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="flex flex-col gap-4">
+                    <form.AppField name="name">
+                      {(field) => <field.InputField label="Church Name" required />}
+                    </form.AppField>
+
+                    <form.AppField name="churchTimeZone">
+                      {(field) => (
+                        <field.InputField
+                          label="Church Time Zone"
+                          placeholder="America/New_York"
+                          required
+                        />
+                      )}
+                    </form.AppField>
+
+                    {showProfileDetails ? (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <form.AppField name="street">
+                          {(field) => <field.InputField label="Street" />}
+                        </form.AppField>
+                        <form.AppField name="city">
+                          {(field) => <field.InputField label="City" />}
+                        </form.AppField>
+                        <form.AppField name="state">
+                          {(field) => <field.InputField label="State / Region" />}
+                        </form.AppField>
+                        <form.AppField name="zip">
+                          {(field) => <field.InputField label="Postal Code" />}
+                        </form.AppField>
+                        <form.AppField name="countryCode">
+                          {(field) => <field.InputField label="Country Code" placeholder="US" />}
+                        </form.AppField>
+                        <form.AppField name="size">
+                          {(field) => (
+                            <field.SelectField
+                              label="Church Size"
+                              options={CHURCH_SIZE_OPTIONS}
+                              placeholder="Select a size"
+                            />
+                          )}
+                        </form.AppField>
+                        <form.AppField name="url">
+                          {(field) => (
+                            <field.InputField label="Website" placeholder="https://example.org" />
+                          )}
+                        </form.AppField>
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+
+                {error ? (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                ) : null}
+
+                <ActionRow className="-mx-4 -mb-4 w-[calc(100%+2rem)]">
+                  <form.Subscribe
+                    selector={(state) => ({
+                      canSubmit: state.canSubmit,
+                      isSubmitting: state.isSubmitting,
+                    })}
+                  >
+                    {({ canSubmit, isSubmitting }) => (
+                      <Button
+                        className="ml-auto"
+                        disabled={!canSubmit}
+                        loading={isSubmitting}
+                        type="submit"
+                      >
+                        Continue to Teams
+                        <ArrowRight />
+                      </Button>
+                    )}
+                  </form.Subscribe>
+                </ActionRow>
               </div>
-
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <label className="sr-only" htmlFor="new-team-name">
-                  New Team Name
-                </label>
-                <input
-                  className="h-10 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  id="new-team-name"
-                  onChange={(event) => setNewTeamName(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      addTeam();
-                    }
-                  }}
-                  placeholder="Add a Team, like Students"
-                  value={newTeamName}
-                />
-                <Button onClick={addTeam} type="button" variant="outline">
-                  <Plus />
-                  Add Team
-                </Button>
-              </div>
-
-              <p className="text-sm text-muted-foreground">
-                {teamNames.length === 0
-                  ? "You can continue without creating Teams."
-                  : `${teamNames.length} Team${teamNames.length === 1 ? "" : "s"} will be created.`}
-              </p>
-
-              {error ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              ) : null}
-
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
-                <Button
-                  disabled={isCompleting}
-                  onClick={() => {
-                    setError(null);
-                    setStep("church-profile");
-                  }}
-                  type="button"
-                  variant="outline"
-                >
-                  <ArrowLeft />
-                  Back
-                </Button>
-                <Button loading={isCompleting} onClick={completeOnboarding} type="button">
-                  Enter Church Task
-                  <ArrowRight />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </Form>
+          </div>
+        )}
       </div>
-    );
-  }
+    </div>
+  );
+}
+
+type InitialTeamsStepProps = {
+  readonly addTeam: () => void;
+  readonly error: string | null;
+  readonly initialTeams: readonly InitialTeamDraft[];
+  readonly isCompleting: boolean;
+  readonly newTeamName: string;
+  readonly onBack: () => void;
+  readonly onComplete: () => void;
+  readonly removeTeam: (teamId: string) => void;
+  readonly setNewTeamName: (value: string) => void;
+  readonly teamNames: readonly string[];
+  readonly updateTeamName: (teamId: string, name: string) => void;
+};
+
+function InitialTeamsStep({
+  addTeam,
+  error,
+  initialTeams,
+  isCompleting,
+  newTeamName,
+  onBack,
+  onComplete,
+  removeTeam,
+  setNewTeamName,
+  teamNames,
+  updateTeamName,
+}: InitialTeamsStepProps) {
+  const hasTeams = initialTeams.length > 0;
 
   return (
-    <div className="mx-auto flex max-h-full w-full max-w-2xl flex-col items-start gap-4 md:m-auto md:max-h-[90%]">
-      <div className="w-full space-y-2">
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>Step 1 of 2</span>
-          <span>Church Profile</span>
-        </div>
-        <Progress value={50} />
-      </div>
-
-      <Card className="w-full overflow-hidden rounded-2xl shadow-2xl">
-        <CardHeader>
-          <CardTitle className="inline-flex items-center gap-2">
-            <Church className="size-5" />
-            Tell us about your Church
-          </CardTitle>
-          <CardDescription>
-            Search Google Maps to fill your profile quickly, then edit anything that needs a
-            correction.
+    <div className="flex flex-col gap-4 overflow-hidden p-4">
+      <Card className="w-full overflow-hidden">
+        <CardHeader className="items-center sm:items-start">
+          <CardAdornment className="row-span-1 mr-2 self-center sm:row-span-2 sm:self-start">
+            <Building2 className="size-5" />
+          </CardAdornment>
+          <CardTitle className="self-center sm:self-start">Teams</CardTitle>
+          <CardAction className="row-span-1 self-center sm:row-span-2 sm:self-start">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <label className="sr-only" htmlFor="new-team-name">
+                New Team Name
+              </label>
+              <input
+                className="h-8 w-full min-w-0 rounded-lg border border-input bg-background px-2.5 text-sm ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-44"
+                id="new-team-name"
+                onChange={(event) => setNewTeamName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addTeam();
+                  }
+                }}
+                placeholder="Add a Team"
+                value={newTeamName}
+              />
+              <Button onClick={addTeam} type="button" variant="outline">
+                <Plus />
+                Add Team
+              </Button>
+            </div>
+          </CardAction>
+          <CardDescription className="col-span-2 col-start-2 sm:col-span-1">
+            Review the starting Teams Church Task will create for your Church.
           </CardDescription>
         </CardHeader>
-        <Separator />
-        <CardContent className="max-h-[calc(100dvh-14rem)] overflow-y-auto p-6">
-          <Form form={form}>
-            <form.AppField name="location">
-              {(field) => (
-                <field.AddressLocationField
-                  label="Find Your Church"
-                  onLocationSelect={(location) => {
-                    if (!location) return;
 
-                    form.setFieldValue("name", location.name);
-                    form.setFieldValue("street", location.street ?? "");
-                    form.setFieldValue("city", location.city ?? "");
-                    form.setFieldValue("state", location.state ?? "");
-                    form.setFieldValue("zip", location.postcode ?? "");
-                    form.setFieldValue("countryCode", location.countrycode ?? "");
-                    form.setFieldValue("url", location.url ?? "");
-                  }}
-                  placeholder="Search for your church on Google Maps"
-                />
-              )}
-            </form.AppField>
-
-            <form.AppField name="name">
-              {(field) => <field.InputField label="Church Name" required />}
-            </form.AppField>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <form.AppField name="street">
-                {(field) => <field.InputField label="Street" />}
-              </form.AppField>
-              <form.AppField name="city">
-                {(field) => <field.InputField label="City" />}
-              </form.AppField>
-              <form.AppField name="state">
-                {(field) => <field.InputField label="State / Region" />}
-              </form.AppField>
-              <form.AppField name="zip">
-                {(field) => <field.InputField label="Postal Code" />}
-              </form.AppField>
-              <form.AppField name="countryCode">
-                {(field) => <field.InputField label="Country Code" placeholder="US" />}
-              </form.AppField>
-              <form.AppField name="churchTimeZone">
-                {(field) => (
-                  <field.InputField
-                    label="Church Time Zone"
-                    placeholder="America/New_York"
-                    required
-                  />
-                )}
-              </form.AppField>
-            </div>
-
-            <form.AppField name="url">
-              {(field) => <field.InputField label="Website" placeholder="https://example.org" />}
-            </form.AppField>
-
-            <form.AppField name="size">
-              {(field) => (
-                <field.SelectField
-                  label="Church Size"
-                  options={CHURCH_SIZE_OPTIONS}
-                  placeholder="Select a size"
-                />
-              )}
-            </form.AppField>
-
-            {error ? (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            <form.Subscribe
-              selector={(state) => ({
-                canSubmit: state.canSubmit,
-                isSubmitting: state.isSubmitting,
-              })}
-            >
-              {({ canSubmit, isSubmitting }) => (
-                <Button
-                  className="ml-auto"
-                  disabled={!canSubmit}
-                  loading={isSubmitting}
-                  type="submit"
+        {hasTeams ? (
+          <ScrollArea className="max-h-[42dvh] p-0 px-4">
+            <div className="flex flex-col gap-2 pb-4" aria-label="Initial Teams">
+              {initialTeams.map((team, index) => (
+                <div
+                  className="flex flex-row items-center gap-3 rounded-lg border px-4 py-3 shadow-sm"
+                  key={team.id}
                 >
-                  Continue to Teams
-                  <ArrowRight />
-                </Button>
-              )}
-            </form.Subscribe>
-          </Form>
-        </CardContent>
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                    <UsersRound className="size-5" />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col items-start">
+                    <label className="sr-only" htmlFor={`initial-team-${team.id}`}>
+                      Team {index + 1} Name
+                    </label>
+                    <input
+                      className="h-8 w-full rounded-md border border-transparent bg-transparent px-0 font-semibold text-sm outline-none transition-colors focus:border-input focus:bg-background focus:px-2 focus:ring-2 focus:ring-ring/40"
+                      id={`initial-team-${team.id}`}
+                      onChange={(event) => updateTeamName(team.id, event.target.value)}
+                      value={team.name}
+                    />
+                    <p className="-mt-1 text-muted-foreground text-sm">Initial Church Task Team</p>
+                  </div>
+
+                  <div className="ml-auto flex gap-1">
+                    <Button
+                      aria-label={`Remove ${team.name || `Team ${index + 1}`}`}
+                      onClick={() => removeTeam(team.id)}
+                      size="icon"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        ) : null}
       </Card>
+
+      <p className="text-sm text-muted-foreground">
+        {teamNames.length === 0
+          ? "You can skip this and create Teams later in settings."
+          : `${teamNames.length} Team${teamNames.length === 1 ? "" : "s"} will be created.`}
+      </p>
+
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <ActionRow className="-mx-4 -mb-4 w-[calc(100%+2rem)] justify-between">
+        <Button disabled={isCompleting} onClick={onBack} type="button" variant="outline">
+          <ArrowLeft />
+          Back
+        </Button>
+        <Button
+          loading={isCompleting}
+          onClick={onComplete}
+          type="button"
+          variant={hasTeams ? "default" : "ghost"}
+        >
+          {hasTeams ? (
+            <>
+              Enter Church Task
+              <ArrowRight />
+            </>
+          ) : (
+            "Skip"
+          )}
+        </Button>
+      </ActionRow>
     </div>
   );
 }
