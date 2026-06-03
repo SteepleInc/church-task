@@ -142,6 +142,15 @@ describe("app shell route behavior", () => {
       'transition: "transform 200ms ease 0s, opacity 120ms ease 0s"',
     );
   });
+
+  test("keeps the copied PreachX lg sidebar menu button height", () => {
+    expect(sidebarPrimitiveSource).toContain(
+      'lg: "h-10 text-sm group-data-[collapsible=icon]:p-0!"',
+    );
+    expect(sidebarPrimitiveSource).not.toContain(
+      'lg: "h-12 text-sm group-data-[collapsible=icon]:p-0!"',
+    );
+  });
 });
 
 describe("quick action route behavior", () => {
