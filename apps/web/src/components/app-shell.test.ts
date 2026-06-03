@@ -24,6 +24,7 @@ const mobileSidebarContentSource = await Bun.file(
   new URL("./navigation/mobile-sidebar-content.tsx", import.meta.url),
 ).text();
 const orgSwitcherSource = await Bun.file(new URL("./org-switcher.tsx", import.meta.url)).text();
+const sidebarPrimitiveSource = await Bun.file(new URL("./ui/sidebar.tsx", import.meta.url)).text();
 const quickActionsSource = await Bun.file(
   new URL("../features/quick-actions/quick-actions.tsx", import.meta.url),
 ).text();
@@ -117,6 +118,13 @@ describe("app shell route behavior", () => {
     expect(orgSwitcherSource).toContain('<span className="line-clamp-2">{org.name}</span>');
     expect(orgSwitcherSource).not.toContain("Onboarding incomplete");
     expect(orgSwitcherSource).not.toContain("DropdownMenuGroup");
+  });
+
+  test("keeps the copied PreachX inset sidebar inner treatment", () => {
+    expect(sidebarPrimitiveSource).toContain("group-data-[variant=inset]:rounded-lg");
+    expect(sidebarPrimitiveSource).toContain("group-data-[variant=inset]:border");
+    expect(sidebarPrimitiveSource).toContain("group-data-[variant=inset]:border-sidebar-border");
+    expect(sidebarPrimitiveSource).toContain("group-data-[variant=inset]:shadow-sm");
   });
 });
 
