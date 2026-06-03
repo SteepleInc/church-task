@@ -5,7 +5,12 @@ import {
   getBreadcrumbLabel,
   getPrimaryAppShellNavItems,
 } from "./app-shell";
+import {
+  filterGlobalSearchResults,
+  GLOBAL_SEARCH_SHORTCUT,
+} from "@/features/global-search/global-search-utils";
 import { buildChurchTaskQuickActions } from "@/features/quick-actions/quick-actions-state";
+import { ListTodoIcon, UsersIcon } from "lucide-react";
 
 describe("app shell route behavior", () => {
   test("lands completed app users on My Work", () => {
@@ -68,5 +73,42 @@ describe("quick action route behavior", () => {
       enabled: false,
       disabledReason: "Only Church owners and admins can invite members.",
     });
+  });
+});
+
+describe("global search behavior", () => {
+  test("uses the copied PreachX slash shortcut with TanStack Hotkeys wiring", () => {
+    expect(GLOBAL_SEARCH_SHORTCUT).toBe("/");
+  });
+
+  test("filters Church Task entities without PreachX product surfaces", () => {
+    const results = filterGlobalSearchResults(
+      [
+        {
+          id: "task:1",
+          type: "task",
+          title: "Review follow-up notes",
+          description: "Worship Team - open",
+          keywords: ["task", "worship"],
+          icon: ListTodoIcon,
+          onSelect: () => {},
+        },
+        {
+          id: "team:1",
+          type: "team",
+          title: "Care Team",
+          description: "Team work queue.",
+          keywords: ["team", "care"],
+          icon: UsersIcon,
+          onSelect: () => {},
+        },
+      ],
+      "care team",
+    );
+
+    expect(results.map((result) => result.title)).toEqual(["Care Team"]);
+    expect(results.some((result) => /video|preacher|sermon|billing/i.test(result.type))).toBe(
+      false,
+    );
   });
 });

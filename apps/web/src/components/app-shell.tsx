@@ -35,6 +35,8 @@ import UserMenu from "@/components/user-menu";
 import { COMPLETED_APP_LANDING_PATH } from "@/data/org-routing";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { useTeamMembershipsCollection, useTeamsCollection } from "@/data/teams/teamsData.app";
+import { GlobalSearch } from "@/features/global-search/global-search";
+import { GlobalSearchToggle } from "@/features/global-search/global-search-toggle";
 import { QuickActions } from "@/features/quick-actions/quick-actions";
 import { QuickActionsToggle } from "@/features/quick-actions/quick-actions-toggle";
 import { getMemberTeams } from "@/routes/-dashboard";
@@ -125,11 +127,13 @@ function AuthenticatedAppShell() {
             <AppBreadcrumbs />
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <GlobalSearchToggle className="hidden sm:inline-flex" />
             <ModeToggle />
             <UserMenu />
           </div>
         </header>
         <Outlet />
+        <GlobalSearch />
         <QuickActions />
       </SidebarInset>
     </SidebarProvider>
@@ -148,6 +152,7 @@ function AppNavigation() {
     <Sidebar className="px-0 pb-0" collapsible="icon" variant="inset">
       <SidebarHeader className="mx-2 pb-0">
         <OrgSwitcher />
+        <GlobalSearchToggle className="w-full justify-start" />
         <QuickActionsToggle />
       </SidebarHeader>
       <SidebarContent>
