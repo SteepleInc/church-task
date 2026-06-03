@@ -23,6 +23,7 @@ const devMenuContentSource = await Bun.file(
 const mobileSidebarContentSource = await Bun.file(
   new URL("./navigation/mobile-sidebar-content.tsx", import.meta.url),
 ).text();
+const orgSwitcherSource = await Bun.file(new URL("./org-switcher.tsx", import.meta.url)).text();
 const dashboardRouteSource = await Bun.file(
   new URL("../routes/-dashboard.tsx", import.meta.url),
 ).text();
@@ -96,6 +97,17 @@ describe("app shell route behavior", () => {
     );
     expect(devMenuContentSource).toContain("<CopyableValue value={orgId} />");
     expect(devMenuContentSource).toContain("<CopyableValue value={userId} />");
+  });
+
+  test("keeps the org switcher dropdown close to the copied PreachX structure", () => {
+    expect(orgSwitcherSource).toContain(
+      'className="flex w-(--anchor-width) min-w-56 flex-col rounded-lg p-0"',
+    );
+    expect(orgSwitcherSource).toContain('placeholder="Search"');
+    expect(orgSwitcherSource).toContain('viewportClassName="p-1"');
+    expect(orgSwitcherSource).toContain('<span className="line-clamp-2">{org.name}</span>');
+    expect(orgSwitcherSource).not.toContain("Onboarding incomplete");
+    expect(orgSwitcherSource).not.toContain("DropdownMenuGroup");
   });
 });
 

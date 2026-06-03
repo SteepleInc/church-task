@@ -1,10 +1,9 @@
-import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import { CheckCircle, ChevronsUpDown, Plus } from "lucide-react";
 import { useState } from "react";
 
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -74,34 +73,37 @@ export function OrgSwitcher() {
               />
             }
           >
-            <ChurchInitials name={currentOrgOpt?.name ?? "Church"} />
+            <ChurchAvatar name={currentOrgOpt?.name ?? "No Name"} />
             <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-semibold">{currentOrgOpt?.name ?? "No Church"}</span>
-              <span className="truncate text-muted-foreground text-xs">Church</span>
+              <span className="truncate font-semibold">{currentOrgOpt?.name ?? "No Name"}</span>
+              <span className="truncate text-muted-foreground text-xs capitalize">Church</span>
             </div>
             <ChevronsUpDown className="ml-auto size-4" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="center" className="flex min-w-56 flex-col rounded-lg p-0">
+          <DropdownMenuContent
+            align="center"
+            className="flex w-(--anchor-width) min-w-56 flex-col rounded-lg p-0"
+            side="bottom"
+            sideOffset={4}
+          >
             {orgsCollection.length > 5 ? (
               <Input
-                className="shrink-0 rounded-none border-x-0 border-t-0"
+                className="shrink-0"
                 onChange={(event) => setSearch(event.currentTarget.value)}
                 onKeyDown={(event) => event.stopPropagation()}
-                placeholder="Search Churches..."
+                placeholder="Search"
                 value={search}
               />
             ) : null}
 
             <div className="flex overflow-hidden">
               <ScrollArea className="w-full" viewportClassName="p-1">
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel className="text-muted-foreground text-xs">
-                    Your Churches
-                  </DropdownMenuLabel>
-                  {filteredOrgs.map((org) => (
-                    <OrgDropdownItem key={org.id} org={org} />
-                  ))}
-                </DropdownMenuGroup>
+                <DropdownMenuLabel className="text-muted-foreground text-xs">
+                  Your Churches
+                </DropdownMenuLabel>
+                {filteredOrgs.map((org) => (
+                  <OrgDropdownItem key={org.id} org={org} />
+                ))}
 
                 <DropdownMenuSeparator />
 
@@ -132,19 +134,14 @@ function OrgDropdownItem({ org }: { readonly org: OrgCollectionItem }) {
 
   return (
     <DropdownMenuItem className="gap-2" disabled={isChangingOrg} onClick={handleOrgClick}>
-      <ChurchInitials name={org.name} size="sm" />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="line-clamp-1">{org.name}</span>
-        {!org.completedOnboarding ? (
-          <span className="text-muted-foreground text-xs">Onboarding incomplete</span>
-        ) : null}
-      </div>
-      {org.id === orgId ? <Check className="ml-auto size-4" /> : null}
+      <ChurchAvatar name={org.name} size="sm" />
+      <span className="line-clamp-2">{org.name}</span>
+      {org.id === orgId ? <CheckCircle className="ml-auto size-4" /> : null}
     </DropdownMenuItem>
   );
 }
 
-function ChurchInitials({
+function ChurchAvatar({
   name,
   size = "md",
 }: {
