@@ -1,4 +1,5 @@
 import type { GenericDatabaseReader, GenericMutationCtx } from "convex/server";
+import { RestorableTaskStatusSchema, TaskStatusSchema } from "@church-task/domain/Task";
 import { Schema } from "effect";
 
 import type { DataModel, Id } from "./convex/_generated/dataModel";
@@ -19,12 +20,7 @@ export const ActivityActorType = Schema.Union(
   Schema.Literal("better_auth"),
 );
 
-export const TaskState = Schema.Union(
-  Schema.Literal("todo"),
-  Schema.Literal("in_progress"),
-  Schema.Literal("done"),
-  Schema.Literal("canceled"),
-);
+export const TaskState = TaskStatusSchema;
 
 const EmptyMetadata = Schema.Struct({});
 
@@ -90,31 +86,19 @@ export const ActivityMetadataByEventType = {
     dueDate: Schema.String,
   }),
   "task.completed": Schema.Struct({
-    previousTaskState: Schema.Union(
-      Schema.Literal("todo"),
-      Schema.Literal("in_progress"),
-      Schema.Literal("done"),
-    ),
+    previousTaskState: RestorableTaskStatusSchema,
     previousWorkflowStatusId: Schema.String,
     previousWorkflowStatusName: Schema.Union(Schema.String, Schema.Null),
     workflowStatusId: Schema.String,
     workflowStatusName: Schema.Union(Schema.String, Schema.Null),
   }),
   "task.canceled": Schema.Struct({
-    previousTaskState: Schema.Union(
-      Schema.Literal("todo"),
-      Schema.Literal("in_progress"),
-      Schema.Literal("done"),
-    ),
+    previousTaskState: RestorableTaskStatusSchema,
     previousWorkflowStatusId: Schema.String,
     previousWorkflowStatusName: Schema.Union(Schema.String, Schema.Null),
   }),
   "task.reopened": Schema.Struct({
-    restoredTaskState: Schema.Union(
-      Schema.Literal("todo"),
-      Schema.Literal("in_progress"),
-      Schema.Literal("done"),
-    ),
+    restoredTaskState: RestorableTaskStatusSchema,
     restoredWorkflowStatusId: Schema.String,
     cancelActivityId: Schema.String,
   }),

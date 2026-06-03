@@ -1,3 +1,4 @@
+import type { RestorableTaskStatus, TaskStatus } from "@church-task/domain/Task";
 import type { GenericDatabaseReader, GenericMutationCtx } from "convex/server";
 
 import { buildCycleForLocalDate } from "./churchCycleCalendar";
@@ -33,8 +34,8 @@ type TeamWorkflowResolution = {
   readonly teamWorkflowIds: Readonly<Record<string, string>>;
 };
 
-type TaskState = "todo" | "in_progress" | "done" | "canceled";
-type RestorableTaskState = Exclude<TaskState, "canceled">;
+type TaskState = TaskStatus;
+type RestorableTaskState = RestorableTaskStatus;
 type TransitionCode =
   | "taskNotFound"
   | "invalidTaskTransition"

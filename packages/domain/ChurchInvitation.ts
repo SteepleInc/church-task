@@ -1,17 +1,22 @@
-import { z } from "zod";
+import { Schema } from "effect";
 
-export const ChurchInvitationStatusSchema = z.enum(["pending", "accepted", "rejected", "canceled"]);
+export const ChurchInvitationStatusSchema = Schema.Literal(
+  "pending",
+  "accepted",
+  "rejected",
+  "canceled",
+);
 
-export const ChurchInvitationSchema = z.object({
-  id: z.string(),
-  orgId: z.string(),
-  email: z.email(),
-  role: z.string(),
+export const ChurchInvitationSchema = Schema.Struct({
+  id: Schema.String,
+  orgId: Schema.String,
+  email: Schema.String,
+  role: Schema.String,
   status: ChurchInvitationStatusSchema,
-  teamId: z.string().nullable().optional(),
-  inviterUserId: z.string().nullable().optional(),
-  expiresAt: z.string().nullable().optional(),
+  teamId: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+  inviterUserId: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+  expiresAt: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
 });
 
-export type ChurchInvitation = z.infer<typeof ChurchInvitationSchema>;
-export type ChurchInvitationStatus = z.infer<typeof ChurchInvitationStatusSchema>;
+export type ChurchInvitation = typeof ChurchInvitationSchema.Type;
+export type ChurchInvitationStatus = typeof ChurchInvitationStatusSchema.Type;

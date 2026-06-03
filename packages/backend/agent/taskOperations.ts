@@ -1,11 +1,5 @@
+import { TaskSchema } from "@church-task/domain/Task";
 import { Schema } from "effect";
-
-const TaskState = Schema.Union(
-  Schema.Literal("todo"),
-  Schema.Literal("in_progress"),
-  Schema.Literal("done"),
-  Schema.Literal("canceled"),
-);
 
 const TaskCreateInput = Schema.Struct({
   title: Schema.String,
@@ -62,24 +56,7 @@ const CycleSummary = Schema.Struct({
   churchTimeZone: Schema.String,
 });
 
-const TaskSummary = Schema.Struct({
-  id: Schema.String,
-  churchId: Schema.String,
-  title: Schema.String,
-  teamId: Schema.Union(Schema.String, Schema.Null),
-  assignedUserId: Schema.Union(Schema.String, Schema.Null),
-  cycleId: Schema.String,
-  dueDate: Schema.String,
-  parentTaskId: Schema.Union(Schema.String, Schema.Null),
-  workflowId: Schema.String,
-  workflowStatusId: Schema.String,
-  taskState: TaskState,
-  finishedAt: Schema.Union(Schema.String, Schema.Null),
-  sourceTemplateId: Schema.Union(Schema.String, Schema.Null),
-  sourceTemplateTaskId: Schema.Union(Schema.String, Schema.Null),
-  sourceTemplateCycleId: Schema.Union(Schema.String, Schema.Null),
-  sourceTemplateSyncEnabled: Schema.Boolean,
-});
+const TaskSummary = TaskSchema;
 
 export const TaskSuccessResponse = Schema.Struct({
   ok: Schema.Literal(true),

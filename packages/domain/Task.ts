@@ -1,17 +1,45 @@
-import { z } from "zod";
+import { Schema } from "effect";
 
-export const TaskStatusSchema = z.enum(["todo", "in_progress", "done", "canceled"]);
+export const TaskStatusSchema = Schema.Literal("todo", "in_progress", "done", "canceled");
+export const RestorableTaskStatusSchema = Schema.Literal("todo", "in_progress", "done");
 
-export const TaskSchema = z.object({
-  id: z.string(),
-  orgId: z.string(),
-  teamId: z.string().nullable().optional(),
-  title: z.string(),
-  description: z.string().nullable().optional(),
-  status: TaskStatusSchema,
-  assigneeUserId: z.string().nullable().optional(),
-  dueDate: z.string().nullable().optional(),
+export const TaskTableFieldsSchema = Schema.Struct({
+  churchId: Schema.String,
+  title: Schema.String,
+  teamId: Schema.Union(Schema.String, Schema.Null),
+  assignedUserId: Schema.Union(Schema.String, Schema.Null),
+  cycleId: Schema.String,
+  dueDate: Schema.String,
+  parentTaskId: Schema.Union(Schema.String, Schema.Null),
+  workflowId: Schema.String,
+  workflowStatusId: Schema.String,
+  taskState: TaskStatusSchema,
+  finishedAt: Schema.Union(Schema.String, Schema.Null),
+  sourceTemplateId: Schema.Union(Schema.String, Schema.Null),
+  sourceTemplateTaskId: Schema.Union(Schema.String, Schema.Null),
+  sourceTemplateCycleId: Schema.Union(Schema.String, Schema.Null),
+  sourceTemplateSyncEnabled: Schema.Boolean,
 });
 
-export type Task = z.infer<typeof TaskSchema>;
-export type TaskStatus = z.infer<typeof TaskStatusSchema>;
+export const TaskSchema = Schema.Struct({
+  id: Schema.String,
+  churchId: Schema.String,
+  title: Schema.String,
+  teamId: Schema.Union(Schema.String, Schema.Null),
+  assignedUserId: Schema.Union(Schema.String, Schema.Null),
+  cycleId: Schema.String,
+  dueDate: Schema.String,
+  parentTaskId: Schema.Union(Schema.String, Schema.Null),
+  workflowId: Schema.String,
+  workflowStatusId: Schema.String,
+  taskState: TaskStatusSchema,
+  finishedAt: Schema.Union(Schema.String, Schema.Null),
+  sourceTemplateId: Schema.Union(Schema.String, Schema.Null),
+  sourceTemplateTaskId: Schema.Union(Schema.String, Schema.Null),
+  sourceTemplateCycleId: Schema.Union(Schema.String, Schema.Null),
+  sourceTemplateSyncEnabled: Schema.Boolean,
+});
+
+export type Task = typeof TaskSchema.Type;
+export type TaskStatus = typeof TaskStatusSchema.Type;
+export type RestorableTaskStatus = typeof RestorableTaskStatusSchema.Type;

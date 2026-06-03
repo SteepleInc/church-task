@@ -1,20 +1,15 @@
+import {
+  CycleAdjustmentLifecycleSchema,
+  CycleAdjustmentOverrideSchema,
+  CycleAdjustmentOverridesSchema,
+} from "@church-task/domain/Template";
 import { Schema } from "effect";
 
-export const CycleAdjustmentLifecycle = Schema.Union(
-  Schema.Literal("active"),
-  Schema.Literal("skipped"),
-);
+export const CycleAdjustmentLifecycle = CycleAdjustmentLifecycleSchema;
 
-export const CycleAdjustmentOverride = Schema.Union(
-  Schema.Struct({ field: Schema.Literal("title"), value: Schema.String }),
-  Schema.Struct({ field: Schema.Literal("dueDate"), value: Schema.String }),
-  Schema.Struct({
-    field: Schema.Literal("parentTemplateTaskId"),
-    value: Schema.Union(Schema.String, Schema.Null),
-  }),
-);
+export const CycleAdjustmentOverride = CycleAdjustmentOverrideSchema;
 
-export const CycleAdjustmentOverrides = Schema.Array(CycleAdjustmentOverride);
+export const CycleAdjustmentOverrides = CycleAdjustmentOverridesSchema;
 
 export const TemplateTaskProjectionBase = Schema.Struct({
   templateTaskId: Schema.String,

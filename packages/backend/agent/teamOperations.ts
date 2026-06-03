@@ -1,10 +1,11 @@
+import {
+  TeamMembershipSchema,
+  TeamProductFieldsSchema,
+  TeamSchema,
+} from "@church-task/domain/Team";
 import { Schema } from "effect";
 
-const TeamProductFields = Schema.Struct({
-  archivedAt: Schema.Union(Schema.String, Schema.Null),
-  sortOrder: Schema.Number,
-  defaultWorkflowId: Schema.Union(Schema.String, Schema.Null),
-});
+const TeamProductFields = TeamProductFieldsSchema;
 
 export const TeamUpdate = Schema.Struct({
   teamId: Schema.String,
@@ -48,14 +49,7 @@ export const TeamMembershipArgs = Schema.Struct({
   userId: Schema.String,
 });
 
-export const Team = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  churchId: Schema.String,
-  archivedAt: Schema.Union(Schema.String, Schema.Null),
-  sortOrder: Schema.Number,
-  defaultWorkflowId: Schema.Union(Schema.String, Schema.Null),
-});
+export const Team = TeamSchema;
 
 export const TeamOperationResponse = Schema.Struct({
   ok: Schema.Boolean,
@@ -72,12 +66,7 @@ export const TeamOperationResponse = Schema.Struct({
   }),
 });
 
-export const TeamMembership = Schema.Struct({
-  id: Schema.String,
-  churchId: Schema.String,
-  teamId: Schema.String,
-  userId: Schema.String,
-});
+export const TeamMembership = TeamMembershipSchema;
 
 export const TeamMembershipOperationResponse = Schema.Struct({
   ok: Schema.Boolean,

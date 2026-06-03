@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@better-auth/api-key": "catalog:",
+    "@church-task/domain": "workspace:*",
     "@confect/core": "catalog:",
     "@confect/server": "catalog:",
     "@convex-dev/better-auth": "catalog:",

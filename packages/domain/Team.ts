@@ -1,12 +1,34 @@
-import { z } from "zod";
+import { Schema } from "effect";
 
-export const TeamSchema = z.object({
-  id: z.string(),
-  orgId: z.string(),
-  name: z.string(),
-  archivedAt: z.string().nullable().optional(),
-  defaultWorkflowId: z.string().nullable().optional(),
-  sortOrder: z.number().nullable().optional(),
+export const TeamProductFieldsSchema = Schema.Struct({
+  archivedAt: Schema.Union(Schema.String, Schema.Null),
+  sortOrder: Schema.Number,
+  defaultWorkflowId: Schema.Union(Schema.String, Schema.Null),
 });
 
-export type Team = z.infer<typeof TeamSchema>;
+export const TeamTableFieldsSchema = Schema.Struct({
+  churchId: Schema.String,
+  name: Schema.String,
+  archivedAt: Schema.Union(Schema.String, Schema.Null),
+  sortOrder: Schema.Number,
+  defaultWorkflowId: Schema.Union(Schema.String, Schema.Null),
+});
+
+export const TeamSchema = Schema.Struct({
+  id: Schema.String,
+  churchId: Schema.String,
+  name: Schema.String,
+  archivedAt: Schema.Union(Schema.String, Schema.Null),
+  sortOrder: Schema.Number,
+  defaultWorkflowId: Schema.Union(Schema.String, Schema.Null),
+});
+
+export const TeamMembershipSchema = Schema.Struct({
+  id: Schema.String,
+  churchId: Schema.String,
+  teamId: Schema.String,
+  userId: Schema.String,
+});
+
+export type Team = typeof TeamSchema.Type;
+export type TeamMembership = typeof TeamMembershipSchema.Type;

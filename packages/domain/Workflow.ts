@@ -1,11 +1,44 @@
-import { z } from "zod";
+import { Schema } from "effect";
 
-export const WorkflowSchema = z.object({
-  id: z.string(),
-  orgId: z.string(),
-  teamId: z.string().nullable().optional(),
-  name: z.string(),
-  archivedAt: z.string().nullable().optional(),
+import { TaskStatusSchema } from "./Task";
+
+export const WorkflowTableFieldsSchema = Schema.Struct({
+  churchId: Schema.String,
+  key: Schema.String,
+  name: Schema.String,
+  isDefault: Schema.Boolean,
+  sortOrder: Schema.Number,
+  archivedAt: Schema.Union(Schema.String, Schema.Null),
 });
 
-export type Workflow = z.infer<typeof WorkflowSchema>;
+export const WorkflowSchema = Schema.Struct({
+  id: Schema.String,
+  key: Schema.String,
+  name: Schema.String,
+  isDefault: Schema.Boolean,
+  sortOrder: Schema.Number,
+  archivedAt: Schema.Union(Schema.String, Schema.Null),
+});
+
+export const WorkflowStatusTableFieldsSchema = Schema.Struct({
+  churchId: Schema.String,
+  workflowId: Schema.String,
+  key: Schema.String,
+  name: Schema.String,
+  taskState: TaskStatusSchema,
+  sortOrder: Schema.Number,
+  archivedAt: Schema.Union(Schema.String, Schema.Null),
+});
+
+export const WorkflowStatusSchema = Schema.Struct({
+  id: Schema.String,
+  workflowId: Schema.String,
+  key: Schema.String,
+  name: Schema.String,
+  taskState: TaskStatusSchema,
+  sortOrder: Schema.Number,
+  archivedAt: Schema.Union(Schema.String, Schema.Null),
+});
+
+export type Workflow = typeof WorkflowSchema.Type;
+export type WorkflowStatus = typeof WorkflowStatusSchema.Type;

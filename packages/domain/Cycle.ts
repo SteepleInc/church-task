@@ -1,11 +1,22 @@
-import { z } from "zod";
+import { Schema } from "effect";
 
-export const CycleSchema = z.object({
-  id: z.string(),
-  orgId: z.string(),
-  name: z.string(),
-  startsAt: z.string(),
-  endsAt: z.string(),
+export const CycleTableFieldsSchema = Schema.Struct({
+  churchId: Schema.String,
+  startDate: Schema.String,
+  endDate: Schema.String,
+  startsAt: Schema.String,
+  endsAt: Schema.String,
+  churchTimeZone: Schema.String,
 });
 
-export type Cycle = z.infer<typeof CycleSchema>;
+export const CycleSchema = Schema.Struct({
+  id: Schema.String,
+  churchId: Schema.String,
+  startDate: Schema.String,
+  endDate: Schema.String,
+  startsAt: Schema.String,
+  endsAt: Schema.String,
+  churchTimeZone: Schema.String,
+});
+
+export type Cycle = typeof CycleSchema.Type;

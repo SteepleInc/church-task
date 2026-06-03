@@ -1,20 +1,20 @@
-import { z } from "zod";
+import { Schema } from "effect";
 
-export const OrgSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  slug: z.string().nullable().optional(),
-  churchTimeZone: z.string(),
-  completedOnboarding: z.boolean().default(false),
-  url: z.url().nullable().optional(),
-  street: z.string().nullable().optional(),
-  city: z.string().nullable().optional(),
-  state: z.string().nullable().optional(),
-  zip: z.string().nullable().optional(),
-  countryCode: z.string().nullable().optional(),
-  latitude: z.number().nullable().optional(),
-  longitude: z.number().nullable().optional(),
-  size: z.string().nullable().optional(),
+export const OrgSchema = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  slug: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+  churchTimeZone: Schema.String,
+  completedOnboarding: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  url: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+  street: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+  city: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+  state: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+  zip: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+  countryCode: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+  latitude: Schema.optional(Schema.Union(Schema.Number, Schema.Null)),
+  longitude: Schema.optional(Schema.Union(Schema.Number, Schema.Null)),
+  size: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
 });
 
-export type Org = z.infer<typeof OrgSchema>;
+export type Org = typeof OrgSchema.Type;

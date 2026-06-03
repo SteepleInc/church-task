@@ -1,11 +1,7 @@
+import { TaskStatusSchema } from "@church-task/domain/Task";
 import { Schema } from "effect";
 
-const TaskState = Schema.Union(
-  Schema.Literal("todo"),
-  Schema.Literal("in_progress"),
-  Schema.Literal("done"),
-  Schema.Literal("canceled"),
-);
+const TaskState = TaskStatusSchema;
 
 const CycleSummary = Schema.Struct({
   id: Schema.String,

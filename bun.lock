@@ -26,6 +26,7 @@
       "dependencies": {
         "@base-ui/react": "^1.5.0",
         "@church-task/backend": "workspace:*",
+        "@church-task/domain": "workspace:*",
         "@church-task/env": "workspace:*",
         "@confect/core": "catalog:",
         "@confect/react": "catalog:",
@@ -88,6 +89,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@better-auth/api-key": "catalog:",
+        "@church-task/domain": "workspace:*",
         "@confect/core": "catalog:",
         "@confect/server": "catalog:",
         "@convex-dev/better-auth": "catalog:",
@@ -138,7 +140,7 @@
       "name": "@church-task/domain",
       "version": "0.0.0",
       "dependencies": {
-        "zod": "catalog:",
+        "effect": "catalog:",
       },
       "devDependencies": {
         "@church-task/config": "workspace:*",

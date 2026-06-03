@@ -1,3 +1,4 @@
+import type { TaskStatus } from "@church-task/domain/Task";
 import type { GenericMutationCtx } from "convex/server";
 
 import { buildCycleForInstant, buildCycleForLocalDate } from "./churchCycleCalendar";
@@ -6,7 +7,7 @@ import { writeActivity } from "./activityRegistry";
 import { materializeProjectedTasks } from "./templates";
 
 type MutationCtx = GenericMutationCtx<DataModel>;
-type TaskState = "todo" | "in_progress" | "done" | "canceled";
+type TaskState = TaskStatus;
 
 const unfinishedTaskStates = new Set<TaskState>(["todo", "in_progress"]);
 

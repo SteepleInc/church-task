@@ -1,9 +1,10 @@
+import type { TaskStatus } from "@church-task/domain/Task";
 import type { GenericDatabaseReader, GenericMutationCtx } from "convex/server";
 
 import { components } from "./convex/_generated/api";
 import type { DataModel, Id } from "./convex/_generated/dataModel";
 
-export type TaskState = "todo" | "in_progress" | "done" | "canceled";
+export type TaskState = TaskStatus;
 
 type WorkflowStatusInput = {
   readonly key: string;

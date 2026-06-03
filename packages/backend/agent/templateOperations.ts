@@ -1,39 +1,14 @@
+import {
+  CycleAdjustmentLifecycleSchema,
+  CycleAdjustmentOverrideSchema,
+  SchedulingRuleSchema,
+  TemplateRecurrenceSchema,
+} from "@church-task/domain/Template";
 import { Schema } from "effect";
 
-const TemplateRecurrence = Schema.Union(
-  Schema.Literal("none"),
-  Schema.Literal("weekly"),
-  Schema.Literal("monthly"),
-  Schema.Literal("quarterly"),
-  Schema.Literal("yearly"),
-);
+const TemplateRecurrence = TemplateRecurrenceSchema;
 
-const SchedulingRule = Schema.Union(
-  Schema.Struct({ kind: Schema.Literal("fixedDate"), localDate: Schema.String }),
-  Schema.Struct({
-    kind: Schema.Literal("relativeToFocusWindow"),
-    focusWindowId: Schema.String,
-    edge: Schema.Union(Schema.Literal("start"), Schema.Literal("end")),
-    offsetDays: Schema.Number,
-  }),
-  Schema.Struct({
-    kind: Schema.Literal("relativeToAnchorDate"),
-    focusWindowId: Schema.String,
-    offsetDays: Schema.Number,
-  }),
-  Schema.Struct({
-    kind: Schema.Literal("relativeToKeyDate"),
-    keyDateId: Schema.String,
-    year: Schema.Number,
-    offsetDays: Schema.Number,
-  }),
-  Schema.Struct({
-    kind: Schema.Literal("cycleOffset"),
-    baseLocalDate: Schema.String,
-    offsetCycles: Schema.Number,
-    dayOffset: Schema.Number,
-  }),
-);
+const SchedulingRule = SchedulingRuleSchema;
 
 const FocusWindowInput = Schema.Struct({
   key: Schema.String,
@@ -52,16 +27,9 @@ const TemplateTaskInput = Schema.Struct({
   schedulingRule: SchedulingRule,
 });
 
-const CycleAdjustmentLifecycle = Schema.Union(Schema.Literal("active"), Schema.Literal("skipped"));
+const CycleAdjustmentLifecycle = CycleAdjustmentLifecycleSchema;
 
-const CycleAdjustmentOverride = Schema.Union(
-  Schema.Struct({ field: Schema.Literal("title"), value: Schema.String }),
-  Schema.Struct({ field: Schema.Literal("dueDate"), value: Schema.String }),
-  Schema.Struct({
-    field: Schema.Literal("parentTemplateTaskId"),
-    value: Schema.Union(Schema.String, Schema.Null),
-  }),
-);
+const CycleAdjustmentOverride = CycleAdjustmentOverrideSchema;
 
 export const TemplateCreateArgs = Schema.Struct({
   churchId: Schema.String,

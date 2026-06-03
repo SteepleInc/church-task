@@ -1,32 +1,13 @@
+import { WorkflowSchema, WorkflowStatusSchema } from "@church-task/domain/Workflow";
 import { Schema } from "effect";
 
 export const WorkDefaultsChurchArgs = Schema.Struct({
   churchId: Schema.String,
 });
 
-export const WorkflowSummary = Schema.Struct({
-  id: Schema.String,
-  key: Schema.String,
-  name: Schema.String,
-  isDefault: Schema.Boolean,
-  sortOrder: Schema.Number,
-  archivedAt: Schema.Union(Schema.String, Schema.Null),
-});
+export const WorkflowSummary = WorkflowSchema;
 
-export const WorkflowStatusSummary = Schema.Struct({
-  id: Schema.String,
-  workflowId: Schema.String,
-  key: Schema.String,
-  name: Schema.String,
-  taskState: Schema.Union(
-    Schema.Literal("todo"),
-    Schema.Literal("in_progress"),
-    Schema.Literal("done"),
-    Schema.Literal("canceled"),
-  ),
-  sortOrder: Schema.Number,
-  archivedAt: Schema.Union(Schema.String, Schema.Null),
-});
+export const WorkflowStatusSummary = WorkflowStatusSchema;
 
 export const KeyDateSummary = Schema.Struct({
   id: Schema.String,
