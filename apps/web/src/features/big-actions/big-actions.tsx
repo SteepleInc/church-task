@@ -11,13 +11,12 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  BigActionDescription,
+  BigActionFooter,
+  BigActionHeader,
+  BigActionTitle,
+  BigActionWrapper,
+} from "@/features/big-actions/big-action-components";
 import { Input } from "@/components/ui/input";
 import { useCyclesCollection } from "@/data/cycles/cyclesData.app";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
@@ -127,46 +126,48 @@ function CreateTaskBigAction() {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => (open ? undefined : close())}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader className="p-0">
-          <DialogTitle className="inline-flex items-center">
+    <BigActionWrapper open={isOpen} onOpenChange={(open) => (open ? undefined : close())}>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[inherit]">
+        <BigActionHeader>
+          <BigActionTitle className="inline-flex items-center">
             <Icon className="mr-2 size-4" />
             {dialogTitle}
-          </DialogTitle>
-          <DialogDescription>
+          </BigActionTitle>
+          <BigActionDescription>
             {state?.type === "my"
               ? "Create a Task assigned directly to you for the active Cycle."
               : "Create a Church-wide Task for the active Cycle."}
-          </DialogDescription>
-        </DialogHeader>
+          </BigActionDescription>
+        </BigActionHeader>
 
-        <form className="grid gap-4" onSubmit={handleSubmit}>
-          <Input
-            aria-label="Task Title"
-            autoFocus
-            disabled={isLoading || isSubmitting}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder={
-              state?.type === "my" ? "Add a Task assigned to me" : "Add Church-wide Task"
-            }
-            value={title}
-          />
-          {error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          ) : null}
-          <DialogFooter>
+        <form className="flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={handleSubmit}>
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto border-t p-4">
+            <Input
+              aria-label="Task Title"
+              autoFocus
+              disabled={isLoading || isSubmitting}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder={
+                state?.type === "my" ? "Add a Task assigned to me" : "Add Church-wide Task"
+              }
+              value={title}
+            />
+            {error ? (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : null}
+          </div>
+          <BigActionFooter>
             <Button disabled={isSubmitting} onClick={close} type="button" variant="outline">
               Cancel
             </Button>
             <Button disabled={!title.trim() || isLoading} loading={isSubmitting} type="submit">
               Create Task
             </Button>
-          </DialogFooter>
+          </BigActionFooter>
         </form>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </BigActionWrapper>
   );
 }

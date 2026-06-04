@@ -265,6 +265,25 @@ describe("quick action route behavior", () => {
     expect(bigActionsSource).toContain("CreateTaskBigAction");
   });
 
+  test("uses copied PreachX BigAction chrome instead of a small generic dialog", async () => {
+    const bigActionComponentsSource = await Bun.file(
+      new URL("../features/big-actions/big-action-components.tsx", import.meta.url),
+    ).text();
+    const fullScreenModalSource = await Bun.file(
+      new URL("../components/ui/full-screen-modal.tsx", import.meta.url),
+    ).text();
+
+    expect(bigActionsSource).toContain("<BigActionWrapper");
+    expect(bigActionsSource).not.toContain('DialogContent className="sm:max-w-xl"');
+    expect(bigActionComponentsSource).toContain("export function BigActionWrapper");
+    expect(bigActionComponentsSource).toContain(
+      '<DrawerContent className="h-[100dvh] max-h-none">',
+    );
+    expect(bigActionComponentsSource).toContain("<FullScreenModalContent");
+    expect(fullScreenModalSource).toContain('data-slot="full-screen-modal-content"');
+    expect(fullScreenModalSource).toContain("SIDEBAR_WIDTH");
+  });
+
   test("keeps invite member quick action in the copied PreachX header/body/footer shape", () => {
     expect(inviteMemberSource).toContain("<QuickActionsWrapper");
     expect(inviteMemberSource).toContain('<QuickActionsHeader className="p-4">');
