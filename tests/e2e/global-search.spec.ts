@@ -70,14 +70,18 @@ test("opens global search via UI and slash keyboard shortcut", async ({ page }, 
   await page.getByRole("button", { name: "Open global search" }).first().click();
   const globalSearchDialog = page.getByRole("dialog", { name: "Global Search" });
   await expect(globalSearchDialog).toBeVisible();
-  await page.getByPlaceholder("Search Tasks, Teams, members, and pages...").fill("our work");
-  await expect(globalSearchDialog.getByText("Our Work", { exact: true })).toBeVisible();
+  await page.getByRole("textbox", { name: "Global Search" }).fill("our work");
+  await expect(globalSearchDialog.getByRole("button", { name: /Our Work/ })).toBeVisible();
+  await expect(globalSearchDialog.getByText("Open Page", { exact: true })).toBeVisible();
+  await expect(globalSearchDialog.getByText("Navigate", { exact: true })).toBeVisible();
 
   await page.keyboard.press("Escape");
   await expect(globalSearchDialog).not.toBeVisible();
 
   await page.keyboard.press("/");
   await expect(globalSearchDialog).toBeVisible();
-  await page.getByPlaceholder("Search Tasks, Teams, members, and pages...").fill(churchName);
-  await expect(globalSearchDialog.getByText(churchName, { exact: true })).toBeVisible();
+  await page.getByRole("textbox", { name: "Global Search" }).fill(churchName);
+  await expect(
+    globalSearchDialog.getByRole("button", { name: new RegExp(churchName) }),
+  ).toBeVisible();
 });

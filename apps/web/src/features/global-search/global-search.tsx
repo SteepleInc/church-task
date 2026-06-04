@@ -2,34 +2,29 @@ import { createHotkeyHandler } from "@tanstack/hotkeys";
 import { useNavigate } from "@tanstack/react-router";
 import { useAtom, useSetAtom } from "jotai";
 import { Building2Icon, ListTodoIcon, SettingsIcon, UserIcon, UsersIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 
-import {
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandShortcut,
-} from "@/components/ui/command";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { useTasksCollection } from "@/data/tasks/tasksData.app";
 import { useTeamsCollection } from "@/data/teams/teamsData.app";
 import { useChurchUsersCollection } from "@/data/users/usersData.app";
 import { globalSearchIsOpenAtom } from "@/features/global-search/global-search-state";
 import type { GlobalSearchResult } from "@/features/global-search/global-search-types";
+import { GlobalSearchWindow } from "@/features/global-search/global-search-window";
 import {
-  filterGlobalSearchResults,
   GLOBAL_SEARCH_SHORTCUT,
   isEditableKeyboardTarget,
 } from "@/features/global-search/global-search-utils";
+import {
+  QuickActionsDescription,
+  QuickActionsTitle,
+  QuickActionsWrapper,
+} from "@/features/quick-actions/quick-actions-components";
 import { disableQuickActionsAtom } from "@/features/quick-actions/quick-actions-state";
 
 export function GlobalSearch() {
   const [globalSearchIsOpen, setGlobalSearchIsOpen] = useAtom(globalSearchIsOpenAtom);
   const setDisableQuickActions = useSetAtom(disableQuickActionsAtom);
-  const [searchValue, setSearchValue] = useState("");
   const navigate = useNavigate();
   const { currentOrgOpt: activeChurch } = useCurrentOrgOpt();
   const teams = useTeamsCollection({ churchId: activeChurch?.id ?? null });
@@ -57,10 +52,6 @@ export function GlobalSearch() {
     setDisableQuickActions(globalSearchIsOpen);
   }, [globalSearchIsOpen, setDisableQuickActions]);
 
-  useEffect(() => {
-    if (!globalSearchIsOpen) setSearchValue("");
-  }, [globalSearchIsOpen]);
-
   const selectAndClose = (action: () => void) => () => {
     setGlobalSearchIsOpen(false);
     action();
@@ -75,6 +66,11 @@ export function GlobalSearch() {
         description: "Tasks assigned to you.",
         keywords: ["tasks", "assigned", "todo"],
         icon: ListTodoIcon,
+        actionText: "Open Page",
+        details: [
+          { label: "Route", value: "/my-work" },
+          { label: "Scope", value: "Tasks assigned to you" },
+        ],
         onSelect: selectAndClose(() => void navigate({ to: "/my-work" })),
       },
       {
@@ -84,6 +80,11 @@ export function GlobalSearch() {
         description: "Church-wide tasks and shared work.",
         keywords: ["tasks", "church", "shared"],
         icon: UsersIcon,
+        actionText: "Open Page",
+        details: [
+          { label: "Route", value: "/our-work" },
+          { label: "Scope", value: "Church-wide work" },
+        ],
         onSelect: selectAndClose(() => void navigate({ to: "/our-work" })),
       },
       {
@@ -93,6 +94,11 @@ export function GlobalSearch() {
         description: "Profile, Church, Team, and invitation settings.",
         keywords: ["profile", "church", "team", "members", "invitations"],
         icon: SettingsIcon,
+        actionText: "Open Page",
+        details: [
+          { label: "Route", value: "/settings" },
+          { label: "Sections", value: "Profile, Church, Team, Invitations" },
+        ],
         onSelect: selectAndClose(() => void navigate({ to: "/settings" })),
       },
     ];
@@ -106,6 +112,11 @@ export function GlobalSearch() {
             description: "Active Church profile and settings.",
             keywords: ["church", "org", activeChurch.slug ?? ""],
             icon: Building2Icon,
+            actionText: "Open Settings",
+            details: [
+              { label: "Church", value: activeChurch.name },
+              { label: "Slug", value: activeChurch.slug ?? "Not set" },
+            ],
             onSelect: selectAndClose(() => void navigate({ to: "/settings/org" })),
           },
         ]
@@ -118,6 +129,11 @@ export function GlobalSearch() {
       description: "Team work queue.",
       keywords: ["team", "work"],
       icon: UsersIcon,
+      actionText: "Open Team",
+      details: [
+        { label: "Team", value: team.name },
+        { label: "Route", value: `/team/${team.id}` },
+      ],
       onSelect: selectAndClose(
         () => void navigate({ params: { teamId: team.id }, to: "/team/$teamId" }),
       ),
@@ -130,6 +146,11 @@ export function GlobalSearch() {
       description: user.email ? `${user.email} - ${user.role}` : `Church member - ${user.role}`,
       keywords: ["member", "user", "person", user.email ?? "", user.role],
       icon: UserIcon,
+      actionText: "Open Members",
+      details: [
+        { label: "Member", value: user.name || user.email || "Church member" },
+        { label: "Role", value: user.role },
+      ],
       onSelect: selectAndClose(
         () => void navigate({ params: { teamTab: "members" }, to: "/settings/team/$teamTab" }),
       ),
@@ -142,6 +163,11 @@ export function GlobalSearch() {
       description: `Church task - ${task.taskState}`,
       keywords: ["task", "work", task.taskState, task.teamId ?? ""],
       icon: ListTodoIcon,
+      actionText: "Open Work",
+      details: [
+        { label: "Task", value: task.title },
+        { label: "Status", value: task.taskState },
+      ],
       onSelect: selectAndClose(() => void navigate({ to: "/our-work" })),
     }));
 
@@ -155,48 +181,19 @@ export function GlobalSearch() {
     users.usersCollection,
   ]);
 
-  const filteredResults = filterGlobalSearchResults(results, searchValue);
-
   return (
-    <CommandDialog
-      description="A menu that lets you search Church Task entities and routes."
+    <QuickActionsWrapper
+      dialogContentClassName="min-h-[min(calc(100vh-clamp(16px,calc((100vh-512px)/2),192px)*2),512px)]"
       onOpenChange={setGlobalSearchIsOpen}
       open={globalSearchIsOpen}
-      title="Global Search"
     >
-      <CommandInput
-        onValueChange={setSearchValue}
-        placeholder="Search Tasks, Teams, members, and pages..."
-        value={searchValue}
-      />
-      <CommandList>
-        <CommandEmpty>No results found.</CommandEmpty>
-        <CommandGroup heading="Global Search">
-          {filteredResults.map((result) => (
-            <GlobalSearchCommandItem key={result.id} result={result} />
-          ))}
-        </CommandGroup>
-      </CommandList>
-    </CommandDialog>
-  );
-}
-
-function GlobalSearchCommandItem({ result }: { readonly result: GlobalSearchResult }) {
-  const Icon = result.icon;
-
-  return (
-    <CommandItem
-      className="items-start gap-3"
-      keywords={[...result.keywords]}
-      onSelect={result.onSelect}
-      value={`${result.type} ${result.title} ${result.description}`}
-    >
-      <Icon className="mt-0.5 size-4 text-muted-foreground" />
-      <span className="grid gap-0.5">
-        <span>{result.title}</span>
-        <span className="text-xs text-muted-foreground">{result.description}</span>
-      </span>
-      <CommandShortcut className="capitalize">{result.type}</CommandShortcut>
-    </CommandItem>
+      <div className="sr-only">
+        <QuickActionsTitle>Global Search</QuickActionsTitle>
+        <QuickActionsDescription>
+          A menu that lets you search Church Task entities and routes.
+        </QuickActionsDescription>
+      </div>
+      <GlobalSearchWindow results={results} setOpenState={setGlobalSearchIsOpen} />
+    </QuickActionsWrapper>
   );
 }

@@ -43,6 +43,18 @@ const bigActionsSource = await Bun.file(
 const inviteMemberSource = await Bun.file(
   new URL("../features/settings/invite-member.tsx", import.meta.url),
 ).text();
+const globalSearchSource = await Bun.file(
+  new URL("../features/global-search/global-search.tsx", import.meta.url),
+).text();
+const globalSearchWindowSource = await Bun.file(
+  new URL("../features/global-search/global-search-window.tsx", import.meta.url),
+).text();
+const globalSearchToggleSource = await Bun.file(
+  new URL("../features/global-search/global-search-toggle.tsx", import.meta.url),
+).text();
+const globalSearchFooterSource = await Bun.file(
+  new URL("../features/global-search/global-search-footer.tsx", import.meta.url),
+).text();
 const dashboardRouteSource = await Bun.file(
   new URL("../routes/-dashboard.tsx", import.meta.url),
 ).text();
@@ -309,6 +321,7 @@ describe("global search behavior", () => {
           description: "Worship Team - open",
           keywords: ["task", "worship"],
           icon: ListTodoIcon,
+          details: [{ label: "Status", value: "open" }],
           onSelect: () => {},
         },
         {
@@ -318,6 +331,7 @@ describe("global search behavior", () => {
           description: "Team work queue.",
           keywords: ["team", "care"],
           icon: UsersIcon,
+          details: [{ label: "Team", value: "Care Team" }],
           onSelect: () => {},
         },
       ],
@@ -328,6 +342,25 @@ describe("global search behavior", () => {
     expect(results.some((result) => /video|preacher|sermon|billing/i.test(result.type))).toBe(
       false,
     );
+  });
+
+  test("uses the copied PreachX two-pane global search window and footer", () => {
+    expect(globalSearchSource).toContain("<QuickActionsWrapper");
+    expect(globalSearchSource).toContain("<GlobalSearchWindow");
+    expect(globalSearchSource).not.toContain("CommandDialog");
+    expect(globalSearchWindowSource).toContain("grid-cols-1 overflow-hidden p-0 md:grid-cols-2");
+    expect(globalSearchWindowSource).toContain("<GlobalSearchDetailsPanel item={selectedItem} />");
+    expect(globalSearchWindowSource).toContain("<GlobalSearchFooter");
+    expect(globalSearchFooterSource).toContain("<Kbd>↑</Kbd>");
+    expect(globalSearchFooterSource).toContain("<Kbd>↓</Kbd>");
+    expect(globalSearchFooterSource).toContain('<Kbd className="ml-2">enter</Kbd>');
+  });
+
+  test("keeps the PreachX compact global search toggle without visible Search text", () => {
+    expect(globalSearchToggleSource).toContain("border border-l2 bg-l2");
+    expect(globalSearchToggleSource).toContain("group-data-[state=collapsed]:md:hidden");
+    expect(globalSearchToggleSource).toContain("<Kbd>{GLOBAL_SEARCH_SHORTCUT}</Kbd>");
+    expect(globalSearchToggleSource).not.toContain(">Search</span>");
   });
 });
 
