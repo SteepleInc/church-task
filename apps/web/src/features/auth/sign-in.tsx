@@ -4,7 +4,7 @@ import { SignInEmailForm } from "@/features/auth/sign-in-email-form";
 import { signInStateAtom } from "@/features/auth/sign-in-state";
 import { authClient } from "@/lib/auth-client";
 import { COMPLETED_APP_LANDING_PATH } from "@/data/org-routing";
-import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Match } from "effect";
 import { useAtom } from "jotai";
 import { useEffect } from "react";
@@ -19,7 +19,7 @@ type SignInProps = {
 export function SignIn({ defaultEmail, invitationId: passedInvitationId, redirect }: SignInProps) {
   const { data: session, refetch } = authClient.useSession();
   const navigate = useNavigate();
-  const search = useRouterState({ select: (state) => state.location.search });
+  const search = useSearch({ from: "/_auth/sign-in" });
   const invitationId = passedInvitationId ?? search["invitation-id"];
   const passedOtpEmail = defaultEmail ?? search.email;
   const [signInState] = useAtom(signInStateAtom);

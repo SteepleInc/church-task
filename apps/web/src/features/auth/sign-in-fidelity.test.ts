@@ -31,7 +31,8 @@ describe("auth PreachX fidelity guards", () => {
   });
 
   test("preserves passed email auto-submit and OTP sign-in behavior", () => {
-    expect(signInSource).toContain("useRouterState");
+    expect(signInSource).toContain("useSearch");
+    expect(signInSource).toContain('from: "/_auth/sign-in"');
     expect(signInSource).toContain('search["invitation-id"]');
     expect(signInSource).toContain("search.email");
     expect(signInSource).toContain("autoSubmit={!!passedOtpEmail}");
