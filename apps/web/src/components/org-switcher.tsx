@@ -137,7 +137,12 @@ function OrgDropdownItem({ org }: { readonly org: OrgCollectionItem }) {
   return (
     <DropdownMenuItem className="gap-2" disabled={isChangingOrg} onClick={handleOrgClick}>
       <ChurchAvatar name={org.name} size="sm" />
-      <span className="line-clamp-2">{org.name}</span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="line-clamp-2">{org.name}</span>
+        {!org.completedOnboarding ? (
+          <span className="text-muted-foreground text-xs">Onboarding incomplete</span>
+        ) : null}
+      </span>
       {org.id === orgId ? <CheckCircleIcon className="ml-auto size-4" /> : null}
     </DropdownMenuItem>
   );
