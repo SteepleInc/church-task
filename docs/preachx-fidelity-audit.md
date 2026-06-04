@@ -8,8 +8,9 @@ This audit compares Church Task's copied PreachX surfaces against the canonical 
 Verdict summary:
 
 - Complete enough for this audit slice: the required audit report now exists and covers every #97 surface.
-- Not complete enough to close #97: several visible/source-level mismatches remain and should be repaired or split into follow-up issues before #97 closes.
-- One repair was made in this slice: Church Task now preloads the copied PreachX marketing font files from the root route.
+- Complete enough to close #97: every remaining source-level mismatch is now either documented as an intentional Church Task difference or delegated to a focused open blocker issue.
+- Repair already made in an earlier #97 slice: Church Task now preloads the copied PreachX marketing font files from the root route.
+- Remaining implementation work belongs to focused issues #98, #99, #100, #101, and #102 rather than another broad audit loop.
 
 ## Onboarding
 
@@ -74,6 +75,10 @@ Remaining mismatches:
 - Church Task passes route search params into `SignInForm`; PreachX `SignIn` owns the `useSearch` read and session/refetch redirect effect.
 - Church Task does not match PreachX `autoSubmit={!!passedOtpEmail}` behavior for a passed email.
 - The invitation accept outer layout diverges from PreachX's white/dark masked auth page frame.
+
+Delegated blocker:
+
+- #101 tracks the source-level repair for PreachX auth/sign-in/invitation accept layout and passed-email behavior.
 
 Intentional differences:
 
@@ -229,7 +234,7 @@ Church Task files:
 - `apps/web/src/components/navigation/nav-shared.tsx`
 - `apps/web/src/components/navigation/app-navigation.tsx`
 
-Fidelity verdict: mostly pass for available admin surfaces, with a gating question.
+Fidelity verdict: pass for available admin surfaces, with global app-admin gating documented as an intentional Church Task difference.
 
 Repairs confirmed:
 
@@ -237,9 +242,13 @@ Repairs confirmed:
 - Users and Churches pages use `MainContainer` and copied collection-style components.
 - Unsupported PreachX admin entities are not shown.
 
-Remaining mismatch:
+Intentional difference:
 
 - PreachX gates admin with global `session.user.role === "admin"` and `requireAdmin`; Church Task intentionally gates Admin/Dev through active Church owner/admin role until a global app-admin role exists in the Convex-backed domain model.
+
+Delegated blocker status:
+
+- #95 is closed; the copied collection structure and dedicated admin navigation repair landed there.
 
 ## Quick Actions And Big Actions
 
@@ -273,6 +282,10 @@ Repairs confirmed:
 Remaining mismatch:
 
 - Church Task big actions use a small `DialogContent className="sm:max-w-xl"` create-task modal. PreachX uses a `BigActionWrapper` with mobile `Drawer` and desktop `FullScreenModal`. This source-level chrome repair is tracked separately by #100 and is no longer a blocker for #94.
+
+Delegated blocker:
+
+- #100 tracks the source-level repair for PreachX full-screen and drawer chrome.
 
 Intentional difference:
 
@@ -308,6 +321,10 @@ Remaining mismatches:
 - Church Task currently uses a simpler `CommandDialog`/cmdk one-column list.
 - `GlobalSearchToggle` includes visible `Search` text and a generic icon, while PreachX's toggle is icon plus `/` kbd with specific `bg-l2` treatment.
 
+Delegated blocker:
+
+- #98 tracks the source-level repair for the PreachX two-pane global search window, footer, and toggle treatment.
+
 ## Details Pane
 
 Canonical PreachX files:
@@ -342,6 +359,10 @@ Remaining mismatches:
 - Church Task renders a fixed `aside`; PreachX uses responsive mobile `Drawer`, desktop `Dialog`, sticky mode, `ToggleDetailsPaneButton`, `DetailsPaneHistory`, and animated Radix content.
 - Church Task `DetailsShell` omits PreachX `MainContainer`, `PageHeaderContainer`, `Divider`, and `tabBar` slot structure.
 - `useChangeDetailsPaneId` lacks PreachX ctrl/meta click behavior.
+
+Delegated blocker:
+
+- #99 tracks the source-level repair for the PreachX responsive drawer/dialog/sticky/history shell.
 
 ## Marketing Pages And Fonts
 
@@ -410,6 +431,10 @@ Remaining mismatches:
 - `FormErrorDisplay` dropped PreachX's alert icon/flex red treatment.
 - Several PreachX fields are absent, including `cardForm`, `tagInputField`, `fileDropZoneField`, `avatarUploadField`, and `markdownEditorField`.
 - `TagInputField` is relevant to Invite Member fidelity if that flow must exactly match PreachX.
+
+Delegated blocker:
+
+- #102 tracks the CardForm and TagInputField decision/repair for settings and invite-member fidelity.
 
 Intentional differences:
 
@@ -489,10 +514,17 @@ Remaining question:
 
 - None for this admin/dev navigation slice.
 
-## Required Follow-Ups Before Closing #97
+## Focused Follow-Ups Delegated From #97
 
-- Repair or file a follow-up for Global Search to copy PreachX's two-pane `globalSearchWindow`/footer/toggle structure.
-- Repair or file a follow-up for Details Pane to copy PreachX responsive drawer/dialog/sticky/history shell.
-- Repair or file a follow-up for BigActions to copy PreachX `BigActionWrapper` desktop full-screen and mobile drawer chrome.
-- Repair or file a follow-up for auth/sign-in/invitation layout and passed-email auto-submit fidelity.
-- Decide whether settings/forms must copy PreachX `CardForm` and `TagInputField`; if yes, file or implement that repair.
+- #98 remains open for Global Search: copy PreachX's two-pane `globalSearchWindow`/footer/toggle structure.
+- #99 remains open for Details Pane: copy PreachX responsive drawer/dialog/sticky/history shell.
+- #100 remains open for BigActions: copy PreachX `BigActionWrapper` desktop full-screen and mobile drawer chrome.
+- #101 remains open for auth/sign-in/invitation layout and passed-email auto-submit fidelity.
+- #102 remains open for settings/forms: decide or repair PreachX `CardForm` and `TagInputField` fidelity.
+
+## #97 Closure Status
+
+- The audit deliverable exists and covers every surface listed in #97.
+- #95 is closed, and remaining source-level mismatches are delegated to focused open issues #98, #99, #100, #101, and #102.
+- The documented Base UI primitive differences remain intentional under #74's instruction not to wholesale migrate primitives to Radix UI.
+- No screenshot loop or additional broad audit pass is required before closing #97.
