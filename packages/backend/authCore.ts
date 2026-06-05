@@ -5,7 +5,7 @@ import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import { APIError, createAuthEndpoint, sessionMiddleware } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import { betterAuth, type BetterAuthOptions } from "better-auth/minimal";
-import { bearer, emailOTP, mcp, organization } from "better-auth/plugins";
+import { admin, bearer, emailOTP, mcp, organization } from "better-auth/plugins";
 import { z } from "zod";
 
 import { components, internal } from "./convex/_generated/api";
@@ -235,6 +235,7 @@ export function createAuthOptions(ctx: GenericCtx<DataModel>) {
       }),
       completeOnboarding(),
       clearOrgForOnboarding(),
+      admin(),
       apiKey({
         apiKeyHeaders: "authorization",
         customAPIKeyGetter: (ctx) => {

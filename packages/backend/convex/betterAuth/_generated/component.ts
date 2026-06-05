@@ -31,6 +31,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           input:
             | {
                 data: {
+                  banExpires?: null | number;
+                  banReason?: null | string;
+                  banned?: null | boolean;
                   createdAt: number;
                   displayUsername?: null | string;
                   email: string;
@@ -40,6 +43,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   name: string;
                   phoneNumber?: null | string;
                   phoneNumberVerified?: null | boolean;
+                  role?: null | string;
                   twoFactorEnabled?: null | boolean;
                   updatedAt: number;
                   userId?: null | string;
@@ -53,6 +57,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   activeTeamId?: null | string;
                   createdAt: number;
                   expiresAt: number;
+                  impersonatedBy?: null | string;
                   ipAddress?: null | string;
                   skipOrgFallback?: null | boolean;
                   token: string;
@@ -265,6 +270,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "phoneNumber"
                     | "phoneNumberVerified"
                     | "userId"
+                    | "role"
+                    | "banned"
+                    | "banReason"
+                    | "banExpires"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -303,6 +312,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "activeOrganizationId"
                     | "activeTeamId"
                     | "skipOrgFallback"
+                    | "impersonatedBy"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -858,6 +868,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "phoneNumber"
                     | "phoneNumberVerified"
                     | "userId"
+                    | "role"
+                    | "banned"
+                    | "banReason"
+                    | "banExpires"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -896,6 +910,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "activeOrganizationId"
                     | "activeTeamId"
                     | "skipOrgFallback"
+                    | "impersonatedBy"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -1541,6 +1556,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "user";
                 update: {
+                  banExpires?: null | number;
+                  banReason?: null | string;
+                  banned?: null | boolean;
                   createdAt?: number;
                   displayUsername?: null | string;
                   email?: string;
@@ -1550,6 +1568,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   name?: string;
                   phoneNumber?: null | string;
                   phoneNumberVerified?: null | boolean;
+                  role?: null | string;
                   twoFactorEnabled?: null | boolean;
                   updatedAt?: number;
                   userId?: null | string;
@@ -1571,6 +1590,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "phoneNumber"
                     | "phoneNumberVerified"
                     | "userId"
+                    | "role"
+                    | "banned"
+                    | "banReason"
+                    | "banExpires"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -1601,6 +1624,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   activeTeamId?: null | string;
                   createdAt?: number;
                   expiresAt?: number;
+                  impersonatedBy?: null | string;
                   ipAddress?: null | string;
                   skipOrgFallback?: null | boolean;
                   token?: string;
@@ -1621,6 +1645,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "activeOrganizationId"
                     | "activeTeamId"
                     | "skipOrgFallback"
+                    | "impersonatedBy"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -2297,6 +2322,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "user";
                 update: {
+                  banExpires?: null | number;
+                  banReason?: null | string;
+                  banned?: null | boolean;
                   createdAt?: number;
                   displayUsername?: null | string;
                   email?: string;
@@ -2306,6 +2334,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   name?: string;
                   phoneNumber?: null | string;
                   phoneNumberVerified?: null | boolean;
+                  role?: null | string;
                   twoFactorEnabled?: null | boolean;
                   updatedAt?: number;
                   userId?: null | string;
@@ -2327,6 +2356,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "phoneNumber"
                     | "phoneNumberVerified"
                     | "userId"
+                    | "role"
+                    | "banned"
+                    | "banReason"
+                    | "banExpires"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
@@ -2357,6 +2390,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   activeTeamId?: null | string;
                   createdAt?: number;
                   expiresAt?: number;
+                  impersonatedBy?: null | string;
                   ipAddress?: null | string;
                   skipOrgFallback?: null | boolean;
                   token?: string;
@@ -2377,6 +2411,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "activeOrganizationId"
                     | "activeTeamId"
                     | "skipOrgFallback"
+                    | "impersonatedBy"
                     | "_id";
                   mode?: "sensitive" | "insensitive";
                   operator?:
