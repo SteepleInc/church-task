@@ -56,7 +56,7 @@ export const MobileMarketingNavigation = (props: MobileMarketingNavigationProps)
             </MobileLink>
             {session ? (
               <MobileLink onOpenChange={setOpen} to="/my-work">
-                My Work
+                Dashboard
               </MobileLink>
             ) : (
               <MobileLink onOpenChange={setOpen} to="/sign-in">
