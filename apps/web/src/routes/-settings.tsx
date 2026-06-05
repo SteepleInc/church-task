@@ -149,8 +149,8 @@ const ChurchProfileSettingsSchema = Schema.Struct({
 
 export function SettingsFrame({ children }: { readonly children: ReactNode }) {
   return (
-    <ScrollArea viewportClassName="px-6 pb-6">
-      <main className="flex flex-col gap-4">{children}</main>
+    <ScrollArea viewportClassName="px-6 pt-1.5 pb-6">
+      <div className="flex flex-col gap-4">{children}</div>
     </ScrollArea>
   );
 }
