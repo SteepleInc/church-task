@@ -12,7 +12,7 @@ import {
 } from "@/features/global-search/global-search-utils";
 import { buildChurchTaskQuickActions } from "@/features/quick-actions/quick-actions-state";
 import { ListTodoIcon, UsersIcon } from "lucide-react";
-import { getUserMenuAvatarFallback } from "@/components/user-menu";
+import { getAvatarInitials } from "@/components/ui/avatar";
 
 const appNavigationSource = await Bun.file(
   new URL("./navigation/app-navigation.tsx", import.meta.url),
@@ -364,12 +364,26 @@ describe("global search behavior", () => {
   });
 });
 
+const userMenuSource = await Bun.file(new URL("./user-menu.tsx", import.meta.url).pathname).text();
+const userAvatarSource = await Bun.file(
+  new URL("./avatars/userAvatar.tsx", import.meta.url).pathname,
+).text();
+const baseAvatarSource = await Bun.file(
+  new URL("./avatars/baseAvatar.tsx", import.meta.url).pathname,
+).text();
+
 describe("user menu behavior", () => {
-  test("uses PreachX-style avatar initials instead of a text account button", () => {
-    expect(getUserMenuAvatarFallback({ email: "alex@example.com", name: "Alex Rivera" })).toBe(
-      "AR",
-    );
-    expect(getUserMenuAvatarFallback({ email: "solo@example.com", name: null })).toBe("SO");
-    expect(getUserMenuAvatarFallback(null)).toBe("US");
+  test("uses PreachX-style getAvatarInitials helper", () => {
+    expect(getAvatarInitials("Alex Rivera")).toBe("Aa");
+    expect(getAvatarInitials("Izak")).toBe("Ik");
+    expect(getAvatarInitials("IZ")).toBe("IZ");
+    expect(getAvatarInitials(null, "User")).toBe("Ur");
+  });
+
+  test("renders the PreachX UserAvatar with a boring-avatars fallback", () => {
+    expect(userMenuSource).toContain("UserAvatar");
+    expect(userAvatarSource).toContain("boring-avatars");
+    expect(userAvatarSource).toContain('String.split("_")');
+    expect(baseAvatarSource).toContain("getAvatarInitials");
   });
 });

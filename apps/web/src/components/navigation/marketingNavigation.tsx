@@ -39,7 +39,7 @@ export const MarketingNavigation = () => {
                 className="font-medium text-sm text-white/80 transition-colors hover:text-white"
                 to="/my-work"
               >
-                My Work
+                Dashboard
               </Link>
             </motion.div>
             <motion.div
