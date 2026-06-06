@@ -48,10 +48,7 @@ import { useState } from "react";
 
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
-import {
-  TaskExecutionSurface,
-  type TaskExecutionFilters,
-} from "@/components/tasks/task-execution-surface";
+import { TaskExecutionSurface } from "@/components/tasks/task-execution-surface";
 import { useUserInvitationsCollection } from "@/data/invitations/invitationsData.app";
 import {
   useCurrentOrgOpt,
@@ -85,6 +82,7 @@ import {
 } from "@/data/workflows/workflowsData.app";
 import { authClient } from "@/lib/auth-client";
 import { InviteMemberButton, InviteMemberQuickAction } from "@/features/settings/invite-member";
+import { useQuickActionOpeners } from "@/features/quick-actions/quick-actions-state";
 import { parseDetailsPaneState } from "@/components/details-pane/details-pane-helpers";
 import type { DetailsPaneParams } from "@/components/details-pane/details-pane-types";
 
@@ -120,6 +118,11 @@ export function validateDashboardSearch(search: Record<string, unknown>): Dashbo
     "details-pane": detailsPaneState.length > 0 ? detailsPaneState : undefined,
   };
 }
+
+type TaskExecutionFilters = {
+  readonly taskState?: DashboardSearch["taskState"];
+  readonly workflowStatusId?: string;
+};
 
 type DashboardTeamSummary = {
   readonly id: string;
@@ -198,41 +201,19 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
       search: routeSearch,
     });
   };
-  const setExecutionFilters = (filters: TaskExecutionFilters) => {
-    const routeSearch = getDashboardSearchForExecutionFilters(search, filters);
-
-    if (typeof activePanel === "object") {
-      navigate({
-        to: "/team/$teamId",
-        params: { teamId: activePanel.teamId },
-        search: routeSearch,
-      });
-      return;
-    }
-
-    navigate({
-      to:
-        activePanel === "my_work"
-          ? "/my-work"
-          : activePanel === "our_work"
-            ? "/our-work"
-            : "/settings",
-      search: routeSearch,
-    });
-  };
   const currentUserId = activeChurch?.currentUserId ?? null;
   const teams = useTeamsCollection({ churchId: activeChurch?.id ?? null });
-  const teamMemberships = useTeamMembershipsCollection({ churchId: activeChurch?.id ?? null });
   const pendingInvitations =
     activeChurch?.invitations.filter((invitation) => invitation.status === "pending") ?? [];
   const activeTeams = teams.teamsCollection;
-  const memberships = teamMemberships.teamMembershipsCollection;
-  const memberTeams = getMemberTeams(activeTeams, memberships, currentUserId);
   const selectedTeam =
     typeof activePanel === "object"
       ? (activeTeams.find((team) => team.id === activePanel.teamId) ?? null)
       : null;
   const unavailableTeamBoardActions = getUnavailableTeamBoardActions();
+  const { openCreateChurchTask, openCreateMyTask } = useQuickActionOpeners();
+  const showCreateTask =
+    activePanel !== "settings" && Boolean(activeChurch) && Boolean(currentUserId);
 
   return (
     <MainContainer>
@@ -253,6 +234,16 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
               <p className="text-sm text-muted-foreground">Active Church: {activeChurch.name}</p>
             ) : null}
           </div>
+          {showCreateTask ? (
+            <Button
+              type="button"
+              onClick={() =>
+                activePanel === "my_work" ? openCreateMyTask() : openCreateChurchTask()
+              }
+            >
+              Create Task
+            </Button>
+          ) : null}
         </div>
         {activePanel === "settings" && activeChurch ? (
           <ActiveChurchSettings activeChurch={activeChurch} />
@@ -289,14 +280,6 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
                   : activePanel
             }
             team={selectedTeam}
-            myWorkEmptyStateTeams={memberTeams}
-            filters={{
-              taskState: search.taskState,
-              workflowStatusId: search.workflowStatusId,
-            }}
-            onFiltersChange={setExecutionFilters}
-            onOpenOurWork={() => setActivePanel("our_work")}
-            onOpenTeamBoard={(teamId) => setActivePanel({ kind: "team", teamId })}
           />
         ) : (
           <>
