@@ -13,17 +13,19 @@ type ColumnHeaderProps<T> = {
 
 export function ColumnHeader<T extends object>({ column, children }: ColumnHeaderProps<T>) {
   const sortDirection = column.getIsSorted();
+  const canSort = column.getCanSort();
 
   return (
     <Button
       className="-ml-1 px-1"
+      disabled={!canSort}
       onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
       size="sm"
       type="button"
       variant="ghost"
     >
       {children}
-      {sortDirection === "asc" ? (
+      {!canSort ? null : sortDirection === "asc" ? (
         <ArrowUp />
       ) : sortDirection === "desc" ? (
         <ArrowDown />

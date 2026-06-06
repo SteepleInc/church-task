@@ -145,7 +145,12 @@ export const tables = {
     size: v.optional(v.union(v.null(), v.string())),
     createdAt: v.number(),
   })
+    .index("churchTimeZone", ["churchTimeZone"])
+    .index("completedOnboarding", ["completedOnboarding"])
+    .index("createdAt", ["createdAt"])
     .index("slug", ["slug"])
+    .index("size", ["size"])
+    .index("url", ["url"])
     .index("name", ["name"]),
   member: defineTable({
     organizationId: v.string(),

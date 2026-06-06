@@ -1,6 +1,8 @@
 import {
   type ColumnDef,
   type ColumnPinningState,
+  type OnChangeFn,
+  type SortingState,
   getCoreRowModel,
   getPaginationRowModel,
   useReactTable,
@@ -12,8 +14,10 @@ export function useCreateTable<TData>(params: {
   readonly columnsDef: Array<ColumnDef<TData>>;
   readonly data: Array<TData>;
   readonly columnPinning?: ColumnPinningState;
+  readonly sorting?: SortingState;
+  readonly onSortingChange?: OnChangeFn<SortingState>;
 }) {
-  const { columnsDef, data, columnPinning } = params;
+  const { columnsDef, data, columnPinning, sorting = [], onSortingChange } = params;
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({ id: false });
 
   return useReactTable<TData>({
@@ -25,7 +29,9 @@ export function useCreateTable<TData>(params: {
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { columnPinning },
     manualPagination: true,
+    manualSorting: true,
     onColumnVisibilityChange: setColumnVisibility,
-    state: { columnVisibility },
+    onSortingChange,
+    state: { columnVisibility, sorting },
   });
 }

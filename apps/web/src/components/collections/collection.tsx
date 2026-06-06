@@ -1,4 +1,4 @@
-import type { ColumnDef, ColumnPinningState } from "@tanstack/react-table";
+import type { ColumnDef, ColumnPinningState, SortingState } from "@tanstack/react-table";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { CollectionCardView } from "@/components/collections/collectionCardView";
@@ -10,6 +10,7 @@ import type { ColumnConfig } from "@/components/data-table-filter/core/types";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { useAtomValue } from "jotai";
 import { collectionViewsAtom, getCollectionView } from "@/shared/global-state";
+import { useSorting } from "@/shared/hooks/useFilters";
 
 export type CollectionColumnDef<TItem> = {
   readonly id: string;
@@ -27,7 +28,7 @@ export type CollectionProps<TItem> = {
   readonly data: readonly TItem[];
   readonly emptyState?: ReactNode;
   readonly filterColumnId: string;
-  readonly filterKey: string;
+  readonly filterKey: Parameters<typeof useSorting>[0];
   readonly filterPlaceHolder: string;
   readonly filtersDef?: ReadonlyArray<ColumnConfig<TItem> | unknown>;
   readonly getRowKey?: (item: TItem) => string;
@@ -72,6 +73,7 @@ export function Collection<TItem>({
   columnsDef,
   data,
   emptyState,
+  filterKey,
   filtersDef = [],
   limit,
   loading = false,
@@ -84,6 +86,7 @@ export function Collection<TItem>({
   const persistedView = getCollectionView(collectionViews, _tag);
   const forceCards = useForceCardsView();
   const currentView = forceCards ? "cards" : persistedView;
+  const [sorting, setSorting] = useSorting(filterKey);
   const normalizedColumnsDef = useMemo(
     () => columnsDef.map((columnDef) => toTanStackColumnDef(columnDef)),
     [columnsDef],
@@ -92,6 +95,15 @@ export function Collection<TItem>({
     columnPinning,
     columnsDef: normalizedColumnsDef,
     data: [...data],
+    onSortingChange: (updaterOrValue) => {
+      if (typeof updaterOrValue === "function") {
+        setSorting((previous) => updaterOrValue(previous as SortingState));
+        return;
+      }
+
+      setSorting(updaterOrValue);
+    },
+    sorting: sorting as SortingState,
   });
   const hasActiveFilters = filtersDef.length > 0;
 

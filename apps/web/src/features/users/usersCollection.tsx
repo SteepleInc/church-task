@@ -2,6 +2,7 @@ import { Collection } from "@/components/collections/collection";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { globalUsersFiltersDef, globalUsersTableColumns } from "@/data/users/usersCollectionDef";
 import { useChurchUsersCollection, type UserCollectionItem } from "@/data/users/usersData.app";
+import { FilterKeys } from "@/shared/global-state";
 
 type UsersCollectionProps = {
   readonly _tag: "global";
@@ -29,7 +30,7 @@ function GlobalUsersCollection() {
       columnsDef={globalUsersTableColumns}
       data={usersCollection}
       filterColumnId="email"
-      filterKey="users"
+      filterKey={FilterKeys.Users}
       filterPlaceHolder="Filter Members"
       filtersDef={globalUsersFiltersDef}
       getRowKey={(user) => user.memberId}

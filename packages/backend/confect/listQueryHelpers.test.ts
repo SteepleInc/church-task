@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { getListPageSize, type ListArgs } from "../convex/listQueryHelpers";
+import {
+  getListPageSize,
+  getSortByForBetterAuthModel,
+  type ListArgs,
+} from "../convex/listQueryHelpers";
 
 const paginationOpts = { cursor: null, numItems: 25 };
 
@@ -13,5 +17,23 @@ describe("Convex listQueryHelpers", () => {
     const listArgs = { limit: 10 } satisfies ListArgs;
 
     expect(getListPageSize({ listArgs, paginationOpts })).toBe(10);
+  });
+
+  it("translates allowed organization ordering into Better Auth sortBy", () => {
+    expect(
+      getSortByForBetterAuthModel("organization", {
+        orderBy: "createdAt",
+        orderDirection: "desc",
+      }),
+    ).toEqual({ field: "createdAt", direction: "desc" });
+  });
+
+  it("suppresses ordering for computed or unsupported organization fields", () => {
+    expect(
+      getSortByForBetterAuthModel("organization", {
+        orderBy: "membersCount",
+        orderDirection: "asc",
+      }),
+    ).toBeUndefined();
   });
 });

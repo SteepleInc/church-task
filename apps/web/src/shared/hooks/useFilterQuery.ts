@@ -3,6 +3,8 @@ import type { FunctionReference, PaginationResult } from "convex/server";
 import { useMemo } from "react";
 
 import type { FiltersState } from "@/components/data-table-filter/core/types";
+import { getListArgsFromSearch } from "@/shared/hooks/useFilters";
+import { getRouteApi } from "@tanstack/react-router";
 
 export type ListArgs = {
   readonly excludeIds?: readonly string[];
@@ -13,6 +15,8 @@ export type ListArgs = {
   readonly orderDirection?: "asc" | "desc";
   readonly selectedIds?: readonly string[];
 };
+
+const orgRouteApi = getRouteApi("/_org");
 
 type PaginatedQuery = FunctionReference<
   "query",
@@ -30,8 +34,12 @@ export function useFilterQuery<TItem>(params: {
   readonly pageSize?: number;
   readonly enabled?: boolean;
 }) {
-  const { query, pageSize = 50, enabled = true } = params;
-  const listArgs = useMemo<ListArgs>(() => ({}), []);
+  const { query, filterKey, pageSize = 50, enabled = true } = params;
+  const search = orgRouteApi.useSearch();
+  const listArgs = useMemo<ListArgs>(
+    () => getListArgsFromSearch(search, filterKey),
+    [filterKey, search],
+  );
   const result = usePaginatedQuery(query, enabled ? { listArgs } : "skip", {
     initialNumItems: pageSize,
   });

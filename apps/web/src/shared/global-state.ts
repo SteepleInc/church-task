@@ -3,6 +3,12 @@ import { atomWithStorage } from "jotai/utils";
 
 export const detailsPaneStickyAtom = atom(false);
 
+export enum FilterKeys {
+  Orgs = "orgs-filters",
+  Users = "users-filters",
+  Default = "default-filters",
+}
+
 export type CollectionView = "table" | "cards";
 
 export const collectionViewsAtom = atomWithStorage<Record<string, CollectionView>>(

@@ -96,6 +96,37 @@ export type ListArgs = typeof listArgsValidator.type;
 export type FilterItem = typeof filterItemValidator.type;
 
 type BetterAuthModel = "organization" | "user" | "member" | "team";
+type SortBy = { readonly field: string; readonly direction: "asc" | "desc" };
+
+const sortableFieldsByModel = {
+  member: new Set(["createdAt", "organizationId", "role", "userId"]),
+  organization: new Set([
+    "churchTimeZone",
+    "completedOnboarding",
+    "createdAt",
+    "name",
+    "size",
+    "slug",
+    "url",
+  ]),
+  team: new Set(["createdAt", "name", "organizationId", "sortOrder", "updatedAt"]),
+  user: new Set(["createdAt", "email", "name"]),
+} satisfies Record<BetterAuthModel, Set<string>>;
+
+export function getSortByForBetterAuthModel(
+  model: BetterAuthModel,
+  listArgs: ListArgs,
+): SortBy | undefined {
+  if (!listArgs.orderBy || !listArgs.orderDirection) {
+    return undefined;
+  }
+
+  if (!sortableFieldsByModel[model].has(listArgs.orderBy)) {
+    return undefined;
+  }
+
+  return { field: listArgs.orderBy, direction: listArgs.orderDirection };
+}
 
 export function getListPageSize(args: {
   readonly listArgs: ListArgs;
@@ -113,6 +144,8 @@ export async function listBetterAuthModel<T>(
     readonly select?: Array<string>;
   },
 ) {
+  const sortBy = getSortByForBetterAuthModel(args.model, args.listArgs);
+
   return (await ctx.runQuery(components.betterAuth.adapter.findMany, {
     model: args.model,
     paginationOpts: {
@@ -120,6 +153,7 @@ export async function listBetterAuthModel<T>(
       numItems: getListPageSize(args),
     },
     select: args.select,
+    ...(sortBy ? { sortBy } : {}),
   })) as {
     readonly page: ReadonlyArray<T>;
     readonly isDone: boolean;

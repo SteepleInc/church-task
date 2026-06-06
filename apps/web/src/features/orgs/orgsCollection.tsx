@@ -1,6 +1,7 @@
 import { Collection } from "@/components/collections/collection";
 import { orgsColumnsDef, orgsFiltersDef } from "@/data/orgs/orgsCollectionDef";
 import { useAllOrgsCollectionWithFilters, type OrgCollectionItem } from "@/data/orgs/orgsData.app";
+import { FilterKeys } from "@/shared/global-state";
 
 type OrgsCollectionProps = {
   readonly _tag: "global";
@@ -28,7 +29,7 @@ function GlobalOrgsCollection() {
       columnsDef={orgsColumnsDef}
       data={orgsCollection}
       filterColumnId="name"
-      filterKey="orgs"
+      filterKey={FilterKeys.Orgs}
       filterPlaceHolder="Search organizations"
       filtersDef={orgsFiltersDef}
       limit={limit}

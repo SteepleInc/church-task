@@ -3,6 +3,7 @@ import type { Org } from "@church-task/domain";
 import { useQuery } from "convex/react";
 
 import { collectionFromQueryResult } from "@/data/convex-query-adapter";
+import { FilterKeys } from "@/shared/global-state";
 import { useFilterQuery } from "@/shared/hooks/useFilterQuery";
 
 export type OrgCollectionItem = Pick<Org, "id" | "name" | "slug" | "completedOnboarding"> & {
@@ -39,7 +40,7 @@ export function useAllOrgsCollectionWithFilters() {
     pageSize,
     limit,
   } = useFilterQuery<OrgCollectionItem>({
-    filterKey: "orgs",
+    filterKey: FilterKeys.Orgs,
     query: api.admin.listAllOrgs,
   });
 
