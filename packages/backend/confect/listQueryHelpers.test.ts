@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildWhereForBetterAuthModel,
   getListPageSize,
   getSortByForBetterAuthModel,
+  hasTextSearchFilter,
   type ListArgs,
 } from "../convex/listQueryHelpers";
 
@@ -35,5 +37,67 @@ describe("Convex listQueryHelpers", () => {
         orderDirection: "asc",
       }),
     ).toBeUndefined();
+  });
+
+  it("suppresses ordering when a text search filter is active", () => {
+    const listArgs = {
+      filters: [{ columnId: "name", operator: "contains", type: "text", values: ["grace"] }],
+      orderBy: "createdAt",
+      orderDirection: "desc",
+    } satisfies ListArgs;
+
+    expect(hasTextSearchFilter(listArgs)).toBe(true);
+    expect(getSortByForBetterAuthModel("organization", listArgs)).toBeUndefined();
+  });
+
+  it("translates text search to server-side contains filters", () => {
+    expect(
+      buildWhereForBetterAuthModel("organization", {
+        filters: [{ columnId: "name", operator: "contains", type: "text", values: ["grace"] }],
+      }),
+    ).toEqual([
+      { field: "name", mode: "insensitive", operator: "contains", value: "grace" },
+      { connector: "OR", field: "slug", mode: "insensitive", operator: "contains", value: "grace" },
+    ]);
+  });
+
+  it("translates option filters and coerces onboarding values to booleans", () => {
+    expect(
+      buildWhereForBetterAuthModel("organization", {
+        filters: [
+          { columnId: "completedOnboarding", operator: "is", type: "option", values: ["true"] },
+        ],
+      }),
+    ).toEqual([{ field: "completedOnboarding", operator: "eq", value: true }]);
+  });
+
+  it("translates date and number filters", () => {
+    expect(
+      buildWhereForBetterAuthModel("organization", {
+        filters: [
+          { columnId: "createdAt", operator: "is between", type: "date", values: [100, 200] },
+          { columnId: "createdAt", operator: "is greater than", type: "number", values: [150] },
+        ],
+      }),
+    ).toEqual([
+      { field: "createdAt", operator: "gte", value: 100 },
+      { field: "createdAt", operator: "lte", value: 200 },
+      { field: "createdAt", operator: "gt", value: 150 },
+    ]);
+  });
+
+  it("translates multi-option filters", () => {
+    expect(
+      buildWhereForBetterAuthModel("organization", {
+        filters: [
+          {
+            columnId: "size",
+            operator: "include any of",
+            type: "multiOption",
+            values: ["1-50", "51-100"],
+          },
+        ],
+      }),
+    ).toEqual([{ field: "size", operator: "in", value: ["1-50", "51-100"] }]);
   });
 });

@@ -4,13 +4,13 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { CollectionCardView } from "@/components/collections/collectionCardView";
 import { CollectionTableView } from "@/components/collections/collectionTableView";
 import type { CollectionTags } from "@/components/collections/collectionComponents";
-import { CollectionViewToggleGroup } from "@/components/collections/collectionViewToggleGroup";
+import { CollectionToolbar } from "@/components/collections/collectionToolbar";
 import { useCreateTable } from "@/components/collections/useCreateTable";
 import type { ColumnConfig } from "@/components/data-table-filter/core/types";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { useAtomValue } from "jotai";
 import { collectionViewsAtom, getCollectionView } from "@/shared/global-state";
-import { useSorting } from "@/shared/hooks/useFilters";
+import { useFiltersValue, useSorting } from "@/shared/hooks/useFilters";
 
 export type CollectionColumnDef<TItem> = {
   readonly id: string;
@@ -74,6 +74,8 @@ export function Collection<TItem>({
   data,
   emptyState,
   filterKey,
+  filterColumnId,
+  filterPlaceHolder,
   filtersDef = [],
   limit,
   loading = false,
@@ -87,6 +89,7 @@ export function Collection<TItem>({
   const forceCards = useForceCardsView();
   const currentView = forceCards ? "cards" : persistedView;
   const [sorting, setSorting] = useSorting(filterKey);
+  const filters = useFiltersValue(filterKey);
   const normalizedColumnsDef = useMemo(
     () => columnsDef.map((columnDef) => toTanStackColumnDef(columnDef)),
     [columnsDef],
@@ -105,7 +108,7 @@ export function Collection<TItem>({
     },
     sorting: sorting as SortingState,
   });
-  const hasActiveFilters = filtersDef.length > 0;
+  const hasActiveFilters = filters.length > 0;
 
   if (loading) {
     return (
@@ -120,7 +123,16 @@ export function Collection<TItem>({
   if (data.length === 0) {
     return (
       <div className="flex flex-1 flex-col overflow-hidden">
-        <CollectionTopBar _tag={_tag} Actions={Actions} />
+        <CollectionToolbar
+          _tag={_tag}
+          Actions={Actions}
+          data={data}
+          filterColumnId={filterColumnId}
+          filterKey={filterKey}
+          filterPlaceHolder={filterPlaceHolder}
+          filtersDef={filtersDef as ReadonlyArray<ColumnConfig<TItem>>}
+          table={table}
+        />
         {hasActiveFilters
           ? (noResultsState ?? (
               <Empty className="min-h-48">
@@ -144,7 +156,16 @@ export function Collection<TItem>({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <CollectionTopBar _tag={_tag} Actions={Actions} />
+      <CollectionToolbar
+        _tag={_tag}
+        Actions={Actions}
+        data={data}
+        filterColumnId={filterColumnId}
+        filterKey={filterKey}
+        filterPlaceHolder={filterPlaceHolder}
+        filtersDef={filtersDef as ReadonlyArray<ColumnConfig<TItem>>}
+        table={table}
+      />
       {currentView === "cards" ? (
         <CollectionCardView
           canLoadMore={canLoadMore}
@@ -164,21 +185,6 @@ export function Collection<TItem>({
           table={table}
         />
       )}
-    </div>
-  );
-}
-
-function CollectionTopBar({
-  _tag,
-  Actions,
-}: {
-  readonly _tag: CollectionTags;
-  readonly Actions?: ReactNode;
-}) {
-  return (
-    <div className="-mt-1 mb-2 flex items-center justify-between gap-2 pt-1 md:mr-4 md:mb-4">
-      <div className="flex items-center gap-2">{Actions}</div>
-      <CollectionViewToggleGroup _tag={_tag} size="sm" variant="outline" />
     </div>
   );
 }

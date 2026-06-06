@@ -97,6 +97,24 @@ export type FilterItem = typeof filterItemValidator.type;
 
 type BetterAuthModel = "organization" | "user" | "member" | "team";
 type SortBy = { readonly field: string; readonly direction: "asc" | "desc" };
+type BetterAuthWhere = {
+  readonly connector?: "AND" | "OR";
+  readonly field: string;
+  readonly mode?: "sensitive" | "insensitive";
+  readonly operator?:
+    | "lt"
+    | "lte"
+    | "gt"
+    | "gte"
+    | "eq"
+    | "in"
+    | "not_in"
+    | "ne"
+    | "contains"
+    | "starts_with"
+    | "ends_with";
+  readonly value: string | number | boolean | Array<string> | Array<number> | null;
+};
 
 const sortableFieldsByModel = {
   member: new Set(["createdAt", "organizationId", "role", "userId"]),
@@ -113,10 +131,198 @@ const sortableFieldsByModel = {
   user: new Set(["createdAt", "email", "name"]),
 } satisfies Record<BetterAuthModel, Set<string>>;
 
+const filterableFieldsByModel = {
+  member: new Set(["createdAt", "organizationId", "role", "userId"]),
+  organization: new Set([
+    "churchTimeZone",
+    "completedOnboarding",
+    "createdAt",
+    "name",
+    "size",
+    "slug",
+    "state",
+    "url",
+  ]),
+  team: new Set(["createdAt", "name", "organizationId", "sortOrder", "updatedAt"]),
+  user: new Set(["createdAt", "email", "name"]),
+} satisfies Record<BetterAuthModel, Set<string>>;
+
+function isNonEmptyFilterValue(value: string | number | undefined): value is string | number {
+  return typeof value === "number" || (typeof value === "string" && value.trim().length > 0);
+}
+
+export function hasTextSearchFilter(listArgs: ListArgs): boolean {
+  return Boolean(
+    listArgs.filters?.some(
+      (filter) =>
+        filter.type === "text" &&
+        filter.operator === "contains" &&
+        typeof filter.values[0] === "string" &&
+        filter.values[0].trim().length > 0,
+    ),
+  );
+}
+
+function getTextSearchWheres(
+  model: BetterAuthModel,
+  filter: Extract<FilterItem, { type: "text" }>,
+) {
+  const value = filter.values[0]?.trim();
+
+  if (!value) {
+    return [];
+  }
+
+  const operator = filter.operator === "does not contain" ? "not_in" : "contains";
+
+  if (operator === "not_in") {
+    return [];
+  }
+
+  if (model === "organization" && filter.columnId === "name") {
+    return [
+      { field: "name", mode: "insensitive", operator, value },
+      { connector: "OR", field: "slug", mode: "insensitive", operator, value },
+    ] satisfies BetterAuthWhere[];
+  }
+
+  if (!filterableFieldsByModel[model].has(filter.columnId)) {
+    return [];
+  }
+
+  return [
+    { field: filter.columnId, mode: "insensitive", operator, value },
+  ] satisfies BetterAuthWhere[];
+}
+
+function getOptionWheres(
+  model: BetterAuthModel,
+  filter: Extract<FilterItem, { type: "option" | "multiOption" }>,
+) {
+  if (!filterableFieldsByModel[model].has(filter.columnId) || filter.values.length === 0) {
+    return [];
+  }
+
+  if (model === "organization" && filter.columnId === "completedOnboarding") {
+    const [value] = filter.values;
+
+    if (value !== "true" && value !== "false") {
+      return [];
+    }
+
+    const booleanValue = value === "true";
+    const operator = filter.operator === "is" || filter.operator === "is any of" ? "eq" : "ne";
+
+    return [{ field: filter.columnId, operator, value: booleanValue }] satisfies BetterAuthWhere[];
+  }
+
+  const positiveOperators = new Set([
+    "is",
+    "is any of",
+    "include",
+    "include any of",
+    "include all of",
+  ]);
+  const operator = positiveOperators.has(filter.operator) ? "in" : "not_in";
+  const value = [...filter.values];
+
+  if (value.length === 0) {
+    return [];
+  }
+
+  return [{ field: filter.columnId, operator, value }] satisfies BetterAuthWhere[];
+}
+
+function getRangeWheres(filter: Extract<FilterItem, { type: "date" | "number" }>) {
+  const [firstValue, secondValue] = filter.values;
+
+  if (!isNonEmptyFilterValue(firstValue)) {
+    return [];
+  }
+
+  switch (filter.operator) {
+    case "is":
+      return [
+        { field: filter.columnId, operator: "eq", value: firstValue },
+      ] satisfies BetterAuthWhere[];
+    case "is not":
+      return [
+        { field: filter.columnId, operator: "ne", value: firstValue },
+      ] satisfies BetterAuthWhere[];
+    case "is before":
+    case "is less than":
+      return [
+        { field: filter.columnId, operator: "lt", value: firstValue },
+      ] satisfies BetterAuthWhere[];
+    case "is on or after":
+    case "is greater than or equal to":
+      return [
+        { field: filter.columnId, operator: "gte", value: firstValue },
+      ] satisfies BetterAuthWhere[];
+    case "is after":
+    case "is greater than":
+      return [
+        { field: filter.columnId, operator: "gt", value: firstValue },
+      ] satisfies BetterAuthWhere[];
+    case "is on or before":
+    case "is less than or equal to":
+      return [
+        { field: filter.columnId, operator: "lte", value: firstValue },
+      ] satisfies BetterAuthWhere[];
+    case "is between":
+      if (!isNonEmptyFilterValue(secondValue)) return [];
+      return [
+        { field: filter.columnId, operator: "gte", value: firstValue },
+        { field: filter.columnId, operator: "lte", value: secondValue },
+      ] satisfies BetterAuthWhere[];
+    case "is not between":
+      if (!isNonEmptyFilterValue(secondValue)) return [];
+      return [
+        { field: filter.columnId, operator: "lt", value: firstValue },
+        { connector: "OR", field: filter.columnId, operator: "gt", value: secondValue },
+      ] satisfies BetterAuthWhere[];
+    default:
+      return [];
+  }
+}
+
+export function buildWhereForBetterAuthModel(
+  model: BetterAuthModel,
+  listArgs: ListArgs,
+): BetterAuthWhere[] {
+  const where: BetterAuthWhere[] = [];
+
+  for (const filter of listArgs.filters ?? []) {
+    if (!filterableFieldsByModel[model].has(filter.columnId)) {
+      continue;
+    }
+
+    switch (filter.type) {
+      case "text":
+        where.push(...getTextSearchWheres(model, filter));
+        break;
+      case "option":
+      case "multiOption":
+        where.push(...getOptionWheres(model, filter));
+        break;
+      case "date":
+      case "number":
+        where.push(...getRangeWheres(filter));
+        break;
+    }
+  }
+
+  return where;
+}
+
 export function getSortByForBetterAuthModel(
   model: BetterAuthModel,
   listArgs: ListArgs,
 ): SortBy | undefined {
+  if (hasTextSearchFilter(listArgs)) {
+    return undefined;
+  }
+
   if (!listArgs.orderBy || !listArgs.orderDirection) {
     return undefined;
   }
@@ -145,6 +351,7 @@ export async function listBetterAuthModel<T>(
   },
 ) {
   const sortBy = getSortByForBetterAuthModel(args.model, args.listArgs);
+  const where = buildWhereForBetterAuthModel(args.model, args.listArgs);
 
   return (await ctx.runQuery(components.betterAuth.adapter.findMany, {
     model: args.model,
@@ -154,6 +361,7 @@ export async function listBetterAuthModel<T>(
     },
     select: args.select,
     ...(sortBy ? { sortBy } : {}),
+    ...(where.length > 0 ? { where } : {}),
   })) as {
     readonly page: ReadonlyArray<T>;
     readonly isDone: boolean;

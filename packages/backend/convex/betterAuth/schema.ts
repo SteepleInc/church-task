@@ -151,7 +151,9 @@ export const tables = {
     .index("slug", ["slug"])
     .index("size", ["size"])
     .index("url", ["url"])
-    .index("name", ["name"]),
+    .index("name", ["name"])
+    .searchIndex("search_name", { searchField: "name" })
+    .searchIndex("search_slug", { searchField: "slug" }),
   member: defineTable({
     organizationId: v.string(),
     userId: v.string(),

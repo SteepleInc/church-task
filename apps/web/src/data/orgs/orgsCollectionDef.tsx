@@ -2,8 +2,11 @@ import type { ColumnDef } from "@tanstack/react-table";
 
 import { BaseAvatar } from "@/components/avatars/baseAvatar";
 import { ColumnHeader } from "@/components/collections/collectionComponents";
+import { createColumnConfigHelper } from "@/components/data-table-filter/core/filters";
 import { Badge } from "@/components/ui/badge";
 import type { OrgCollectionItem } from "@/data/orgs/orgsData.app";
+
+const dtf = createColumnConfigHelper<OrgCollectionItem>();
 
 const urlProtocolRegex = /^https?:\/\//;
 const trailingSlashRegex = /\/$/;
@@ -21,6 +24,122 @@ export function formatLocation(org: Pick<OrgCollectionItem, "city" | "state" | "
 export function formatCreatedAt(createdAt: number | undefined) {
   return createdAt ? new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(createdAt) : "-";
 }
+
+const churchTimeZoneOptions = [
+  { label: "Eastern", value: "America/New_York" },
+  { label: "Central", value: "America/Chicago" },
+  { label: "Mountain", value: "America/Denver" },
+  { label: "Pacific", value: "America/Los_Angeles" },
+  { label: "Alaska", value: "America/Anchorage" },
+  { label: "Hawaii", value: "Pacific/Honolulu" },
+] as const;
+
+const usStateOptions = [
+  "Alabama",
+  "Alaska",
+  "Arizona",
+  "Arkansas",
+  "California",
+  "Colorado",
+  "Connecticut",
+  "Delaware",
+  "District of Columbia",
+  "Florida",
+  "Georgia",
+  "Hawaii",
+  "Idaho",
+  "Illinois",
+  "Indiana",
+  "Iowa",
+  "Kansas",
+  "Kentucky",
+  "Louisiana",
+  "Maine",
+  "Maryland",
+  "Massachusetts",
+  "Michigan",
+  "Minnesota",
+  "Mississippi",
+  "Missouri",
+  "Montana",
+  "Nebraska",
+  "Nevada",
+  "New Hampshire",
+  "New Jersey",
+  "New Mexico",
+  "New York",
+  "North Carolina",
+  "North Dakota",
+  "Ohio",
+  "Oklahoma",
+  "Oregon",
+  "Pennsylvania",
+  "Rhode Island",
+  "South Carolina",
+  "South Dakota",
+  "Tennessee",
+  "Texas",
+  "Utah",
+  "Vermont",
+  "Virginia",
+  "Washington",
+  "West Virginia",
+  "Wisconsin",
+  "Wyoming",
+].map((state) => ({ label: state, value: state }));
+
+const churchSizeOptions = ["1-50", "51-100", "101-250", "251-500", "501-1000", "1000+"].map(
+  (size) => ({ label: size, value: size }),
+);
+
+const onboardingOptions = [
+  { label: "Complete", value: "true" },
+  { label: "Incomplete", value: "false" },
+] as const;
+
+export const orgsFiltersDef = [
+  dtf
+    .text()
+    .id("name")
+    .accessor((org) => org.name)
+    .displayName("Name")
+    .hidden()
+    .build(),
+  dtf
+    .option()
+    .id("churchTimeZone")
+    .accessor((org) => org.churchTimeZone)
+    .displayName("Church Time Zone")
+    .options(churchTimeZoneOptions)
+    .build(),
+  dtf
+    .option()
+    .id("state")
+    .accessor((org) => org.state)
+    .displayName("State")
+    .options(usStateOptions)
+    .build(),
+  dtf
+    .option()
+    .id("size")
+    .accessor((org) => org.size)
+    .displayName("Size")
+    .options(churchSizeOptions)
+    .build(),
+  dtf
+    .option()
+    .id("completedOnboarding")
+    .accessor((org) => org.completedOnboarding)
+    .displayName("Onboarding")
+    .options(onboardingOptions)
+    .build(),
+  dtf
+    .date()
+    .id("createdAt")
+    .accessor((org) => org.createdAt)
+    .displayName("Created")
+    .build(),
+] as const;
 
 export const orgsColumnsDef: Array<ColumnDef<OrgCollectionItem>> = [
   {
@@ -141,5 +260,3 @@ export const orgsColumnsDef: Array<ColumnDef<OrgCollectionItem>> = [
     size: 150,
   },
 ];
-
-export const orgsFiltersDef = [] as const;
