@@ -1,3 +1,3 @@
-export function BigActions() {
-  return null;
-}
+import type { FC } from "react";
+
+export const BigActions: FC = () => <></>;

@@ -275,7 +275,7 @@ describe("quick action route behavior", () => {
     expect(quickActionsSource).toContain('<CommandGroup heading="Quick Action">');
     expect(quickActionsSource).not.toContain("Big Actions");
     expect(quickActionsSource).not.toContain("action.description");
-    expect(bigActionsSource).toContain("export function BigActions()");
+    expect(bigActionsSource).toContain("export const BigActions: FC");
   });
 
   test("creates tasks through a quick action dialog instead of a big action", () => {
