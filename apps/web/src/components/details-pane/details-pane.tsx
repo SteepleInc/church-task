@@ -18,6 +18,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/compone
 import { OrgDetailsPane } from "@/features/details-pane/org-details-pane";
 import { TaskDetailsPane } from "@/features/details-pane/task-details-pane";
 import { TeamDetailsPane } from "@/features/details-pane/team-details-pane";
+import { UserDetailsPane } from "@/features/details-pane/user-details-pane";
 import { cn } from "@/lib/utils";
 import { detailsPaneStickyAtom } from "@/shared/global-state";
 import { useIsMdScreen } from "@/shared/hooks/use-media-query";
@@ -72,6 +73,9 @@ export function DetailsPane({ className }: { readonly className?: string }) {
               )),
               Match.tag("task", (taskData) => <TaskDetailsPane taskId={taskData.id} />),
               Match.tag("team", (teamData) => <TeamDetailsPane teamId={teamData.id} />),
+              Match.tag("user", (userData) => (
+                <UserDetailsPane tab={userData.tab} userId={userData.id} />
+              )),
               Match.exhaustive,
             ),
         }),

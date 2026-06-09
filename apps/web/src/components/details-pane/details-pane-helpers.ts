@@ -84,6 +84,7 @@ export function useChangeDetailsPaneId() {
             Match.tag("org", (org) => ({ ...org, id })),
             Match.tag("task", (task) => ({ ...task, id })),
             Match.tag("team", (team) => ({ ...team, id })),
+            Match.tag("user", (user) => ({ ...user, id })),
             Match.exhaustive,
           )(entry),
         ),

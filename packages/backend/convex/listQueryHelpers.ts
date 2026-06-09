@@ -118,9 +118,15 @@ export type BetterAuthWhere = {
 };
 
 type OrganizationSearchField = "name" | "slug";
+type UserSearchField = "name" | "email";
 
 type OrganizationSearchQuery = {
   readonly searchField: OrganizationSearchField;
+  readonly searchValue: string;
+};
+
+type UserSearchQuery = {
+  readonly searchField: UserSearchField;
   readonly searchValue: string;
 };
 
@@ -133,6 +139,23 @@ type BetterAuthSearchComponent = typeof components.betterAuth & {
         paginationOpts: typeof paginationOptsValidator.type;
         pageSize: number;
         searchField: OrganizationSearchField;
+        searchValue: string;
+        select?: Array<string>;
+        where?: Array<BetterAuthWhere>;
+      },
+      {
+        readonly page: ReadonlyArray<unknown>;
+        readonly isDone: boolean;
+        readonly continueCursor: string;
+      }
+    >;
+    readonly listUsersBySearch: FunctionReference<
+      "query",
+      "internal",
+      {
+        paginationOpts: typeof paginationOptsValidator.type;
+        pageSize: number;
+        searchField: UserSearchField;
         searchValue: string;
         select?: Array<string>;
         where?: Array<BetterAuthWhere>;
@@ -158,7 +181,7 @@ const sortableFieldsByModel = {
     "url",
   ]),
   team: new Set(["createdAt", "name", "organizationId", "sortOrder", "updatedAt"]),
-  user: new Set(["createdAt", "email", "name"]),
+  user: new Set(["_id", "createdAt", "email", "name"]),
 } satisfies Record<BetterAuthModel, Set<string>>;
 
 const filterableFieldsByModel = {
@@ -174,7 +197,7 @@ const filterableFieldsByModel = {
     "url",
   ]),
   team: new Set(["createdAt", "name", "organizationId", "sortOrder", "updatedAt"]),
-  user: new Set(["createdAt", "email", "name"]),
+  user: new Set(["_id", "createdAt", "email", "name"]),
 } satisfies Record<BetterAuthModel, Set<string>>;
 
 function isNonEmptyFilterValue(value: string | number | undefined): value is string | number {
@@ -324,6 +347,14 @@ export function buildWhereForBetterAuthModel(
   const where: BetterAuthWhere[] = [];
   const includeTextFilters = options?.includeTextFilters ?? true;
 
+  if (listArgs.selectedIds && listArgs.selectedIds.length > 0) {
+    where.push({ field: "_id", operator: "in", value: [...listArgs.selectedIds] });
+  }
+
+  if (listArgs.excludeIds && listArgs.excludeIds.length > 0) {
+    where.push({ field: "_id", operator: "not_in", value: [...listArgs.excludeIds] });
+  }
+
   for (const filter of listArgs.filters ?? []) {
     if (!filterableFieldsByModel[model].has(filter.columnId)) {
       continue;
@@ -382,6 +413,36 @@ export function getOrganizationSearchQuery(
   };
 }
 
+export function getUserSearchQuery(listArgs: ListArgs): UserSearchQuery | undefined {
+  const textFilter = listArgs.filters?.find(
+    (filter): filter is Extract<FilterItem, { type: "text" }> =>
+      filter.type === "text" &&
+      filter.operator === "contains" &&
+      (filter.columnId === "name" || filter.columnId === "email") &&
+      typeof filter.values[0] === "string" &&
+      filter.values[0].trim().length > 0,
+  );
+
+  if (!textFilter) {
+    return undefined;
+  }
+
+  const searchValue = textFilter.values[0];
+
+  if (textFilter.columnId !== "name" && textFilter.columnId !== "email") {
+    return undefined;
+  }
+
+  if (typeof searchValue !== "string") {
+    return undefined;
+  }
+
+  return {
+    searchField: textFilter.columnId,
+    searchValue: searchValue.trim(),
+  };
+}
+
 export function getSortByForBetterAuthModel(
   model: BetterAuthModel,
   listArgs: ListArgs,
@@ -420,8 +481,9 @@ export async function listBetterAuthModel<T>(
   const sortBy = getSortByForBetterAuthModel(args.model, args.listArgs);
   const organizationSearchQuery =
     args.model === "organization" ? getOrganizationSearchQuery(args.listArgs) : undefined;
+  const userSearchQuery = args.model === "user" ? getUserSearchQuery(args.listArgs) : undefined;
   const where = buildWhereForBetterAuthModel(args.model, args.listArgs, {
-    includeTextFilters: !organizationSearchQuery,
+    includeTextFilters: !organizationSearchQuery && !userSearchQuery,
   });
 
   if (organizationSearchQuery) {
@@ -432,6 +494,23 @@ export async function listBetterAuthModel<T>(
       pageSize: getListPageSize(args),
       searchField: organizationSearchQuery.searchField,
       searchValue: organizationSearchQuery.searchValue,
+      select: args.select,
+      ...(where.length > 0 ? { where } : {}),
+    })) as {
+      readonly page: ReadonlyArray<T>;
+      readonly isDone: boolean;
+      readonly continueCursor: string;
+    };
+  }
+
+  if (userSearchQuery) {
+    const betterAuthSearch = components.betterAuth as BetterAuthSearchComponent;
+
+    return (await ctx.runQuery(betterAuthSearch.search.listUsersBySearch, {
+      paginationOpts: args.paginationOpts,
+      pageSize: getListPageSize(args),
+      searchField: userSearchQuery.searchField,
+      searchValue: userSearchQuery.searchValue,
       select: args.select,
       ...(where.length > 0 ? { where } : {}),
     })) as {

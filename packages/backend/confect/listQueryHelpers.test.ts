@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildWhereForBetterAuthModel,
   getOrganizationSearchQuery,
+  getUserSearchQuery,
   getListPageSize,
   getSortByForBetterAuthModel,
   hasTextSearchFilter,
@@ -68,6 +69,22 @@ describe("Convex listQueryHelpers", () => {
         filters: [{ columnId: "name", operator: "contains", type: "text", values: [" grace "] }],
       }),
     ).toEqual({ searchField: "name", searchValue: "grace" });
+  });
+
+  it("extracts user text search for the Convex search-index query path", () => {
+    expect(
+      getUserSearchQuery({
+        filters: [{ columnId: "email", operator: "contains", type: "text", values: [" user "] }],
+      }),
+    ).toEqual({ searchField: "email", searchValue: "user" });
+  });
+
+  it("translates selected user ids into adapter where clauses", () => {
+    expect(
+      buildWhereForBetterAuthModel("user", {
+        selectedIds: ["user_1", "user_2"],
+      }),
+    ).toEqual([{ field: "_id", operator: "in", value: ["user_1", "user_2"] }]);
   });
 
   it("can omit text search from adapter where clauses when using a search index", () => {

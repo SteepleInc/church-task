@@ -1,6 +1,11 @@
 import { authComponent } from "../authCore";
 import { assertAppAdministratorUser } from "../adminAccess";
-import { listBetterAuthModel, listQueryArgsValidator } from "./listQueryHelpers";
+import {
+  listBetterAuthModel,
+  listQueryArgsValidator,
+  type FilterItem,
+  type ListArgs,
+} from "./listQueryHelpers";
 import { components } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
@@ -24,8 +29,31 @@ type BetterAuthOrganization = {
   readonly createdAt: number;
 };
 
+type BetterAuthUser = {
+  readonly _id: string;
+  readonly name: string;
+  readonly email: string;
+  readonly image?: string | null;
+  readonly createdAt: number;
+};
+
+type BetterAuthMember = {
+  readonly _id: string;
+  readonly organizationId: string;
+  readonly userId: string;
+  readonly role: string;
+  readonly createdAt: number;
+};
+
 type BetterAuthCountable = {
   readonly _id: string;
+};
+
+type UserChurch = {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string | null;
+  readonly role: string;
 };
 
 type UpdateOrgInput = {
@@ -69,6 +97,66 @@ async function countBetterAuthModelByOrganization(
   return count;
 }
 
+async function listBetterAuthMembersByUser(
+  ctx: Parameters<typeof listBetterAuthModel>[0],
+  userId: string,
+) {
+  const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+    model: "member",
+    where: [{ field: "userId", value: userId }],
+    paginationOpts: { cursor: null, numItems: 1000 },
+    select: ["_id", "organizationId", "userId", "role", "createdAt"],
+  })) as { readonly page: ReadonlyArray<BetterAuthMember> };
+
+  return result.page;
+}
+
+async function listUserIdsForChurchFilter(
+  ctx: Parameters<typeof listBetterAuthModel>[0],
+  organizationIds: ReadonlyArray<string>,
+) {
+  if (organizationIds.length === 0) {
+    return undefined;
+  }
+
+  const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+    model: "member",
+    where: [{ field: "organizationId", operator: "in", value: [...organizationIds] }],
+    paginationOpts: { cursor: null, numItems: 1000 },
+    select: ["userId"],
+  })) as { readonly page: ReadonlyArray<Pick<BetterAuthMember, "userId">> };
+
+  return Array.from(new Set(result.page.map((member) => member.userId)));
+}
+
+async function getUserChurches(
+  ctx: Parameters<typeof listBetterAuthModel>[0],
+  userId: string,
+): Promise<readonly UserChurch[]> {
+  const members = await listBetterAuthMembersByUser(ctx, userId);
+
+  return await Promise.all(
+    members.map(async (member) => {
+      const orgResult = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+        model: "organization",
+        where: [{ field: "_id", value: member.organizationId }],
+        paginationOpts: { cursor: null, numItems: 1 },
+        select: ["_id", "name", "slug"],
+      })) as {
+        readonly page: ReadonlyArray<Pick<BetterAuthOrganization, "_id" | "name" | "slug">>;
+      };
+      const organization = orgResult.page[0];
+
+      return {
+        id: member.organizationId,
+        name: organization?.name ?? member.organizationId,
+        slug: organization?.slug ?? null,
+        role: member.role,
+      };
+    }),
+  );
+}
+
 export function buildAdminOrgCollectionItem(
   organization: BetterAuthOrganization,
   counts: { readonly membersCount: number; readonly teamsCount: number },
@@ -92,6 +180,36 @@ export function buildAdminOrgCollectionItem(
     membersCount: counts.membersCount,
     teamsCount: counts.teamsCount,
     createdAt: organization.createdAt,
+  };
+}
+
+export function buildAdminUserCollectionItem(
+  user: BetterAuthUser,
+  churches: readonly UserChurch[],
+) {
+  return {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    image: user.image ?? null,
+    createdAt: user.createdAt,
+    churches,
+  };
+}
+
+function splitUserChurchFilters(listArgs: ListArgs) {
+  const churchesFilters = (listArgs.filters ?? []).filter(
+    (filter): filter is Extract<FilterItem, { type: "multiOption" }> =>
+      filter.type === "multiOption" && filter.columnId === "churches",
+  );
+  const passthroughFilters = (listArgs.filters ?? []).filter(
+    (filter) => !(filter.type === "multiOption" && filter.columnId === "churches"),
+  );
+  const selectedChurchIds = churchesFilters.flatMap((filter) => [...filter.values]);
+
+  return {
+    selectedChurchIds,
+    listArgs: { ...listArgs, filters: passthroughFilters },
   };
 }
 
@@ -205,6 +323,91 @@ export const listAllOrgs = query({
             membersCount: await countBetterAuthModelByOrganization(ctx, "member", organization._id),
             teamsCount: await countBetterAuthModelByOrganization(ctx, "team", organization._id),
           }),
+        ),
+      ),
+    };
+  },
+});
+
+export const listAllOrgOptions = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+
+    assertAppAdministratorUser(authUser);
+
+    const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "organization",
+      paginationOpts: { cursor: null, numItems: 1000 },
+      select: ["_id", "name"],
+      sortBy: { field: "name", direction: "asc" },
+    })) as { readonly page: ReadonlyArray<Pick<BetterAuthOrganization, "_id" | "name">> };
+
+    return result.page.map((organization) => ({
+      label: organization.name,
+      value: organization._id,
+    }));
+  },
+});
+
+export const getUser = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+
+    assertAppAdministratorUser(authUser);
+
+    const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "user",
+      where: [{ field: "_id", value: args.userId }],
+      paginationOpts: { cursor: null, numItems: 1 },
+      select: ["_id", "name", "email", "image", "createdAt"],
+    })) as { readonly page: ReadonlyArray<BetterAuthUser> };
+    const user = result.page[0];
+
+    if (!user) {
+      return null;
+    }
+
+    return buildAdminUserCollectionItem(user, await getUserChurches(ctx, user._id));
+  },
+});
+
+export const listAllUsers = query({
+  args: listQueryArgsValidator,
+  handler: async (ctx, args) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+
+    assertAppAdministratorUser(authUser);
+
+    const userListArgs = splitUserChurchFilters(args.listArgs);
+    const filteredUserIds = await listUserIdsForChurchFilter(ctx, userListArgs.selectedChurchIds);
+    const selectedIds = filteredUserIds
+      ? userListArgs.listArgs.selectedIds
+        ? userListArgs.listArgs.selectedIds.filter((userId) => filteredUserIds.includes(userId))
+        : filteredUserIds
+      : userListArgs.listArgs.selectedIds;
+    const normalizedSelectedIds =
+      selectedIds && selectedIds.length > 0
+        ? selectedIds
+        : filteredUserIds
+          ? ["__no_users__"]
+          : undefined;
+    const page = await listBetterAuthModel<BetterAuthUser>(ctx, {
+      model: "user",
+      listArgs: {
+        ...userListArgs.listArgs,
+        selectedIds: normalizedSelectedIds,
+      },
+      paginationOpts: args.paginationOpts,
+      select: ["_id", "name", "email", "image", "createdAt"],
+    });
+
+    return {
+      ...page,
+      page: await Promise.all(
+        page.page.map(async (user) =>
+          buildAdminUserCollectionItem(user, await getUserChurches(ctx, user._id)),
         ),
       ),
     };

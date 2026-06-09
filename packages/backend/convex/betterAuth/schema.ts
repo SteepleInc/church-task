@@ -25,7 +25,9 @@ export const tables = {
     .index("name", ["name"])
     .index("userId", ["userId"])
     .index("username", ["username"])
-    .index("phoneNumber", ["phoneNumber"]),
+    .index("phoneNumber", ["phoneNumber"])
+    .searchIndex("search_name", { searchField: "name" })
+    .searchIndex("search_email", { searchField: "email" }),
   session: defineTable({
     expiresAt: v.number(),
     token: v.string(),
