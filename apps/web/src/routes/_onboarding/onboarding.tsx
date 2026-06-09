@@ -8,7 +8,6 @@ import {
   Card,
   CardAction,
   CardAdornment,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -25,6 +24,7 @@ import {
 } from "@/features/onboarding/onboardingState";
 import { OnboardingProgress } from "@/features/onboarding/onboardingProgress";
 import { authClient } from "@/lib/auth-client";
+import { detectedTimeZone, resolveTimeZoneFromCoordinates } from "@/lib/time-zone";
 import { revalidateLogic } from "@tanstack/react-form";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Schema } from "effect";
@@ -35,6 +35,7 @@ import {
   Church,
   Pencil,
   Plus,
+  Search,
   Trash2,
   UsersRound,
 } from "lucide-react";
@@ -49,14 +50,6 @@ export const Route = createFileRoute("/_onboarding/onboarding")({
     }),
   ),
 });
-
-const CHURCH_SIZE_OPTIONS = [
-  { label: "Under 100 people", value: "under_100" },
-  { label: "100-250 people", value: "100_250" },
-  { label: "251-500 people", value: "251_500" },
-  { label: "501-1,000 people", value: "501_1000" },
-  { label: "More than 1,000 people", value: "over_1000" },
-];
 
 const DEFAULT_INITIAL_TEAMS = ["Worship", "Care", "Operations"];
 
@@ -114,7 +107,10 @@ function OnboardingRoute() {
   const createTeam = useCreateTeamMutation();
   const [error, setError] = useState<string | null>(null);
   const [churchProfile, setChurchProfile] = useState<ChurchProfileValue | null>(null);
-  const [showProfileDetails, setShowProfileDetails] = useState(false);
+  const [churchEntryMode, setChurchEntryMode] = useState<"search" | "manual">(
+    activeChurch?.name ? "manual" : "search",
+  );
+  const [profileReady, setProfileReady] = useState<boolean>(Boolean(activeChurch?.name));
   const [initialTeams, setInitialTeams] = useState<readonly InitialTeamDraft[]>(() =>
     DEFAULT_INITIAL_TEAMS.map((name) => ({ id: crypto.randomUUID(), name })),
   );
@@ -130,7 +126,7 @@ function OnboardingRoute() {
     street: activeChurch?.street ?? "",
     url: activeChurch?.url ?? "",
     zip: activeChurch?.zip ?? "",
-    churchTimeZone: activeChurch?.churchTimeZone ?? detectedChurchTimeZone(),
+    churchTimeZone: activeChurch?.churchTimeZone ?? detectedTimeZone(),
   };
   const form = useAppForm({
     defaultValues,
@@ -322,49 +318,69 @@ function OnboardingRoute() {
           <div className="flex flex-col gap-4 overflow-hidden p-4">
             <Form form={form}>
               <div className="flex flex-col gap-4">
-                <form.AppField name="location">
-                  {(field) => (
-                    <field.AddressLocationField
-                      label="Find Your Church"
-                      onLocationSelect={(location) => {
-                        if (!location) return;
+                {churchEntryMode === "search" ? (
+                  <div className="flex items-end gap-2">
+                    <form.AppField name="location">
+                      {(field) => (
+                        <field.AddressLocationField
+                          label="Find Your Church"
+                          onLocationSelect={(location) => {
+                            if (!location) {
+                              setProfileReady(false);
+                              return;
+                            }
 
-                        form.setFieldValue("name", location.name);
-                        form.setFieldValue("street", location.street ?? "");
-                        form.setFieldValue("city", location.city ?? "");
-                        form.setFieldValue("state", location.state ?? "");
-                        form.setFieldValue("zip", location.postcode ?? "");
-                        form.setFieldValue("countryCode", location.countrycode ?? "");
-                        form.setFieldValue("url", location.url ?? "");
-                      }}
-                      placeholder="Search for your church on Google Maps"
-                    />
-                  )}
-                </form.AppField>
+                            form.setFieldValue("name", location.name);
+                            form.setFieldValue("street", location.street ?? "");
+                            form.setFieldValue("city", location.city ?? "");
+                            form.setFieldValue("state", location.state ?? "");
+                            form.setFieldValue("zip", location.postcode ?? "");
+                            form.setFieldValue("countryCode", location.countrycode ?? "");
+                            form.setFieldValue("url", location.url ?? "");
+                            setProfileReady(true);
 
-                <Card className="w-full overflow-hidden">
-                  <CardHeader className="items-center sm:items-start">
-                    <CardAdornment className="row-span-1 mr-2 self-center sm:row-span-2 sm:self-start">
-                      <Church className="size-5" />
-                    </CardAdornment>
-                    <CardTitle className="self-center sm:self-start">Church Profile</CardTitle>
-                    <CardAction className="row-span-1 self-center sm:row-span-2 sm:self-start">
+                            void resolveTimeZoneFromCoordinates(
+                              location.coordinates.latitude,
+                              location.coordinates.longitude,
+                            ).then((timeZone) => {
+                              form.setFieldValue("churchTimeZone", timeZone);
+                            });
+                          }}
+                          placeholder="Search for your church on Google Maps"
+                        />
+                      )}
+                    </form.AppField>
+                    <Button
+                      className="ml-auto shrink-0"
+                      data-testid="onboarding-enter-manually"
+                      onClick={() => setChurchEntryMode("manual")}
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Pencil />
+                      Enter manually
+                    </Button>
+                  </div>
+                ) : null}
+
+                {churchEntryMode === "manual" || profileReady ? (
+                  <div className="relative flex flex-col gap-4">
+                    {churchEntryMode === "manual" ? (
                       <Button
-                        onClick={() => setShowProfileDetails(!showProfileDetails)}
+                        className="absolute top-0 right-0"
+                        data-testid="onboarding-search-instead"
+                        onClick={() => {
+                          setChurchEntryMode("search");
+                          setProfileReady(false);
+                        }}
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                       >
-                        <Pencil />
-                        {showProfileDetails ? "Hide Details" : "Edit Details"}
+                        <Search />
+                        Search instead
                       </Button>
-                    </CardAction>
-                    <CardDescription className="col-span-2 col-start-2 sm:col-span-1">
-                      Search Google Maps to fill your profile quickly. Edit details only when
-                      something needs correction.
-                    </CardDescription>
-                  </CardHeader>
+                    ) : null}
 
-                  <CardContent className="flex flex-col gap-4">
                     <form.AppField name="name">
                       {(field) => <field.InputField label="Church Name" required />}
                     </form.AppField>
@@ -378,42 +394,8 @@ function OnboardingRoute() {
                         />
                       )}
                     </form.AppField>
-
-                    {showProfileDetails ? (
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <form.AppField name="street">
-                          {(field) => <field.InputField label="Street" />}
-                        </form.AppField>
-                        <form.AppField name="city">
-                          {(field) => <field.InputField label="City" />}
-                        </form.AppField>
-                        <form.AppField name="state">
-                          {(field) => <field.InputField label="State / Region" />}
-                        </form.AppField>
-                        <form.AppField name="zip">
-                          {(field) => <field.InputField label="Postal Code" />}
-                        </form.AppField>
-                        <form.AppField name="countryCode">
-                          {(field) => <field.InputField label="Country Code" placeholder="US" />}
-                        </form.AppField>
-                        <form.AppField name="size">
-                          {(field) => (
-                            <field.SelectField
-                              label="Church Size"
-                              options={CHURCH_SIZE_OPTIONS}
-                              placeholder="Select a size"
-                            />
-                          )}
-                        </form.AppField>
-                        <form.AppField name="url">
-                          {(field) => (
-                            <field.InputField label="Website" placeholder="https://example.org" />
-                          )}
-                        </form.AppField>
-                      </div>
-                    ) : null}
-                  </CardContent>
-                </Card>
+                  </div>
+                ) : null}
 
                 {error ? (
                   <Alert variant="destructive">
@@ -620,8 +602,4 @@ function churchSlug(name: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 64);
-}
-
-function detectedChurchTimeZone() {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
 }
