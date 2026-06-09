@@ -68,18 +68,17 @@ async function completeOnboarding(page: Page, churchName: string) {
   await expect(page.getByText("Next up")).not.toBeVisible();
   await expect(page.getByText("Step 1 of 2")).not.toBeVisible();
   await expect(page.getByLabel("Find Your Church")).toBeVisible();
-  await expect(page.getByLabel("Street")).not.toBeVisible();
+
+  // The Church profile fields stay hidden until the user enters them manually
+  // or selects a church from the Google Maps search.
+  await expect(page.getByLabel("Church Name")).not.toBeVisible();
+  await page.getByTestId("onboarding-enter-manually").click();
+
+  await expect(page.getByLabel("Find Your Church")).not.toBeVisible();
   await page.getByLabel("Church Name").fill(churchName);
-  await page.getByRole("button", { name: "Edit Details" }).click();
-  await page.getByLabel("Street").fill("123 Main Street");
-  await page.getByLabel("City").fill("Nashville");
-  await page.getByLabel("State / Region").fill("TN");
-  await page.getByLabel("Postal Code").fill("37203");
-  await page.getByLabel("Country Code").fill("US");
   await page.getByLabel("Church Time Zone").fill("America/Chicago");
-  await page.getByLabel("Website").fill("https://example.org");
   await page.getByRole("button", { name: "Continue to Teams" }).click();
-  await expect(page.getByText("Review your initial Teams", { exact: true })).toBeVisible();
+  await expect(page.getByText("Review the starting Teams", { exact: false })).toBeVisible();
   await expect(page.getByRole("button", { name: "Enter Church Task" })).toBeEnabled();
   await page.getByRole("button", { name: "Enter Church Task" }).click();
   await expect(page).toHaveURL(/\/my-work$/, { timeout: 20_000 });
@@ -148,20 +147,15 @@ test("creates a Church profile and reviews initial Teams", async ({ page }, test
   await expect(page.getByText("Next up")).not.toBeVisible();
   await expect(page.getByText("Step 1 of 2")).not.toBeVisible();
   await expect(page.getByLabel("Find Your Church")).toBeVisible();
-  await expect(page.getByLabel("Street")).not.toBeVisible();
+  await expect(page.getByLabel("Church Name")).not.toBeVisible();
+  await page.getByTestId("onboarding-enter-manually").click();
+  await expect(page.getByLabel("Find Your Church")).not.toBeVisible();
   await page.getByLabel("Church Name").fill(churchName);
-  await page.getByRole("button", { name: "Edit Details" }).click();
-  await page.getByLabel("Street").fill("123 Main Street");
-  await page.getByLabel("City").fill("Nashville");
-  await page.getByLabel("State / Region").fill("TN");
-  await page.getByLabel("Postal Code").fill("37203");
-  await page.getByLabel("Country Code").fill("US");
   await page.getByLabel("Church Time Zone").fill("America/Chicago");
-  await page.getByLabel("Website").fill("https://example.org");
   await page.getByRole("button", { name: "Continue to Teams" }).click();
 
   await expect(page.getByText("Step 2 of 2")).not.toBeVisible();
-  await expect(page.getByText("Review your initial Teams", { exact: true })).toBeVisible();
+  await expect(page.getByText("Review the starting Teams", { exact: false })).toBeVisible();
   await expect(page.getByText("Initial Church Task Team").first()).toBeVisible();
   await expect(page.getByText("Workflow setup")).not.toBeVisible();
   await page.getByLabel("Team 1 Name").fill("Creative");
@@ -175,6 +169,47 @@ test("creates a Church profile and reviews initial Teams", async ({ page }, test
 
   await expect(page).toHaveURL(/\/my-work$/, { timeout: 20_000 });
   await expect(page.getByRole("navigation", { name: "breadcrumb" })).toContainText("My Work");
+});
+
+test("toggles cleanly between Find Your Church search and manual entry", async ({
+  page,
+}, testInfo) => {
+  const email = `onboarding-toggle-${Date.now()}-${testInfo.workerIndex}@example.com`;
+
+  await signInWithOtp(page, email);
+  await expect(page).toHaveURL(/\/onboarding$/);
+
+  // Search mode: only the Find Your Church input is shown; the profile fields
+  // are hidden until the user enters them manually or selects a church.
+  await expect(page.getByLabel("Find Your Church")).toBeVisible();
+  await expect(page.getByTestId("onboarding-enter-manually")).toBeVisible();
+  await expect(page.getByLabel("Church Name")).not.toBeVisible();
+  await expect(page.getByLabel("Church Time Zone")).not.toBeVisible();
+
+  // Manual mode: the search input is replaced by the manual profile fields.
+  await page.getByTestId("onboarding-enter-manually").click();
+  await expect(page.getByLabel("Find Your Church")).not.toBeVisible();
+  await expect(page.getByTestId("onboarding-enter-manually")).not.toBeVisible();
+  await expect(page.getByLabel("Church Name")).toBeVisible();
+  await expect(page.getByLabel("Church Time Zone")).toBeVisible();
+  await expect(page.getByTestId("onboarding-search-instead")).toBeVisible();
+
+  // A stray value typed in manual mode must not leak back into search mode.
+  await page.getByLabel("Church Name").fill("Temporary Name");
+
+  // Back to search mode: the profile fields disappear again and the search
+  // input returns, with no leftover "confirm" state from manual entry.
+  await page.getByTestId("onboarding-search-instead").click();
+  await expect(page.getByLabel("Find Your Church")).toBeVisible();
+  await expect(page.getByTestId("onboarding-enter-manually")).toBeVisible();
+  await expect(page.getByLabel("Church Name")).not.toBeVisible();
+  await expect(page.getByLabel("Church Time Zone")).not.toBeVisible();
+  await expect(page.getByTestId("onboarding-search-instead")).not.toBeVisible();
+
+  // The manual form can be re-opened and the previously typed value is retained
+  // in form state (we never cleared it, only hid the field).
+  await page.getByTestId("onboarding-enter-manually").click();
+  await expect(page.getByLabel("Church Name")).toHaveValue("Temporary Name");
 });
 
 test("Create Church clears active Church for onboarding and completed Church switching returns to My Work", async ({
@@ -352,9 +387,15 @@ test("Google Places lookup autofills editable Church profile fields", async ({
   });
   const selectedPlace = await firstResult.jsonValue();
   if (!selectedPlace) throw new Error("Google Places result did not expose a value.");
+
+  // Selecting a church reveals the Church profile fields and autofills them.
+  await expect(page.getByLabel("Church Name")).not.toBeVisible();
   await page.getByLabel("Find Your Church").fill(selectedPlace);
 
+  await expect(page.getByLabel("Church Name")).toBeVisible();
   await expect(page.getByLabel("Church Name")).not.toHaveValue("");
+  // The time zone is derived from the selected church's coordinates.
+  await expect(page.getByLabel("Church Time Zone")).not.toHaveValue("");
   await page.getByLabel("Church Name").fill("Editable Church Name Override");
   await expect(page.getByLabel("Church Name")).toHaveValue("Editable Church Name Override");
 });
