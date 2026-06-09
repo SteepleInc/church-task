@@ -9,85 +9,115 @@ import {
   KanbanOverlay,
   type KanbanMoveEvent,
 } from "@/components/reui/kanban";
+import { useAppForm } from "@/components/form/ts-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { GripVerticalIcon } from "lucide-react";
-import { type ComponentProps, useState } from "react";
+import { GripVerticalIcon, Triangle } from "lucide-react";
+import { type ComponentProps, useMemo, useState } from "react";
 
+import {
+  AssigneeAvatar,
+  CardComboboxSelector,
+  getPriorityMeta,
+  getSizeMeta,
+  PRIORITY_OPTIONS,
+  SIZE_OPTIONS,
+  WorkflowStatusIcon,
+  type AssigneeOption,
+  type CardSelectOption,
+  type TaskPriority,
+  type TaskSize,
+} from "./task-card-fields";
 import {
   buildTaskBoardColumns,
   groupTasksByWorkflowStatus,
   moveTaskBetweenBoardColumns,
   type TaskBoardColumn,
-  type TaskBoardColumns,
   type TaskBoardTask,
+  type TaskBoardTaskState,
   type TaskBoardWorkflowStatus,
 } from "./task-kanban-adapter";
+
+export type TaskCardAssignChange = {
+  readonly taskId: string;
+  readonly assignedUserId: string | null;
+};
+
+export type TaskCardStatusChange = {
+  readonly taskId: string;
+  readonly workflowStatusId: string;
+};
 
 type TaskKanbanBoardProps = {
   readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
   readonly tasks: readonly TaskBoardTask[];
+  readonly assigneeOptions?: readonly AssigneeOption[];
   readonly onMoveTask: (move: {
     readonly taskId: string;
     readonly workflowStatusId: string;
   }) => void | Promise<void>;
+  readonly onAssignTask?: (change: TaskCardAssignChange) => void | Promise<void>;
+  readonly onChangeTaskStatus?: (change: TaskCardStatusChange) => void | Promise<void>;
   readonly onOpenTask?: (taskId: string) => void;
   readonly className?: string;
 };
 
+// Signature of the derived board layout. When this changes (tasks moved,
+// assigned, added, removed) the controlled Kanban value is re-synced from props
+// so optimistic query updates show immediately instead of waiting on a remount.
+function boardSignature(
+  columns: readonly TaskBoardColumn[],
+  tasks: readonly TaskBoardTask[],
+): string {
+  return [
+    ...columns.map((column) => `${column.id}:${column.title}`),
+    ...tasks.map(
+      (task) =>
+        `${task.id}:${task.workflowStatusId}:${task.taskState}:${task.assignedUserId ?? ""}`,
+    ),
+  ].join(":");
+}
+
 export function TaskKanbanBoard({
   workflowStatuses,
   tasks,
+  assigneeOptions = [],
   onMoveTask,
+  onAssignTask,
+  onChangeTaskStatus,
   onOpenTask,
   className,
 }: TaskKanbanBoardProps) {
-  const columns = buildTaskBoardColumns(workflowStatuses);
-  const initialColumnTasks = groupTasksByWorkflowStatus(columns, tasks);
-  const boardKey = [
-    ...columns.map((column) => `${column.id}:${column.title}`),
-    ...tasks.map((task) => `${task.id}:${task.workflowStatusId}:${task.taskState}`),
-  ].join(":");
-
-  return (
-    <StatefulTaskKanbanBoard
-      key={boardKey}
-      columns={columns}
-      initialColumnTasks={initialColumnTasks}
-      onMoveTask={onMoveTask}
-      onOpenTask={onOpenTask}
-      className={className}
-    />
+  const columns = useMemo(() => buildTaskBoardColumns(workflowStatuses), [workflowStatuses]);
+  const derivedColumnTasks = useMemo(
+    () => groupTasksByWorkflowStatus(columns, tasks),
+    [columns, tasks],
   );
-}
+  const signature = boardSignature(columns, tasks);
 
-function StatefulTaskKanbanBoard({
-  columns,
-  initialColumnTasks,
-  onMoveTask,
-  onOpenTask,
-  className,
-}: {
-  readonly columns: readonly TaskBoardColumn[];
-  readonly initialColumnTasks: TaskBoardColumns;
-  readonly onMoveTask: TaskKanbanBoardProps["onMoveTask"];
-  readonly onOpenTask?: (taskId: string) => void;
-  readonly className?: string;
-}) {
-  const [columnTasks, setColumnTasks] = useState(initialColumnTasks);
+  // The Kanban root is fully controlled, so dnd-kit needs a mutable `value` for
+  // same-column reordering. We mirror the props-derived layout in state and
+  // re-sync whenever the derived signature changes (the React "reset state on
+  // prop change" pattern), keeping the query as the source of truth.
+  const [columnTasks, setColumnTasks] = useState(derivedColumnTasks);
+  const [syncedSignature, setSyncedSignature] = useState(signature);
+  if (signature !== syncedSignature) {
+    setColumnTasks(derivedColumnTasks);
+    setSyncedSignature(signature);
+  }
 
   const handleMove = (event: KanbanMoveEvent) => {
-    setColumnTasks((currentColumns) =>
-      moveTaskBetweenBoardColumns({
-        columns: currentColumns,
-        taskId: String(event.event.active.id),
-        destinationWorkflowStatusId: event.overContainer,
-        destinationIndex: event.overIndex,
-        persistMove: onMoveTask,
-      }),
-    );
+    // Persist the cross-column move; the optimistic update reorders the cached
+    // tasks, which flows back through props and re-syncs `columnTasks`.
+    moveTaskBetweenBoardColumns({
+      columns: columnTasks,
+      taskId: String(event.event.active.id),
+      destinationWorkflowStatusId: event.overContainer,
+      destinationIndex: event.overIndex,
+      persistMove: onMoveTask,
+    });
   };
 
   return (
@@ -105,6 +135,10 @@ function StatefulTaskKanbanBoard({
             column={column}
             value={column.id}
             tasks={columnTasks[column.id] ?? []}
+            workflowStatuses={workflowStatuses}
+            assigneeOptions={assigneeOptions}
+            onAssignTask={onAssignTask}
+            onChangeTaskStatus={onChangeTaskStatus}
             onOpenTask={onOpenTask}
           />
         ))}
@@ -121,7 +155,11 @@ interface TaskKanbanColumnProps extends Omit<
   readonly column: TaskBoardColumn;
   readonly tasks: readonly TaskBoardTask[];
   readonly value: string;
+  readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
+  readonly assigneeOptions: readonly AssigneeOption[];
   readonly isOverlay?: boolean;
+  readonly onAssignTask?: TaskKanbanBoardProps["onAssignTask"];
+  readonly onChangeTaskStatus?: TaskKanbanBoardProps["onChangeTaskStatus"];
   readonly onOpenTask?: (taskId: string) => void;
 }
 
@@ -129,7 +167,11 @@ function TaskKanbanColumn({
   column,
   tasks,
   value,
+  workflowStatuses,
+  assigneeOptions,
   isOverlay,
+  onAssignTask,
+  onChangeTaskStatus,
   onOpenTask,
   ...props
 }: TaskKanbanColumnProps) {
@@ -169,8 +211,12 @@ function TaskKanbanColumn({
               <TaskKanbanCard
                 key={task.id}
                 task={task}
+                workflowStatuses={workflowStatuses}
+                assigneeOptions={assigneeOptions}
                 asHandle={!isOverlay}
                 isOverlay={isOverlay}
+                onAssignTask={onAssignTask}
+                onChangeTaskStatus={onChangeTaskStatus}
                 onOpenTask={onOpenTask}
               />
             ))}
@@ -186,46 +232,189 @@ interface TaskKanbanCardProps extends Omit<
   "children" | "value"
 > {
   readonly task: TaskBoardTask;
+  readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
+  readonly assigneeOptions: readonly AssigneeOption[];
   readonly asHandle?: boolean;
   readonly isOverlay?: boolean;
+  readonly onAssignTask?: TaskKanbanBoardProps["onAssignTask"];
+  readonly onChangeTaskStatus?: TaskKanbanBoardProps["onChangeTaskStatus"];
   readonly onOpenTask?: (taskId: string) => void;
+}
+
+// Placeholder identifier until Tasks get a human-readable key (e.g. "DEV-369").
+export function toTaskIdentifier(id: string): string {
+  const trailing = id.split(/[_-]/).at(-1) ?? id;
+  return `TASK-${trailing.slice(-4).toUpperCase()}`;
+}
+
+export function statusOptions(
+  workflowStatuses: readonly TaskBoardWorkflowStatus[],
+): readonly CardSelectOption<string>[] {
+  return [...workflowStatuses]
+    .filter((status) => status.archivedAt == null)
+    .sort((left, right) => left.sortOrder - right.sortOrder)
+    .map((status) => ({
+      value: status.id,
+      label: status.name,
+      icon: <WorkflowStatusIcon taskState={status.taskState} />,
+    }));
 }
 
 function TaskKanbanCard({
   task,
+  workflowStatuses,
+  assigneeOptions,
   asHandle,
   isOverlay,
+  onAssignTask,
+  onChangeTaskStatus,
   onOpenTask,
   className,
   ...props
 }: TaskKanbanCardProps) {
+  const currentStatus = workflowStatuses.find((status) => status.id === task.workflowStatusId);
+  const cardState: TaskBoardTaskState = currentStatus?.taskState ?? task.taskState;
+  const selectedAssignee =
+    assigneeOptions.find((option) => option.id === task.assignedUserId) ?? null;
+  const statusItems = statusOptions(workflowStatuses);
+
+  const form = useAppForm({
+    defaultValues: {
+      priority: "no_priority" as TaskPriority,
+      size: "no_estimate" as TaskSize,
+      assignedUserId: task.assignedUserId ?? null,
+      workflowStatusId: task.workflowStatusId,
+    },
+  });
+
   const cardContent = (
     <Card
       className={cn(
-        "shadow-xs",
-        task.taskState === "canceled" && "opacity-70",
+        "gap-0 py-0 shadow-xs",
+        cardState === "canceled" && "opacity-70",
         onOpenTask && "cursor-pointer transition-colors hover:border-ring",
         className,
       )}
       onClick={onOpenTask ? () => onOpenTask(task.id) : undefined}
     >
-      <CardHeader className="p-3 pb-1">
-        <CardTitle className="line-clamp-2 text-sm leading-snug">{task.title}</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 px-3 pt-3 pb-0">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <form.Field name="workflowStatusId">
+            {(field) => (
+              <CardComboboxSelector
+                ariaLabel="Change status"
+                disabled={statusItems.length === 0}
+                onValueChange={(next) => {
+                  if (!next) return;
+                  field.handleChange(next);
+                  void onChangeTaskStatus?.({ taskId: task.id, workflowStatusId: next });
+                }}
+                options={statusItems}
+                trigger={
+                  <span className="flex size-5 items-center justify-center">
+                    <WorkflowStatusIcon taskState={cardState} />
+                  </span>
+                }
+                value={field.state.value}
+              />
+            )}
+          </form.Field>
+          <span className="truncate font-medium text-muted-foreground text-xs">
+            {toTaskIdentifier(task.id)}
+          </span>
+        </div>
+        <form.Field name="assignedUserId">
+          {(field) => (
+            <CardComboboxSelector
+              ariaLabel="Assign to"
+              emptyText="No members."
+              onValueChange={(next) => {
+                field.handleChange(next);
+                void onAssignTask?.({ taskId: task.id, assignedUserId: next });
+              }}
+              options={assigneeOptions.map((option) => ({
+                value: option.id,
+                label: option.label,
+                icon: <AssigneeAvatar assignee={option} size={16} />,
+              }))}
+              trigger={
+                <span className="flex size-5 items-center justify-center">
+                  <AssigneeAvatar assignee={selectedAssignee} size={20} />
+                </span>
+              }
+              value={field.state.value}
+            />
+          )}
+        </form.Field>
       </CardHeader>
-      {task.parentTask ? (
-        <CardContent className="px-3 pb-3 pt-0">
-          <p className="line-clamp-1 text-xs text-muted-foreground">
+
+      <CardContent className="px-3 py-2">
+        <CardTitle className="line-clamp-2 font-semibold text-sm leading-snug">
+          {task.title}
+        </CardTitle>
+        {task.parentTask ? (
+          <p className="mt-1 line-clamp-1 text-muted-foreground text-xs">
             Parent: {task.parentTask.title}
           </p>
-        </CardContent>
-      ) : null}
+        ) : null}
+      </CardContent>
+
+      <CardContent className="flex flex-wrap items-center gap-1.5 px-3 pt-0 pb-3">
+        <form.Field name="priority">
+          {(field) => {
+            const meta = getPriorityMeta(field.state.value);
+            const Icon = meta.icon;
+            return (
+              <CardComboboxSelector
+                ariaLabel="Change priority"
+                onValueChange={(next) => field.handleChange(next ?? "no_priority")}
+                options={PRIORITY_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                  icon: <option.icon className={cn("size-4", option.className)} />,
+                }))}
+                trigger={
+                  <Badge variant="outline" className="gap-1">
+                    <Icon className={cn("size-3", meta.className)} />
+                    {field.state.value === "no_priority" ? "Priority" : meta.label}
+                  </Badge>
+                }
+                value={field.state.value}
+              />
+            );
+          }}
+        </form.Field>
+        <form.Field name="size">
+          {(field) => {
+            const meta = getSizeMeta(field.state.value);
+            return (
+              <CardComboboxSelector
+                ariaLabel="Change estimate"
+                onValueChange={(next) => field.handleChange(next ?? "no_estimate")}
+                options={SIZE_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                  icon: <Triangle className="size-3.5" />,
+                }))}
+                trigger={
+                  <Badge variant="outline" className="gap-1">
+                    <Triangle className="size-3" />
+                    {meta.short ?? "Estimate"}
+                  </Badge>
+                }
+                value={field.state.value}
+              />
+            );
+          }}
+        </form.Field>
+      </CardContent>
     </Card>
   );
 
   return (
     <KanbanItem
       value={task.id}
-      disabled={task.taskState === "canceled"}
+      disabled={cardState === "canceled"}
       aria-label={`Task card ${task.title}`}
       {...props}
     >

@@ -13,6 +13,8 @@ export type TaskBoardTask = {
   readonly title: string;
   readonly workflowStatusId: string;
   readonly taskState: TaskBoardTaskState;
+  readonly assignedUserId?: string | null;
+  readonly dueDate?: string | null;
   readonly parentTask?: {
     readonly id: string;
     readonly title: string;

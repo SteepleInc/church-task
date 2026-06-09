@@ -5,6 +5,7 @@ import {
   useUpdateTaskMutation,
   type TaskCollectionFilters,
 } from "@/data/tasks/tasksData.app";
+import { useChurchUsersCollection } from "@/data/users/usersData.app";
 import {
   useWorkflowStatusesCollection,
   useWorkflowsCollection,
@@ -125,6 +126,7 @@ export function TaskExecutionSurface({
   const cyclesCollection = useCyclesCollection({ churchId, currentUserId });
   const workflows = useWorkflowsCollection({ churchId });
   const workflowStatusesCollection = useWorkflowStatusesCollection({ churchId });
+  const usersCollection = useChurchUsersCollection({ churchId });
 
   const cycles = cyclesCollection.cyclesCollection;
   const currentCycle = selectCurrentExecutionCycle(cycles, today);
@@ -179,12 +181,32 @@ export function TaskExecutionSurface({
         <TaskKanbanBoard
           workflowStatuses={workflowStatuses.map(toBoardWorkflowStatus)}
           tasks={tasks.map((task) => toBoardTask(task, tasks))}
+          assigneeOptions={usersCollection.usersCollection.map((user) => ({
+            id: user.id,
+            label: user.name ?? user.email ?? user.id,
+          }))}
           onMoveTask={(move) => {
             void updateTask({
               churchId,
               actorUserId: currentUserId,
               taskId: move.taskId,
               fields: { workflowStatusId: move.workflowStatusId },
+            });
+          }}
+          onAssignTask={(change) => {
+            void updateTask({
+              churchId,
+              actorUserId: currentUserId,
+              taskId: change.taskId,
+              fields: { assignedUserId: change.assignedUserId },
+            });
+          }}
+          onChangeTaskStatus={(change) => {
+            void updateTask({
+              churchId,
+              actorUserId: currentUserId,
+              taskId: change.taskId,
+              fields: { workflowStatusId: change.workflowStatusId },
             });
           }}
           onOpenTask={(taskId) => {
@@ -218,6 +240,7 @@ function toBoardTask(task: TaskSummary, tasks: readonly TaskSummary[]) {
     teamId: task.teamId,
     cycleId: task.cycleId,
     dueDate: task.dueDate,
+    assignedUserId: task.assignedUserId,
     parentTask: getTaskParentContext(task, tasks),
     workflowStatusId: task.workflowStatusId,
     taskState: task.taskState,
