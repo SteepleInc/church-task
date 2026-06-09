@@ -3073,4 +3073,86 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         Name
       >;
     };
+    search: {
+      listOrganizationsBySearch: FunctionReference<
+        "query",
+        "internal",
+        {
+          pageSize: number;
+          paginationOpts: {
+            cursor: string | null;
+            endCursor?: string | null;
+            id?: number;
+            maximumBytesRead?: number;
+            maximumRowsRead?: number;
+            numItems: number;
+          };
+          searchField: "name" | "slug";
+          searchValue: string;
+          select?: Array<string>;
+          where?: Array<{
+            connector?: "AND" | "OR";
+            field: string;
+            operator?:
+              | "lt"
+              | "lte"
+              | "gt"
+              | "gte"
+              | "eq"
+              | "in"
+              | "not_in"
+              | "ne";
+            value:
+              | string
+              | number
+              | boolean
+              | Array<string>
+              | Array<number>
+              | null;
+          }>;
+        },
+        any,
+        Name
+      >;
+      listUsersBySearch: FunctionReference<
+        "query",
+        "internal",
+        {
+          pageSize: number;
+          paginationOpts: {
+            cursor: string | null;
+            endCursor?: string | null;
+            id?: number;
+            maximumBytesRead?: number;
+            maximumRowsRead?: number;
+            numItems: number;
+          };
+          searchField: "name" | "email";
+          searchValue: string;
+          select?: Array<string>;
+          where?: Array<{
+            connector?: "AND" | "OR";
+            field: string;
+            operator?:
+              | "lt"
+              | "lte"
+              | "gt"
+              | "gte"
+              | "eq"
+              | "in"
+              | "not_in"
+              | "ne";
+            value:
+              | string
+              | number
+              | boolean
+              | Array<string>
+              | Array<number>
+              | null;
+          }>;
+        },
+        any,
+        Name
+      >;
+    };
   };

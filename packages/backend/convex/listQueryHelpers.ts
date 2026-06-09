@@ -117,6 +117,10 @@ export type BetterAuthWhere = {
   readonly value: string | number | boolean | Array<string> | Array<number> | null;
 };
 
+type BetterAuthSearchWhere = Omit<BetterAuthWhere, "mode" | "operator"> & {
+  readonly operator?: Exclude<BetterAuthWhere["operator"], "contains" | "starts_with" | "ends_with">;
+};
+
 type OrganizationSearchField = "name" | "slug";
 type UserSearchField = "name" | "email";
 
@@ -141,7 +145,7 @@ type BetterAuthSearchComponent = typeof components.betterAuth & {
         searchField: OrganizationSearchField;
         searchValue: string;
         select?: Array<string>;
-        where?: Array<BetterAuthWhere>;
+        where?: Array<BetterAuthSearchWhere>;
       },
       {
         readonly page: ReadonlyArray<unknown>;
@@ -158,7 +162,7 @@ type BetterAuthSearchComponent = typeof components.betterAuth & {
         searchField: UserSearchField;
         searchValue: string;
         select?: Array<string>;
-        where?: Array<BetterAuthWhere>;
+        where?: Array<BetterAuthSearchWhere>;
       },
       {
         readonly page: ReadonlyArray<unknown>;
@@ -381,6 +385,15 @@ export function buildWhereForBetterAuthModel(
   return where;
 }
 
+function isBetterAuthSearchWhere(where: BetterAuthWhere): where is BetterAuthSearchWhere {
+  return (
+    where.operator !== "contains" &&
+    where.operator !== "starts_with" &&
+    where.operator !== "ends_with" &&
+    where.mode === undefined
+  );
+}
+
 export function getOrganizationSearchQuery(
   listArgs: ListArgs,
 ): OrganizationSearchQuery | undefined {
@@ -485,6 +498,7 @@ export async function listBetterAuthModel<T>(
   const where = buildWhereForBetterAuthModel(args.model, args.listArgs, {
     includeTextFilters: !organizationSearchQuery && !userSearchQuery,
   });
+  const searchWhere = where.filter(isBetterAuthSearchWhere);
 
   if (organizationSearchQuery) {
     const betterAuthSearch = components.betterAuth as BetterAuthSearchComponent;
@@ -495,7 +509,7 @@ export async function listBetterAuthModel<T>(
       searchField: organizationSearchQuery.searchField,
       searchValue: organizationSearchQuery.searchValue,
       select: args.select,
-      ...(where.length > 0 ? { where } : {}),
+      ...(searchWhere.length > 0 ? { where: searchWhere } : {}),
     })) as {
       readonly page: ReadonlyArray<T>;
       readonly isDone: boolean;
@@ -512,7 +526,7 @@ export async function listBetterAuthModel<T>(
       searchField: userSearchQuery.searchField,
       searchValue: userSearchQuery.searchValue,
       select: args.select,
-      ...(where.length > 0 ? { where } : {}),
+      ...(searchWhere.length > 0 ? { where: searchWhere } : {}),
     })) as {
       readonly page: ReadonlyArray<T>;
       readonly isDone: boolean;
