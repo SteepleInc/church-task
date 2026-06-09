@@ -5,7 +5,7 @@ import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import { APIError, createAuthEndpoint, sessionMiddleware } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import { betterAuth, type BetterAuthOptions } from "better-auth/minimal";
-import { bearer, emailOTP, mcp, organization } from "better-auth/plugins";
+import { admin, bearer, emailOTP, mcp, organization } from "better-auth/plugins";
 import { z } from "zod";
 
 import { components, internal } from "./convex/_generated/api";
@@ -17,6 +17,24 @@ import { isValidChurchTimeZone } from "./churchTimeZone";
 
 const siteUrl = process.env.SITE_URL!;
 const otpEmailFrom = process.env.AUTH_EMAIL_FROM ?? "Church Task <auth@churchtask.local>";
+const isLocalUrl = (url: string | undefined) => {
+  if (!url) {
+    return false;
+  }
+
+  try {
+    const { hostname } = new URL(url);
+    return hostname === "localhost" || hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+};
+
+export const shouldLogAuthEmails = () =>
+  process.env.NODE_ENV === "development" ||
+  process.env.CONVEX_DEPLOYMENT?.startsWith("dev:") ||
+  isLocalUrl(process.env.SITE_URL);
+
 const trustedOrigins = [
   siteUrl,
   process.env.E2E_SITE_URL,
@@ -199,8 +217,9 @@ export function createAuthOptions(ctx: GenericCtx<DataModel>) {
       emailOTP({
         expiresIn: 15 * 60,
         async sendVerificationOTP({ email, otp }) {
-          if (process.env.NODE_ENV === "development") {
+          if (shouldLogAuthEmails()) {
             console.log("sendVerificationOTP", { email, otp });
+            return;
           }
 
           if (process.env.NODE_ENV === "production") {
@@ -235,6 +254,7 @@ export function createAuthOptions(ctx: GenericCtx<DataModel>) {
       }),
       completeOnboarding(),
       clearOrgForOnboarding(),
+      admin(),
       apiKey({
         apiKeyHeaders: "authorization",
         customAPIKeyGetter: (ctx) => {
