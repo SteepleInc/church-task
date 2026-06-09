@@ -3,12 +3,18 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import {
   AssigneeAvatar,
-  CardComboboxSelector,
+  formatCreatedAt,
   getPriorityMeta,
   getSizeMeta,
+  partitionAssignees,
+  priorityRows,
+  sizeValues,
+  statusRows,
   PRIORITY_OPTIONS,
   SIZE_OPTIONS,
   WorkflowStatusIcon,
+  type AssigneeOption,
+  type CardSelectOption,
   type TaskPriority,
   type TaskSize,
 } from "./task-card-fields";
@@ -42,6 +48,16 @@ describe("Task card priority field (stub)", () => {
     expect(getPriorityMeta("urgent").className).toBe("text-orange-500");
     expect(getPriorityMeta("high").className).toBeUndefined();
   });
+
+  test("pairs each priority with its digit shortcut in display order", () => {
+    expect(priorityRows()).toEqual([
+      { value: "no_priority", shortcut: "0" },
+      { value: "urgent", shortcut: "1" },
+      { value: "high", shortcut: "2" },
+      { value: "medium", shortcut: "3" },
+      { value: "low", shortcut: "4" },
+    ]);
+  });
 });
 
 describe("Task card size field (stub)", () => {
@@ -61,6 +77,10 @@ describe("Task card size field (stub)", () => {
     expect(getSizeMeta("xl").short).toBe("XL");
     expect(getSizeMeta("no_estimate").short).toBeNull();
     expect(getSizeMeta("nonsense" as TaskSize).value).toBe("no_estimate");
+  });
+
+  test("lists the estimate values in display order for the picker", () => {
+    expect(sizeValues()).toEqual(["no_estimate", "xs", "s", "m", "l", "xl"]);
   });
 });
 
@@ -93,41 +113,134 @@ describe("Assignee avatar", () => {
   });
 });
 
-describe("Card inline combobox selector", () => {
-  test("renders an accessible combobox trigger that shows the current value", () => {
-    const html = renderToStaticMarkup(
-      <CardComboboxSelector
-        ariaLabel="Change priority"
-        options={[
-          { value: "low", label: "Low" },
-          { value: "high", label: "High" },
-        ]}
-        onValueChange={() => {}}
-        trigger={<span>Priority</span>}
-        value="low"
-      />,
-    );
+describe("partitionAssignees", () => {
+  const options: readonly AssigneeOption[] = [
+    { id: "u-me", label: "Izak" },
+    { id: "u-team1", label: "Team One" },
+    { id: "u-team2", label: "Team Two" },
+    { id: "u-other", label: "Other Person" },
+  ];
 
-    expect(html).toContain('role="combobox"');
-    expect(html).toContain('aria-label="Change priority"');
-    expect(html).toContain('data-slot="card-combobox-trigger"');
-    expect(html).toContain("Priority");
+  test("pins the current user above team and other members", () => {
+    const partition = partitionAssignees({
+      options,
+      currentUserId: "u-me",
+      teamMemberIds: new Set(["u-me", "u-team1", "u-team2"]),
+    });
+
+    expect(partition.pinned?.userId).toBe("u-me");
+    expect(partition.teamMembers.map((row) => row.userId)).toEqual(["u-team1", "u-team2"]);
+    expect(partition.otherMembers.map((row) => row.userId)).toEqual(["u-other"]);
   });
 
-  test("can be disabled so the trigger is not interactive", () => {
-    const renderSelector = (disabled: boolean) =>
-      renderToStaticMarkup(
-        <CardComboboxSelector
-          ariaLabel="Change status"
-          disabled={disabled}
-          options={[]}
-          onValueChange={() => {}}
-          trigger={<span>Status</span>}
-          value={null}
-        />,
-      );
+  test("assigns sequential shortcuts: 0 for No assignee, then display order", () => {
+    const partition = partitionAssignees({
+      options,
+      currentUserId: "u-me",
+      teamMemberIds: new Set(["u-team1", "u-team2"]),
+    });
 
-    expect(renderSelector(true)).toContain("data-disabled");
-    expect(renderSelector(false)).not.toContain("data-disabled");
+    expect(partition.noAssignee.shortcut).toBe("0");
+    expect(partition.pinned?.shortcut).toBe("1");
+    expect(partition.teamMembers.map((row) => row.shortcut)).toEqual(["2", "3"]);
+    expect(partition.otherMembers.map((row) => row.shortcut)).toEqual(["4"]);
+  });
+
+  test("leaves pinned null when the current user is not in the options", () => {
+    const partition = partitionAssignees({
+      options,
+      currentUserId: "u-absent",
+      teamMemberIds: new Set(),
+    });
+
+    expect(partition.pinned).toBeNull();
+    expect(partition.teamMembers).toEqual([]);
+    expect(partition.otherMembers.map((row) => row.userId)).toEqual([
+      "u-me",
+      "u-team1",
+      "u-team2",
+      "u-other",
+    ]);
+  });
+
+  test("stops assigning digit shortcuts past the tenth row", () => {
+    const many: readonly AssigneeOption[] = Array.from({ length: 12 }, (_, index) => ({
+      id: `u-${index}`,
+      label: `User ${index}`,
+    }));
+
+    const partition = partitionAssignees({
+      options: many,
+      currentUserId: null,
+      teamMemberIds: new Set(),
+    });
+
+    // Rows 1-9 get a digit; the 10th selectable person (index 9) and beyond do not.
+    expect(partition.otherMembers[8]?.shortcut).toBe("9");
+    expect(partition.otherMembers[9]?.shortcut).toBeNull();
+    expect(partition.otherMembers[10]?.shortcut).toBeNull();
+  });
+});
+
+describe("statusRows", () => {
+  const options: readonly CardSelectOption<string>[] = Array.from({ length: 12 }, (_, index) => ({
+    value: `s-${index}`,
+    label: `Status ${index}`,
+  }));
+
+  test("numbers the first nine statuses 1-9 and the tenth 0", () => {
+    const rows = statusRows(options);
+
+    expect(rows.slice(0, 9).map((row) => row.shortcut)).toEqual([
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+    ]);
+    expect(rows[9]?.shortcut).toBe("0");
+  });
+
+  test("leaves statuses past the tenth without a shortcut", () => {
+    const rows = statusRows(options);
+
+    expect(rows[10]?.shortcut).toBeNull();
+    expect(rows[11]?.shortcut).toBeNull();
+  });
+
+  test("preserves each option's value, label, and icon in display order", () => {
+    const rows = statusRows([
+      { value: "todo", label: "Backlog", icon: <span>icon</span> },
+      { value: "doing", label: "In Progress" },
+    ]);
+
+    expect(rows.map((row) => row.value)).toEqual(["todo", "doing"]);
+    expect(rows.map((row) => row.label)).toEqual(["Backlog", "In Progress"]);
+    expect(rows[0]?.icon).toBeDefined();
+    expect(rows[1]?.icon).toBeUndefined();
+  });
+});
+
+describe("formatCreatedAt", () => {
+  const now = new Date("2026-06-09T12:00:00Z");
+
+  test("omits the year when the task was created in the current year", () => {
+    const createdAt = new Date("2026-02-25T09:00:00Z").getTime();
+    expect(formatCreatedAt(createdAt, now)).toBe("Feb 25");
+  });
+
+  test("includes the year when the task was created in a different year", () => {
+    const createdAt = new Date("2025-12-31T09:00:00Z").getTime();
+    expect(formatCreatedAt(createdAt, now)).toBe("Dec 31, 2025");
+  });
+
+  test("returns null for missing or invalid timestamps", () => {
+    expect(formatCreatedAt(null, now)).toBeNull();
+    expect(formatCreatedAt(undefined, now)).toBeNull();
+    expect(formatCreatedAt(Number.NaN, now)).toBeNull();
   });
 });

@@ -1,7 +1,20 @@
 import { describe, expect, test } from "bun:test";
 
-import { statusOptions, toTaskIdentifier } from "./task-kanban-board";
+import { matchPickerHotkey, statusOptions, toTaskIdentifier } from "./task-kanban-board";
 import type { TaskBoardWorkflowStatus } from "./task-kanban-adapter";
+
+type HotkeyEvent = Parameters<typeof matchPickerHotkey>[0];
+
+function keyEvent(overrides: Partial<HotkeyEvent>): HotkeyEvent {
+  return {
+    key: "a",
+    shiftKey: false,
+    metaKey: false,
+    ctrlKey: false,
+    altKey: false,
+    ...overrides,
+  };
+}
 
 describe("Task card identifier stub", () => {
   test("derives a short Linear-style identifier from the Task id", () => {
@@ -41,5 +54,35 @@ describe("Task card status selector options", () => {
 
   test("renders a status icon for every option", () => {
     expect(statusOptions(statuses).every((option) => option.icon != null)).toBe(true);
+  });
+});
+
+describe("Card picker hotkeys", () => {
+  const status = { key: "s", openRef: { current: null } };
+  const assignee = { key: "a", openRef: { current: null } };
+  const size = { key: "e", shift: true, openRef: { current: null } };
+  const hotkeys = [status, assignee, size];
+
+  test("matches an unshifted key to its binding case-insensitively", () => {
+    expect(matchPickerHotkey(keyEvent({ key: "S" }), hotkeys)).toBe(status);
+    expect(matchPickerHotkey(keyEvent({ key: "a" }), hotkeys)).toBe(assignee);
+  });
+
+  test("requires Shift state to match the binding", () => {
+    // "E" needs Shift; bare "e" should not match the shifted binding.
+    expect(matchPickerHotkey(keyEvent({ key: "e" }), hotkeys)).toBeNull();
+    expect(matchPickerHotkey(keyEvent({ key: "E", shiftKey: true }), hotkeys)).toBe(size);
+    // An unshifted binding should not fire while Shift is held.
+    expect(matchPickerHotkey(keyEvent({ key: "s", shiftKey: true }), hotkeys)).toBeNull();
+  });
+
+  test("ignores keys held with a meta/ctrl/alt modifier", () => {
+    expect(matchPickerHotkey(keyEvent({ key: "s", metaKey: true }), hotkeys)).toBeNull();
+    expect(matchPickerHotkey(keyEvent({ key: "s", ctrlKey: true }), hotkeys)).toBeNull();
+    expect(matchPickerHotkey(keyEvent({ key: "s", altKey: true }), hotkeys)).toBeNull();
+  });
+
+  test("returns null when no binding matches", () => {
+    expect(matchPickerHotkey(keyEvent({ key: "z" }), hotkeys)).toBeNull();
   });
 });

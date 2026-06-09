@@ -15,15 +15,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { GripVerticalIcon, Triangle } from "lucide-react";
-import { type ComponentProps, useMemo, useState } from "react";
+import {
+  type ComponentProps,
+  type MutableRefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   AssigneeAvatar,
-  CardComboboxSelector,
+  AssigneeComboboxSelector,
+  formatCreatedAt,
   getPriorityMeta,
   getSizeMeta,
-  PRIORITY_OPTIONS,
-  SIZE_OPTIONS,
+  PriorityComboboxSelector,
+  SizeComboboxSelector,
+  StatusComboboxSelector,
   WorkflowStatusIcon,
   type AssigneeOption,
   type CardSelectOption,
@@ -54,6 +63,11 @@ type TaskKanbanBoardProps = {
   readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
   readonly tasks: readonly TaskBoardTask[];
   readonly assigneeOptions?: readonly AssigneeOption[];
+  // The signed-in user, pinned to the top of the assignee picker.
+  readonly currentUserId?: string | null;
+  // Set of member user ids per Team id, used to render the "Team members"
+  // section of the assignee picker for a Task's Team.
+  readonly teamMemberIdsByTeamId?: ReadonlyMap<string, ReadonlySet<string>>;
   readonly onMoveTask: (move: {
     readonly taskId: string;
     readonly workflowStatusId: string;
@@ -80,10 +94,65 @@ function boardSignature(
   ].join(":");
 }
 
+const EMPTY_TEAM_MEMBERS: ReadonlyMap<string, ReadonlySet<string>> = new Map();
+const EMPTY_USER_ID_SET: ReadonlySet<string> = new Set();
+
+// Avoid hijacking shortcut keys while the user is typing in a field (e.g.
+// another open combobox/search box on the page).
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
+// A card-level shortcut binding: pressing `key` (with `shift` held when set)
+// invokes the opener stored in `openRef`, opening that field's picker. `key`
+// is compared case-insensitively.
+type PickerHotkey = {
+  readonly key: string;
+  readonly shift?: boolean;
+  readonly openRef: MutableRefObject<(() => void) | null>;
+};
+
+export function matchPickerHotkey(
+  event: Pick<KeyboardEvent, "key" | "shiftKey" | "metaKey" | "ctrlKey" | "altKey">,
+  hotkeys: readonly PickerHotkey[],
+): PickerHotkey | null {
+  if (event.metaKey || event.ctrlKey || event.altKey) return null;
+  const key = event.key.toLowerCase();
+  return (
+    hotkeys.find(
+      (hotkey) => hotkey.key.toLowerCase() === key && Boolean(hotkey.shift) === event.shiftKey,
+    ) ?? null
+  );
+}
+
+// Opens a card's field picker when its shortcut is pressed while the card is
+// hovered. Listens on the document so the key works without the trigger being
+// focused, and ignores keystrokes aimed at editable elements.
+function useCardPickerHotkeys(active: boolean, hotkeys: readonly PickerHotkey[]) {
+  useEffect(() => {
+    if (!active) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) return;
+      const match = matchPickerHotkey(event, hotkeys);
+      const opener = match?.openRef.current;
+      if (!opener) return;
+      event.preventDefault();
+      opener();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [active, hotkeys]);
+}
+
 export function TaskKanbanBoard({
   workflowStatuses,
   tasks,
   assigneeOptions = [],
+  currentUserId = null,
+  teamMemberIdsByTeamId = EMPTY_TEAM_MEMBERS,
   onMoveTask,
   onAssignTask,
   onChangeTaskStatus,
@@ -137,6 +206,8 @@ export function TaskKanbanBoard({
             tasks={columnTasks[column.id] ?? []}
             workflowStatuses={workflowStatuses}
             assigneeOptions={assigneeOptions}
+            currentUserId={currentUserId}
+            teamMemberIdsByTeamId={teamMemberIdsByTeamId}
             onAssignTask={onAssignTask}
             onChangeTaskStatus={onChangeTaskStatus}
             onOpenTask={onOpenTask}
@@ -157,6 +228,8 @@ interface TaskKanbanColumnProps extends Omit<
   readonly value: string;
   readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
   readonly assigneeOptions: readonly AssigneeOption[];
+  readonly currentUserId: string | null;
+  readonly teamMemberIdsByTeamId: ReadonlyMap<string, ReadonlySet<string>>;
   readonly isOverlay?: boolean;
   readonly onAssignTask?: TaskKanbanBoardProps["onAssignTask"];
   readonly onChangeTaskStatus?: TaskKanbanBoardProps["onChangeTaskStatus"];
@@ -169,6 +242,8 @@ function TaskKanbanColumn({
   value,
   workflowStatuses,
   assigneeOptions,
+  currentUserId,
+  teamMemberIdsByTeamId,
   isOverlay,
   onAssignTask,
   onChangeTaskStatus,
@@ -213,6 +288,8 @@ function TaskKanbanColumn({
                 task={task}
                 workflowStatuses={workflowStatuses}
                 assigneeOptions={assigneeOptions}
+                currentUserId={currentUserId}
+                teamMemberIdsByTeamId={teamMemberIdsByTeamId}
                 asHandle={!isOverlay}
                 isOverlay={isOverlay}
                 onAssignTask={onAssignTask}
@@ -234,6 +311,8 @@ interface TaskKanbanCardProps extends Omit<
   readonly task: TaskBoardTask;
   readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
   readonly assigneeOptions: readonly AssigneeOption[];
+  readonly currentUserId: string | null;
+  readonly teamMemberIdsByTeamId: ReadonlyMap<string, ReadonlySet<string>>;
   readonly asHandle?: boolean;
   readonly isOverlay?: boolean;
   readonly onAssignTask?: TaskKanbanBoardProps["onAssignTask"];
@@ -264,6 +343,8 @@ function TaskKanbanCard({
   task,
   workflowStatuses,
   assigneeOptions,
+  currentUserId,
+  teamMemberIdsByTeamId,
   asHandle,
   isOverlay,
   onAssignTask,
@@ -276,7 +357,29 @@ function TaskKanbanCard({
   const cardState: TaskBoardTaskState = currentStatus?.taskState ?? task.taskState;
   const selectedAssignee =
     assigneeOptions.find((option) => option.id === task.assignedUserId) ?? null;
+  const teamMemberIds =
+    (task.teamId ? teamMemberIdsByTeamId.get(task.teamId) : undefined) ?? EMPTY_USER_ID_SET;
   const statusItems = statusOptions(workflowStatuses);
+
+  // While this card is hovered, keyboard shortcuts open the matching picker.
+  // Each selector populates its ref with an imperative opener; the bindings
+  // table maps a key (and optional Shift) to the picker it opens.
+  const statusOpenRef = useRef<(() => void) | null>(null);
+  const assigneeOpenRef = useRef<(() => void) | null>(null);
+  const priorityOpenRef = useRef<(() => void) | null>(null);
+  const sizeOpenRef = useRef<(() => void) | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const pickerHotkeys = useMemo<readonly PickerHotkey[]>(
+    () => [
+      { key: "s", openRef: statusOpenRef },
+      { key: "a", openRef: assigneeOpenRef },
+      { key: "p", openRef: priorityOpenRef },
+      { key: "e", shift: true, openRef: sizeOpenRef },
+    ],
+    [],
+  );
+  useCardPickerHotkeys(isHovered, pickerHotkeys);
 
   const form = useAppForm({
     defaultValues: {
@@ -287,6 +390,8 @@ function TaskKanbanCard({
     },
   });
 
+  const createdAtLabel = formatCreatedAt(task.createdAt);
+
   const cardContent = (
     <Card
       className={cn(
@@ -296,19 +401,22 @@ function TaskKanbanCard({
         className,
       )}
       onClick={onOpenTask ? () => onOpenTask(task.id) : undefined}
+      onPointerEnter={() => setIsHovered(true)}
+      onPointerLeave={() => setIsHovered(false)}
     >
       <CardHeader className="flex flex-row items-center justify-between gap-2 px-3 pt-3 pb-0">
         <div className="flex min-w-0 items-center gap-1.5">
           <form.Field name="workflowStatusId">
             {(field) => (
-              <CardComboboxSelector
-                ariaLabel="Change status"
+              <StatusComboboxSelector
                 disabled={statusItems.length === 0}
+                emptyText="No statuses."
                 onValueChange={(next) => {
                   if (!next) return;
                   field.handleChange(next);
                   void onChangeTaskStatus?.({ taskId: task.id, workflowStatusId: next });
                 }}
+                openRef={statusOpenRef}
                 options={statusItems}
                 trigger={
                   <span className="flex size-5 items-center justify-center">
@@ -325,18 +433,15 @@ function TaskKanbanCard({
         </div>
         <form.Field name="assignedUserId">
           {(field) => (
-            <CardComboboxSelector
-              ariaLabel="Assign to"
-              emptyText="No members."
+            <AssigneeComboboxSelector
+              currentUserId={currentUserId}
               onValueChange={(next) => {
                 field.handleChange(next);
                 void onAssignTask?.({ taskId: task.id, assignedUserId: next });
               }}
-              options={assigneeOptions.map((option) => ({
-                value: option.id,
-                label: option.label,
-                icon: <AssigneeAvatar assignee={option} size={16} />,
-              }))}
+              openRef={assigneeOpenRef}
+              options={assigneeOptions}
+              teamMemberIds={teamMemberIds}
               trigger={
                 <span className="flex size-5 items-center justify-center">
                   <AssigneeAvatar assignee={selectedAssignee} size={20} />
@@ -365,19 +470,16 @@ function TaskKanbanCard({
             const meta = getPriorityMeta(field.state.value);
             const Icon = meta.icon;
             return (
-              <CardComboboxSelector
-                ariaLabel="Change priority"
-                onValueChange={(next) => field.handleChange(next ?? "no_priority")}
-                options={PRIORITY_OPTIONS.map((option) => ({
-                  value: option.value,
-                  label: option.label,
-                  icon: <option.icon className={cn("size-4", option.className)} />,
-                }))}
+              <PriorityComboboxSelector
+                onValueChange={(next) => field.handleChange(next)}
+                openRef={priorityOpenRef}
                 trigger={
-                  <Badge variant="outline" className="gap-1">
-                    <Icon className={cn("size-3", meta.className)} />
-                    {field.state.value === "no_priority" ? "Priority" : meta.label}
-                  </Badge>
+                  <span
+                    aria-label={`Priority: ${meta.label}`}
+                    className="flex size-6 items-center justify-center rounded-md border bg-background hover:bg-accent"
+                  >
+                    <Icon className={cn("size-3.5", meta.className)} />
+                  </span>
                 }
                 value={field.state.value}
               />
@@ -388,19 +490,16 @@ function TaskKanbanCard({
           {(field) => {
             const meta = getSizeMeta(field.state.value);
             return (
-              <CardComboboxSelector
-                ariaLabel="Change estimate"
-                onValueChange={(next) => field.handleChange(next ?? "no_estimate")}
-                options={SIZE_OPTIONS.map((option) => ({
-                  value: option.value,
-                  label: option.label,
-                  icon: <Triangle className="size-3.5" />,
-                }))}
+              <SizeComboboxSelector
+                onValueChange={(next) => field.handleChange(next)}
+                openRef={sizeOpenRef}
                 trigger={
-                  <Badge variant="outline" className="gap-1">
-                    <Triangle className="size-3" />
-                    {meta.short ?? "Estimate"}
-                  </Badge>
+                  <span
+                    aria-label={`Estimate: ${meta.label}`}
+                    className="flex size-6 items-center justify-center rounded-md border bg-background hover:bg-accent"
+                  >
+                    <Triangle className="size-3.5" />
+                  </span>
                 }
                 value={field.state.value}
               />
@@ -408,6 +507,12 @@ function TaskKanbanCard({
           }}
         </form.Field>
       </CardContent>
+
+      {createdAtLabel ? (
+        <CardContent className="px-3 pt-0 pb-3">
+          <p className="text-muted-foreground text-xs">Created {createdAtLabel}</p>
+        </CardContent>
+      ) : null}
     </Card>
   );
 

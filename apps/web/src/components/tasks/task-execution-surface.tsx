@@ -1,5 +1,6 @@
 import { useOpenTaskDetailsPaneUrl } from "@/components/details-pane/details-pane-helpers";
 import { useCyclesCollection } from "@/data/cycles/cyclesData.app";
+import { useTeamMembershipsCollection } from "@/data/teams/teamsData.app";
 import {
   useTasksCollection,
   useUpdateTaskMutation,
@@ -31,6 +32,7 @@ type TaskSummary = {
   readonly assignedUserId: string | null;
   readonly cycleId: string;
   readonly dueDate: string;
+  readonly createdAt: number;
   readonly parentTaskId: string | null;
   readonly workflowStatusId: string;
   readonly taskState: TaskState;
@@ -95,6 +97,18 @@ export function getTaskExecutionReadArgs(args: {
   };
 }
 
+export function buildTeamMemberIndex(
+  memberships: readonly { readonly teamId: string; readonly userId: string }[],
+): ReadonlyMap<string, ReadonlySet<string>> {
+  const index = new Map<string, Set<string>>();
+  for (const membership of memberships) {
+    const members = index.get(membership.teamId) ?? new Set<string>();
+    members.add(membership.userId);
+    index.set(membership.teamId, members);
+  }
+  return index;
+}
+
 export function getTaskParentContext(task: TaskSummary, tasks: readonly TaskSummary[]) {
   if (!task.parentTaskId) return null;
 
@@ -127,6 +141,10 @@ export function TaskExecutionSurface({
   const workflows = useWorkflowsCollection({ churchId });
   const workflowStatusesCollection = useWorkflowStatusesCollection({ churchId });
   const usersCollection = useChurchUsersCollection({ churchId });
+  const teamMembershipsCollection = useTeamMembershipsCollection({ churchId });
+  const teamMemberIdsByTeamId = buildTeamMemberIndex(
+    teamMembershipsCollection.teamMembershipsCollection,
+  );
 
   const cycles = cyclesCollection.cyclesCollection;
   const currentCycle = selectCurrentExecutionCycle(cycles, today);
@@ -185,6 +203,8 @@ export function TaskExecutionSurface({
             id: user.id,
             label: user.name ?? user.email ?? user.id,
           }))}
+          currentUserId={currentUserId}
+          teamMemberIdsByTeamId={teamMemberIdsByTeamId}
           onMoveTask={(move) => {
             void updateTask({
               churchId,
@@ -240,6 +260,7 @@ function toBoardTask(task: TaskSummary, tasks: readonly TaskSummary[]) {
     teamId: task.teamId,
     cycleId: task.cycleId,
     dueDate: task.dueDate,
+    createdAt: task.createdAt,
     assignedUserId: task.assignedUserId,
     parentTask: getTaskParentContext(task, tasks),
     workflowStatusId: task.workflowStatusId,
