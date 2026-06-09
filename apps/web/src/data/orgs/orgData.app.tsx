@@ -3,8 +3,8 @@ import { api } from "@church-task/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import type { ReactNode } from "react";
 
-import { recordFromCollection, recordFromQueryResult } from "@/data/convex-query-adapter";
-import { useUserOrgsCollection, type OrgCollectionItem } from "@/data/orgs/orgsData.app";
+import { recordFromQueryResult } from "@/data/convex-query-adapter";
+import type { OrgCollectionItem } from "@/data/orgs/orgsData.app";
 
 export type CurrentOrg = {
   readonly id: string;
@@ -32,8 +32,8 @@ export type CurrentOrg = {
 };
 
 export function useOrgData(params: { readonly orgId: string }) {
-  const orgs = useUserOrgsCollection();
-  const state = recordFromCollection(orgs, (org) => org.id === params.orgId);
+  const result = useQuery(api.admin.getOrg, { orgId: params.orgId });
+  const state = recordFromQueryResult<OrgCollectionItem>(result);
 
   return {
     loading: state.loading,

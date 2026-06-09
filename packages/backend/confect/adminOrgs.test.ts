@@ -21,6 +21,14 @@ describe("admin org queries", () => {
     ).rejects.toThrow("App Administrator access required.");
   });
 
+  it("rejects getOrg without an App Administrator session", async () => {
+    const t = convexTest(schema, modules);
+
+    await expect(t.query(api.admin.getOrg, { orgId: "org_123" })).rejects.toThrow(
+      "App Administrator access required.",
+    );
+  });
+
   it("projects full admin org collection fields and relation counts", () => {
     expect(
       buildAdminOrgCollectionItem(
@@ -32,9 +40,13 @@ describe("admin org queries", () => {
           churchTimeZone: "America/New_York",
           completedOnboarding: true,
           url: "https://grace.example.com",
+          street: "123 Main St",
           city: "Atlanta",
           state: "Georgia",
+          zip: "30301",
           countryCode: "US",
+          latitude: 33.749,
+          longitude: -84.388,
           size: "250-500",
           createdAt: 1_767_312_000_000,
         },
@@ -48,9 +60,13 @@ describe("admin org queries", () => {
       churchTimeZone: "America/New_York",
       completedOnboarding: true,
       url: "https://grace.example.com",
+      street: "123 Main St",
       city: "Atlanta",
       state: "Georgia",
+      zip: "30301",
       countryCode: "US",
+      latitude: 33.749,
+      longitude: -84.388,
       size: "250-500",
       membersCount: 12,
       teamsCount: 3,

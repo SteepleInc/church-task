@@ -67,7 +67,9 @@ export function DetailsPane({ className }: { readonly className?: string }) {
             pipe(
               entity,
               Match.value,
-              Match.tag("org", (orgData) => <OrgDetailsPane orgId={orgData.id} />),
+              Match.tag("org", (orgData) => (
+                <OrgDetailsPane orgId={orgData.id} tab={orgData.tab} />
+              )),
               Match.tag("task", (taskData) => <TaskDetailsPane taskId={taskData.id} />),
               Match.tag("team", (teamData) => <TeamDetailsPane teamId={teamData.id} />),
               Match.exhaustive,

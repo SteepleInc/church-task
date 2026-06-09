@@ -38,6 +38,7 @@ export type CollectionProps<TItem> = {
   readonly loadingMore?: boolean;
   readonly nextPage?: () => void;
   readonly noResultsState?: ReactNode;
+  readonly onRowClick?: (item: TItem) => void;
   readonly pageSize?: number;
 };
 
@@ -82,6 +83,7 @@ export function Collection<TItem>({
   loadingMore = false,
   nextPage,
   noResultsState,
+  onRowClick,
   pageSize,
 }: CollectionProps<TItem>) {
   const collectionViews = useAtomValue(collectionViewsAtom);
@@ -172,6 +174,7 @@ export function Collection<TItem>({
           limit={limit ?? data.length}
           loadingMore={loadingMore}
           nextPage={nextPage ?? (() => {})}
+          onRowClick={onRowClick}
           pageSize={pageSize ?? data.length}
           table={table}
         />
@@ -181,6 +184,7 @@ export function Collection<TItem>({
           limit={limit ?? data.length}
           loadingMore={loadingMore}
           nextPage={nextPage ?? (() => {})}
+          onRowClick={onRowClick}
           pageSize={pageSize ?? data.length}
           table={table}
         />

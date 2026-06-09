@@ -5,9 +5,10 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/componen
 
 type DefaultCollectionCardProps<TData> = {
   readonly row: Row<TData>;
+  readonly onClick?: (item: TData) => void;
 };
 
-export function DefaultCollectionCard<TData>({ row }: DefaultCollectionCardProps<TData>) {
+export function DefaultCollectionCard<TData>({ row, onClick }: DefaultCollectionCardProps<TData>) {
   const cells = row.getVisibleCells();
   const [primaryCell, ...detailCells] = cells;
   const actionCells = detailCells.filter(
@@ -21,6 +22,13 @@ export function DefaultCollectionCard<TData>({ row }: DefaultCollectionCardProps
     <Card
       className="group relative flex-1 gap-0 transition-transform"
       data-state={row.getIsSelected() && "selected"}
+      onClick={(event) => {
+        if (!onClick || isInteractiveTarget(event.target)) {
+          return;
+        }
+
+        onClick(row.original);
+      }}
     >
       {primaryCell ? (
         <CardHeader className="border-b">
@@ -55,6 +63,14 @@ export function DefaultCollectionCard<TData>({ row }: DefaultCollectionCardProps
       ) : null}
     </Card>
   );
+}
+
+function isInteractiveTarget(target: EventTarget | null) {
+  return target instanceof Element
+    ? Boolean(
+        target.closest("a, button, input, textarea, select, [role='button'], [role='menuitem']"),
+      )
+    : false;
 }
 
 function getCardColumnLabel(header: unknown, fallback: string) {

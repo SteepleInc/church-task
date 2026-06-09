@@ -10,6 +10,7 @@ type CollectionCardViewProps<TData> = {
   readonly limit: number;
   readonly canLoadMore?: boolean;
   readonly loadingMore?: boolean;
+  readonly onRowClick?: (item: TData) => void;
 };
 
 export function CollectionCardView<TData>({
@@ -19,6 +20,7 @@ export function CollectionCardView<TData>({
   limit,
   canLoadMore = false,
   loadingMore = false,
+  onRowClick,
 }: CollectionCardViewProps<TData>) {
   const rows = table.getRowModel().rows;
 
@@ -26,7 +28,7 @@ export function CollectionCardView<TData>({
     <div className="flex flex-1 flex-col overflow-hidden rounded-xl border bg-card">
       <div className="grid gap-3 overflow-auto p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {rows.map((row) => (
-          <DefaultCollectionCard key={row.id} row={row} />
+          <DefaultCollectionCard key={row.id} onClick={onRowClick} row={row} />
         ))}
       </div>
       <div className="flex items-center justify-between border-t px-3 py-2 text-muted-foreground text-sm">

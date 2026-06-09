@@ -3,6 +3,7 @@ import { assertAppAdministratorUser } from "../adminAccess";
 import { listBetterAuthModel, listQueryArgsValidator } from "./listQueryHelpers";
 import { components } from "./_generated/api";
 import { query } from "./_generated/server";
+import { v } from "convex/values";
 
 type BetterAuthOrganization = {
   readonly _id: string;
@@ -12,9 +13,13 @@ type BetterAuthOrganization = {
   readonly churchTimeZone?: string | null;
   readonly completedOnboarding?: boolean | null;
   readonly url?: string | null;
+  readonly street?: string | null;
   readonly city?: string | null;
   readonly state?: string | null;
+  readonly zip?: string | null;
   readonly countryCode?: string | null;
+  readonly latitude?: number | null;
+  readonly longitude?: number | null;
   readonly size?: string | null;
   readonly createdAt: number;
 };
@@ -62,9 +67,13 @@ export function buildAdminOrgCollectionItem(
     churchTimeZone: organization.churchTimeZone ?? null,
     completedOnboarding: organization.completedOnboarding ?? false,
     url: organization.url ?? null,
+    street: organization.street ?? null,
     city: organization.city ?? null,
     state: organization.state ?? null,
+    zip: organization.zip ?? null,
     countryCode: organization.countryCode ?? null,
+    latitude: organization.latitude ?? null,
+    longitude: organization.longitude ?? null,
     size: organization.size ?? null,
     membersCount: counts.membersCount,
     teamsCount: counts.teamsCount,
@@ -80,6 +89,50 @@ export const assertAppAdministrator = query({
     assertAppAdministratorUser(authUser);
 
     return { ok: true };
+  },
+});
+
+export const getOrg = query({
+  args: { orgId: v.string() },
+  handler: async (ctx, args) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+
+    assertAppAdministratorUser(authUser);
+
+    const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "organization",
+      where: [{ field: "_id", value: args.orgId }],
+      paginationOpts: { cursor: null, numItems: 1 },
+      select: [
+        "_id",
+        "name",
+        "slug",
+        "logo",
+        "churchTimeZone",
+        "completedOnboarding",
+        "url",
+        "street",
+        "city",
+        "state",
+        "zip",
+        "countryCode",
+        "latitude",
+        "longitude",
+        "size",
+        "createdAt",
+      ],
+    })) as { readonly page: ReadonlyArray<BetterAuthOrganization> };
+
+    const organization = result.page[0];
+
+    if (!organization) {
+      return null;
+    }
+
+    return buildAdminOrgCollectionItem(organization, {
+      membersCount: await countBetterAuthModelByOrganization(ctx, "member", organization._id),
+      teamsCount: await countBetterAuthModelByOrganization(ctx, "team", organization._id),
+    });
   },
 });
 
@@ -102,9 +155,13 @@ export const listAllOrgs = query({
         "churchTimeZone",
         "completedOnboarding",
         "url",
+        "street",
         "city",
         "state",
+        "zip",
         "countryCode",
+        "latitude",
+        "longitude",
         "size",
         "createdAt",
       ],

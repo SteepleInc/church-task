@@ -1,4 +1,5 @@
 import { Collection } from "@/components/collections/collection";
+import { useDetailsPaneState } from "@/components/details-pane/details-pane-helpers";
 import { orgsColumnsDef, orgsFiltersDef } from "@/data/orgs/orgsCollectionDef";
 import { useAllOrgsCollectionWithFilters, type OrgCollectionItem } from "@/data/orgs/orgsData.app";
 import { FilterKeys } from "@/shared/global-state";
@@ -20,6 +21,7 @@ export function OrgsCollection(props: OrgsCollectionProps) {
 function GlobalOrgsCollection() {
   const { canLoadMore, limit, loading, loadingMore, nextPage, orgsCollection, pageSize } =
     useAllOrgsCollectionWithFilters();
+  const [detailsPaneState, setDetailsPaneState] = useDetailsPaneState();
 
   return (
     <Collection<OrgCollectionItem>
@@ -36,6 +38,16 @@ function GlobalOrgsCollection() {
       loading={loading}
       loadingMore={loadingMore}
       nextPage={nextPage}
+      onRowClick={(org) => {
+        const nextEntry = { _tag: "org" as const, id: org.id, tab: "details" as const };
+        const currentEntry = detailsPaneState.at(-1);
+
+        if (currentEntry?._tag === "org" && currentEntry.id === org.id) {
+          return;
+        }
+
+        setDetailsPaneState([...detailsPaneState, nextEntry]);
+      }}
       pageSize={pageSize}
     />
   );

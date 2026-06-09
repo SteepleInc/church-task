@@ -11,12 +11,16 @@ export type OrgCollectionItem = Pick<Org, "id" | "name" | "slug" | "completedOnb
   readonly createdAt?: number;
   readonly city?: string | null;
   readonly countryCode?: string | null;
+  readonly latitude?: number | null;
+  readonly longitude?: number | null;
   readonly logo?: string | null;
   readonly membersCount?: number;
   readonly size?: string | null;
   readonly state?: string | null;
+  readonly street?: string | null;
   readonly teamsCount?: number;
   readonly url?: string | null;
+  readonly zip?: string | null;
 };
 
 export function useUserOrgsCollection() {

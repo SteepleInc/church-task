@@ -19,6 +19,7 @@ type CollectionTableViewProps<TData> = {
   readonly limit: number;
   readonly canLoadMore?: boolean;
   readonly loadingMore?: boolean;
+  readonly onRowClick?: (item: TData) => void;
 };
 
 function getPinnedStyles<TData>(column: Column<TData>) {
@@ -40,6 +41,7 @@ export function CollectionTableView<TData>({
   limit,
   canLoadMore = false,
   loadingMore = false,
+  onRowClick,
 }: CollectionTableViewProps<TData>) {
   const rows = table.getRowModel().rows;
 
@@ -79,7 +81,18 @@ export function CollectionTableView<TData>({
           <TableBody>
             {rows.length > 0 ? (
               rows.map((row) => (
-                <TableRow data-state={row.getIsSelected() && "selected"} key={row.id}>
+                <TableRow
+                  className={onRowClick ? "cursor-pointer" : undefined}
+                  data-state={row.getIsSelected() && "selected"}
+                  key={row.id}
+                  onClick={(event) => {
+                    if (!onRowClick || isInteractiveTarget(event.target)) {
+                      return;
+                    }
+
+                    onRowClick(row.original);
+                  }}
+                >
                   {row.getVisibleCells().map((cell) => {
                     const pinned = cell.column.getIsPinned();
 
@@ -130,4 +143,12 @@ export function CollectionTableView<TData>({
       </div>
     </div>
   );
+}
+
+function isInteractiveTarget(target: EventTarget | null) {
+  return target instanceof Element
+    ? Boolean(
+        target.closest("a, button, input, textarea, select, [role='button'], [role='menuitem']"),
+      )
+    : false;
 }
