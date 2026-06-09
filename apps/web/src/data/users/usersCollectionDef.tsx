@@ -4,6 +4,7 @@ import { BaseAvatar } from "@/components/avatars/baseAvatar";
 import { ColumnHeader } from "@/components/collections/collectionComponents";
 import { createColumnConfigHelper } from "@/components/data-table-filter/core/filters";
 import type { ColumnOption } from "@/components/data-table-filter/core/types";
+import { UserLink } from "@/components/navigation/links";
 import { Badge } from "@/components/ui/badge";
 import { formatCreatedAt } from "@/data/orgs/orgsCollectionDef";
 import type { UserCollectionItem } from "@/data/users/usersData.app";
@@ -40,14 +41,12 @@ export const usersColumnsDef: Array<ColumnDef<UserCollectionItem>> = [
   {
     accessorKey: "name",
     cell: ({ row }) => (
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="group/cell flex min-w-0 items-center gap-3">
         <BaseAvatar avatar={row.original.image} name={row.original.name ?? null} size={32} />
-        <a
-          className="truncate font-medium underline"
-          href={`/admin/users?userId=${row.original.id}`}
-        >
-          {row.original.name || row.original.email}
-        </a>
+        <UserLink
+          className="font-medium hover:underline"
+          user={{ id: row.original.id, name: row.original.name || row.original.email }}
+        />
       </div>
     ),
     enableHiding: false,

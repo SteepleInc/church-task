@@ -6,16 +6,14 @@ const cardSource = await Bun.file(new URL("./defaultCollectionCard.tsx", import.
 
 describe("collection row actions", () => {
   test("auto-adds and pins an actions column when row actions are supplied", () => {
-    expect(collectionSource).toContain("readonly rowActions?: RowActionsRenderer<TItem>");
-    expect(collectionSource).toContain("createRowActionsColumn(rowActions)");
-    expect(collectionSource).toContain(
-      'right: Array.from(new Set([...(columnPinning?.right ?? []), "actions"]))',
-    );
+    expect(collectionSource).toContain("rowActions?: RowActionsRenderer<TData>");
+    expect(collectionSource).toContain("createRowActionsColumn(renderActions)");
+    expect(collectionSource).toContain('right: [...(columnPinning?.right ?? []), "actions"]');
     expect(rowActionsSource).toContain('id: "actions"');
     expect(rowActionsSource).toContain("rowActions(row.original)");
   });
 
   test("keeps action cells in the card header instead of details content", () => {
-    expect(cardSource).toContain('cell.column.id === "edit" || cell.column.id === "actions"');
+    expect(cardSource).toContain('y.column.id === "edit" || y.column.id === "actions"');
   });
 });

@@ -1,49 +1,67 @@
+import { nullOp } from "@church-task/shared/noOps";
 import type { Table } from "@tanstack/react-table";
+import { Boolean, Option, pipe } from "effect";
 import type { ReactNode } from "react";
 
-import { CollectionFilters } from "@/components/collections/collectionFilters";
-import { CollectionSearchFilter } from "@/components/collections/collectionSearchFilter";
 import type { CollectionTags } from "@/components/collections/collectionComponents";
+import { CollectionSearchFilter } from "@/components/collections/collectionSearchFilter";
 import { CollectionViewToggleGroup } from "@/components/collections/collectionViewToggleGroup";
-import type { ColumnConfig } from "@/components/data-table-filter/core/types";
+import { Toolbar, ToolbarSeparator } from "@/components/ui/toolbar";
 import { cn } from "@/lib/utils";
 import type { FilterKeys } from "@/shared/global-state";
+import { useIsMdScreen } from "@/shared/hooks/use-media-query";
 
 type CollectionToolbarProps<TData> = {
-  readonly _tag: CollectionTags;
-  readonly Actions?: ReactNode;
-  readonly className?: string;
-  readonly data: readonly TData[];
-  readonly filterColumnId: string;
-  readonly filterKey: FilterKeys;
-  readonly filterPlaceHolder: string;
-  readonly filtersDef: ReadonlyArray<ColumnConfig<TData>>;
-  readonly table: Table<TData>;
+  data: ReadonlyArray<TData>;
+  table: Table<TData>;
+  filterPlaceHolder: string;
+  filterColumnId: string;
+  Actions?: ReactNode;
+  className?: string;
+  _tag: CollectionTags;
+  filterKey: FilterKeys;
 };
 
-export function CollectionToolbar<TData>({
-  _tag,
-  Actions,
-  className,
-  filterColumnId,
-  filterKey,
-  filterPlaceHolder,
-  filtersDef,
-}: CollectionToolbarProps<TData>) {
+export const CollectionToolbar = <TData,>(props: CollectionToolbarProps<TData>): ReactNode => {
+  // eslint-disable-next-line react-compiler/react-compiler
+  "use no memo";
+
+  const { filterPlaceHolder, filterColumnId, Actions, className, _tag, filterKey } = props;
+
+  const isMdScreen = useIsMdScreen();
+
   return (
-    <div className={cn("mb-2 flex flex-col gap-2 pt-1 md:mr-4 md:mb-4", className)}>
-      <div className="flex flex-wrap items-center gap-2">
+    <div className={cn("flex w-auto flex-col gap-2 px-4 md:ml-4 md:px-0", className)}>
+      {/* Main toolbar row */}
+      <Toolbar className="flex min-h-10 w-auto items-center gap-2">
         <CollectionSearchFilter
           filterColumnId={filterColumnId}
           filterKey={filterKey}
           filterPlaceHolder={filterPlaceHolder}
         />
-        <div className="ml-auto flex items-center gap-2">
-          <CollectionViewToggleGroup _tag={_tag} size="sm" variant="outline" />
-          {Actions}
+
+        <div className="ml-auto flex flex-row">
+          <ToolbarSeparator className="-ml-1 block md:ml-0 md:hidden" />
+
+          {/* Hide view toggle on small screens (forced to cards view) */}
+          {pipe(
+            isMdScreen,
+            Boolean.match({
+              onFalse: nullOp,
+              onTrue: () => <CollectionViewToggleGroup _tag={_tag} />,
+            }),
+          )}
+
+          {pipe(
+            Actions,
+            Option.fromNullable,
+            Option.match({
+              onNone: nullOp,
+              onSome: (x) => <div className="ml-2 flex flex-row items-center gap-2">{x}</div>,
+            }),
+          )}
         </div>
-      </div>
-      <CollectionFilters filterKey={filterKey} filtersDef={filtersDef} />
+      </Toolbar>
     </div>
   );
-}
+};

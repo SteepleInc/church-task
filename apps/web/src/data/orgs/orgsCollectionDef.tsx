@@ -3,6 +3,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { BaseAvatar } from "@/components/avatars/baseAvatar";
 import { ColumnHeader } from "@/components/collections/collectionComponents";
 import { createColumnConfigHelper } from "@/components/data-table-filter/core/filters";
+import { OrgLink } from "@/components/navigation/links";
 import { Badge } from "@/components/ui/badge";
 import type { OrgCollectionItem } from "@/data/orgs/orgsData.app";
 
@@ -145,11 +146,12 @@ export const orgsColumnsDef: Array<ColumnDef<OrgCollectionItem>> = [
   {
     accessorKey: "name",
     cell: ({ row }) => (
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="group/cell flex min-w-0 items-center gap-3">
         <BaseAvatar _tag="org" avatar={row.original.logo} name={row.original.name} size={32} />
-        <a className="truncate font-medium underline" href={`/admin/orgs?orgId=${row.original.id}`}>
-          {row.original.name}
-        </a>
+        <OrgLink
+          className="font-medium hover:underline"
+          org={{ id: row.original.id, name: row.original.name }}
+        />
       </div>
     ),
     enableHiding: false,
@@ -246,7 +248,7 @@ export const orgsColumnsDef: Array<ColumnDef<OrgCollectionItem>> = [
       ),
     enableHiding: false,
     header: ({ column }) => <ColumnHeader column={column}>Website</ColumnHeader>,
-    id: "url",
+    id: "website",
     minSize: 180,
     size: 220,
   },

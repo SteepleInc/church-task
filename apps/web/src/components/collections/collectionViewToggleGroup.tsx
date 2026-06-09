@@ -1,40 +1,46 @@
+"use client";
+
 import { useAtom } from "jotai";
-import { LayoutGrid, List } from "lucide-react";
-import type { ComponentPropsWithoutRef } from "react";
+import type { ComponentPropsWithoutRef, FC } from "react";
 
 import type { CollectionTags } from "@/components/collections/collectionComponents";
+import { ViewCardIcon } from "@/components/icons/viewCardIcon";
+import { ViewListIcon } from "@/components/icons/viewListIcon";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { collectionViewsAtom, getCollectionView, setCollectionView } from "@/shared/global-state";
 
 type CollectionViewToggleGroupProps = Omit<
   ComponentPropsWithoutRef<typeof ToggleGroup>,
-  "value" | "onValueChange" | "defaultValue"
+  "value" | "onValueChange" | "defaultValue" | "type"
 > & {
-  readonly _tag: CollectionTags;
+  _tag: CollectionTags;
 };
 
-export function CollectionViewToggleGroup({ _tag, ...domProps }: CollectionViewToggleGroupProps) {
+export const CollectionViewToggleGroup: FC<CollectionViewToggleGroupProps> = (props) => {
+  const { _tag, ...domProps } = props;
+
   const [collectionViews, setCollectionViews] = useAtom(collectionViewsAtom);
   const collectionView = getCollectionView(collectionViews, _tag);
 
   return (
     <ToggleGroup
-      onValueChange={(value) => {
-        const nextView = Array.isArray(value) ? value[0] : value;
+      onValueChange={(groupValue) => {
+        const next = groupValue[0];
 
-        if (nextView === "table" || nextView === "cards") {
-          setCollectionViews((currentViews) => setCollectionView(currentViews, _tag, nextView));
+        if (next === "table" || next === "cards") {
+          setCollectionViews((currentViews) => setCollectionView(currentViews, _tag, next));
         }
       }}
       value={[collectionView]}
       {...domProps}
     >
-      <ToggleGroupItem aria-label="Card view" value="cards">
-        <LayoutGrid className="size-4" />
+      <ToggleGroupItem aria-label="Card View" value="cards">
+        <ViewCardIcon className="size-4" />
       </ToggleGroupItem>
-      <ToggleGroupItem aria-label="Table view" value="table">
-        <List className="size-4" />
+
+      <ToggleGroupItem aria-label="Table View" value="table">
+        <ViewListIcon className="size-4" />
       </ToggleGroupItem>
     </ToggleGroup>
   );
-}
+};

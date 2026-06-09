@@ -1,78 +1,103 @@
-import { flexRender, type Row } from "@tanstack/react-table";
-import { Fragment } from "react";
+import { nullOp } from "@church-task/shared/noOps";
+import type { Row } from "@tanstack/react-table";
+import { flexRender } from "@tanstack/react-table";
+import { Array, Option, pipe } from "effect";
+import { type ComponentRef, Fragment, type ReactElement, type RefObject } from "react";
 
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type DefaultCollectionCardProps<TData> = {
-  readonly row: Row<TData>;
-  readonly onClick?: (item: TData) => void;
+  row: Row<TData>;
+  ref?: RefObject<ComponentRef<typeof Card>>;
 };
 
-export function DefaultCollectionCard<TData>({ row, onClick }: DefaultCollectionCardProps<TData>) {
+export const DefaultCollectionCard = <TData,>(
+  props: DefaultCollectionCardProps<TData>,
+): ReactElement => {
+  const { row, ref } = props;
+
   const cells = row.getVisibleCells();
-  const [primaryCell, ...detailCells] = cells;
-  const actionCells = detailCells.filter(
-    (cell) => cell.column.id === "edit" || cell.column.id === "actions",
-  );
-  const contentCells = detailCells.filter(
-    (cell) => cell.column.id !== "edit" && cell.column.id !== "actions",
-  );
 
   return (
     <Card
       className="group relative flex-1 gap-0 transition-transform"
       data-state={row.getIsSelected() && "selected"}
-      onClick={(event) => {
-        if (!onClick || isInteractiveTarget(event.target)) {
-          return;
-        }
-
-        onClick(row.original);
-      }}
+      ref={ref}
     >
-      {primaryCell ? (
-        <CardHeader className="border-b">
-          <CardTitle className="row-span-2 self-center">
-            {flexRender(primaryCell.column.columnDef.cell, primaryCell.getContext())}
-          </CardTitle>
-          {actionCells.length > 0 ? (
-            <CardAction>
-              {actionCells.map((cell) => (
-                <Fragment key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </Fragment>
-              ))}
-            </CardAction>
-          ) : null}
-        </CardHeader>
-      ) : null}
+      {pipe(
+        cells,
+        Array.head,
+        Option.match({
+          onNone: nullOp,
+          onSome: (x) => (
+            <CardHeader className="border-b">
+              <CardTitle className="row-span-2 self-center">
+                {flexRender(x.column.columnDef.cell, x.getContext())}
+              </CardTitle>
 
-      {contentCells.length > 0 ? (
-        <CardContent className="flex flex-col gap-3 py-4">
-          {contentCells.map((cell) => (
-            <div className="flex flex-col gap-0.5" key={cell.id}>
-              <div className="-ml-1 text-muted-foreground text-xs">
-                {getCardColumnLabel(cell.column.columnDef.header, cell.column.id)}
-              </div>
-              <div className="text-sm">
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      ) : null}
+              {pipe(
+                cells,
+                Array.tail,
+                Option.getOrElse((): typeof cells => []),
+                Array.filter((y) => y.column.id === "edit" || y.column.id === "actions"),
+                Array.match({
+                  onEmpty: nullOp,
+                  onNonEmpty: (y) => (
+                    <CardAction>
+                      {pipe(
+                        y,
+                        Array.map((z) => (
+                          <Fragment key={z.id}>
+                            {flexRender(z.column.columnDef.cell, z.getContext())}
+                          </Fragment>
+                        )),
+                      )}
+                    </CardAction>
+                  ),
+                }),
+              )}
+            </CardHeader>
+          ),
+        }),
+      )}
+
+      {pipe(
+        cells,
+        Array.tail,
+        Option.getOrElse((): typeof cells => []),
+        Array.filter((x) => x.column.id !== "edit" && x.column.id !== "actions"),
+        Array.match({
+          onEmpty: nullOp,
+          onNonEmpty: (x) => (
+            <CardContent className="flex flex-col gap-3 py-4">
+              {pipe(
+                x,
+                Array.match({
+                  onEmpty: nullOp,
+                  onNonEmpty: (y) =>
+                    pipe(
+                      y,
+                      Array.map((z) => (
+                        <div className="flex flex-col gap-0.5" key={z.id}>
+                          <div className="-ml-1 text-muted-foreground text-xs">
+                            {flexRender(
+                              z.column.columnDef.header,
+                              // @ts-expect-error header context differs from cell context
+                              z.getContext(),
+                            )}
+                          </div>
+                          <div className="text-sm">
+                            {flexRender(z.column.columnDef.cell, z.getContext())}
+                          </div>
+                        </div>
+                      )),
+                    ),
+                }),
+              )}
+            </CardContent>
+          ),
+        }),
+      )}
     </Card>
   );
-}
-
-function isInteractiveTarget(target: EventTarget | null) {
-  return target instanceof Element
-    ? Boolean(
-        target.closest("a, button, input, textarea, select, [role='button'], [role='menuitem']"),
-      )
-    : false;
-}
-
-function getCardColumnLabel(header: unknown, fallback: string) {
-  return typeof header === "string" ? header : fallback;
-}
+};

@@ -1,3 +1,4 @@
+import { Match, pipe } from "effect";
 import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 
@@ -30,3 +31,14 @@ export function setCollectionView(
 ): Record<string, CollectionView> {
   return { ...collectionViews, [key]: view };
 }
+
+export const collectionViewMatch = <T>(match: {
+  readonly table: () => T;
+  readonly cards: () => T;
+}) =>
+  pipe(
+    Match.type<CollectionView>(),
+    Match.when("table", match.table),
+    Match.when("cards", match.cards),
+    Match.exhaustive,
+  );
