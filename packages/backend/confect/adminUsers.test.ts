@@ -4,7 +4,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 
 import { api, components } from "../convex/_generated/api";
-import { buildAdminUserCollectionItem } from "../convex/admin";
+import { buildAdminUserCollectionItem, buildAdminUserUpdate } from "../convex/admin";
 import betterAuthSchema from "../convex/betterAuth/schema";
 import schema from "../convex/schema";
 
@@ -106,6 +106,87 @@ describe("admin user queries", () => {
     );
   });
 
+  it("rejects updateUser without an App Administrator session", async () => {
+    const t = convexTest(schema, modules);
+
+    await expect(
+      t.mutation(api.admin.updateUser, {
+        userId: "user_123",
+        name: "Updated User",
+        email: "updated@example.com",
+      }),
+    ).rejects.toThrow("App Administrator access required.");
+  });
+
+  it("rejects impersonation without an App Administrator session", async () => {
+    const t = createAdminTest();
+    const member = await signUpWithEmail(
+      t,
+      `member-impersonate-${crypto.randomUUID()}@example.com`,
+      "Member Impersonator",
+    );
+    const target = await signUpWithEmail(
+      t,
+      `target-impersonate-${crypto.randomUUID()}@example.com`,
+      "Target User",
+    );
+
+    const response = await t.fetch("/api/auth/admin/impersonate-user", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${member.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ userId: target.user.id }),
+    });
+
+    expect(response.status).toBe(403);
+  });
+
+  it("updates editable User fields for App Administrators", async () => {
+    const t = createAdminTest();
+    const admin = await signUpWithEmail(
+      t,
+      `admin-update-user-${crypto.randomUUID()}@example.com`,
+      "Admin User",
+    );
+    const target = await signUpWithEmail(
+      t,
+      `target-update-user-${crypto.randomUUID()}@example.com`,
+      "Original User",
+    );
+
+    await t.run((ctx) =>
+      ctx.runMutation(components.betterAuth.adapter.updateOne, {
+        input: {
+          model: "user",
+          where: [{ field: "_id", value: admin.user.id }],
+          update: { role: "admin" },
+        },
+      }),
+    );
+
+    const tokenPayload = await convexTokenForSession(t, admin.token);
+    const authenticated = t.withIdentity({
+      subject: admin.user.id,
+      sessionId: tokenPayload.sessionId!,
+    });
+
+    await authenticated.mutation(api.admin.updateUser, {
+      userId: target.user.id,
+      name: "Updated User",
+      email: "updated-user@example.com",
+    });
+
+    const updated = await authenticated.query(api.admin.getUser, { userId: target.user.id });
+
+    expect(updated).toMatchObject({
+      id: target.user.id,
+      name: "Updated User",
+      email: "updated-user@example.com",
+    });
+  });
+
   it("projects users with church memberships and supports server-side church filtering", async () => {
     const t = createAdminTest();
     const admin = await signUpWithEmail(
@@ -194,6 +275,13 @@ describe("admin user queries", () => {
       image: null,
       createdAt: 1_767_312_000_000,
       churches: [{ id: "org_123", name: "Grace Church", role: "owner", slug: "grace" }],
+    });
+  });
+
+  it("builds the Better Auth user update payload", () => {
+    expect(buildAdminUserUpdate({ name: "Ada Lovelace", email: "ada@example.com" })).toEqual({
+      name: "Ada Lovelace",
+      email: "ada@example.com",
     });
   });
 });

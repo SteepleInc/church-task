@@ -3,11 +3,11 @@ import { DetailItem, DetailSection } from "@/components/details-pane/details-com
 import { DetailsShell } from "@/components/details-pane/details-shell";
 import type { DetailsPaneUser } from "@/components/details-pane/details-pane-types";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCreatedAt } from "@/data/orgs/orgsCollectionDef";
 import { useUserData } from "@/data/users/userData.app";
 import type { UserCollectionItem } from "@/data/users/usersData.app";
+import { UserActions } from "@/features/actions/userActions";
 
 export function UserDetailsPane({
   tab,
@@ -49,9 +49,7 @@ export function UserDetailsPane({
 function UserTopBarButtons({ userId }: { readonly userId: string }) {
   return (
     <div className="flex items-center gap-2">
-      <Button disabled size="sm" type="button" variant="outline">
-        User details
-      </Button>
+      <UserActions userId={userId} mode="details-pane" />
       <span className="sr-only">Details for User {userId}</span>
     </div>
   );

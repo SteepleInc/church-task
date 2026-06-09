@@ -14,4 +14,13 @@ describe("users collection details-pane wiring", () => {
       "setDetailsPaneState([...detailsPaneState, nextEntry])",
     );
   });
+
+  test("renders App Administrator row actions for each user", () => {
+    expect(usersCollectionSource).toContain(
+      'import { UserActions } from "@/features/actions/userActions"',
+    );
+    expect(usersCollectionSource).toContain(
+      'rowActions={(user) => <UserActions userId={user.id} mode="table" />}',
+    );
+  });
 });

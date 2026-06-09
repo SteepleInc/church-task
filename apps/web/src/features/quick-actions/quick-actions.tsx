@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/command";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { EditOrgQuickAction } from "@/features/quick-actions/edit-org-quick-action";
+import { EditUserQuickAction } from "@/features/quick-actions/edit-user-quick-action";
 import { canInviteChurchMembers, InviteMemberQuickAction } from "@/features/settings/invite-member";
 import {
   buildChurchTaskQuickActions,
@@ -83,6 +84,7 @@ export function QuickActions() {
         />
       ) : null}
       <EditOrgQuickAction />
+      <EditUserQuickAction />
     </>
   );
 }

@@ -1,5 +1,6 @@
 import { Collection } from "@/components/collections/collection";
 import { useDetailsPaneState } from "@/components/details-pane/details-pane-helpers";
+import { UserActions } from "@/features/actions/userActions";
 import { api } from "@church-task/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { createUsersFiltersDef, usersColumnsDef } from "@/data/users/usersCollectionDef";
@@ -59,6 +60,7 @@ function GlobalUsersCollection() {
         setDetailsPaneState([...detailsPaneState, nextEntry]);
       }}
       pageSize={pageSize}
+      rowActions={(user) => <UserActions userId={user.id} mode="table" />}
     />
   );
 }

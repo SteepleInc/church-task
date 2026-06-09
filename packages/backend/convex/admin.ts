@@ -70,6 +70,11 @@ type UpdateOrgInput = {
   readonly size?: string | null;
 };
 
+type UpdateUserInput = {
+  readonly name: string;
+  readonly email: string;
+};
+
 async function countBetterAuthModelByOrganization(
   ctx: Parameters<typeof listBetterAuthModel>[0],
   model: "member" | "team",
@@ -226,6 +231,13 @@ export function buildAdminOrgUpdate(input: UpdateOrgInput) {
     zip: input.zip ?? null,
     countryCode: input.countryCode ?? null,
     size: input.size ?? null,
+  };
+}
+
+export function buildAdminUserUpdate(input: UpdateUserInput) {
+  return {
+    name: input.name,
+    email: input.email,
   };
 }
 
@@ -439,6 +451,29 @@ export const updateOrg = mutation({
         model: "organization",
         where: [{ field: "_id", value: args.orgId }],
         update: buildAdminOrgUpdate(args),
+      },
+    });
+
+    return { ok: true };
+  },
+});
+
+export const updateUser = mutation({
+  args: {
+    userId: v.string(),
+    name: v.string(),
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+
+    assertAppAdministratorUser(authUser);
+
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "user",
+        where: [{ field: "_id", value: args.userId }],
+        update: buildAdminUserUpdate(args),
       },
     });
 
