@@ -38,7 +38,7 @@ async function waitForOtp(page: Page, email: string) {
 async function signInWithOtp(page: Page, email: string) {
   await page.goto("/sign-in");
   await page.getByLabel("Email address").fill(email);
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.locator('button[data-loading="false"]', { hasText: "Continue" }).click();
   await page.getByLabel("Verification Code").fill(await waitForOtp(page, email));
 }
 
@@ -174,7 +174,7 @@ test("creates a Church profile and reviews initial Teams", async ({ page }, test
   await page.getByRole("button", { name: "Enter Church Task" }).click();
 
   await expect(page).toHaveURL(/\/my-work$/, { timeout: 20_000 });
-  await expect(page.getByRole("heading", { name: "My Work", level: 1 })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "breadcrumb" })).toContainText("My Work");
 });
 
 test("Create Church clears active Church for onboarding and completed Church switching returns to My Work", async ({
@@ -308,7 +308,11 @@ test("settings navigation exposes profile, Church, members, and invitation actio
   await expect(page.getByText("No pending invitations.")).toBeVisible();
 
   await page.getByRole("button", { name: "Invite Member" }).click();
-  await page.getByLabel("Email Addresses").fill(inviteEmail);
+  await page
+    .getByRole("textbox", {
+      name: "Enter or paste one or more email addresses, separated by spaces or commas",
+    })
+    .fill(inviteEmail);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Invite Member" })).not.toBeVisible();
 });

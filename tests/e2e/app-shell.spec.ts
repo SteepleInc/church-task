@@ -51,8 +51,8 @@ test("shell navigation keeps work and settings routes inside the sidebar layout"
 
   await page.locator('[data-sidebar="sidebar"]').getByRole("link", { name: "Our Work" }).click();
   await expect(page).toHaveURL(/\/our-work$/);
-  await expect(page.getByRole("heading", { name: "Our Work", level: 1 })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "breadcrumb" })).toContainText("Our Work");
+  await expect(page.getByText("To Do").first()).toBeVisible();
 
   await page
     .locator('[data-sidebar="sidebar"]')
@@ -71,7 +71,7 @@ test("shell navigation keeps work and settings routes inside the sidebar layout"
 
   await page.locator('[data-sidebar="sidebar"]').getByRole("link", { name: "My Work" }).click();
   await expect(page).toHaveURL(/\/my-work$/);
-  await expect(page.getByRole("heading", { name: "My Work", level: 1 })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "breadcrumb" })).toContainText("My Work");
 });
 
 test("mobile sidebar drawer exposes the shared PreachX header controls", async ({
@@ -92,5 +92,5 @@ test("mobile sidebar drawer exposes the shared PreachX header controls", async (
 
   await sidebar.getByRole("link", { name: "Our Work" }).click();
   await expect(page).toHaveURL(/\/our-work$/);
-  await expect(page.getByRole("heading", { name: "Our Work", level: 1 })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "breadcrumb" })).toContainText("Our Work");
 });

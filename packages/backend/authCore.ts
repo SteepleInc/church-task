@@ -30,6 +30,20 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
   },
 });
 
+const isLocalSiteUrl = (url: string | undefined) => {
+  if (!url) return false;
+
+  try {
+    const { hostname } = new URL(url);
+    return hostname === "localhost" || hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+};
+
+const shouldCaptureOtpWithoutEmail = () =>
+  process.env.OTP_CAPTURE_ENABLED === "1" && isLocalSiteUrl(process.env.SITE_URL);
+
 const roleToString = (role: unknown) => (Array.isArray(role) ? role.join(",") : String(role));
 
 const stringOrNull = (value: unknown) => (typeof value === "string" ? value : null);
@@ -199,6 +213,10 @@ export function createAuthOptions(ctx: GenericCtx<DataModel>) {
       emailOTP({
         expiresIn: 15 * 60,
         async sendVerificationOTP({ email, otp }) {
+          if (shouldCaptureOtpWithoutEmail()) {
+            return;
+          }
+
           if (process.env.NODE_ENV === "development") {
             console.log("sendVerificationOTP", { email, otp });
           }
