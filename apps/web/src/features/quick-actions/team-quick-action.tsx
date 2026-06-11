@@ -29,14 +29,6 @@ export type TeamQuickActionState =
 
 export const teamQuickActionStateAtom = atom<TeamQuickActionState | null>(null);
 
-type CurrentMemberRole = string | readonly string[] | null | undefined;
-
-export function canManageChurchTeams(currentRole: CurrentMemberRole) {
-  return Array.isArray(currentRole)
-    ? currentRole.includes("owner") || currentRole.includes("admin")
-    : currentRole === "owner" || currentRole === "admin";
-}
-
 const TeamFormSchema = Schema.Struct({
   name: Schema.String.pipe(Schema.minLength(1, { message: () => "Team name is required." })),
 });
