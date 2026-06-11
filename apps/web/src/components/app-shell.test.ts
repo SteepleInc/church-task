@@ -244,14 +244,17 @@ describe("quick action route behavior", () => {
   test("renders Church Task big actions and quick actions without PreachX product surfaces", () => {
     const actions = buildChurchTaskQuickActions({
       canInviteMembers: true,
+      canManageTeams: true,
       closeQuickActions: () => {},
       openCreateTask: () => {},
+      openCreateTeam: () => {},
       navigateToSettings: () => {},
       openInviteMember: () => {},
     });
 
     expect(actions.map((action) => [action.group, action.name])).toEqual([
       ["quick-action", "Create Task"],
+      ["quick-action", "Create Team"],
       ["quick-action", "Invite Member"],
       ["quick-action", "Team Settings"],
       ["quick-action", "Church Settings"],
@@ -265,8 +268,10 @@ describe("quick action route behavior", () => {
   test("disables Invite Member when the active Church role cannot invite", () => {
     const actions = buildChurchTaskQuickActions({
       canInviteMembers: false,
+      canManageTeams: false,
       closeQuickActions: () => {},
       openCreateTask: () => {},
+      openCreateTeam: () => {},
       navigateToSettings: () => {},
       openInviteMember: () => {},
     });
@@ -274,6 +279,10 @@ describe("quick action route behavior", () => {
     expect(actions.find((action) => action.name === "Invite Member")).toMatchObject({
       enabled: false,
       disabledReason: "Only Church owners and admins can invite members.",
+    });
+    expect(actions.find((action) => action.name === "Create Team")).toMatchObject({
+      enabled: false,
+      disabledReason: "Only Church owners and admins can create Teams.",
     });
   });
 

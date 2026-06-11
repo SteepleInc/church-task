@@ -15,6 +15,7 @@ import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { CreateTaskQuickAction } from "@/features/quick-actions/create-task-quick-action";
 import { EditOrgQuickAction } from "@/features/quick-actions/edit-org-quick-action";
 import { EditUserQuickAction } from "@/features/quick-actions/edit-user-quick-action";
+import { canManageChurchTeams, TeamQuickAction } from "@/features/quick-actions/team-quick-action";
 import { canInviteChurchMembers, InviteMemberQuickAction } from "@/features/settings/invite-member";
 import {
   buildChurchTaskQuickActions,
@@ -29,7 +30,7 @@ export function QuickActions() {
   const disableQuickActions = useAtomValue(disableQuickActionsAtom);
   const { currentOrgOpt: activeChurch } = useCurrentOrgOpt();
   const navigate = useNavigate();
-  const { openCreateTask, openInviteMember } = useQuickActionOpeners();
+  const { openCreateTask, openCreateTeam, openInviteMember } = useQuickActionOpeners();
 
   useEffect(() => {
     if (disableQuickActions) return;
@@ -47,16 +48,29 @@ export function QuickActions() {
     return () => document.removeEventListener("keydown", handler);
   }, [disableQuickActions, setQuickActionsIsOpen]);
 
+  const activeChurchId = activeChurch?.id ?? null;
   const actions = useMemo(
     () =>
       buildChurchTaskQuickActions({
         canInviteMembers: canInviteChurchMembers(activeChurch?.role),
+        canManageTeams: activeChurchId !== null && canManageChurchTeams(activeChurch?.role),
         closeQuickActions: () => setQuickActionsIsOpen(false),
         openCreateTask: () => openCreateTask(),
+        openCreateTeam: () => {
+          if (activeChurchId) openCreateTeam({ churchId: activeChurchId });
+        },
         navigateToSettings: () => void navigate({ to: "/settings" }),
         openInviteMember,
       }),
-    [activeChurch?.role, navigate, openCreateTask, openInviteMember, setQuickActionsIsOpen],
+    [
+      activeChurch?.role,
+      activeChurchId,
+      navigate,
+      openCreateTask,
+      openCreateTeam,
+      openInviteMember,
+      setQuickActionsIsOpen,
+    ],
   );
 
   return (
@@ -79,6 +93,7 @@ export function QuickActions() {
       ) : null}
       <EditOrgQuickAction />
       <EditUserQuickAction />
+      <TeamQuickAction />
     </>
   );
 }

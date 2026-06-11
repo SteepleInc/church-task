@@ -5,28 +5,34 @@ import {
   SettingsIcon,
   UserPlusIcon,
   UsersIcon,
+  UsersRoundIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 
 import { inviteMemberDialogSourceAtom } from "@/features/settings/invite-member";
 import type { QuickActionDefinition } from "@/features/quick-actions/quick-actions-types";
 import { createTaskQuickActionStateAtom } from "@/features/quick-actions/create-task-quick-action";
+import { teamQuickActionStateAtom } from "@/features/quick-actions/team-quick-action";
 
 export const disableQuickActionsAtom = atom(false);
 export const quickActionsIsOpenAtom = atom(false);
 
 type BuildChurchTaskQuickActionsInput = {
   readonly canInviteMembers: boolean;
+  readonly canManageTeams: boolean;
   readonly closeQuickActions: () => void;
   readonly openCreateTask: () => void;
+  readonly openCreateTeam: () => void;
   readonly navigateToSettings: () => void;
   readonly openInviteMember: () => void;
 };
 
 export function buildChurchTaskQuickActions({
   canInviteMembers,
+  canManageTeams,
   closeQuickActions,
   openCreateTask,
+  openCreateTeam,
   navigateToSettings,
   openInviteMember,
 }: BuildChurchTaskQuickActionsInput): QuickActionDefinition[] {
@@ -44,6 +50,18 @@ export function buildChurchTaskQuickActions({
       keywords: ["task", "create", "todo", "my work", "church"],
       enabled: true,
       onSelect: selectAndClose(openCreateTask),
+    },
+    {
+      group: "quick-action",
+      icon: UsersRoundIcon,
+      name: "Create Team",
+      description: "Create a Team in this Church.",
+      keywords: ["team", "create", "group", "church"],
+      enabled: canManageTeams,
+      disabledReason: canManageTeams
+        ? undefined
+        : "Only Church owners and admins can create Teams.",
+      onSelect: selectAndClose(openCreateTeam),
     },
     {
       group: "quick-action",
@@ -90,6 +108,7 @@ export function buildChurchTaskQuickActions({
 export function useQuickActionOpeners() {
   const setInviteMemberDialogSource = useSetAtom(inviteMemberDialogSourceAtom);
   const setCreateTaskQuickActionState = useSetAtom(createTaskQuickActionStateAtom);
+  const setTeamQuickActionState = useSetAtom(teamQuickActionStateAtom);
 
   return useMemo(
     () => ({
@@ -97,8 +116,16 @@ export function useQuickActionOpeners() {
         setCreateTaskQuickActionState({
           assignTo: options.assignTo ?? null,
         }),
+      openCreateTeam: (options: { readonly churchId: string }) =>
+        setTeamQuickActionState({ mode: "create", churchId: options.churchId }),
+      openEditTeam: (options: { readonly churchId: string; readonly teamId: string }) =>
+        setTeamQuickActionState({
+          mode: "edit",
+          churchId: options.churchId,
+          teamId: options.teamId,
+        }),
       openInviteMember: () => setInviteMemberDialogSource("quick-actions"),
     }),
-    [setCreateTaskQuickActionState, setInviteMemberDialogSource],
+    [setCreateTaskQuickActionState, setInviteMemberDialogSource, setTeamQuickActionState],
   );
 }
