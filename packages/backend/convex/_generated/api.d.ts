@@ -25,6 +25,7 @@ import type * as polar from "../polar.js";
 import type * as privateData from "../privateData.js";
 import type * as tasks from "../tasks.js";
 import type * as teams from "../teams.js";
+import type * as telemetry from "../telemetry.js";
 import type * as templates from "../templates.js";
 import type * as workDefaults from "../workDefaults.js";
 import type * as workflows from "../workflows.js";
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   privateData: typeof privateData;
   tasks: typeof tasks;
   teams: typeof teams;
+  telemetry: typeof telemetry;
   templates: typeof templates;
   workDefaults: typeof workDefaults;
   workflows: typeof workflows;

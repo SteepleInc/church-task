@@ -64,9 +64,7 @@ async function createTestInvitation(
   expect(response.ok()).toBe(true);
 }
 
-async function completeOnboarding(page: Page, churchName: string) {
-  await expect(page.getByText("Next up")).not.toBeVisible();
-  await expect(page.getByText("Step 1 of 2")).not.toBeVisible();
+async function submitChurchProfile(page: Page, churchName: string) {
   await expect(page.getByLabel("Find Your Church")).toBeVisible();
 
   // The Church profile fields stay hidden until the user enters them manually
@@ -78,10 +76,44 @@ async function completeOnboarding(page: Page, churchName: string) {
   await page.getByLabel("Church Name").fill(churchName);
   await page.getByLabel("Church Time Zone").fill("America/Chicago");
   await page.getByRole("button", { name: "Continue to Teams" }).click();
-  await expect(page.getByText("Review the starting Teams", { exact: false })).toBeVisible();
+  await expect(page.getByText("Review the starting Teams", { exact: false })).toBeVisible({
+    timeout: 20_000,
+  });
+}
+
+async function expectTeamsStep(page: Page) {
+  await expect(page.getByText("Review the starting Teams", { exact: false })).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByText("Initial Church Task Team").first()).toBeVisible();
+  // Wait for the seeded Starter Teams to finish streaming in; otherwise the
+  // rows shift the layout under subsequent clicks.
+  await expect(page.getByText("6 Teams ready for your Church.")).toBeVisible({
+    timeout: 20_000,
+  });
+}
+
+async function finishOnboardingFromTeamsStep(page: Page) {
+  // Substring name match: the button's accessible name includes the
+  // Button component's screen-reader "Loading" status prefix.
+  await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("button", { name: "Enter Church Task" })).toBeEnabled();
   await page.getByRole("button", { name: "Enter Church Task" }).click();
   await expect(page).toHaveURL(/\/my-work$/, { timeout: 20_000 });
+}
+
+async function completeOnboarding(page: Page, churchName: string) {
+  await expect(page.getByText("Next up")).not.toBeVisible();
+  await submitChurchProfile(page, churchName);
+  await expectTeamsStep(page);
+  await finishOnboardingFromTeamsStep(page);
+}
+
+async function signOut(page: Page) {
+  await page.evaluate(async () => {
+    const { authClient } = await import("/src/lib/auth-client.ts");
+    await authClient.signOut();
+  });
 }
 
 async function getActiveOrganizationId(page: Page) {
@@ -137,7 +169,7 @@ async function setActiveOrganization(page: Page, organizationId: string) {
   );
 }
 
-test("creates a Church profile and reviews initial Teams", async ({ page }, testInfo) => {
+test("creates a Church profile and edits the live starting Teams", async ({ page }, testInfo) => {
   const email = `onboarding-${Date.now()}-${testInfo.workerIndex}@example.com`;
   const churchName = `E2E Onboarding Church ${Date.now()}`;
 
@@ -145,30 +177,120 @@ test("creates a Church profile and reviews initial Teams", async ({ page }, test
 
   await expect(page).toHaveURL(/\/onboarding$/);
   await expect(page.getByText("Next up")).not.toBeVisible();
-  await expect(page.getByText("Step 1 of 2")).not.toBeVisible();
-  await expect(page.getByLabel("Find Your Church")).toBeVisible();
-  await expect(page.getByLabel("Church Name")).not.toBeVisible();
-  await page.getByTestId("onboarding-enter-manually").click();
-  await expect(page.getByLabel("Find Your Church")).not.toBeVisible();
-  await page.getByLabel("Church Name").fill(churchName);
-  await page.getByLabel("Church Time Zone").fill("America/Chicago");
-  await page.getByRole("button", { name: "Continue to Teams" }).click();
+  await expect(page.getByText("Step 1 of 3")).not.toBeVisible();
+  await submitChurchProfile(page, churchName);
 
-  await expect(page.getByText("Step 2 of 2")).not.toBeVisible();
-  await expect(page.getByText("Review the starting Teams", { exact: false })).toBeVisible();
-  await expect(page.getByText("Initial Church Task Team").first()).toBeVisible();
+  // The teams step is a live editor over the seeded Starter Teams.
+  await expectTeamsStep(page);
   await expect(page.getByText("Workflow setup")).not.toBeVisible();
+  await expect(page.getByLabel("Team 1 Name")).toHaveValue("Worship");
+  await expect(page.getByText("6 Teams ready for your Church.")).toBeVisible();
+
   await page.getByLabel("Team 1 Name").fill("Creative");
-  await page.getByRole("button", { name: "Remove Care" }).click();
+  await page.getByLabel("Team 1 Name").press("Enter");
+  await page.getByRole("button", { name: "Remove Social Media" }).click();
   await page.getByLabel("New Team Name").fill("Students");
   await page.getByRole("button", { name: "Add Team" }).click();
   await expect(page.getByLabel("Team 1 Name")).toHaveValue("Creative");
-  await expect(page.getByLabel("Team 3 Name")).toHaveValue("Students");
-  await expect(page.getByText("3 Teams will be created.")).toBeVisible();
-  await page.getByRole("button", { name: "Enter Church Task" }).click();
+  await expect(page.getByLabel("Team 6 Name")).toHaveValue("Students");
+  await expect(page.getByText("6 Teams ready for your Church.")).toBeVisible();
 
-  await expect(page).toHaveURL(/\/my-work$/, { timeout: 20_000 });
+  // Wait for the server to replace optimistic rows with real ids; mutations
+  // are ordered, so this confirms the rename and delete landed too.
+  await expect(page.locator('input[id^="initial-team-optimistic-"]')).toHaveCount(0);
+
+  // The core regression: refreshing mid-onboarding keeps the user on the
+  // teams step with their persisted Church and Team edits intact.
+  await page.reload();
+  await expectTeamsStep(page);
+  await expect(page.getByLabel("Team 1 Name")).toHaveValue("Creative");
+  await expect(page.getByLabel("Team 6 Name")).toHaveValue("Students");
+
+  await finishOnboardingFromTeamsStep(page);
   await expect(page.getByRole("navigation", { name: "breadcrumb" })).toContainText("My Work");
+});
+
+test("logging out mid-onboarding returns to the teams step at next login", async ({
+  page,
+}, testInfo) => {
+  const email = `onboarding-relogin-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const churchName = `E2E Relogin Church ${Date.now()}`;
+
+  await signInWithOtp(page, email);
+  await expect(page).toHaveURL(/\/onboarding$/);
+  await submitChurchProfile(page, churchName);
+  await expectTeamsStep(page);
+
+  await signOut(page);
+  await signInWithOtp(page, email);
+
+  // The login fallback restores the mid-onboarding Church, and the derived
+  // step lands past the (already submitted) Church profile.
+  await expect(page).toHaveURL(/\/onboarding/, { timeout: 20_000 });
+  await expectTeamsStep(page);
+  await expect(page.getByLabel("Find Your Church")).not.toBeVisible();
+
+  await finishOnboardingFromTeamsStep(page);
+});
+
+test("switching between a completed Church and a mid-onboarding Church lands each in the right place", async ({
+  page,
+}, testInfo) => {
+  const email = `onboarding-multiorg-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const firstChurchName = `E2E Multi A ${Date.now()}`;
+  const secondChurchName = `E2E Multi B ${Date.now()}`;
+
+  await signInWithOtp(page, email);
+  await completeOnboarding(page, firstChurchName);
+
+  // Start onboarding a second Church and stop on the teams step.
+  await page.getByRole("button", { name: new RegExp(firstChurchName) }).click();
+  await page.getByRole("menuitem", { name: "Create Church" }).click();
+  await expect(page).toHaveURL(/\/onboarding$/);
+  await submitChurchProfile(page, secondChurchName);
+  await expectTeamsStep(page);
+
+  // The onboarding org switcher returns to the completed Church's app.
+  await page.getByRole("button", { name: new RegExp(secondChurchName) }).click();
+  await page.getByRole("menuitem", { name: new RegExp(firstChurchName) }).click();
+  await expect(page).toHaveURL(/\/my-work$/, { timeout: 20_000 });
+
+  // Switching back to the mid-onboarding Church resumes on the teams step.
+  await page.getByRole("button", { name: new RegExp(firstChurchName) }).click();
+  const incompleteItem = page.getByRole("menuitem", { name: new RegExp(secondChurchName) });
+  await expect(incompleteItem.getByText("Onboarding incomplete")).toBeVisible();
+  await incompleteItem.click();
+  await expect(page).toHaveURL(/\/onboarding/, { timeout: 20_000 });
+  await expectTeamsStep(page);
+
+  // And the mid-onboarding Church can finish from where it left off.
+  await finishOnboardingFromTeamsStep(page);
+  await expect(page.getByRole("button", { name: new RegExp(secondChurchName) })).toBeVisible();
+});
+
+test("logging out of a multi-org account mid-onboarding resumes that Church's onboarding", async ({
+  page,
+}, testInfo) => {
+  const email = `onboarding-multiorg-relogin-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const firstChurchName = `E2E Multi Relogin A ${Date.now()}`;
+  const secondChurchName = `E2E Multi Relogin B ${Date.now()}`;
+
+  await signInWithOtp(page, email);
+  await completeOnboarding(page, firstChurchName);
+
+  await page.getByRole("button", { name: new RegExp(firstChurchName) }).click();
+  await page.getByRole("menuitem", { name: "Create Church" }).click();
+  await expect(page).toHaveURL(/\/onboarding$/);
+  await submitChurchProfile(page, secondChurchName);
+  await expectTeamsStep(page);
+
+  await signOut(page);
+  await signInWithOtp(page, email);
+
+  // The previously active org was the one being onboarded, so login resumes
+  // onboarding instead of entering the completed Church's app.
+  await expect(page).toHaveURL(/\/onboarding/, { timeout: 20_000 });
+  await expectTeamsStep(page);
 });
 
 test("toggles cleanly between Find Your Church search and manual entry", async ({
@@ -265,8 +387,13 @@ test("switching to an incomplete Church routes back to onboarding", async ({ pag
   await expect(incompleteChurchItem.getByText("Onboarding incomplete")).toBeVisible();
   await incompleteChurchItem.click();
 
-  await expect(page).toHaveURL(/\/onboarding$/);
+  await expect(page).toHaveURL(/\/onboarding/);
   await expect(page.getByRole("button", { name: new RegExp(incompleteChurchName) })).toBeVisible();
+
+  // The Church already exists, so onboarding resumes on the teams step —
+  // never back on "Tell us about your Church".
+  await expectTeamsStep(page);
+  await expect(page.getByLabel("Find Your Church")).not.toBeVisible();
 });
 
 test("Church owners do not see app-admin navigation", async ({ page }, testInfo) => {

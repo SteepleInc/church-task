@@ -38,6 +38,11 @@ export const TeamArchiveArgs = Schema.Struct({
   teamId: Schema.String,
 });
 
+export const TeamDeleteArgs = Schema.Struct({
+  churchId: Schema.String,
+  teamId: Schema.String,
+});
+
 export const TeamReorderArgs = Schema.Struct({
   churchId: Schema.String,
   teamIds: Schema.Array(Schema.String),
@@ -58,6 +63,7 @@ export const TeamOperationResponse = Schema.Struct({
     Schema.Literal("createTeam"),
     Schema.Literal("renameTeam"),
     Schema.Literal("archiveTeam"),
+    Schema.Literal("deleteTeam"),
     Schema.Literal("reorderTeams"),
     Schema.Literal("updateTeamProductFields"),
   ),
@@ -87,6 +93,7 @@ export const TeamOperationErrorResponse = Schema.Struct({
     Schema.Literal("createTeam"),
     Schema.Literal("renameTeam"),
     Schema.Literal("archiveTeam"),
+    Schema.Literal("deleteTeam"),
     Schema.Literal("reorderTeams"),
     Schema.Literal("updateTeamProductFields"),
   ),
@@ -96,6 +103,7 @@ export const TeamOperationErrorResponse = Schema.Struct({
       Schema.Literal("not_church_member"),
       Schema.Literal("not_authorized"),
       Schema.Literal("team_not_found"),
+      Schema.Literal("team_has_tasks"),
       Schema.Literal("workflow_not_found"),
       Schema.Literal("invalid_team_reorder"),
     ),

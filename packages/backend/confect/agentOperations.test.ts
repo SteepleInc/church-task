@@ -3114,6 +3114,111 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("owners delete a Team without Tasks through public setup operations", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-team-delete-owner-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Team Delete Church",
+        slug: `team-delete-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+
+      const created = yield* authenticated.mutation(refs.public.teams.createForChurch, {
+        churchId: church.id!,
+        name: "Disposable",
+      });
+      const disposable = created.data.teams.find((team) => team.name === "Disposable")!;
+
+      const deleted = yield* authenticated.mutation(refs.public.teams.deleteForChurch, {
+        churchId: church.id!,
+        teamId: disposable.id,
+      });
+      const withArchived = yield* authenticated.query(refs.public.teams.listForChurch, {
+        churchId: church.id!,
+        includeArchived: true,
+      });
+
+      expect(deleted.ok).toBe(true);
+      expect(deleted.data.teams.some((team) => team.id === disposable.id)).toBe(false);
+      expect(withArchived.data.teams.some((team) => team.id === disposable.id)).toBe(false);
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("Team delete is blocked while Tasks reference the Team", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-team-delete-blocked-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Team Delete Blocked Church",
+        slug: `team-delete-blocked-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+
+      const created = yield* authenticated.mutation(refs.public.teams.createForChurch, {
+        churchId: church.id!,
+        name: "Busy",
+      });
+      const busy = created.data.teams.find((team) => team.name === "Busy")!;
+      const defaults = yield* authenticated.query(refs.public.workDefaults.readForChurch, {
+        churchId: church.id!,
+      });
+      const todoStatus = defaults.data.workflowStatuses.find(
+        (status) => status.taskState === "todo",
+      )!;
+      yield* authenticated.mutation(refs.public.tasks.createBatch, {
+        churchId: church.id!,
+        tasks: [
+          {
+            title: "Keep this Team busy",
+            teamId: busy.id,
+            workflowStatusId: todoStatus.id,
+            dueDate: "2026-06-14",
+            parentTaskId: null,
+          },
+        ],
+      });
+
+      const deleted = yield* authenticated.mutation(refs.public.teams.deleteForChurch, {
+        churchId: church.id!,
+        teamId: busy.id,
+      });
+      const teams = yield* authenticated.query(refs.public.teams.listForChurch, {
+        churchId: church.id!,
+      });
+
+      expect(deleted).toEqual({
+        ok: false,
+        operation: "deleteTeam",
+        error: {
+          code: "team_has_tasks",
+          message: "Teams with Tasks can be archived but not deleted.",
+        },
+      });
+      expect(teams.data.teams.some((team) => team.id === busy.id)).toBe(true);
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Church members can read but cannot mutate Team setup", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;
