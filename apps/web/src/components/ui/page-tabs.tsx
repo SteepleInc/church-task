@@ -145,7 +145,13 @@ function PageTabsList({ activeValue, children, className, ...props }: PageTabsLi
   );
 }
 
-function PageTabsTrigger({ className, value, ...props }: TabsPrimitive.Tab.Props) {
+function PageTabsTrigger({
+  className,
+  nativeButton,
+  render,
+  value,
+  ...props
+}: TabsPrimitive.Tab.Props) {
   return (
     <TabsPrimitive.Tab
       className={cn(
@@ -153,6 +159,8 @@ function PageTabsTrigger({ className, value, ...props }: TabsPrimitive.Tab.Props
         className,
       )}
       data-slot="tabs-trigger"
+      nativeButton={nativeButton ?? (render ? false : undefined)}
+      render={render}
       value={value}
       {...props}
     />
