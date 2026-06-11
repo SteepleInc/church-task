@@ -28,6 +28,15 @@ describe("shouldLogAuthEmails", () => {
     expect(shouldLogAuthEmails()).toBe(true);
   });
 
+  test("still logs local auth emails when OTP capture is enabled", () => {
+    process.env.NODE_ENV = "production";
+    process.env.CONVEX_DEPLOYMENT = undefined;
+    process.env.OTP_CAPTURE_ENABLED = "1";
+    process.env.SITE_URL = "http://localhost:2001";
+
+    expect(shouldLogAuthEmails()).toBe(true);
+  });
+
   test("is disabled for production deployments", () => {
     process.env.NODE_ENV = "production";
     process.env.CONVEX_DEPLOYMENT = "prod:steady-otter-42";

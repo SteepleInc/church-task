@@ -306,12 +306,12 @@ export function createAuthOptions(ctx: GenericCtx<DataModel>) {
       emailOTP({
         expiresIn: 15 * 60,
         async sendVerificationOTP({ email, otp }) {
-          if (shouldCaptureOtpWithoutEmail()) {
+          if (shouldLogAuthEmails()) {
+            console.log("sendVerificationOTP", { email, otp });
             return;
           }
 
-          if (shouldLogAuthEmails()) {
-            console.log("sendVerificationOTP", { email, otp });
+          if (shouldCaptureOtpWithoutEmail()) {
             return;
           }
 
