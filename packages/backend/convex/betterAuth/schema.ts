@@ -38,6 +38,9 @@ export const tables = {
     userId: v.string(),
     activeOrganizationId: v.optional(v.union(v.null(), v.string())),
     activeTeamId: v.optional(v.union(v.null(), v.string())),
+    orgCompletedOnboarding: v.optional(v.union(v.null(), v.boolean())),
+    orgRole: v.optional(v.union(v.null(), v.string())),
+    userRole: v.optional(v.union(v.null(), v.string())),
     skipOrgFallback: v.optional(v.union(v.null(), v.boolean())),
     impersonatedBy: v.optional(v.union(v.null(), v.string())),
   })

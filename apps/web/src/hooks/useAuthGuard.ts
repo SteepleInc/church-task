@@ -2,7 +2,9 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import { COMPLETED_APP_LANDING_PATH } from "@/data/org-routing";
+import type { SessionOrgRoutingFields } from "@/data/org-routing";
 import { useCurrentOrgOpt, type CurrentOrg } from "@/data/orgs/orgData.app";
+import { authClient } from "@/lib/auth-client";
 
 type UseAuthGuardOptions = {
   /** Redirect to /onboarding when the Active Church is missing or has not Completed Onboarding. */
@@ -25,11 +27,15 @@ type UseAuthGuardResult = {
 export function useAuthGuard(options: UseAuthGuardOptions = {}): UseAuthGuardResult {
   const { requireOnboarding = false, redirectIfOnboarded = false } = options;
   const navigate = useNavigate();
+  const { data: session, isPending: sessionLoading } = authClient.useSession();
   const { currentOrgOpt: activeChurch, loading } = useCurrentOrgOpt();
-  const hasCompletedOnboarding = Boolean(activeChurch?.completedOnboarding);
+  const sessionRouting = session?.session as SessionOrgRoutingFields | undefined;
+  const hasCompletedOnboarding = Boolean(
+    sessionRouting?.orgCompletedOnboarding ?? activeChurch?.completedOnboarding,
+  );
 
   useEffect(() => {
-    if (loading) {
+    if (sessionLoading) {
       return;
     }
 
@@ -41,7 +47,7 @@ export function useAuthGuard(options: UseAuthGuardOptions = {}): UseAuthGuardRes
     if (redirectIfOnboarded && hasCompletedOnboarding) {
       void navigate({ to: COMPLETED_APP_LANDING_PATH });
     }
-  }, [hasCompletedOnboarding, loading, navigate, redirectIfOnboarded, requireOnboarding]);
+  }, [hasCompletedOnboarding, navigate, redirectIfOnboarded, requireOnboarding, sessionLoading]);
 
-  return { loading, activeChurch, hasCompletedOnboarding };
+  return { loading: sessionLoading || loading, activeChurch, hasCompletedOnboarding };
 }

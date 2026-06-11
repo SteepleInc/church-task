@@ -175,6 +175,17 @@ describe("Better Auth authenticated state spike", () => {
 
       expect(organizationResponse.status).toBe(200);
       expect(organizationBody.completedOnboarding).toBe(true);
+
+      const sessionResponse = yield* c.fetch("/api/auth/get-session", {
+        method: "GET",
+        headers: { authorization: `Bearer ${signUpBody.token}` },
+      });
+      const sessionBody = (yield* Effect.promise(() => sessionResponse.json())) as {
+        session?: { orgCompletedOnboarding?: boolean | null };
+      };
+
+      expect(sessionResponse.status).toBe(200);
+      expect(sessionBody.session?.orgCompletedOnboarding).toBe(true);
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
@@ -230,6 +241,8 @@ describe("Better Auth authenticated state spike", () => {
         session?: {
           activeOrganizationId?: string | null;
           activeTeamId?: string | null;
+          orgCompletedOnboarding?: boolean | null;
+          orgRole?: string | null;
           skipOrgFallback?: boolean | null;
         };
       };
@@ -237,6 +250,8 @@ describe("Better Auth authenticated state spike", () => {
       expect(sessionAfterClearResponse.status).toBe(200);
       expect(sessionAfterClear.session?.activeOrganizationId).toBeNull();
       expect(sessionAfterClear.session?.activeTeamId).toBeNull();
+      expect(sessionAfterClear.session?.orgCompletedOnboarding).toBeNull();
+      expect(sessionAfterClear.session?.orgRole).toBeNull();
       expect(sessionAfterClear.session?.skipOrgFallback).toBe(true);
     }).pipe(Effect.provide(TestConfect.layer())),
   );

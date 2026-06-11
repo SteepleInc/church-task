@@ -69,7 +69,12 @@ const getSession = function* (c: typeof TestConfect.TestConfect.Service, token: 
   expect(response.status).toBe(200);
 
   return (yield* Effect.promise(() => response.json())) as {
-    session?: { activeOrganizationId?: string | null };
+    session?: {
+      activeOrganizationId?: string | null;
+      orgCompletedOnboarding?: boolean | null;
+      orgRole?: string | null;
+      userRole?: string | null;
+    };
   };
 };
 
@@ -105,6 +110,8 @@ describe("Active Church restoration at login", () => {
       const session = yield* getSession(c, signInBody.token!);
 
       expect(session.session?.activeOrganizationId).toBe(church.id);
+      expect(session.session?.orgCompletedOnboarding).toBe(false);
+      expect(session.session?.orgRole).toBe("owner");
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
@@ -155,6 +162,8 @@ describe("Active Church restoration at login", () => {
       const session = yield* getSession(c, signInBody.token!);
 
       expect(session.session?.activeOrganizationId).toBe(firstChurch.id);
+      expect(session.session?.orgCompletedOnboarding).toBe(false);
+      expect(session.session?.orgRole).toBe("owner");
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
@@ -172,6 +181,8 @@ describe("Active Church restoration at login", () => {
       const session = yield* getSession(c, signUpBody.token!);
 
       expect(session.session?.activeOrganizationId ?? null).toBeNull();
+      expect(session.session?.orgCompletedOnboarding ?? null).toBeNull();
+      expect(session.session?.orgRole ?? null).toBeNull();
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 });

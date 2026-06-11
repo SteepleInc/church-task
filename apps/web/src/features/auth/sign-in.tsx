@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { SignInEmailForm } from "@/features/auth/sign-in-email-form";
 import { signInStateAtom } from "@/features/auth/sign-in-state";
 import { authClient } from "@/lib/auth-client";
-import { COMPLETED_APP_LANDING_PATH } from "@/data/org-routing";
+import { getSessionOrgSwitchTarget, type SessionOrgRoutingFields } from "@/data/org-routing";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Match } from "effect";
 import { useAtom } from "jotai";
@@ -34,7 +34,9 @@ export function SignIn({ defaultEmail, invitationId: passedInvitationId, redirec
       return;
     }
 
-    void navigate({ to: redirect ?? COMPLETED_APP_LANDING_PATH });
+    void navigate({
+      to: redirect ?? getSessionOrgSwitchTarget(session.session as SessionOrgRoutingFields),
+    });
   }, [invitationId, navigate, redirect, session]);
 
   return (

@@ -148,6 +148,7 @@ const completeOnboarding = () =>
             session.session.token,
             {
               activeOrganizationId: orgId,
+              orgCompletedOnboarding: true,
             },
           );
 
@@ -186,6 +187,8 @@ export const clearOrgForOnboarding = () =>
             {
               activeOrganizationId: null,
               activeTeamId: null,
+              orgCompletedOnboarding: null,
+              orgRole: null,
               skipOrgFallback: true,
             },
           );
@@ -254,6 +257,46 @@ const resolveActiveChurchForNewSession = async (
   return memberships[0]?.organizationId ?? null;
 };
 
+const resolveSessionUserRole = async (adapter: DBAdapter, userId: string) => {
+  const user = await adapter.findOne<{ role?: string | null }>({
+    model: "user",
+    where: [{ field: "id", value: userId }],
+  });
+
+  return user?.role ?? null;
+};
+
+const resolveActiveChurchSessionFields = async (
+  adapter: DBAdapter,
+  input: { readonly activeOrganizationId: string | null; readonly userId: string },
+) => {
+  if (!input.activeOrganizationId) {
+    return {
+      orgCompletedOnboarding: null,
+      orgRole: null,
+    };
+  }
+
+  const [organization, membership] = await Promise.all([
+    adapter.findOne<{ completedOnboarding?: boolean | null }>({
+      model: "organization",
+      where: [{ field: "id", value: input.activeOrganizationId }],
+    }),
+    adapter.findOne<{ role?: string | null }>({
+      model: "member",
+      where: [
+        { field: "userId", value: input.userId },
+        { field: "organizationId", value: input.activeOrganizationId },
+      ],
+    }),
+  ]);
+
+  return {
+    orgCompletedOnboarding: organization?.completedOnboarding ?? false,
+    orgRole: membership?.role ?? null,
+  };
+};
+
 export function createAuthOptions(ctx: GenericCtx<DataModel>) {
   return {
     baseURL: process.env.CONVEX_SITE_URL,
@@ -268,22 +311,52 @@ export function createAuthOptions(ctx: GenericCtx<DataModel>) {
               return;
             }
 
+            const userRole = await resolveSessionUserRole(adapter, session.userId);
             const sessionInput = session as typeof session & {
               activeOrganizationId?: string | null;
             };
-            if (sessionInput.activeOrganizationId) {
-              return;
+            const activeOrganizationId =
+              sessionInput.activeOrganizationId ??
+              (await resolveActiveChurchForNewSession(adapter, session.userId));
+            const activeChurchSessionFields = await resolveActiveChurchSessionFields(adapter, {
+              activeOrganizationId,
+              userId: session.userId,
+            });
+
+            return {
+              data: { ...session, activeOrganizationId, userRole, ...activeChurchSessionFields },
+            };
+          },
+        },
+        update: {
+          before: async (session, hookCtx) => {
+            if (!hookCtx?.context.adapter) {
+              return { data: session };
             }
 
-            const activeOrganizationId = await resolveActiveChurchForNewSession(
-              adapter,
-              session.userId,
+            const hasActiveChurchUpdate = "activeOrganizationId" in session;
+            const hasKnownOnboardingState = "orgCompletedOnboarding" in session;
+            if (!hasActiveChurchUpdate || hasKnownOnboardingState) {
+              return { data: session };
+            }
+
+            const currentSession = hookCtx.context.session;
+            const userId = currentSession?.user.id;
+            if (!userId) {
+              return { data: session };
+            }
+
+            const activeOrganizationId = (session as { activeOrganizationId?: string | null })
+              .activeOrganizationId;
+            const activeChurchSessionFields = await resolveActiveChurchSessionFields(
+              hookCtx.context.adapter,
+              {
+                activeOrganizationId: activeOrganizationId ?? null,
+                userId,
+              },
             );
-            if (!activeOrganizationId) {
-              return;
-            }
 
-            return { data: { ...session, activeOrganizationId } };
+            return { data: { ...session, ...activeChurchSessionFields, skipOrgFallback: false } };
           },
         },
       },
@@ -299,6 +372,18 @@ export function createAuthOptions(ctx: GenericCtx<DataModel>) {
           input: true,
           required: false,
           type: "boolean",
+        },
+        orgCompletedOnboarding: {
+          required: false,
+          type: "boolean",
+        },
+        orgRole: {
+          required: false,
+          type: "string",
+        },
+        userRole: {
+          required: false,
+          type: "string",
         },
       },
     },

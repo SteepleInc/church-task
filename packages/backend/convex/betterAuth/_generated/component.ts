@@ -59,11 +59,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   expiresAt: number;
                   impersonatedBy?: null | string;
                   ipAddress?: null | string;
+                  orgCompletedOnboarding?: null | boolean;
+                  orgRole?: null | string;
                   skipOrgFallback?: null | boolean;
                   token: string;
                   updatedAt: number;
                   userAgent?: null | string;
                   userId: string;
+                  userRole?: null | string;
                 };
                 model: "session";
               }
@@ -312,6 +315,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "userId"
                     | "activeOrganizationId"
                     | "activeTeamId"
+                    | "orgCompletedOnboarding"
+                    | "orgRole"
+                    | "userRole"
                     | "skipOrgFallback"
                     | "impersonatedBy"
                     | "_id";
@@ -911,6 +917,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "userId"
                     | "activeOrganizationId"
                     | "activeTeamId"
+                    | "orgCompletedOnboarding"
+                    | "orgRole"
+                    | "userRole"
                     | "skipOrgFallback"
                     | "impersonatedBy"
                     | "_id";
@@ -1629,11 +1638,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   expiresAt?: number;
                   impersonatedBy?: null | string;
                   ipAddress?: null | string;
+                  orgCompletedOnboarding?: null | boolean;
+                  orgRole?: null | string;
                   skipOrgFallback?: null | boolean;
                   token?: string;
                   updatedAt?: number;
                   userAgent?: null | string;
                   userId?: string;
+                  userRole?: null | string;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -1647,6 +1659,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "userId"
                     | "activeOrganizationId"
                     | "activeTeamId"
+                    | "orgCompletedOnboarding"
+                    | "orgRole"
+                    | "userRole"
                     | "skipOrgFallback"
                     | "impersonatedBy"
                     | "_id";
@@ -2397,11 +2412,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   expiresAt?: number;
                   impersonatedBy?: null | string;
                   ipAddress?: null | string;
+                  orgCompletedOnboarding?: null | boolean;
+                  orgRole?: null | string;
                   skipOrgFallback?: null | boolean;
                   token?: string;
                   updatedAt?: number;
                   userAgent?: null | string;
                   userId?: string;
+                  userRole?: null | string;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -2415,6 +2433,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "userId"
                     | "activeOrganizationId"
                     | "activeTeamId"
+                    | "orgCompletedOnboarding"
+                    | "orgRole"
+                    | "userRole"
                     | "skipOrgFallback"
                     | "impersonatedBy"
                     | "_id";
