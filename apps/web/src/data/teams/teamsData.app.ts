@@ -97,6 +97,17 @@ export function useArchiveTeamMutation() {
   );
 }
 
+export function useDeleteTeamMutation() {
+  return useMutation(api.teams.deleteForChurch).withOptimisticUpdate(
+    collectionListOptimisticUpdate({
+      query: api.teams.listForChurch,
+      collectionKey: "teams",
+      patch: (teams: readonly TeamCollectionItem[], args: { readonly teamId: string }) =>
+        removeById(teams, args.teamId),
+    }),
+  );
+}
+
 export function useReorderTeamsMutation() {
   return useMutation(api.teams.reorderForChurch).withOptimisticUpdate(
     collectionListOptimisticUpdate({

@@ -43,20 +43,22 @@ export async function signInWithOtp(page: Page, email: string) {
 
 export async function completeOnboarding(page: Page, churchName: string) {
   await expect(page.getByText("Next up")).not.toBeVisible();
-  await expect(page.getByText("Step 1 of 2")).not.toBeVisible();
-  await expect(page.getByLabel("Street")).not.toBeVisible();
   await expect(page.getByLabel("Find Your Church")).toBeVisible();
+  await page.getByTestId("onboarding-enter-manually").click();
   await page.getByLabel("Church Name").fill(churchName);
-  await page.getByRole("button", { name: "Edit Details" }).click();
-  await page.getByLabel("Street").fill("123 Main Street");
-  await page.getByLabel("City").fill("Nashville");
-  await page.getByLabel("State / Region").fill("TN");
-  await page.getByLabel("Postal Code").fill("37203");
-  await page.getByLabel("Country Code").fill("US");
   await page.getByLabel("Church Time Zone").fill("America/Chicago");
-  await page.getByLabel("Website").fill("https://example.org");
   await page.getByRole("button", { name: "Continue to Teams" }).click();
-  await expect(page.getByText("Review your initial Teams", { exact: true })).toBeVisible();
+
+  await expect(page.getByText("Review the starting Teams", { exact: false })).toBeVisible({
+    timeout: 20_000,
+  });
+  // Wait for the seeded Starter Teams to finish streaming in so the layout
+  // is stable before clicking Continue.
+  await expect(page.getByText("6 Teams ready for your Church.")).toBeVisible({
+    timeout: 20_000,
+  });
+  await page.getByRole("button", { name: "Continue" }).click();
+
   await expect(page.getByRole("button", { name: "Enter Church Task" })).toBeEnabled();
   await page.getByRole("button", { name: "Enter Church Task" }).click();
   await expect(page).toHaveURL(/\/my-work$/, { timeout: 20_000 });

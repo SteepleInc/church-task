@@ -1,6 +1,5 @@
-import { Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { Outlet, useLocation } from "@tanstack/react-router";
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
-import { useEffect } from "react";
 
 import { ModeToggle } from "@/components/mode-toggle";
 import { AppNavigation } from "@/components/navigation/app-navigation";
@@ -16,7 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import UserMenu from "@/components/user-menu";
 import { COMPLETED_APP_LANDING_PATH } from "@/data/org-routing";
-import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { GlobalSearch } from "@/features/global-search/global-search";
 import { QuickActions } from "@/features/quick-actions/quick-actions";
 import { DetailsPane } from "@/components/details-pane/details-pane";
@@ -80,16 +79,11 @@ export function AppShell() {
 }
 
 function AuthenticatedAppShell() {
-  const navigate = useNavigate();
-  const { currentOrgOpt: activeChurch, loading } = useCurrentOrgOpt();
+  const { activeChurch, loading, hasCompletedOnboarding } = useAuthGuard({
+    requireOnboarding: true,
+  });
 
-  useEffect(() => {
-    if (!loading && (!activeChurch || !activeChurch.completedOnboarding)) {
-      void navigate({ to: "/onboarding" });
-    }
-  }, [activeChurch, loading, navigate]);
-
-  if (loading || !activeChurch || !activeChurch.completedOnboarding) {
+  if (loading || !activeChurch || !hasCompletedOnboarding) {
     return (
       <div className="flex h-svh items-center justify-center text-sm text-muted-foreground">
         Loading Church...

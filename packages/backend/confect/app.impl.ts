@@ -1824,6 +1824,101 @@ const teamArchiveForChurch = FunctionImpl.make(api, "teams", "archiveForChurch",
   }),
 );
 
+const teamDeleteForChurch = FunctionImpl.make(api, "teams", "deleteForChurch", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+
+    if (auth.status === "notAuthenticated") {
+      return teamErrorResponse("deleteTeam", "not_authenticated", "Authentication is required.");
+    }
+    if (auth.status === "notChurchMember") {
+      return teamErrorResponse("deleteTeam", "not_church_member", "Church membership is required.");
+    }
+    const authError = teamManageAuthError("deleteTeam", auth.membership.role);
+    if (authError) return authError;
+
+    const team = (yield* Effect.promise(() =>
+      ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "team",
+        where: [
+          { field: "_id", value: args.teamId },
+          { field: "organizationId", value: args.churchId },
+        ],
+      }),
+    ).pipe(Effect.orDie)) as BetterAuthTeam | null;
+
+    if (!team) {
+      return teamErrorResponse(
+        "deleteTeam",
+        "team_not_found",
+        "Team was not found in the active Church.",
+      );
+    }
+
+    const taskUsingTeam = yield* Effect.promise(() =>
+      ctx.db
+        .query("tasks")
+        .withIndex("by_churchId", (q) => q.eq("churchId", args.churchId))
+        .filter((q) => q.eq(q.field("teamId"), args.teamId))
+        .first(),
+    ).pipe(Effect.orDie);
+
+    if (taskUsingTeam) {
+      return teamErrorResponse(
+        "deleteTeam",
+        "team_has_tasks",
+        "Teams with Tasks can be archived but not deleted.",
+      );
+    }
+
+    const teamMemberships = yield* findBetterAuthDocs<{ _id: string }>({
+      model: "teamMember",
+      where: [{ field: "teamId", value: args.teamId }],
+    }).pipe(Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx));
+
+    for (const teamMembership of teamMemberships) {
+      yield* Effect.promise(() =>
+        ctx.runMutation(components.betterAuth.adapter.deleteOne, {
+          input: {
+            model: "teamMember",
+            where: [{ field: "_id", value: teamMembership._id }],
+          },
+        }),
+      ).pipe(Effect.orDie);
+    }
+
+    yield* Effect.promise(() =>
+      ctx.runMutation(components.betterAuth.adapter.deleteOne, {
+        input: {
+          model: "team",
+          where: [{ field: "_id", value: args.teamId }],
+        },
+      }),
+    ).pipe(Effect.orDie);
+    yield* Effect.promise(() =>
+      writeActivity(ctx, {
+        churchId: args.churchId,
+        entityType: "team",
+        entityId: args.teamId,
+        eventType: "team.deleted",
+        actorType: "user",
+        actorId: auth.authUser._id,
+        occurredAt: new Date().toISOString(),
+        cycleId: null,
+        metadata: { name: team.name },
+      }),
+    ).pipe(Effect.orDie);
+
+    const teams = yield* activeTeamsForChurch(args.churchId).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+    return teamsResponse("deleteTeam", teams.map(serializeTeam));
+  }),
+);
+
 const teamReorderForChurch = FunctionImpl.make(api, "teams", "reorderForChurch", (args) =>
   Effect.gen(function* () {
     const ctx = yield* MutationCtx.MutationCtx<DataModel>();
@@ -3741,6 +3836,7 @@ export const teams = GroupImpl.make(api, "teams").pipe(
   Layer.provide(teamCreateForChurch),
   Layer.provide(teamRenameForChurch),
   Layer.provide(teamArchiveForChurch),
+  Layer.provide(teamDeleteForChurch),
   Layer.provide(teamReorderForChurch),
   Layer.provide(teamAddMemberForChurch),
   Layer.provide(teamRemoveMemberForChurch),

@@ -41,6 +41,7 @@ import {
 import {
   TeamArchiveArgs,
   TeamCreateArgs,
+  TeamDeleteArgs,
   TeamListArgs,
   TeamMembershipArgs,
   TeamProductUpdateArgs,
@@ -264,6 +265,13 @@ export const teams = GroupSpec.make("teams")
     FunctionSpec.publicMutation({
       name: "archiveForChurch",
       args: TeamArchiveArgs,
+      returns: TeamWriteResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicMutation({
+      name: "deleteForChurch",
+      args: TeamDeleteArgs,
       returns: TeamWriteResponse,
     }),
   )

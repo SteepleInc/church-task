@@ -45,11 +45,22 @@ describe("onboarding PreachX fidelity guards", () => {
     );
   });
 
-  test("keeps manual Church profile details behind an explicit edit affordance", () => {
+  test("keeps manual Church profile entry behind an explicit affordance", () => {
     expect(onboardingSource).toContain("Find Your Church");
-    expect(onboardingSource).toContain("Edit Details");
-    expect(onboardingSource).toContain("showProfileDetails ?");
-    expect(onboardingSource).toContain("Street");
+    expect(onboardingSource).toContain("Enter manually");
+    expect(onboardingSource).toContain("Search instead");
+  });
+
+  test("derives the onboarding step from live Church state, never local state", () => {
+    expect(onboardingSource).toContain("resolveOnboardingStep({ urlStep: search.step");
+    expect(onboardingSource).not.toContain("setChurchProfile");
+    expect(onboardingSource).not.toContain("DEFAULT_INITIAL_TEAMS");
+  });
+
+  test("persists the Church on church-profile submit like PreachX", () => {
+    expect(onboardingSource).toContain("authClient.organization.create");
+    expect(onboardingSource).toContain("authClient.organization.setActive");
+    expect(onboardingSource).not.toContain("authClient.organization.update");
   });
 
   test("uses the copied PreachX preachers-step shape for initial Teams", () => {

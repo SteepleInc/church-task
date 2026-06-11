@@ -1,4 +1,4 @@
-import type { BetterAuthPlugin } from "better-auth";
+import type { BetterAuthPlugin, DBAdapter } from "better-auth";
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { apiKey } from "@better-auth/api-key";
 import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
@@ -208,11 +208,86 @@ export const clearOrgForOnboarding = () =>
     id: "clear-org-for-onboarding",
   }) satisfies BetterAuthPlugin;
 
+/**
+ * Picks the Active Church for a brand-new session (login).
+ * See docs/adr/0009-active-church-restoration-at-login.md.
+ */
+const resolveActiveChurchForNewSession = async (
+  adapter: DBAdapter,
+  userId: string,
+): Promise<string | null> => {
+  const isMemberOf = async (organizationId: string) => {
+    const membership = await adapter.findOne({
+      model: "member",
+      where: [
+        { field: "userId", value: userId },
+        { field: "organizationId", value: organizationId },
+      ],
+    });
+
+    return Boolean(membership);
+  };
+
+  // 1. Restore the most recent previous session's Active Church.
+  const previousSessions = await adapter.findMany<{ activeOrganizationId?: string | null }>({
+    limit: 10,
+    model: "session",
+    sortBy: { direction: "desc", field: "createdAt" },
+    where: [{ field: "userId", value: userId }],
+  });
+
+  for (const previousSession of previousSessions) {
+    const previousActiveChurchId = previousSession.activeOrganizationId;
+    if (previousActiveChurchId && (await isMemberOf(previousActiveChurchId))) {
+      return previousActiveChurchId;
+    }
+  }
+
+  // 2. Fall back to the most recently joined Church.
+  const memberships = await adapter.findMany<{ organizationId?: string | null }>({
+    limit: 1,
+    model: "member",
+    sortBy: { direction: "desc", field: "createdAt" },
+    where: [{ field: "userId", value: userId }],
+  });
+
+  return memberships[0]?.organizationId ?? null;
+};
+
 export function createAuthOptions(ctx: GenericCtx<DataModel>) {
   return {
     baseURL: process.env.CONVEX_SITE_URL,
     trustedOrigins,
     database: authComponent.adapter(ctx),
+    databaseHooks: {
+      session: {
+        create: {
+          before: async (session, hookCtx) => {
+            const adapter = hookCtx?.context.adapter;
+            if (!adapter) {
+              return;
+            }
+
+            const sessionInput = session as typeof session & {
+              activeOrganizationId?: string | null;
+            };
+            if (sessionInput.activeOrganizationId) {
+              return;
+            }
+
+            const activeOrganizationId = await resolveActiveChurchForNewSession(
+              adapter,
+              session.userId,
+            );
+            if (!activeOrganizationId) {
+              return;
+            }
+
+            return { data: { ...session, activeOrganizationId } };
+          },
+        },
+      },
+    },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,

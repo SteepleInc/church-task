@@ -99,8 +99,24 @@ The relationship between a User and a Church. A Church Membership has one access
 _Avoid_: Account membership, workspace membership
 
 **Active Church**:
-The Church currently selected for a User's session. Church Task shows work, Teams, Templates, and Boards inside the Active Church by default.
+The Church currently selected for a User's session. Church Task shows work, Teams, Templates, and Boards inside the Active Church by default. On login, the Active Church is restored from the User's previous session when possible; a User with Churches but no restorable selection gets their most recently joined Church, and a User with no Churches has no Active Church and is taken to Onboarding.
 _Avoid_: Current org, selected workspace
+
+**Onboarding**:
+The flow a User completes to set up a new Church before entering the product. Onboarding has three steps — Church Profile, Initial Teams, and Finished — and a Church is created as soon as the Church Profile step is submitted, before Onboarding is complete.
+_Avoid_: Setup wizard, signup flow
+
+**Onboarding Step**:
+One screen of Onboarding: Church Profile (tell us about your Church), Initial Teams (review starting Teams), or Finished (enter the product). The current step is derived from Church and session state, not stored as its own record.
+_Avoid_: Page, screen number
+
+**Starter Teams**:
+The default Teams every new Church begins with: Worship, Production, Kids, Experience, Facilities, and Social Media. Starter Teams are seeded when the Church is created and may be renamed or removed during Onboarding's Initial Teams step.
+_Avoid_: Default initial teams, suggested teams as a separate concept
+
+**Completed Onboarding**:
+The Church-level fact that Onboarding has finished. A Church that exists but has not Completed Onboarding sends its Users back into Onboarding rather than the product.
+_Avoid_: Per-step completion flags, user-level onboarding state
 
 **Church Invitation**:
 An invitation for a User to join a Church with a specific Role. A Church Invitation may be accepted after authentication and creates a Church Membership.

@@ -5,6 +5,7 @@ export const listMembershipsForChurch = registeredFunctions.teams.listMembership
 export const createForChurch = registeredFunctions.teams.createForChurch;
 export const renameForChurch = registeredFunctions.teams.renameForChurch;
 export const archiveForChurch = registeredFunctions.teams.archiveForChurch;
+export const deleteForChurch = registeredFunctions.teams.deleteForChurch;
 export const reorderForChurch = registeredFunctions.teams.reorderForChurch;
 export const addMemberForChurch = registeredFunctions.teams.addMemberForChurch;
 export const removeMemberForChurch = registeredFunctions.teams.removeMemberForChurch;

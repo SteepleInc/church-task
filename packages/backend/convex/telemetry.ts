@@ -38,14 +38,20 @@ const randomHex = (bytes: number) => {
 const nowNanos = () => `${BigInt(Date.now()) * 1_000_000n}`;
 
 const postOtlp = async (path: string, body: unknown) => {
-  await fetch(`${SUPERLOG_ENDPOINT}${path}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...superlogHeaders(SUPERLOG_PUBLIC_TOKEN),
-    },
-    body: JSON.stringify(body),
-  });
+  try {
+    await fetch(`${SUPERLOG_ENDPOINT}${path}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...superlogHeaders(SUPERLOG_PUBLIC_TOKEN),
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // Telemetry is best-effort and must never break the wrapped operation.
+    // In particular, fetch() is unavailable inside Convex queries and
+    // mutations and throws synchronously there.
+  }
 };
 
 const exportSpan = (args: {
