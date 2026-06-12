@@ -198,6 +198,7 @@ export const TemplateErrorResponse = Schema.Struct({
       Schema.Literal("template_task_not_found"),
       Schema.Literal("invalid_cycle_adjustment"),
       Schema.Literal("workflow_status_not_found"),
+      Schema.Literal("team_not_found"),
       Schema.Literal("template_not_found"),
     ),
     message: Schema.String,

@@ -614,8 +614,7 @@ function TaskKanbanCard({
   const cardState: TaskBoardTaskState = currentStatus?.taskState ?? task.taskState;
   const selectedAssignee =
     assigneeOptions.find((option) => option.id === task.assignedUserId) ?? null;
-  const teamMemberIds =
-    (task.teamId ? teamMemberIdsByTeamId.get(task.teamId) : undefined) ?? EMPTY_USER_ID_SET;
+  const teamMemberIds = teamMemberIdsByTeamId.get(task.teamId) ?? EMPTY_USER_ID_SET;
   const statusItems = statusOptions(workflowStatuses);
   const isSelected = selectedTaskIds.has(task.id);
   const isSelectable = cardState !== "canceled" && onToggleTaskSelected !== undefined;
@@ -651,7 +650,7 @@ function TaskKanbanCard({
 
   const createdAtLabel = formatCreatedAt(task.createdAt);
   const dueDateLabel = formatDueDate(task.dueDate);
-  const teamName = task.teamId ? (teamsById.get(task.teamId)?.name ?? null) : null;
+  const teamName = teamsById.get(task.teamId)?.name ?? null;
   const showProperty = (property: TaskDisplayProperty) => displayProperties.has(property);
 
   const handleCardClick = (event: ReactMouseEvent) => {

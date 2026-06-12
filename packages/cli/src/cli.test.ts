@@ -825,7 +825,8 @@ describe("church-task task execution", () => {
           "--cycle-id",
           "cycle_next",
           "--unassign-user",
-          "--unassign-team",
+          "--team-id",
+          "team_456",
           "--clear-parent",
         ],
         {
@@ -838,7 +839,7 @@ describe("church-task task execution", () => {
             dueDate: "2026-06-04",
             cycleId: "cycle_next",
             assignedUserId: null,
-            teamId: null,
+            teamId: "team_456",
             parentTaskId: null,
           },
         },

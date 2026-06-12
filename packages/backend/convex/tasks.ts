@@ -125,7 +125,7 @@ const taskTransitionErrorResponse = (
 const taskUpdateFieldsValidator = v.object({
   title: v.optional(v.string()),
   assignedUserId: v.optional(v.union(v.string(), v.null())),
-  teamId: v.optional(v.union(v.string(), v.null())),
+  teamId: v.optional(v.string()),
   workflowStatusId: v.optional(v.string()),
   dueDate: v.optional(v.string()),
   cycleId: v.optional(v.string()),
@@ -136,7 +136,7 @@ const taskUpdateFieldsValidator = v.object({
 type McpTaskUpdateFields = {
   readonly title?: string;
   readonly assignedUserId?: string | null;
-  readonly teamId?: string | null;
+  readonly teamId?: string;
   readonly workflowStatusId?: string;
   readonly dueDate?: string;
   readonly cycleId?: string;
@@ -203,15 +203,10 @@ const runMcpUpdateTasks = async (
     .withIndex("by_churchId", (q) => q.eq("churchId", args.churchId))
     .filter((q) => q.eq(q.field("isDefault"), true))
     .first();
-  const teamWorkflowResolution = churchDefaultWorkflow
-    ? {
-        defaultWorkflowId: churchDefaultWorkflow._id,
-        teamWorkflowIds: {} as Record<string, string>,
-      }
-    : undefined;
+  const teamWorkflowIds: Record<string, string> = {};
 
   for (const update of args.updates) {
-    if (update.fields.teamId === undefined || update.fields.teamId === null) continue;
+    if (update.fields.teamId === undefined) continue;
 
     const team = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
       model: "team",
@@ -232,10 +227,8 @@ const runMcpUpdateTasks = async (
       );
     }
 
-    if (teamWorkflowResolution) {
-      teamWorkflowResolution.teamWorkflowIds[update.fields.teamId] =
-        team.defaultWorkflowId ?? teamWorkflowResolution.defaultWorkflowId;
-    }
+    const teamWorkflowId = team.defaultWorkflowId ?? churchDefaultWorkflow?._id;
+    if (teamWorkflowId) teamWorkflowIds[update.fields.teamId] = teamWorkflowId;
   }
 
   return await updateTasks(ctx, {
@@ -244,7 +237,7 @@ const runMcpUpdateTasks = async (
     actorId: args.actorUserId,
     occurredAt: new Date().toISOString(),
     churchTimeZone: church.churchTimeZone,
-    teamWorkflowResolution,
+    teamWorkflowResolution: { teamWorkflowIds },
   });
 };
 
@@ -498,7 +491,7 @@ export const mcpListTasks = query({
     actorUserId: v.string(),
     surface: v.optional(v.union(v.literal("my_work"), v.literal("our_work"))),
     cycleId: v.optional(v.string()),
-    teamId: v.optional(v.union(v.string(), v.null())),
+    teamId: v.optional(v.string()),
     assignedUserId: v.optional(v.union(v.string(), v.null())),
     createdByUserId: v.optional(v.string()),
     workflowStatusId: v.optional(v.string()),
@@ -558,7 +551,7 @@ export const mcpListTasks = query({
           cycleId?: string;
           currentUserId?: string;
           taskId?: string;
-          teamId?: string | null;
+          teamId?: string;
           assignedUserId?: string | null;
           createdByUserId?: string;
           workflowStatusId?: string;

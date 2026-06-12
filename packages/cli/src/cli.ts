@@ -512,7 +512,7 @@ const runTaskList = (args: ReadonlyArray<string>) =>
 
     addOptionalValue(body, "surface", optionValueFromArgs(args, "--surface"));
     addOptionalValue(body, "cycleId", optionValueFromArgs(args, "--cycle-id"));
-    addOptionalValue(body, "teamId", nullableIdFromArgs(args, "--team-id"));
+    addOptionalValue(body, "teamId", optionValueFromArgs(args, "--team-id"));
     addOptionalValue(
       body,
       "assignedUserId",
@@ -570,11 +570,9 @@ const runTaskUpdate = (args: ReadonlyArray<string>) =>
       addOptionalValue(body, "assignedUserId", nullableIdFromArgs(args, "--assigned-user-id"));
     }
 
-    if (args.includes("--unassign-team")) {
-      body.teamId = null;
-    } else {
-      addOptionalValue(body, "teamId", nullableIdFromArgs(args, "--team-id"));
-    }
+    // Every Task belongs to exactly one Team (ADR 0013); a Task can move
+    // between Teams but never become team-less.
+    addOptionalValue(body, "teamId", optionValueFromArgs(args, "--team-id"));
 
     if (args.includes("--clear-parent")) {
       body.parentTaskId = null;

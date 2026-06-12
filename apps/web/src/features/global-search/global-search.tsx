@@ -161,7 +161,7 @@ export function GlobalSearch() {
       type: "task" as const,
       title: task.title,
       description: `Church task - ${task.taskState}`,
-      keywords: ["task", "work", task.taskState, task.teamId ?? ""],
+      keywords: ["task", "work", task.taskState, task.teamId],
       icon: ListTodoIcon,
       actionText: "Open Work",
       details: [

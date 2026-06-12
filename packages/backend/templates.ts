@@ -2,6 +2,7 @@ import type { GenericDatabaseReader, GenericMutationCtx } from "convex/server";
 
 import { writeActivity } from "./activityRegistry";
 import { buildCycleForLocalDate, cycleStartDateForLocalDate } from "./churchCycleCalendar";
+import { components } from "./convex/_generated/api";
 import type { DataModel, Id } from "./convex/_generated/dataModel";
 import { resolveKeyDateOccurrences } from "./keyDateScheduling";
 import { makeBoardOrderAppender } from "./tasks";
@@ -332,15 +333,46 @@ async function findDefaultTodoWorkflowStatus(ctx: MutationCtx, churchId: string)
 
   if (!defaultWorkflow) return null;
 
+  return findTodoWorkflowStatus(ctx, defaultWorkflow._id);
+}
+
+async function findTodoWorkflowStatus(ctx: MutationCtx, workflowId: string) {
   const statuses = await ctx.db
     .query("workflowStatuses")
-    .withIndex("by_workflowId", (q) => q.eq("workflowId", defaultWorkflow._id))
+    .withIndex("by_workflowId", (q) => q.eq("workflowId", workflowId))
     .collect();
 
   return (
     [...statuses]
       .filter((status) => status.archivedAt === null && status.taskState === "todo")
       .sort((left, right) => left.sortOrder - right.sortOrder)[0] ?? null
+  );
+}
+
+type BetterAuthProjectionTeam = {
+  readonly _id: string;
+  readonly archivedAt?: string | null;
+  readonly sortOrder?: number | null;
+  readonly defaultWorkflowId?: string | null;
+};
+
+/**
+ * Interim Team owner for projected Tasks until Template Teams land (#140):
+ * Tasks materialized from Templates go to the Church's first active Team.
+ * Every Task belongs to exactly one Team (ADR 0013), so projection cannot
+ * write a team-less Task.
+ */
+async function findProjectionTeam(ctx: MutationCtx, churchId: string) {
+  const teams = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+    model: "team",
+    where: [{ field: "organizationId", value: churchId }],
+    paginationOpts: { cursor: null, numItems: 100 },
+  })) as { readonly page: ReadonlyArray<BetterAuthProjectionTeam> };
+
+  return (
+    [...teams.page]
+      .filter((team) => (team.archivedAt ?? null) === null)
+      .sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0))[0] ?? null
   );
 }
 
@@ -352,7 +384,12 @@ export async function materializeProjectedTasks(
     readonly occurrenceCycleIds: ReadonlyArray<string>;
   },
 ) {
-  const todoStatus = await findDefaultTodoWorkflowStatus(ctx, args.churchId);
+  const projectionTeam = await findProjectionTeam(ctx, args.churchId);
+  if (!projectionTeam) return { ok: false as const, code: "teamNotFound" as const };
+
+  const todoStatus = projectionTeam.defaultWorkflowId
+    ? await findTodoWorkflowStatus(ctx, projectionTeam.defaultWorkflowId)
+    : await findDefaultTodoWorkflowStatus(ctx, args.churchId);
   if (!todoStatus) return { ok: false as const, code: "workflowStatusNotFound" as const };
 
   const schedules = await resolveTemplateTaskSchedules(ctx, args);
@@ -426,7 +463,7 @@ export async function materializeProjectedTasks(
       (await ctx.db.insert("tasks", {
         churchId: args.churchId,
         title: merged.effectiveTask.title,
-        teamId: null,
+        teamId: projectionTeam._id,
         assignedUserId: null,
         // Template projection is system-created work, not user-created.
         createdByUserId: null,

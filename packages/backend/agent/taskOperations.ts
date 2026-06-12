@@ -3,8 +3,7 @@ import { Schema } from "effect";
 
 const TaskCreateInput = Schema.Struct({
   title: Schema.String,
-  // Every Task belongs to exactly one Team (ADR 0013); creation always
-  // requires a Team even while the stored schema stays nullable.
+  // Every Task belongs to exactly one Team (ADR 0013).
   teamId: Schema.String,
   assignedUserId: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
   workflowStatusId: Schema.String,
@@ -20,7 +19,7 @@ export const TaskCreateBatchArgs = Schema.Struct({
 const TaskUpdateFields = Schema.Struct({
   title: Schema.optional(Schema.String),
   assignedUserId: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
-  teamId: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+  teamId: Schema.optional(Schema.String),
   workflowStatusId: Schema.optional(Schema.String),
   dueDate: Schema.optional(Schema.String),
   cycleId: Schema.optional(Schema.String),

@@ -16,6 +16,7 @@ function boardTask(overrides: Partial<TaskBoardTask> & { readonly id: string }):
     title: `Task ${overrides.id}`,
     workflowStatusId: "todo",
     taskState: "todo",
+    teamId: "team-1",
     ...overrides,
   };
 }
@@ -193,7 +194,7 @@ describe("Board Column grouping", () => {
       workflowStatusId: "doing",
       taskState: "in_progress",
       assignedUserId: null,
-      teamId: null,
+      teamId: "team-2",
     },
   ];
   const assignees = [
@@ -219,7 +220,7 @@ describe("Board Column grouping", () => {
     expect(columns.map((column) => column.title)).toEqual(["Unassigned", "Ana", "Ben"]);
   });
 
-  test("groups by team with a No Team lane", () => {
+  test("groups by team with one lane per Team", () => {
     const columns = buildTaskBoardGroupColumns({
       grouping: "team",
       workflowStatuses: [],
@@ -229,7 +230,7 @@ describe("Board Column grouping", () => {
       showEmptyColumns: true,
     });
 
-    expect(columns.map((column) => column.title)).toEqual(["No Team", "Production", "Kids"]);
+    expect(columns.map((column) => column.title)).toEqual(["Production", "Kids"]);
   });
 
   test("groups by Task State with the canonical lanes", () => {
@@ -278,6 +279,7 @@ describe("Board Column grouping", () => {
             workflowStatusId: "todo",
             taskState: "todo",
             assignedUserId: "user-1",
+            teamId: "team-1",
           },
         ],
         unassigned: [],
@@ -297,6 +299,7 @@ describe("Board Column grouping", () => {
       workflowStatusId: "todo",
       taskState: "todo",
       assignedUserId: null,
+      teamId: "team-1",
     });
   });
 });

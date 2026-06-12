@@ -2054,7 +2054,7 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
-  it.effect("Task update assigns and unassigns Teams with Workflow remap Activity", () =>
+  it.effect("Task update moves Tasks between Teams with Workflow remap Activity", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;
       const ownerResponse = yield* signUpWithEmail(
@@ -2218,10 +2218,6 @@ describe("agent operation boundary", () => {
         churchId: church.id!,
         updates: [{ taskId: task.id, fields: { teamId: secondTeam.id! } }],
       });
-      const unassigned = yield* authenticated.mutation(refs.public.tasks.updateBatch, {
-        churchId: church.id!,
-        updates: [{ taskId: task.id, fields: { teamId: null } }],
-      });
       const rejected = yield* authenticated.mutation(refs.public.tasks.updateBatch, {
         churchId: church.id!,
         updates: [{ taskId: task.id, fields: { teamId: invalidTeam.id! } }],
@@ -2244,12 +2240,6 @@ describe("agent operation boundary", () => {
         workflowStatusId: secondTeamTodo.id,
         taskState: "todo",
       });
-      expect(unassigned.data.tasks.find((candidate) => candidate.id === task.id)).toMatchObject({
-        teamId: null,
-        workflowId: defaultWorkflow.id,
-        workflowStatusId: defaultTodo.id,
-        taskState: "todo",
-      });
       expect(rejected).toEqual({
         ok: false,
         operation: "updateTasks",
@@ -2262,10 +2252,8 @@ describe("agent operation boundary", () => {
         "task.created",
         "task.team_changed",
         "task.team_changed",
-        "task.team_unassigned",
       ]);
       expect(activities.data.activities.map((activity) => activity.actorId)).toEqual([
-        owner.user!.id!,
         owner.user!.id!,
         owner.user!.id!,
         owner.user!.id!,
@@ -2285,13 +2273,6 @@ describe("agent operation boundary", () => {
         workflowId: secondTeamWorkflow.id,
         previousWorkflowStatusId: teamTodo.id,
         workflowStatusId: secondTeamTodo.id,
-      });
-      expect(activities.data.activities[3]!.metadata).toEqual({
-        previousTeamId: secondTeam.id,
-        previousWorkflowId: secondTeamWorkflow.id,
-        workflowId: defaultWorkflow.id,
-        previousWorkflowStatusId: secondTeamTodo.id,
-        workflowStatusId: defaultTodo.id,
       });
     }).pipe(Effect.provide(TestConfect.layer())),
   );
@@ -2711,7 +2692,7 @@ describe("agent operation boundary", () => {
             ctx.db.insert("tasks", {
               churchId: church.id!,
               title: "Inconsistent Task",
-              teamId: null,
+              teamId: taskTeamId,
               assignedUserId: null,
               cycleId: cancelMe.cycleId,
               dueDate: "2026-06-03",
@@ -4005,7 +3986,7 @@ describe("agent operation boundary", () => {
             ctx.db.insert("tasks", {
               churchId: church.id!,
               title: "Workflow reference task",
-              teamId: null,
+              teamId: team.id!,
               assignedUserId: null,
               cycleId: "cycle-workflow-in-use",
               dueDate: "2026-06-03",
@@ -4342,6 +4323,7 @@ describe("agent operation boundary", () => {
       const todoStatus = defaults.data.workflowStatuses.find(
         (status) => status.taskState === "todo",
       )!;
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
 
       yield* c.run(
         Effect.gen(function* () {
@@ -4350,7 +4332,7 @@ describe("agent operation boundary", () => {
             ctx.db.insert("tasks", {
               churchId: church.id!,
               title: "Task using To Do",
-              teamId: null,
+              teamId: taskTeamId,
               assignedUserId: null,
               cycleId: "cycle-status-in-use",
               dueDate: "2026-06-03",
@@ -4424,6 +4406,7 @@ describe("agent operation boundary", () => {
       const readyStatus = created.data.workflowStatuses.find(
         (status) => status.workflowId === workflow.id && status.key === "ready",
       )!;
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
 
       yield* c.run(
         Effect.gen(function* () {
@@ -4432,7 +4415,7 @@ describe("agent operation boundary", () => {
             ctx.db.insert("tasks", {
               churchId: church.id!,
               title: "Canceled task using Ready",
-              teamId: null,
+              teamId: taskTeamId,
               assignedUserId: null,
               cycleId: "cycle-status-canceled-history",
               dueDate: "2026-06-03",
@@ -4539,6 +4522,7 @@ describe("agent operation boundary", () => {
         churchId: church.id!,
         updates: [{ teamId: team.id!, fields: { defaultWorkflowId: destinationWorkflow.id } }],
       });
+      const sourceTeamId = yield* firstTeamId(authenticated, church.id!);
       const taskId = yield* c.run(
         Effect.gen(function* () {
           const ctx = yield* MutationCtx.MutationCtx<DataModel>();
@@ -4547,7 +4531,7 @@ describe("agent operation boundary", () => {
             ctx.db.insert("tasks", {
               churchId: church.id!,
               title: "Remapped Task",
-              teamId: null,
+              teamId: sourceTeamId,
               assignedUserId: null,
               cycleId: "cycle-remap",
               dueDate: "2026-06-03",
@@ -4589,7 +4573,7 @@ describe("agent operation boundary", () => {
             ctx.db.insert("tasks", {
               churchId: church.id!,
               title: "Fallback Remapped Task",
-              teamId: null,
+              teamId: sourceTeamId,
               assignedUserId: null,
               cycleId: "cycle-remap",
               dueDate: "2026-06-03",
@@ -4676,6 +4660,7 @@ describe("agent operation boundary", () => {
       const sourceDoing = source.data.workflowStatuses.find(
         (status) => status.workflowId === sourceWorkflow.id && status.key === "doing",
       )!;
+      const sourceTeamId = yield* firstTeamId(authenticated, church.id!);
       const taskId = yield* c.run(
         Effect.gen(function* () {
           const ctx = yield* MutationCtx.MutationCtx<DataModel>();
@@ -4684,7 +4669,7 @@ describe("agent operation boundary", () => {
             ctx.db.insert("tasks", {
               churchId: church.id!,
               title: "Default Fallback Remapped Task",
-              teamId: null,
+              teamId: sourceTeamId,
               assignedUserId: null,
               cycleId: "cycle-remap-default-fallback",
               dueDate: "2026-06-03",

@@ -86,7 +86,7 @@ type McpTaskOperationResult = {
     readonly tasks: ReadonlyArray<{
       readonly id: string;
       readonly title: string;
-      readonly teamId: string | null;
+      readonly teamId: string;
       readonly assignedUserId: string | null;
       readonly cycleId: string;
       readonly dueDate: string;
@@ -379,7 +379,7 @@ http.route({
       readonly taskId: string;
       readonly title?: string;
       readonly assignedUserId?: string | null;
-      readonly teamId?: string | null;
+      readonly teamId?: string;
       readonly workflowStatusId?: string;
       readonly dueDate?: string;
       readonly cycleId?: string;
@@ -411,7 +411,7 @@ http.route({
     const body = (await request.json()) as {
       readonly churchId: string;
       readonly title: string;
-      readonly teamId?: string | null;
+      readonly teamId?: string;
       readonly assignedUserId?: string | null;
       readonly workflowStatusId: string;
       readonly dueDate: string;
@@ -456,7 +456,7 @@ http.route({
       readonly churchId: string;
       readonly surface?: "my_work" | "our_work";
       readonly cycleId?: string;
-      readonly teamId?: string | null;
+      readonly teamId?: string;
       readonly assignedUserId?: string | null;
       readonly workflowStatusId?: string;
       readonly taskState?: "todo" | "in_progress" | "done" | "canceled";

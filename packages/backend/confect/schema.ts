@@ -31,6 +31,7 @@ export const WorkflowStatuses = Table.make("workflowStatuses", WorkflowStatusTab
 
 export const Tasks = Table.make("tasks", TaskTableFieldsSchema)
   .index("by_churchId", ["churchId"])
+  .index("by_churchId_and_teamId", ["churchId", "teamId"])
   .index("by_churchId_and_cycleId", ["churchId", "cycleId"])
   .index("by_churchId_and_sourceTemplateTaskId_and_sourceTemplateCycleId", [
     "churchId",

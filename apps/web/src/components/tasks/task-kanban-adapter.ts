@@ -14,7 +14,7 @@ export type TaskBoardTask = {
   readonly workflowStatusId: string;
   readonly taskState: TaskBoardTaskState;
   readonly boardOrder?: string;
-  readonly teamId?: string | null;
+  readonly teamId: string;
   readonly assignedUserId?: string | null;
   readonly dueDate?: string | null;
   readonly createdAt?: number | null;
@@ -52,7 +52,6 @@ export type TaskBoardColumnMove = {
 };
 
 export const UNASSIGNED_COLUMN_ID = "unassigned";
-export const NO_TEAM_COLUMN_ID = "no_team";
 
 const TASK_STATE_LABELS: Record<TaskBoardTaskState, string> = {
   todo: "To Do",
@@ -92,7 +91,7 @@ export function getTaskGroupColumnId(grouping: TaskBoardGrouping, task: TaskBoar
     case "assignee":
       return task.assignedUserId ?? UNASSIGNED_COLUMN_ID;
     case "team":
-      return task.teamId ?? NO_TEAM_COLUMN_ID;
+      return task.teamId;
   }
 }
 
@@ -128,10 +127,7 @@ export function buildTaskBoardGroupColumns(args: {
           })),
         ];
       case "team":
-        return [
-          { id: NO_TEAM_COLUMN_ID, title: "No Team", taskState: null },
-          ...args.teams.map((team) => ({ id: team.id, title: team.name, taskState: null })),
-        ];
+        return args.teams.map((team) => ({ id: team.id, title: team.name, taskState: null }));
     }
   })();
 

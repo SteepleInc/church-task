@@ -6,7 +6,8 @@ export const RestorableTaskStatusSchema = Schema.Literal("todo", "in_progress", 
 export const TaskTableFieldsSchema = Schema.Struct({
   churchId: Schema.String,
   title: Schema.String,
-  teamId: Schema.Union(Schema.String, Schema.Null),
+  // Every Task belongs to exactly one Team (ADR 0013).
+  teamId: Schema.String,
   assignedUserId: Schema.Union(Schema.String, Schema.Null),
   cycleId: Schema.String,
   dueDate: Schema.String,
@@ -31,7 +32,7 @@ export const TaskSchema = Schema.Struct({
   id: Schema.String,
   churchId: Schema.String,
   title: Schema.String,
-  teamId: Schema.Union(Schema.String, Schema.Null),
+  teamId: Schema.String,
   assignedUserId: Schema.Union(Schema.String, Schema.Null),
   cycleId: Schema.String,
   dueDate: Schema.String,

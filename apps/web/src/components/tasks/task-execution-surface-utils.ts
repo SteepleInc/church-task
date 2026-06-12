@@ -13,7 +13,7 @@ export type TaskState = "todo" | "in_progress" | "done" | "canceled";
 export type TaskSummary = {
   readonly id: string;
   readonly title: string;
-  readonly teamId: string | null;
+  readonly teamId: string;
   readonly assignedUserId: string | null;
   readonly cycleId: string;
   readonly dueDate: string;
@@ -99,7 +99,9 @@ export function getTaskExecutionReadArgs(args: {
     churchId: args.churchId,
     actorUserId: args.currentUserId,
     ...(args.surface === "team_board"
-      ? { teamId: args.teamId ?? null }
+      ? args.teamId
+        ? { teamId: args.teamId }
+        : {}
       : { surface: args.surface }),
     cycleId: args.cycleId,
   };
@@ -150,7 +152,7 @@ export function getTaskExecutionFilters(args: {
 }) {
   return {
     ...getTaskTabFilters(args),
-    ...(args.surface === "team_board" ? { teamId: args.teamId ?? null } : {}),
+    ...(args.surface === "team_board" && args.teamId ? { teamId: args.teamId } : {}),
     cycleId: args.cycleId,
     ...(args.showSubtasks ? {} : { excludeSubtasks: true as const }),
     ...(args.ordering === "due_date" ? { orderBy: "due_date" as const } : {}),

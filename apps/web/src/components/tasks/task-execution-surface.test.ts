@@ -213,7 +213,7 @@ describe("Task execution surface", () => {
     const parentTask = {
       id: "parent-task",
       title: "Prepare service",
-      teamId: null,
+      teamId: "team-1",
       assignedUserId: null,
       cycleId: "cycle-1",
       dueDate: "2026-06-03",
@@ -225,7 +225,7 @@ describe("Task execution surface", () => {
     const childTask = {
       id: "child-task",
       title: "Print handouts",
-      teamId: null,
+      teamId: "team-1",
       assignedUserId: "user-1",
       cycleId: "cycle-1",
       dueDate: "2026-06-03",

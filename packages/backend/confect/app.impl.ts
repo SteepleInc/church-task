@@ -1145,6 +1145,12 @@ const cycleMaintenanceRunForChurch = FunctionImpl.make(
           "A default To Do Workflow Status is required before Template Tasks can materialize.",
         );
       }
+      if (!maintained.ok && maintained.code === "teamNotFound") {
+        return cycleMaintenanceErrorResponse(
+          "team_not_found",
+          "A Team is required before Template Tasks can materialize.",
+        );
+      }
       if (!maintained.ok && maintained.code === "templateTaskNotFound") {
         return cycleMaintenanceErrorResponse(
           "template_task_not_found",
@@ -2458,9 +2464,8 @@ const tasksUpdateBatch = FunctionImpl.make(api, "tasks", "updateBatch", (args) =
     const teamIds = [
       ...new Set(
         args.updates
-          .filter((update) => "teamId" in update.fields)
-          .map((update) => update.fields.teamId ?? null)
-          .filter((teamId): teamId is string => teamId !== null),
+          .map((update) => update.fields.teamId)
+          .filter((teamId): teamId is string => teamId !== undefined),
       ),
     ];
     const churchDefaultWorkflow = yield* Effect.promise(() =>
@@ -2523,10 +2528,7 @@ const tasksUpdateBatch = FunctionImpl.make(api, "tasks", "updateBatch", (args) =
         actorId: auth.authUser._id,
         occurredAt: new Date().toISOString(),
         churchTimeZone,
-        teamWorkflowResolution: {
-          defaultWorkflowId: churchDefaultWorkflow._id,
-          teamWorkflowIds,
-        },
+        teamWorkflowResolution: { teamWorkflowIds },
       }),
     ).pipe(Effect.orDie);
 
@@ -3022,6 +3024,13 @@ const templatesMaterializeProjectedTasks = FunctionImpl.make(
           "materializeProjectedTasks",
           "workflow_status_not_found",
           "A default To Do Workflow Status is required before Template Tasks can materialize.",
+        );
+      }
+      if (!materialized.ok && materialized.code === "teamNotFound") {
+        return templateErrorResponse(
+          "materializeProjectedTasks",
+          "team_not_found",
+          "A Team is required before Template Tasks can materialize.",
         );
       }
       if (!materialized.ok && materialized.code === "templateTaskNotFound") {
