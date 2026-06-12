@@ -180,74 +180,74 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
 
   const content = (
     <>
-        {showTopBar ? (
-          <TaskViewTopBar
-            surface={surface}
-            tab={activeTab}
-            onTabChange={setTab}
-            view={activeView}
-            onViewChange={setView}
-            onCreateTask={() =>
-              openCreateTask({ assignTo: activePanel === "my_work" ? currentUserId : null })
-            }
-          />
-        ) : null}
-        {activePanel === "settings" && activeChurch ? (
-          <ActiveChurchSettings activeChurch={activeChurch} />
-        ) : typeof activePanel === "object" && !selectedTeam ? (
+      {showTopBar ? (
+        <TaskViewTopBar
+          surface={surface}
+          tab={activeTab}
+          onTabChange={setTab}
+          view={activeView}
+          onViewChange={setView}
+          onCreateTask={() =>
+            openCreateTask({ assignTo: activePanel === "my_work" ? currentUserId : null })
+          }
+        />
+      ) : null}
+      {activePanel === "settings" && activeChurch ? (
+        <ActiveChurchSettings activeChurch={activeChurch} />
+      ) : typeof activePanel === "object" && !selectedTeam ? (
+        <section className="grid gap-4 rounded-xl border bg-background p-4 shadow-xs">
+          <h2 className="text-base font-semibold">Team board</h2>
+          {teams.loading ? (
+            <Skeleton className="h-4 w-44" />
+          ) : (
+            <p className="text-sm text-muted-foreground">Team board is unavailable.</p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {unavailableTeamBoardActions.map((action) => (
+              <Button
+                key={action.panel}
+                type="button"
+                variant={action.panel === "my_work" ? "default" : "outline"}
+                onClick={() => setActivePanel(action.panel)}
+              >
+                {action.label}
+              </Button>
+            ))}
+          </div>
+        </section>
+      ) : activeChurch && currentUserId ? (
+        <TaskExecutionSurface
+          churchId={activeChurch.id}
+          currentUserId={currentUserId}
+          surface={surface}
+          team={selectedTeam}
+          teams={activeTeams.map((candidate) => ({ id: candidate.id, name: candidate.name }))}
+          tab={activeTab}
+          view={search.view}
+        />
+      ) : (
+        <>
           <section className="grid gap-4 rounded-xl border bg-background p-4 shadow-xs">
-            <h2 className="text-base font-semibold">Team board</h2>
-            {teams.loading ? (
-              <Skeleton className="h-4 w-44" />
-            ) : (
-              <p className="text-sm text-muted-foreground">Team board is unavailable.</p>
-            )}
-            <div className="flex flex-wrap gap-2">
-              {unavailableTeamBoardActions.map((action) => (
-                <Button
-                  key={action.panel}
-                  type="button"
-                  variant={action.panel === "my_work" ? "default" : "outline"}
-                  onClick={() => setActivePanel(action.panel)}
-                >
-                  {action.label}
-                </Button>
-              ))}
+            <div className="grid gap-1">
+              <h2 className="text-base font-semibold">Church Home</h2>
+              {QueryResult.isSuccess(privateData) ? (
+                <p className="text-sm text-muted-foreground">
+                  privateData: {privateData.value.message}
+                </p>
+              ) : (
+                <Skeleton className="h-4 w-48" />
+              )}
             </div>
           </section>
-        ) : activeChurch && currentUserId ? (
-          <TaskExecutionSurface
-            churchId={activeChurch.id}
-            currentUserId={currentUserId}
-            surface={surface}
-            team={selectedTeam}
-            teams={activeTeams.map((candidate) => ({ id: candidate.id, name: candidate.name }))}
-            tab={activeTab}
-            view={search.view}
-          />
-        ) : (
-          <>
-            <section className="grid gap-4 rounded-xl border bg-background p-4 shadow-xs">
-              <div className="grid gap-1">
-                <h2 className="text-base font-semibold">Church Home</h2>
-                {QueryResult.isSuccess(privateData) ? (
-                  <p className="text-sm text-muted-foreground">
-                    privateData: {privateData.value.message}
-                  </p>
-                ) : (
-                  <Skeleton className="h-4 w-48" />
-                )}
-              </div>
-            </section>
-            <ActiveChurchInvitationPrompt />
-            {activeChurch ? (
-              <>
-                <ChurchMembersPanel activeChurchId={activeChurch.id} />
-                <ChurchInvitationPanel
-                  activeChurchId={activeChurch.id}
-                  activeChurchRole={activeChurch.role}
-                  pendingInvitations={pendingInvitations}
-                />
+          <ActiveChurchInvitationPrompt />
+          {activeChurch ? (
+            <>
+              <ChurchMembersPanel activeChurchId={activeChurch.id} />
+              <ChurchInvitationPanel
+                activeChurchId={activeChurch.id}
+                activeChurchRole={activeChurch.role}
+                pendingInvitations={pendingInvitations}
+              />
             </>
           ) : null}
         </>

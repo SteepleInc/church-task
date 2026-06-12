@@ -6,10 +6,8 @@ import {
   computeBoardMoves,
   groupTasksByWorkflowStatus,
   isTaskBoardGroupingDraggable,
-  moveTaskBetweenBoardColumns,
   moveTaskBetweenGroupColumns,
   type TaskBoardColumnMove,
-  type TaskBoardMove,
   type TaskBoardTask,
 } from "./task-kanban-adapter";
 

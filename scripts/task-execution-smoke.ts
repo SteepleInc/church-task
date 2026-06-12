@@ -18,7 +18,7 @@ type Step = {
 };
 
 const browserSmokePattern =
-  "authenticated dashboard lands on My Work|Our Work assignment feeds My Work|My Work lifecycle actions|My Work updates Task fields and creates Subtasks|Team sidebar navigation opens a Team board filtered to that Team";
+  "completed users land in the PreachX-style app shell|My Work filters direct assignments while Our Work supports Church-wide creation|Our Work assignment feeds My Work and board movement persists|My Work lifecycle actions complete, cancel, and reopen Tasks|Team routes remain accessible under the copied app shell";
 const e2eEnvFile = ".env.e2e";
 const hasE2eEnvFile = existsSync(e2eEnvFile);
 const requireFull = process.argv.includes("--require-full");
@@ -119,7 +119,16 @@ const steps: readonly Step[] = [
   },
   {
     name: "browser execution smoke",
-    command: ["bun", "run", "test:e2e", "tests/e2e/app-shell.spec.ts", "-g", browserSmokePattern],
+    command: [
+      "bunx",
+      "playwright",
+      "test",
+      "tests/e2e/app-shell.spec.ts",
+      "tests/e2e/task-flows.spec.ts",
+      "-g",
+      browserSmokePattern,
+      "--workers=1",
+    ],
     covers: [
       "Web routes reflect backend state through browser-visible My Work, Our Work, lifecycle, and Team board workflows.",
       "ReUI Kanban drag/drop persists movement through backend state in browser smoke coverage.",

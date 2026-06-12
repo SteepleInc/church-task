@@ -85,10 +85,11 @@ async function expectTeamsStep(page: Page) {
   await expect(page.getByText("Review the starting Teams", { exact: false })).toBeVisible({
     timeout: 20_000,
   });
-  await expect(page.getByText("Initial Church Task Team").first()).toBeVisible();
   // Wait for the seeded Starter Teams to finish streaming in; otherwise the
   // rows shift the layout under subsequent clicks.
-  await expect(page.getByText("Initial Church Task Team")).toHaveCount(6, {
+  await expect(
+    page.getByLabel("Initial Teams").getByRole("button", { name: /^Edit / }),
+  ).toHaveCount(6, {
     timeout: 20_000,
   });
 }
@@ -207,7 +208,9 @@ test("creates a Church profile and edits the live starting Teams", async ({ page
   await expect(page.getByText("Students", { exact: true })).toBeVisible();
 
   await expect(page.getByText("Social Media", { exact: true })).not.toBeVisible();
-  await expect(page.getByText("Initial Church Task Team")).toHaveCount(6);
+  await expect(
+    page.getByLabel("Initial Teams").getByRole("button", { name: /^Edit / }),
+  ).toHaveCount(6);
 
   // The core regression: refreshing mid-onboarding keeps the user on the
   // teams step with their persisted Church and Team edits intact.

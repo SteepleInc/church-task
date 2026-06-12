@@ -54,7 +54,9 @@ export async function completeOnboarding(page: Page, churchName: string) {
   });
   // Wait for the seeded Starter Teams to finish streaming in so the layout
   // is stable before clicking Next.
-  await expect(page.getByText("Initial Church Task Team")).toHaveCount(6, {
+  await expect(
+    page.getByLabel("Initial Teams").getByRole("button", { name: /^Edit / }),
+  ).toHaveCount(6, {
     timeout: 20_000,
   });
   await page.getByRole("button", { name: "Next" }).click();

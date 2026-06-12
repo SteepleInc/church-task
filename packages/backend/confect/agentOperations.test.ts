@@ -2896,6 +2896,7 @@ describe("agent operation boundary", () => {
         name: "Worship Team",
         churchId: church.id,
         archivedAt: null,
+        color: "pink",
         sortOrder: 0,
         defaultWorkflowId: null,
       });
@@ -2925,6 +2926,7 @@ describe("agent operation boundary", () => {
         name: "Worship Team",
         churchId: church.id,
         archivedAt: "2026-06-01T00:00:00.000Z",
+        color: "pink",
         sortOrder: 7,
         defaultWorkflowId: defaultWorkflow.id,
       });

@@ -37,7 +37,9 @@ export function makeBoardOrderAppender(ctx: MutationCtx) {
 function generateAppendBoardOrderKey(lastKey: string | null): string {
   if (lastKey === null) return "a1";
   const prefix = lastKey.match(/^[a-zA-Z]+/)?.[0] ?? "a";
-  const parsed = Number.parseFloat(lastKey.startsWith(prefix) ? lastKey.slice(prefix.length) : lastKey);
+  const parsed = Number.parseFloat(
+    lastKey.startsWith(prefix) ? lastKey.slice(prefix.length) : lastKey,
+  );
   return `${prefix}${Number.isFinite(parsed) ? parsed + 1 : 1}`;
 }
 

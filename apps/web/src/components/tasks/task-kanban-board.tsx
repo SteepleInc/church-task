@@ -189,7 +189,10 @@ export function TaskKanbanBoard({
   onToggleColumnHidden,
   className,
 }: TaskKanbanBoardProps) {
-  const allWorkflowColumns = useMemo(() => buildTaskBoardColumns(workflowStatuses), [workflowStatuses]);
+  const allWorkflowColumns = useMemo(
+    () => buildTaskBoardColumns(workflowStatuses),
+    [workflowStatuses],
+  );
   const hiddenIds = useMemo(() => new Set(hiddenColumnIds), [hiddenColumnIds]);
   const hiddenColumns = useMemo(
     () => allWorkflowColumns.filter((column) => hiddenIds.has(column.id)),
