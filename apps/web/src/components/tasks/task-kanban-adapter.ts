@@ -13,6 +13,7 @@ export type TaskBoardTask = {
   readonly title: string;
   readonly workflowStatusId: string;
   readonly taskState: TaskBoardTaskState;
+  readonly boardOrder?: string;
   readonly teamId?: string | null;
   readonly assignedUserId?: string | null;
   readonly dueDate?: string | null;
@@ -34,19 +35,14 @@ export type TaskBoardColumns = Record<string, TaskBoardTask[]>;
 export type TaskBoardMove = {
   readonly taskId: string;
   readonly workflowStatusId: string;
+  readonly boardOrder: string;
 };
 
-/**
- * Board Column grouping (see CONTEXT.md — a Board Column is a presentation
- * lane, not a status). Workflow Status is the default; the others present the
- * same Tasks re-grouped client-side.
- */
 export type TaskBoardGrouping = "workflow_status" | "task_state" | "assignee" | "team";
 
 export type TaskBoardGroupColumn = {
   readonly id: string;
   readonly title: string;
-  // Set for workflow_status/task_state groupings; null for assignee/team.
   readonly taskState: TaskBoardTaskState | null;
 };
 
@@ -107,15 +103,15 @@ export function buildTaskBoardGroupColumns(args: {
   readonly teams: readonly { readonly id: string; readonly name: string }[];
   readonly tasks: readonly TaskBoardTask[];
   readonly showEmptyColumns: boolean;
+  readonly hiddenColumnIds?: ReadonlySet<string>;
 }): TaskBoardGroupColumn[] {
+  const hiddenColumnIds = args.hiddenColumnIds ?? new Set<string>();
   const columns = ((): TaskBoardGroupColumn[] => {
     switch (args.grouping) {
       case "workflow_status":
-        return buildTaskBoardColumns(args.workflowStatuses).map((column) => ({
-          id: column.id,
-          title: column.title,
-          taskState: column.taskState,
-        }));
+        return buildTaskBoardColumns(args.workflowStatuses)
+          .filter((column) => !hiddenColumnIds.has(column.id))
+          .map((column) => ({ id: column.id, title: column.title, taskState: column.taskState }));
       case "task_state":
         return (["todo", "in_progress", "done", "canceled"] as const).map((state) => ({
           id: state,
@@ -147,6 +143,15 @@ export function buildTaskBoardGroupColumns(args: {
   return columns.filter((column) => populatedColumnIds.has(column.id));
 }
 
+export function compareBoardOrder(left: TaskBoardTask, right: TaskBoardTask): number {
+  if (left.boardOrder != null && right.boardOrder != null) {
+    return left.boardOrder < right.boardOrder ? -1 : left.boardOrder > right.boardOrder ? 1 : 0;
+  }
+  if (left.boardOrder != null) return -1;
+  if (right.boardOrder != null) return 1;
+  return (left.createdAt ?? 0) - (right.createdAt ?? 0);
+}
+
 export function groupTasksByColumn(
   grouping: TaskBoardGrouping,
   columns: readonly TaskBoardGroupColumn[],
@@ -159,6 +164,10 @@ export function groupTasksByColumn(
     const columnId = getTaskGroupColumnId(grouping, task);
     if (!columnIds.has(columnId)) continue;
     grouped[columnId] = [...grouped[columnId], task];
+  }
+
+  for (const columnId of Object.keys(grouped)) {
+    grouped[columnId] = [...grouped[columnId]].sort(compareBoardOrder);
   }
 
   return grouped;
@@ -175,12 +184,12 @@ export function groupTasksByWorkflowStatus(
   );
 }
 
-/**
- * Dragging between Board Columns mutates the grouped field, so it is only
- * enabled where that mutation is a clean single-field write. Team grouping
- * requires a Workflow remap and Task State grouping maps to many statuses;
- * both stay read-only lanes for now.
- */
+function findColumnOfTask(columns: TaskBoardColumns, taskId: string): string | undefined {
+  return Object.keys(columns).find((columnId) =>
+    columns[columnId].some((task) => task.id === taskId),
+  );
+}
+
 export function isTaskBoardGroupingDraggable(grouping: TaskBoardGrouping): boolean {
   return grouping === "workflow_status" || grouping === "assignee";
 }
@@ -212,19 +221,14 @@ export function moveTaskBetweenGroupColumns(args: {
   readonly destinationIndex: number;
   readonly persistMove: (move: TaskBoardColumnMove) => void | Promise<void>;
 }) {
-  const sourceColumnId = Object.keys(args.columns).find((columnId) =>
-    args.columns[columnId].some((task) => task.id === args.taskId),
-  );
+  const sourceColumnId = findColumnOfTask(args.columns, args.taskId);
 
   if (!sourceColumnId || !(args.destinationColumnId in args.columns)) {
     return args.columns;
   }
 
   if (sourceColumnId !== args.destinationColumnId) {
-    void args.persistMove({
-      taskId: args.taskId,
-      columnId: args.destinationColumnId,
-    });
+    void args.persistMove({ taskId: args.taskId, columnId: args.destinationColumnId });
   }
 
   const sourceTasks = args.columns[sourceColumnId];
@@ -263,6 +267,68 @@ export function moveTaskBetweenBoardColumns(args: {
     destinationColumnId: args.destinationWorkflowStatusId,
     destinationIndex: args.destinationIndex,
     persistMove: (move) =>
-      args.persistMove({ taskId: move.taskId, workflowStatusId: move.columnId }),
+      args.persistMove({ taskId: move.taskId, workflowStatusId: move.columnId, boardOrder: "" }),
   });
+}
+
+export function computeBoardMoves(args: {
+  readonly columns: TaskBoardColumns;
+  readonly activeTaskId: string;
+  readonly selectedTaskIds?: ReadonlySet<string>;
+}): readonly TaskBoardMove[] {
+  const destinationId = findColumnOfTask(args.columns, args.activeTaskId);
+  if (!destinationId) return [];
+
+  const selected = args.selectedTaskIds ?? new Set<string>();
+  const isGroupDrag = selected.has(args.activeTaskId) && selected.size > 1;
+  const movedTasks = isGroupDrag
+    ? Object.keys(args.columns).flatMap((columnId) =>
+        args.columns[columnId].filter(
+          (task) => selected.has(task.id) && task.taskState !== "canceled",
+        ),
+      )
+    : args.columns[destinationId].filter((task) => task.id === args.activeTaskId);
+
+  if (movedTasks.length === 0) return [];
+
+  const movedIds = new Set(movedTasks.map((task) => task.id));
+  const destinationTasks = args.columns[destinationId].filter(
+    (task) => task.id === args.activeTaskId || !movedIds.has(task.id),
+  );
+  const insertionIndex = destinationTasks.findIndex((task) => task.id === args.activeTaskId);
+  const beforeKey = destinationTasks[insertionIndex - 1]?.boardOrder ?? null;
+  const afterKey = destinationTasks[insertionIndex + 1]?.boardOrder ?? null;
+  const keys = generateBoardOrderKeys(beforeKey, afterKey, movedTasks.length);
+
+  return movedTasks.map((task, index) => ({
+    taskId: task.id,
+    workflowStatusId: destinationId,
+    boardOrder: keys[index],
+  }));
+}
+
+function generateBoardOrderKeys(
+  beforeKey: string | null,
+  afterKey: string | null,
+  count: number,
+): readonly string[] {
+  const prefix = beforeKey?.match(/^[a-zA-Z]+/)?.[0] ?? afterKey?.match(/^[a-zA-Z]+/)?.[0] ?? "a";
+  const before = parseBoardOrderKey(beforeKey, prefix);
+  const after = parseBoardOrderKey(afterKey, prefix);
+  const upper = after !== null && after > before ? after : before + count + 1;
+  const step = (upper - before) / (count + 1);
+
+  return Array.from({ length: count }, (_, index) =>
+    formatBoardOrderKey(prefix, before + step * (index + 1)),
+  );
+}
+
+function parseBoardOrderKey(key: string | null, prefix: string): number {
+  if (key === null) return 0;
+  const parsed = Number.parseFloat(key.startsWith(prefix) ? key.slice(prefix.length) : key);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatBoardOrderKey(prefix: string, value: number): string {
+  return `${prefix}${value.toFixed(12).replace(/0+$/, "").replace(/\.$/, "")}`;
 }

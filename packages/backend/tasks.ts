@@ -7,6 +7,40 @@ import { writeActivity } from "./activityRegistry";
 
 type MutationCtx = GenericMutationCtx<DataModel>;
 
+/**
+ * Appends Board Order keys (ADR 0012) to the end of a Workflow Status column.
+ * Caches the last key per column so batch creates only read each column once
+ * and successive appends in the same batch stay ordered.
+ */
+export function makeBoardOrderAppender(ctx: MutationCtx) {
+  const lastKeyByStatus = new Map<string, string | null>();
+
+  return async (workflowStatusId: string): Promise<string> => {
+    let lastKey = lastKeyByStatus.get(workflowStatusId);
+    if (lastKey === undefined) {
+      const columnTasks = await ctx.db
+        .query("tasks")
+        .withIndex("by_workflowStatusId", (q) => q.eq("workflowStatusId", workflowStatusId))
+        .collect();
+      lastKey = columnTasks.reduce<string | null>(
+        (max, task) => (max === null || task.boardOrder > max ? task.boardOrder : max),
+        null,
+      );
+    }
+
+    const nextKey = generateAppendBoardOrderKey(lastKey);
+    lastKeyByStatus.set(workflowStatusId, nextKey);
+    return nextKey;
+  };
+}
+
+function generateAppendBoardOrderKey(lastKey: string | null): string {
+  if (lastKey === null) return "a1";
+  const prefix = lastKey.match(/^[a-zA-Z]+/)?.[0] ?? "a";
+  const parsed = Number.parseFloat(lastKey.startsWith(prefix) ? lastKey.slice(prefix.length) : lastKey);
+  return `${prefix}${Number.isFinite(parsed) ? parsed + 1 : 1}`;
+}
+
 type TaskCreateInput = {
   readonly title: string;
   readonly teamId: string | null;
@@ -27,6 +61,7 @@ type TaskUpdateInput = {
     readonly dueDate?: string;
     readonly cycleId?: string;
     readonly parentTaskId?: string | null;
+    readonly boardOrder?: string;
   };
 };
 
@@ -154,6 +189,7 @@ export const serializeTaskModel = (data: Awaited<ReturnType<typeof readTaskModel
     workflowId: task.workflowId,
     workflowStatusId: task.workflowStatusId,
     taskState: task.taskState,
+    boardOrder: task.boardOrder,
     finishedAt: task.finishedAt ?? null,
     sourceTemplateId: task.sourceTemplateId ?? null,
     sourceTemplateTaskId: task.sourceTemplateTaskId ?? null,
@@ -232,6 +268,8 @@ export async function createTasks(
     });
   }
 
+  const appendBoardOrder = makeBoardOrderAppender(ctx);
+
   for (const { task, workflowId, workflowStatusId, taskState } of validatedTasks) {
     const cycleId = await ensureCycleForDueDate(ctx, {
       churchId: args.churchId,
@@ -251,6 +289,7 @@ export async function createTasks(
       workflowId,
       workflowStatusId,
       taskState,
+      boardOrder: await appendBoardOrder(workflowStatusId),
       finishedAt: null,
       sourceTemplateId: null,
       sourceTemplateTaskId: null,
@@ -493,6 +532,17 @@ export async function updateTasks(
       };
     }
 
+    // Board Order changes are silent presentation updates: persisted, but
+    // never written to the activity feed (see `nonAssignmentFields` below).
+    if (
+      "boardOrder" in update.fields &&
+      update.fields.boardOrder !== undefined &&
+      update.fields.boardOrder !== task.boardOrder
+    ) {
+      patch.boardOrder = update.fields.boardOrder;
+      updatedFields.push("boardOrder");
+    }
+
     if (updatedFields.length === 0) continue;
 
     updates.push(async () => {
@@ -639,7 +689,8 @@ export async function updateTasks(
           field !== "teamId" &&
           field !== "workflowStatusId" &&
           field !== "dueDate" &&
-          field !== "cycleId",
+          field !== "cycleId" &&
+          field !== "boardOrder",
       );
       if (nonAssignmentFields.length > 0) {
         const metadata: {
