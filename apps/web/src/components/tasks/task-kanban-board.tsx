@@ -9,8 +9,9 @@ import {
   type KanbanMoveEvent,
 } from "@/components/reui/kanban";
 import { useAppForm } from "@/components/form/ts-form";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +36,7 @@ import {
   AssigneeAvatar,
   AssigneeComboboxSelector,
   formatCreatedAt,
+  formatDueDate,
   getPriorityMeta,
   getSizeMeta,
   PriorityComboboxSelector,
@@ -46,15 +48,22 @@ import {
   type TaskSize,
 } from "./task-card-fields";
 import {
+  buildTaskBoardGroupColumns,
+  getTaskGroupColumnId,
+  groupTasksByColumn,
+  isTaskBoardGroupingDraggable,
+  moveTaskBetweenGroupColumns,
   buildTaskBoardColumns,
   computeBoardMoves,
-  groupTasksByWorkflowStatus,
   type TaskBoardColumn,
+  type TaskBoardGroupColumn,
+  type TaskBoardGrouping,
   type TaskBoardMove,
   type TaskBoardTask,
   type TaskBoardTaskState,
   type TaskBoardWorkflowStatus,
 } from "./task-kanban-adapter";
+import { DEFAULT_TASK_VIEW_OPTIONS, type TaskDisplayProperty } from "./task-view-options";
 import {
   matchPickerHotkey,
   statusOptions,
@@ -72,15 +81,31 @@ export type TaskCardStatusChange = {
   readonly workflowStatusId: string;
 };
 
+export type TaskBoardTeamOption = {
+  readonly id: string;
+  readonly name: string;
+};
+
 type TaskKanbanBoardProps = {
   readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
   readonly tasks: readonly TaskBoardTask[];
   readonly assigneeOptions?: readonly AssigneeOption[];
+  readonly teamOptions?: readonly TaskBoardTeamOption[];
   // The signed-in user, pinned to the top of the assignee picker.
   readonly currentUserId?: string | null;
   // Set of member user ids per Team id, used to render the "Team members"
   // section of the assignee picker for a Task's Team.
   readonly teamMemberIdsByTeamId?: ReadonlyMap<string, ReadonlySet<string>>;
+  // View Options (URL-carried presentation settings).
+  readonly grouping?: TaskBoardGrouping;
+  readonly showEmptyColumns?: boolean;
+  readonly displayProperties?: readonly TaskDisplayProperty[];
+  // Persist a drag between Board Columns. The columnId is interpreted by the
+  // caller according to the active grouping (Workflow Status id or User id).
+  readonly onMoveTask: (move: {
+    readonly taskId: string;
+    readonly columnId: string;
+  }) => void | Promise<void>;
   // Workflow Status ids of Board Columns hidden on this device.
   readonly hiddenColumnIds?: readonly string[];
   readonly onMoveTasks: (moves: readonly TaskBoardMove[]) => void | Promise<void>;
@@ -93,18 +118,20 @@ type TaskKanbanBoardProps = {
 };
 
 // Signature of the derived board layout. When this changes (tasks moved,
-// reordered, assigned, added, removed) the controlled Kanban value is re-synced
+// reordered, assigned, added, removed, regrouped) the controlled Kanban value is re-synced
 // from props so optimistic query updates show immediately instead of waiting on
 // a remount.
 function boardSignature(
-  columns: readonly TaskBoardColumn[],
+  grouping: TaskBoardGrouping,
+  columns: readonly TaskBoardGroupColumn[],
   tasks: readonly TaskBoardTask[],
 ): string {
   return [
+    grouping,
     ...columns.map((column) => `${column.id}:${column.title}`),
     ...tasks.map(
       (task) =>
-        `${task.id}:${task.workflowStatusId}:${task.taskState}:${task.boardOrder ?? ""}:${task.assignedUserId ?? ""}`,
+        `${task.id}:${getTaskGroupColumnId(grouping, task)}:${task.taskState}:${task.boardOrder ?? ""}:${task.assignedUserId ?? ""}`,
     ),
   ].join(":");
 }
@@ -146,8 +173,13 @@ export function TaskKanbanBoard({
   workflowStatuses,
   tasks,
   assigneeOptions = [],
+  teamOptions = [],
   currentUserId = null,
   teamMemberIdsByTeamId = EMPTY_TEAM_MEMBERS,
+  grouping = "workflow_status",
+  showEmptyColumns = true,
+  displayProperties = DEFAULT_TASK_VIEW_OPTIONS.displayProperties,
+  onMoveTask,
   hiddenColumnIds = EMPTY_HIDDEN_COLUMNS,
   onMoveTasks,
   onAssignTask,
@@ -157,21 +189,36 @@ export function TaskKanbanBoard({
   onToggleColumnHidden,
   className,
 }: TaskKanbanBoardProps) {
-  const allColumns = useMemo(() => buildTaskBoardColumns(workflowStatuses), [workflowStatuses]);
+  const allWorkflowColumns = useMemo(() => buildTaskBoardColumns(workflowStatuses), [workflowStatuses]);
   const hiddenIds = useMemo(() => new Set(hiddenColumnIds), [hiddenColumnIds]);
-  const columns = useMemo(
-    () => allColumns.filter((column) => !hiddenIds.has(column.id)),
-    [allColumns, hiddenIds],
-  );
   const hiddenColumns = useMemo(
-    () => allColumns.filter((column) => hiddenIds.has(column.id)),
-    [allColumns, hiddenIds],
+    () => allWorkflowColumns.filter((column) => hiddenIds.has(column.id)),
+    [allWorkflowColumns, hiddenIds],
+  );
+  const columns = useMemo(
+    () =>
+      buildTaskBoardGroupColumns({
+        grouping,
+        workflowStatuses,
+        assignees: assigneeOptions,
+        teams: teamOptions,
+        tasks,
+        showEmptyColumns,
+        hiddenColumnIds: grouping === "workflow_status" ? hiddenIds : undefined,
+      }),
+    [grouping, workflowStatuses, assigneeOptions, teamOptions, tasks, showEmptyColumns, hiddenIds],
   );
   const derivedColumnTasks = useMemo(
-    () => groupTasksByWorkflowStatus(columns, tasks),
-    [columns, tasks],
+    () => groupTasksByColumn(grouping, columns, tasks),
+    [grouping, columns, tasks],
   );
-  const signature = boardSignature(columns, tasks);
+  const displayPropertySet = useMemo(() => new Set(displayProperties), [displayProperties]);
+  const teamsById = useMemo(
+    () => new Map(teamOptions.map((team) => [team.id, team])),
+    [teamOptions],
+  );
+  const isDraggable = isTaskBoardGroupingDraggable(grouping);
+  const signature = boardSignature(grouping, columns, tasks);
 
   // The Kanban root is fully controlled, so dnd-kit needs a mutable `value` for
   // live drag previews. We mirror the props-derived layout in state and re-sync
@@ -218,10 +265,22 @@ export function TaskKanbanBoard({
   };
 
   const handleMove = (event: KanbanMoveEvent) => {
+    const activeTaskId = String(event.event.active.id);
+    if (grouping !== "workflow_status") {
+      moveTaskBetweenGroupColumns({
+        grouping,
+        columns: columnTasks,
+        taskId: activeTaskId,
+        destinationColumnId: event.overContainer,
+        destinationIndex: event.overIndex,
+        persistMove: onMoveTask,
+      });
+      return;
+    }
+
     // Persist the finished drag from the preview layout; the optimistic update
     // re-sorts the cached tasks, which flows back through props and re-syncs
     // `columnTasks`.
-    const activeTaskId = String(event.event.active.id);
     const moves = computeBoardMoves({
       columns: columnTasks,
       activeTaskId,
@@ -271,12 +330,15 @@ export function TaskKanbanBoard({
             assigneeOptions={assigneeOptions}
             currentUserId={currentUserId}
             teamMemberIdsByTeamId={teamMemberIdsByTeamId}
+            displayProperties={displayPropertySet}
+            teamsById={teamsById}
+            dragDisabled={!isDraggable}
             selectedTaskIds={selectedTaskIds}
             onAssignTask={onAssignTask}
             onChangeTaskStatus={onChangeTaskStatus}
             onOpenTask={onOpenTask}
-            onAddTask={onAddTask}
-            onHideColumn={onToggleColumnHidden}
+            onAddTask={grouping === "workflow_status" ? onAddTask : undefined}
+            onHideColumn={grouping === "workflow_status" ? onToggleColumnHidden : undefined}
             onSelectAllInColumn={selectAllInColumn}
             onToggleTaskSelected={toggleTaskSelected}
           />
@@ -307,6 +369,9 @@ export function TaskKanbanBoard({
                 assigneeOptions={assigneeOptions}
                 currentUserId={currentUserId}
                 teamMemberIdsByTeamId={teamMemberIdsByTeamId}
+                displayProperties={displayPropertySet}
+                teamsById={teamsById}
+                dragDisabled={!isDraggable}
                 selectedTaskIds={EMPTY_SELECTION}
                 isOverlay
                 className="shadow-lg"
@@ -361,13 +426,16 @@ interface TaskKanbanColumnProps extends Omit<
   ComponentProps<typeof KanbanColumn>,
   "children" | "value"
 > {
-  readonly column: TaskBoardColumn;
+  readonly column: TaskBoardGroupColumn;
   readonly tasks: readonly TaskBoardTask[];
   readonly value: string;
   readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
   readonly assigneeOptions: readonly AssigneeOption[];
   readonly currentUserId: string | null;
   readonly teamMemberIdsByTeamId: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly displayProperties: ReadonlySet<TaskDisplayProperty>;
+  readonly teamsById: ReadonlyMap<string, TaskBoardTeamOption>;
+  readonly dragDisabled?: boolean;
   readonly selectedTaskIds: ReadonlySet<string>;
   readonly isOverlay?: boolean;
   readonly onAssignTask?: TaskKanbanBoardProps["onAssignTask"];
@@ -387,6 +455,9 @@ function TaskKanbanColumn({
   assigneeOptions,
   currentUserId,
   teamMemberIdsByTeamId,
+  displayProperties,
+  teamsById,
+  dragDisabled,
   selectedTaskIds,
   isOverlay,
   onAssignTask,
@@ -410,7 +481,7 @@ function TaskKanbanColumn({
       <div className="flex h-full min-h-0 min-w-0 flex-col rounded-lg bg-muted/50">
         <div className="flex items-center justify-between gap-2 px-3 py-2">
           <div className="flex min-w-0 items-center gap-2">
-            <WorkflowStatusIcon taskState={column.taskState} />
+            {column.taskState ? <WorkflowStatusIcon taskState={column.taskState} /> : null}
             <span className="truncate font-medium text-sm">{column.title}</span>
             <span className="text-muted-foreground text-sm tabular-nums">{tasks.length}</span>
           </div>
@@ -478,6 +549,9 @@ function TaskKanbanColumn({
               assigneeOptions={assigneeOptions}
               currentUserId={currentUserId}
               teamMemberIdsByTeamId={teamMemberIdsByTeamId}
+              displayProperties={displayProperties}
+              teamsById={teamsById}
+              dragDisabled={dragDisabled}
               selectedTaskIds={selectedTaskIds}
               asHandle={!isOverlay}
               isOverlay={isOverlay}
@@ -502,6 +576,9 @@ interface TaskKanbanCardProps extends Omit<
   readonly assigneeOptions: readonly AssigneeOption[];
   readonly currentUserId: string | null;
   readonly teamMemberIdsByTeamId: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly displayProperties: ReadonlySet<TaskDisplayProperty>;
+  readonly teamsById: ReadonlyMap<string, TaskBoardTeamOption>;
+  readonly dragDisabled?: boolean;
   readonly selectedTaskIds: ReadonlySet<string>;
   readonly asHandle?: boolean;
   readonly isOverlay?: boolean;
@@ -517,6 +594,9 @@ function TaskKanbanCard({
   assigneeOptions,
   currentUserId,
   teamMemberIdsByTeamId,
+  displayProperties,
+  teamsById,
+  dragDisabled,
   selectedTaskIds,
   asHandle,
   isOverlay,
@@ -567,6 +647,9 @@ function TaskKanbanCard({
   });
 
   const createdAtLabel = formatCreatedAt(task.createdAt);
+  const dueDateLabel = formatDueDate(task.dueDate);
+  const teamName = task.teamId ? (teamsById.get(task.teamId)?.name ?? null) : null;
+  const showProperty = (property: TaskDisplayProperty) => displayProperties.has(property);
 
   const handleCardClick = (event: ReactMouseEvent) => {
     // Card clicks never clear the selection from the board-level handler.
@@ -592,112 +675,128 @@ function TaskKanbanCard({
       onPointerEnter={() => setIsHovered(true)}
       onPointerLeave={() => setIsHovered(false)}
     >
-      <CardContent className="flex items-center justify-between gap-2 px-3 pt-2.5 pb-0">
-        <span className="truncate font-medium text-muted-foreground text-xs">
-          {toTaskIdentifier(task.id)}
-        </span>
-        <form.Field name="assignedUserId">
-          {(field) => (
-            <AssigneeComboboxSelector
-              currentUserId={currentUserId}
-              onValueChange={(next) => {
-                field.handleChange(next);
-                void onAssignTask?.({ taskId: task.id, assignedUserId: next });
-              }}
-              openRef={assigneeOpenRef}
-              options={assigneeOptions}
-              teamMemberIds={teamMemberIds}
-              trigger={
-                <span className="flex size-5 items-center justify-center">
-                  <AssigneeAvatar assignee={selectedAssignee} size={20} />
-                </span>
-              }
-              value={field.state.value}
-            />
-          )}
-        </form.Field>
-      </CardContent>
-
-      <CardContent className="flex items-start gap-1.5 px-3 pt-1 pb-2">
-        <form.Field name="workflowStatusId">
-          {(field) => (
-            <StatusComboboxSelector
-              disabled={statusItems.length === 0}
-              emptyText="No statuses."
-              onValueChange={(next) => {
-                if (!next) return;
-                field.handleChange(next);
-                void onChangeTaskStatus?.({ taskId: task.id, workflowStatusId: next });
-              }}
-              openRef={statusOpenRef}
-              options={statusItems}
-              trigger={
-                <span className="mt-px flex size-4 items-center justify-center">
-                  <WorkflowStatusIcon taskState={cardState} />
-                </span>
-              }
-              value={field.state.value}
-            />
-          )}
-        </form.Field>
-        <div className="min-w-0">
-          <CardTitle className="line-clamp-2 font-medium text-sm leading-snug">
-            {task.title}
-          </CardTitle>
-          {task.parentTask ? (
-            <p className="mt-0.5 line-clamp-1 text-muted-foreground text-xs">
-              Parent: {task.parentTask.title}
-            </p>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 px-3 pt-3 pb-0">
+        <div className="flex min-w-0 items-center gap-1.5">
+          {showProperty("status") ? (
+            <form.Field name="workflowStatusId">
+              {(field) => (
+                <StatusComboboxSelector
+                  disabled={statusItems.length === 0}
+                  emptyText="No statuses."
+                  onValueChange={(next) => {
+                    if (!next) return;
+                    field.handleChange(next);
+                    void onChangeTaskStatus?.({ taskId: task.id, workflowStatusId: next });
+                  }}
+                  openRef={statusOpenRef}
+                  options={statusItems}
+                  trigger={
+                    <span className="flex size-5 items-center justify-center">
+                      <WorkflowStatusIcon taskState={cardState} />
+                    </span>
+                  }
+                  value={field.state.value}
+                />
+              )}
+            </form.Field>
+          ) : null}
+          {showProperty("id") ? (
+            <span className="truncate font-medium text-muted-foreground text-xs">
+              {toTaskIdentifier(task.id)}
+            </span>
           ) : null}
         </div>
-      </CardContent>
-
-      <CardContent className="flex flex-wrap items-center gap-1.5 px-3 pt-0 pb-2">
-        <form.Field name="priority">
-          {(field) => {
-            const meta = getPriorityMeta(field.state.value);
-            const Icon = meta.icon;
-            return (
-              <PriorityComboboxSelector
-                onValueChange={(next) => field.handleChange(next)}
-                openRef={priorityOpenRef}
+        {showProperty("assignee") ? (
+          <form.Field name="assignedUserId">
+            {(field) => (
+              <AssigneeComboboxSelector
+                currentUserId={currentUserId}
+                onValueChange={(next) => {
+                  field.handleChange(next);
+                  void onAssignTask?.({ taskId: task.id, assignedUserId: next });
+                }}
+                openRef={assigneeOpenRef}
+                options={assigneeOptions}
+                teamMemberIds={teamMemberIds}
                 trigger={
-                  <span
-                    aria-label={`Priority: ${meta.label}`}
-                    className="flex size-6 items-center justify-center rounded-md border bg-background hover:bg-accent"
-                  >
-                    <Icon className={cn("size-3.5", meta.className)} />
+                  <span className="flex size-5 items-center justify-center">
+                    <AssigneeAvatar assignee={selectedAssignee} size={20} />
                   </span>
                 }
                 value={field.state.value}
               />
-            );
-          }}
-        </form.Field>
-        <form.Field name="size">
-          {(field) => {
-            const meta = getSizeMeta(field.state.value);
-            return (
-              <SizeComboboxSelector
-                onValueChange={(next) => field.handleChange(next)}
-                openRef={sizeOpenRef}
-                trigger={
-                  <span
-                    aria-label={`Estimate: ${meta.label}`}
-                    className="flex size-6 items-center justify-center rounded-md border bg-background hover:bg-accent"
-                  >
-                    <Triangle className="size-3.5" />
-                  </span>
-                }
-                value={field.state.value}
-              />
-            );
-          }}
-        </form.Field>
+            )}
+          </form.Field>
+        ) : null}
+      </CardHeader>
+
+      <CardContent className="px-3 py-2">
+        <CardTitle className="line-clamp-2 font-semibold text-sm leading-snug">
+          {task.title}
+        </CardTitle>
+        {showProperty("parent") && task.parentTask ? (
+          <p className="mt-1 line-clamp-1 text-muted-foreground text-xs">
+            Parent: {task.parentTask.title}
+          </p>
+        ) : null}
       </CardContent>
 
-      {createdAtLabel ? (
-        <CardContent className="px-3 pt-0 pb-2.5">
+      <CardContent className="flex flex-wrap items-center gap-1.5 px-3 pt-0 pb-3">
+        {showProperty("priority") ? (
+          <form.Field name="priority">
+            {(field) => {
+              const meta = getPriorityMeta(field.state.value);
+              const Icon = meta.icon;
+              return (
+                <PriorityComboboxSelector
+                  onValueChange={(next) => field.handleChange(next)}
+                  openRef={priorityOpenRef}
+                  trigger={
+                    <span
+                      aria-label={`Priority: ${meta.label}`}
+                      className="flex size-6 items-center justify-center rounded-md border bg-background hover:bg-accent"
+                    >
+                      <Icon className={cn("size-3.5", meta.className)} />
+                    </span>
+                  }
+                  value={field.state.value}
+                />
+              );
+            }}
+          </form.Field>
+        ) : null}
+        {showProperty("estimate") ? (
+          <form.Field name="size">
+            {(field) => {
+              const meta = getSizeMeta(field.state.value);
+              return (
+                <SizeComboboxSelector
+                  onValueChange={(next) => field.handleChange(next)}
+                  openRef={sizeOpenRef}
+                  trigger={
+                    <span
+                      aria-label={`Estimate: ${meta.label}`}
+                      className="flex size-6 items-center justify-center rounded-md border bg-background hover:bg-accent"
+                    >
+                      <Triangle className="size-3.5" />
+                    </span>
+                  }
+                  value={field.state.value}
+                />
+              );
+            }}
+          </form.Field>
+        ) : null}
+        {showProperty("due_date") && dueDateLabel ? (
+          <Badge className="text-muted-foreground" variant="outline">
+            Due {dueDateLabel}
+          </Badge>
+        ) : null}
+        {showProperty("team") && teamName ? <Badge variant="outline">{teamName}</Badge> : null}
+      </CardContent>
+
+      {showProperty("created") && createdAtLabel ? (
+        <CardContent className="px-3 pt-0 pb-3">
           <p className="text-muted-foreground text-xs">Created {createdAtLabel}</p>
         </CardContent>
       ) : null}
@@ -707,7 +806,7 @@ function TaskKanbanCard({
   return (
     <KanbanItem
       value={task.id}
-      disabled={cardState === "canceled"}
+      disabled={dragDisabled || cardState === "canceled"}
       aria-label={`Task card ${task.title}`}
       data-selected={isSelected || undefined}
       {...props}

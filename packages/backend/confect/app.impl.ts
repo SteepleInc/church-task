@@ -405,6 +405,7 @@ const serializeWorkflowModel = (data: Awaited<ReturnType<typeof readWorkflowMode
     cycleId: task.cycleId,
     dueDate: task.dueDate,
     createdAt: task._creationTime,
+    createdByUserId: task.createdByUserId ?? null,
     parentTaskId: task.parentTaskId,
     workflowId: task.workflowId,
     workflowStatusId: task.workflowStatusId,
@@ -437,6 +438,7 @@ const serializeTaskModel = (data: Awaited<ReturnType<typeof readTaskModel>>) => 
     cycleId: task.cycleId,
     dueDate: task.dueDate,
     createdAt: task._creationTime,
+    createdByUserId: task.createdByUserId ?? null,
     parentTaskId: task.parentTaskId,
     workflowId: task.workflowId,
     workflowStatusId: task.workflowStatusId,
@@ -2236,7 +2238,10 @@ const tasksCreateBatch = FunctionImpl.make(api, "tasks", "createBatch", (args) =
       createTasks(ctx, {
         churchId: args.churchId,
         churchTimeZone: church.churchTimeZone!,
-        tasks: args.tasks,
+        tasks: args.tasks.map((task) => ({
+          ...task,
+          createdByUserId: auth.authUser._id,
+        })),
       }),
     ).pipe(Effect.orDie);
 

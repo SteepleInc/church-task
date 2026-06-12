@@ -23,10 +23,12 @@ import { useAtom } from "jotai";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { TaskKanbanBoard } from "./task-kanban-board";
+import { UNASSIGNED_COLUMN_ID } from "./task-kanban-adapter";
 import {
   buildTeamMemberIndex,
   getExecutionWorkflowId,
   getTaskCreationDefaults,
+  getTaskExecutionFilters,
   getTaskExecutionReadArgs,
   getTaskParentContext,
   selectCurrentExecutionCycle,
@@ -34,6 +36,11 @@ import {
   type TaskSummary,
   type TaskState,
 } from "@/components/tasks/task-execution-surface-utils";
+import {
+  resolveTaskViewOptions,
+  type TaskViewOptions,
+  type TaskViewTab,
+} from "@/components/tasks/task-view-options";
 
 type WorkflowStatus = {
   readonly id: string;
@@ -48,6 +55,9 @@ export function TaskExecutionSurface({
   currentUserId,
   surface,
   team,
+  teams = [],
+  tab,
+  view,
 }: {
   readonly churchId: string;
   readonly currentUserId: string;
@@ -57,6 +67,9 @@ export function TaskExecutionSurface({
     readonly name: string;
     readonly defaultWorkflowId: string | null;
   } | null;
+  readonly teams?: readonly { readonly id: string; readonly name: string }[];
+  readonly tab?: TaskViewTab;
+  readonly view?: TaskViewOptions;
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const navigate = useNavigate();
@@ -93,6 +106,7 @@ export function TaskExecutionSurface({
         (status) => status.workflowId === workflowId,
       )
     : [];
+  const resolvedView = resolveTaskViewOptions(view);
   const taskReadArgs = getTaskExecutionReadArgs({
     churchId,
     currentUserId,
@@ -101,11 +115,15 @@ export function TaskExecutionSurface({
     cycleId: currentCycle?.id ?? null,
   });
   const taskFilters: TaskCollectionFilters | undefined = taskReadArgs
-    ? {
-        ...("surface" in taskReadArgs ? { surface: taskReadArgs.surface } : {}),
-        ...("teamId" in taskReadArgs ? { teamId: taskReadArgs.teamId } : {}),
+    ? getTaskExecutionFilters({
+        surface,
+        teamId: team?.id ?? null,
         cycleId: taskReadArgs.cycleId,
-      }
+        currentUserId,
+        tab,
+        showSubtasks: resolvedView.showSubtasks,
+        ordering: resolvedView.ordering,
+      })
     : undefined;
   const tasksCollection = useTasksCollection({
     churchId: !cyclesCollection.loading && taskReadArgs !== null ? churchId : null,
@@ -136,8 +154,31 @@ export function TaskExecutionSurface({
             id: user.id,
             label: getUserDisplayName(user),
           }))}
+          teamOptions={teams}
           currentUserId={currentUserId}
           teamMemberIdsByTeamId={teamMemberIdsByTeamId}
+          grouping={resolvedView.grouping}
+          showEmptyColumns={resolvedView.showEmptyColumns}
+          displayProperties={resolvedView.displayProperties}
+          onMoveTask={(move) => {
+            // The drag's destination column id means a different field per
+            // grouping; team/task_state lanes are not draggable.
+            const fields =
+              resolvedView.grouping === "workflow_status"
+                ? { workflowStatusId: move.columnId }
+                : resolvedView.grouping === "assignee"
+                  ? {
+                      assignedUserId: move.columnId === UNASSIGNED_COLUMN_ID ? null : move.columnId,
+                    }
+                  : null;
+            if (!fields) return;
+            void updateTask({
+              churchId,
+              actorUserId: currentUserId,
+              taskId: move.taskId,
+              fields,
+            });
+          }}
           hiddenColumnIds={hiddenColumnIds}
           onMoveTasks={(moves) => {
             if (moves.length === 1) {

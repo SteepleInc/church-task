@@ -1,5 +1,3 @@
-import { generateNKeysBetween } from "fractional-indexing";
-
 export type TaskBoardTaskState = "todo" | "in_progress" | "done" | "canceled";
 
 export type TaskBoardWorkflowStatus = {
@@ -15,8 +13,6 @@ export type TaskBoardTask = {
   readonly title: string;
   readonly workflowStatusId: string;
   readonly taskState: TaskBoardTaskState;
-  // Board Order key (ADR 0012). Optional so the board tolerates cached rows
-  // from before the field existed; unkeyed Tasks sort to the end of a column.
   readonly boardOrder?: string;
   readonly teamId?: string | null;
   readonly assignedUserId?: string | null;
@@ -42,6 +38,33 @@ export type TaskBoardMove = {
   readonly boardOrder: string;
 };
 
+export type TaskBoardGrouping = "workflow_status" | "task_state" | "assignee" | "team";
+
+export type TaskBoardGroupColumn = {
+  readonly id: string;
+  readonly title: string;
+  readonly taskState: TaskBoardTaskState | null;
+};
+
+export type TaskBoardColumnMove = {
+  readonly taskId: string;
+  readonly columnId: string;
+};
+
+export const UNASSIGNED_COLUMN_ID = "unassigned";
+export const NO_TEAM_COLUMN_ID = "no_team";
+
+const TASK_STATE_LABELS: Record<TaskBoardTaskState, string> = {
+  todo: "To Do",
+  in_progress: "In Progress",
+  done: "Done",
+  canceled: "Canceled",
+};
+
+export function taskStateLabel(taskState: TaskBoardTaskState): string {
+  return TASK_STATE_LABELS[taskState];
+}
+
 export function buildTaskBoardColumns(statuses: readonly TaskBoardWorkflowStatus[]) {
   return statuses
     .filter(
@@ -60,11 +83,66 @@ export function buildTaskBoardColumns(statuses: readonly TaskBoardWorkflowStatus
     );
 }
 
-/**
- * Board Order comparison: fractional-indexing keys compare as plain strings.
- * Tasks without a key sort after keyed ones, oldest first, so legacy rows
- * stay stable at the bottom of a column.
- */
+export function getTaskGroupColumnId(grouping: TaskBoardGrouping, task: TaskBoardTask): string {
+  switch (grouping) {
+    case "workflow_status":
+      return task.workflowStatusId;
+    case "task_state":
+      return task.taskState;
+    case "assignee":
+      return task.assignedUserId ?? UNASSIGNED_COLUMN_ID;
+    case "team":
+      return task.teamId ?? NO_TEAM_COLUMN_ID;
+  }
+}
+
+export function buildTaskBoardGroupColumns(args: {
+  readonly grouping: TaskBoardGrouping;
+  readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
+  readonly assignees: readonly { readonly id: string; readonly label: string }[];
+  readonly teams: readonly { readonly id: string; readonly name: string }[];
+  readonly tasks: readonly TaskBoardTask[];
+  readonly showEmptyColumns: boolean;
+  readonly hiddenColumnIds?: ReadonlySet<string>;
+}): TaskBoardGroupColumn[] {
+  const hiddenColumnIds = args.hiddenColumnIds ?? new Set<string>();
+  const columns = ((): TaskBoardGroupColumn[] => {
+    switch (args.grouping) {
+      case "workflow_status":
+        return buildTaskBoardColumns(args.workflowStatuses)
+          .filter((column) => !hiddenColumnIds.has(column.id))
+          .map((column) => ({ id: column.id, title: column.title, taskState: column.taskState }));
+      case "task_state":
+        return (["todo", "in_progress", "done", "canceled"] as const).map((state) => ({
+          id: state,
+          title: TASK_STATE_LABELS[state],
+          taskState: state,
+        }));
+      case "assignee":
+        return [
+          { id: UNASSIGNED_COLUMN_ID, title: "Unassigned", taskState: null },
+          ...args.assignees.map((assignee) => ({
+            id: assignee.id,
+            title: assignee.label,
+            taskState: null,
+          })),
+        ];
+      case "team":
+        return [
+          { id: NO_TEAM_COLUMN_ID, title: "No Team", taskState: null },
+          ...args.teams.map((team) => ({ id: team.id, title: team.name, taskState: null })),
+        ];
+    }
+  })();
+
+  if (args.showEmptyColumns) return columns;
+
+  const populatedColumnIds = new Set(
+    args.tasks.map((task) => getTaskGroupColumnId(args.grouping, task)),
+  );
+  return columns.filter((column) => populatedColumnIds.has(column.id));
+}
+
 export function compareBoardOrder(left: TaskBoardTask, right: TaskBoardTask): number {
   if (left.boardOrder != null && right.boardOrder != null) {
     return left.boardOrder < right.boardOrder ? -1 : left.boardOrder > right.boardOrder ? 1 : 0;
@@ -74,16 +152,18 @@ export function compareBoardOrder(left: TaskBoardTask, right: TaskBoardTask): nu
   return (left.createdAt ?? 0) - (right.createdAt ?? 0);
 }
 
-export function groupTasksByWorkflowStatus(
-  columns: readonly TaskBoardColumn[],
+export function groupTasksByColumn(
+  grouping: TaskBoardGrouping,
+  columns: readonly TaskBoardGroupColumn[],
   tasks: readonly TaskBoardTask[],
 ): TaskBoardColumns {
   const grouped = Object.fromEntries(columns.map((column) => [column.id, []])) as TaskBoardColumns;
   const columnIds = new Set(columns.map((column) => column.id));
 
   for (const task of tasks) {
-    if (!columnIds.has(task.workflowStatusId)) continue;
-    grouped[task.workflowStatusId] = [...grouped[task.workflowStatusId], task];
+    const columnId = getTaskGroupColumnId(grouping, task);
+    if (!columnIds.has(columnId)) continue;
+    grouped[columnId] = [...grouped[columnId], task];
   }
 
   for (const columnId of Object.keys(grouped)) {
@@ -93,23 +173,104 @@ export function groupTasksByWorkflowStatus(
   return grouped;
 }
 
+export function groupTasksByWorkflowStatus(
+  columns: readonly TaskBoardColumn[],
+  tasks: readonly TaskBoardTask[],
+): TaskBoardColumns {
+  return groupTasksByColumn(
+    "workflow_status",
+    columns.map((column) => ({ ...column, taskState: column.taskState as TaskBoardTaskState })),
+    tasks,
+  );
+}
+
 function findColumnOfTask(columns: TaskBoardColumns, taskId: string): string | undefined {
   return Object.keys(columns).find((columnId) =>
     columns[columnId].some((task) => task.id === taskId),
   );
 }
 
-/**
- * Compute the persisted Board moves for a finished drag.
- *
- * `columns` is the preview layout at drop time: the dragged Task already sits
- * at its destination position (dnd-kit live-sorts during the drag), while any
- * other selected Tasks are still in their original spots. The moved group is
- * the selection when it contains the dragged Task (group drag), otherwise just
- * the dragged Task. Group members keep their relative visual order and are
- * inserted contiguously at the dragged Task's position, each receiving a fresh
- * fractional Board Order key between the destination neighbors (ADR 0012).
- */
+export function isTaskBoardGroupingDraggable(grouping: TaskBoardGrouping): boolean {
+  return grouping === "workflow_status" || grouping === "assignee";
+}
+
+function applyColumnToTask(
+  grouping: TaskBoardGrouping,
+  task: TaskBoardTask,
+  columnId: string,
+): TaskBoardTask {
+  switch (grouping) {
+    case "workflow_status":
+      return { ...task, workflowStatusId: columnId };
+    case "assignee":
+      return {
+        ...task,
+        assignedUserId: columnId === UNASSIGNED_COLUMN_ID ? null : columnId,
+      };
+    case "task_state":
+    case "team":
+      return task;
+  }
+}
+
+export function moveTaskBetweenGroupColumns(args: {
+  readonly grouping: TaskBoardGrouping;
+  readonly columns: TaskBoardColumns;
+  readonly taskId: string;
+  readonly destinationColumnId: string;
+  readonly destinationIndex: number;
+  readonly persistMove: (move: TaskBoardColumnMove) => void | Promise<void>;
+}) {
+  const sourceColumnId = findColumnOfTask(args.columns, args.taskId);
+
+  if (!sourceColumnId || !(args.destinationColumnId in args.columns)) {
+    return args.columns;
+  }
+
+  if (sourceColumnId !== args.destinationColumnId) {
+    void args.persistMove({ taskId: args.taskId, columnId: args.destinationColumnId });
+  }
+
+  const sourceTasks = args.columns[sourceColumnId];
+  const task = sourceTasks.find((candidate) => candidate.id === args.taskId);
+  if (!task) return args.columns;
+
+  const nextColumns: TaskBoardColumns = { ...args.columns };
+  nextColumns[sourceColumnId] = sourceTasks.filter((candidate) => candidate.id !== task.id);
+
+  const destinationTasks =
+    sourceColumnId === args.destinationColumnId
+      ? nextColumns[args.destinationColumnId]
+      : args.columns[args.destinationColumnId];
+  const destinationIndex = Math.max(0, Math.min(args.destinationIndex, destinationTasks.length));
+
+  nextColumns[args.destinationColumnId] = [
+    ...destinationTasks.slice(0, destinationIndex),
+    applyColumnToTask(args.grouping, task, args.destinationColumnId),
+    ...destinationTasks.slice(destinationIndex),
+  ];
+
+  return nextColumns;
+}
+
+export function moveTaskBetweenBoardColumns(args: {
+  readonly columns: TaskBoardColumns;
+  readonly taskId: string;
+  readonly destinationWorkflowStatusId: string;
+  readonly destinationIndex: number;
+  readonly persistMove: (move: TaskBoardMove) => void | Promise<void>;
+}) {
+  return moveTaskBetweenGroupColumns({
+    grouping: "workflow_status",
+    columns: args.columns,
+    taskId: args.taskId,
+    destinationColumnId: args.destinationWorkflowStatusId,
+    destinationIndex: args.destinationIndex,
+    persistMove: (move) =>
+      args.persistMove({ taskId: move.taskId, workflowStatusId: move.columnId, boardOrder: "" }),
+  });
+}
+
 export function computeBoardMoves(args: {
   readonly columns: TaskBoardColumns;
   readonly activeTaskId: string;
@@ -120,10 +281,6 @@ export function computeBoardMoves(args: {
 
   const selected = args.selectedTaskIds ?? new Set<string>();
   const isGroupDrag = selected.has(args.activeTaskId) && selected.size > 1;
-
-  // Visual order of the moved group: walk columns in order, keeping each
-  // selected Task's relative position (the dragged Task is at its destination
-  // slot already, so the group lands in drop order).
   const movedTasks = isGroupDrag
     ? Object.keys(args.columns).flatMap((columnId) =>
         args.columns[columnId].filter(
@@ -134,8 +291,6 @@ export function computeBoardMoves(args: {
 
   if (movedTasks.length === 0) return [];
 
-  // Neighbors at the insertion point: the destination column with every moved
-  // Task removed except the dragged one, which marks the insertion slot.
   const movedIds = new Set(movedTasks.map((task) => task.id));
   const destinationTasks = args.columns[destinationId].filter(
     (task) => task.id === args.activeTaskId || !movedIds.has(task.id),
@@ -143,7 +298,6 @@ export function computeBoardMoves(args: {
   const insertionIndex = destinationTasks.findIndex((task) => task.id === args.activeTaskId);
   const beforeKey = destinationTasks[insertionIndex - 1]?.boardOrder ?? null;
   const afterKey = destinationTasks[insertionIndex + 1]?.boardOrder ?? null;
-
   const keys = generateBoardOrderKeys(beforeKey, afterKey, movedTasks.length);
 
   return movedTasks.map((task, index) => ({
@@ -153,19 +307,28 @@ export function computeBoardMoves(args: {
   }));
 }
 
-/**
- * Generate `count` keys between two neighbors, falling back to appending after
- * the lower neighbor when the surrounding keys are inconsistent (e.g. legacy
- * rows without keys produced an inverted pair).
- */
 function generateBoardOrderKeys(
   beforeKey: string | null,
   afterKey: string | null,
   count: number,
 ): readonly string[] {
-  try {
-    return generateNKeysBetween(beforeKey, afterKey, count);
-  } catch {
-    return generateNKeysBetween(beforeKey, null, count);
-  }
+  const prefix = beforeKey?.match(/^[a-zA-Z]+/)?.[0] ?? afterKey?.match(/^[a-zA-Z]+/)?.[0] ?? "a";
+  const before = parseBoardOrderKey(beforeKey, prefix);
+  const after = parseBoardOrderKey(afterKey, prefix);
+  const upper = after !== null && after > before ? after : before + count + 1;
+  const step = (upper - before) / (count + 1);
+
+  return Array.from({ length: count }, (_, index) =>
+    formatBoardOrderKey(prefix, before + step * (index + 1)),
+  );
+}
+
+function parseBoardOrderKey(key: string | null, prefix: string): number {
+  if (key === null) return 0;
+  const parsed = Number.parseFloat(key.startsWith(prefix) ? key.slice(prefix.length) : key);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatBoardOrderKey(prefix: string, value: number): string {
+  return `${prefix}${value.toFixed(12).replace(/0+$/, "").replace(/\.$/, "")}`;
 }

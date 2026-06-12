@@ -50,6 +50,15 @@ import { useState } from "react";
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
 import { TaskExecutionSurface } from "@/components/tasks/task-execution-surface";
+import { TaskViewTopBar } from "@/components/tasks/task-view-top-bar";
+import {
+  getDefaultTaskViewTab,
+  resolveTaskViewOptions,
+  resolveTaskViewTab,
+  toTaskViewSearchValue,
+  type ResolvedTaskViewOptions,
+  type TaskViewTab,
+} from "@/components/tasks/task-view-options";
 import { useUserInvitationsCollection } from "@/data/invitations/invitationsData.app";
 import {
   useCurrentOrgOpt,
@@ -131,54 +140,57 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
   const { openCreateTask } = useQuickActionOpeners();
   const showCreateTask =
     activePanel !== "settings" && Boolean(activeChurch) && Boolean(currentUserId);
-  // Board panels manage their own vertical scrolling (each Board Column
-  // scrolls internally), so they render outside the page ScrollArea and fill
-  // the remaining viewport height.
   const showBoardSurface =
     activePanel !== "settings" &&
     Boolean(activeChurch) &&
     Boolean(currentUserId) &&
     !(typeof activePanel === "object" && !selectedTeam);
 
-  if (showBoardSurface && activeChurch && currentUserId) {
-    return (
-      <MainContainer>
-        <PageWrapper variant="noPageContainer" className="gap-6">
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              onClick={() =>
-                openCreateTask({ assignTo: activePanel === "my_work" ? currentUserId : null })
-              }
-            >
-              Create Task
-            </Button>
-          </div>
-          <TaskExecutionSurface
-            churchId={activeChurch.id}
-            currentUserId={currentUserId}
-            surface={typeof activePanel === "object" ? "team_board" : activePanel}
-            team={selectedTeam}
-          />
-        </PageWrapper>
-      </MainContainer>
-    );
-  }
+  const surface =
+    typeof activePanel === "object"
+      ? ("team_board" as const)
+      : activePanel === "settings"
+        ? ("my_work" as const)
+        : activePanel;
+  const showTopBar = showCreateTask && (typeof activePanel !== "object" || selectedTeam !== null);
+  const activeTab = resolveTaskViewTab(surface, search.tab);
+  const activeView = resolveTaskViewOptions(search.view);
 
-  return (
-    <MainContainer>
-      <PageContainer wrapperClassName="gap-6">
-        {showCreateTask ? (
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              onClick={() =>
-                openCreateTask({ assignTo: activePanel === "my_work" ? currentUserId : null })
-              }
-            >
-              Create Task
-            </Button>
-          </div>
+  const setTab = (tab: TaskViewTab) => {
+    void navigate({
+      to: ".",
+      replace: true,
+      search: (prev: Record<string, unknown>) => ({
+        ...prev,
+        tab: tab === getDefaultTaskViewTab(surface) ? undefined : tab,
+      }),
+    });
+  };
+
+  const setView = (view: ResolvedTaskViewOptions) => {
+    void navigate({
+      to: ".",
+      replace: true,
+      search: (prev: Record<string, unknown>) => ({
+        ...prev,
+        view: toTaskViewSearchValue(view),
+      }),
+    });
+  };
+
+  const content = (
+    <>
+        {showTopBar ? (
+          <TaskViewTopBar
+            surface={surface}
+            tab={activeTab}
+            onTabChange={setTab}
+            view={activeView}
+            onViewChange={setView}
+            onCreateTask={() =>
+              openCreateTask({ assignTo: activePanel === "my_work" ? currentUserId : null })
+            }
+          />
         ) : null}
         {activePanel === "settings" && activeChurch ? (
           <ActiveChurchSettings activeChurch={activeChurch} />
@@ -203,6 +215,16 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
               ))}
             </div>
           </section>
+        ) : activeChurch && currentUserId ? (
+          <TaskExecutionSurface
+            churchId={activeChurch.id}
+            currentUserId={currentUserId}
+            surface={surface}
+            team={selectedTeam}
+            teams={activeTeams.map((candidate) => ({ id: candidate.id, name: candidate.name }))}
+            tab={activeTab}
+            view={search.view}
+          />
         ) : (
           <>
             <section className="grid gap-4 rounded-xl border bg-background p-4 shadow-xs">
@@ -226,11 +248,22 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
                   activeChurchRole={activeChurch.role}
                   pendingInvitations={pendingInvitations}
                 />
-              </>
-            ) : null}
-          </>
-        )}
-      </PageContainer>
+            </>
+          ) : null}
+        </>
+      )}
+    </>
+  );
+
+  return (
+    <MainContainer>
+      {showBoardSurface ? (
+        <PageWrapper className="gap-6" variant="noPageContainer">
+          {content}
+        </PageWrapper>
+      ) : (
+        <PageContainer wrapperClassName="gap-6">{content}</PageContainer>
+      )}
     </MainContainer>
   );
 }

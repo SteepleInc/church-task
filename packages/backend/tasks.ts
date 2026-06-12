@@ -1,6 +1,5 @@
 import type { RestorableTaskStatus, TaskStatus } from "@church-task/domain/Task";
 import type { GenericDatabaseReader, GenericMutationCtx } from "convex/server";
-import { generateKeyBetween } from "fractional-indexing";
 
 import { buildCycleForLocalDate } from "./churchCycleCalendar";
 import type { DataModel, Id } from "./convex/_generated/dataModel";
@@ -29,16 +28,24 @@ export function makeBoardOrderAppender(ctx: MutationCtx) {
       );
     }
 
-    const nextKey = generateKeyBetween(lastKey, null);
+    const nextKey = generateAppendBoardOrderKey(lastKey);
     lastKeyByStatus.set(workflowStatusId, nextKey);
     return nextKey;
   };
+}
+
+function generateAppendBoardOrderKey(lastKey: string | null): string {
+  if (lastKey === null) return "a1";
+  const prefix = lastKey.match(/^[a-zA-Z]+/)?.[0] ?? "a";
+  const parsed = Number.parseFloat(lastKey.startsWith(prefix) ? lastKey.slice(prefix.length) : lastKey);
+  return `${prefix}${Number.isFinite(parsed) ? parsed + 1 : 1}`;
 }
 
 type TaskCreateInput = {
   readonly title: string;
   readonly teamId: string | null;
   readonly assignedUserId?: string | null;
+  readonly createdByUserId?: string | null;
   readonly workflowStatusId: string;
   readonly dueDate: string;
   readonly parentTaskId: string | null;
@@ -101,8 +108,12 @@ export async function readTaskModel(
     readonly taskId?: string;
     readonly teamId?: string | null;
     readonly assignedUserId?: string | null;
+    readonly createdByUserId?: string;
     readonly workflowStatusId?: string;
     readonly taskState?: TaskState;
+    readonly taskStates?: ReadonlyArray<TaskState>;
+    readonly excludeSubtasks?: boolean;
+    readonly orderBy?: "created" | "due_date";
   } = {},
 ) {
   const cycles = await ctx.db
@@ -127,9 +138,14 @@ export async function readTaskModel(
     if ("assignedUserId" in filters && (task.assignedUserId ?? null) !== filters.assignedUserId) {
       return false;
     }
+    if (filters.createdByUserId && (task.createdByUserId ?? null) !== filters.createdByUserId) {
+      return false;
+    }
     if (filters.workflowStatusId && task.workflowStatusId !== filters.workflowStatusId)
       return false;
     if (filters.taskState && task.taskState !== filters.taskState) return false;
+    if (filters.taskStates && !filters.taskStates.includes(task.taskState)) return false;
+    if (filters.excludeSubtasks && task.parentTaskId !== null) return false;
 
     if (!executionCycle) return true;
 
@@ -138,8 +154,15 @@ export async function readTaskModel(
       (task.finishedAt === null || task.finishedAt >= executionCycle.startsAt)
     );
   });
+  const orderedTasks =
+    filters.orderBy === "due_date"
+      ? [...tasks].sort(
+          (left, right) =>
+            left.dueDate.localeCompare(right.dueDate) || left._creationTime - right._creationTime,
+        )
+      : tasks;
 
-  return { cycles, tasks };
+  return { cycles, tasks: orderedTasks };
 }
 
 export const serializeTaskModel = (data: Awaited<ReturnType<typeof readTaskModel>>) => ({
@@ -161,6 +184,7 @@ export const serializeTaskModel = (data: Awaited<ReturnType<typeof readTaskModel
     cycleId: task.cycleId,
     dueDate: task.dueDate,
     createdAt: task._creationTime,
+    createdByUserId: task.createdByUserId ?? null,
     parentTaskId: task.parentTaskId,
     workflowId: task.workflowId,
     workflowStatusId: task.workflowStatusId,
@@ -258,6 +282,7 @@ export async function createTasks(
       title: task.title,
       teamId: task.teamId,
       assignedUserId: task.assignedUserId ?? null,
+      createdByUserId: task.createdByUserId ?? null,
       cycleId,
       dueDate: task.dueDate,
       parentTaskId: task.parentTaskId,
