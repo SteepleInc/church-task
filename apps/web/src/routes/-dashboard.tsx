@@ -140,39 +140,11 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
   const { openCreateTask } = useQuickActionOpeners();
   const showCreateTask =
     activePanel !== "settings" && Boolean(activeChurch) && Boolean(currentUserId);
-  // Board panels manage their own vertical scrolling (each Board Column
-  // scrolls internally), so they render outside the page ScrollArea and fill
-  // the remaining viewport height.
   const showBoardSurface =
     activePanel !== "settings" &&
     Boolean(activeChurch) &&
     Boolean(currentUserId) &&
     !(typeof activePanel === "object" && !selectedTeam);
-
-  if (showBoardSurface && activeChurch && currentUserId) {
-    return (
-      <MainContainer>
-        <PageWrapper variant="noPageContainer" className="gap-6">
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              onClick={() =>
-                openCreateTask({ assignTo: activePanel === "my_work" ? currentUserId : null })
-              }
-            >
-              Create Task
-            </Button>
-          </div>
-          <TaskExecutionSurface
-            churchId={activeChurch.id}
-            currentUserId={currentUserId}
-            surface={typeof activePanel === "object" ? "team_board" : activePanel}
-            team={selectedTeam}
-          />
-        </PageWrapper>
-      </MainContainer>
-    );
-  }
 
   const surface =
     typeof activePanel === "object"
@@ -206,9 +178,8 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
     });
   };
 
-  return (
-    <MainContainer>
-      <PageContainer wrapperClassName="gap-6">
+  const content = (
+    <>
         {showTopBar ? (
           <TaskViewTopBar
             surface={surface}
@@ -277,11 +248,22 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
                   activeChurchRole={activeChurch.role}
                   pendingInvitations={pendingInvitations}
                 />
-              </>
-            ) : null}
-          </>
-        )}
-      </PageContainer>
+            </>
+          ) : null}
+        </>
+      )}
+    </>
+  );
+
+  return (
+    <MainContainer>
+      {showBoardSurface ? (
+        <PageWrapper className="gap-6" variant="noPageContainer">
+          {content}
+        </PageWrapper>
+      ) : (
+        <PageContainer wrapperClassName="gap-6">{content}</PageContainer>
+      )}
     </MainContainer>
   );
 }
