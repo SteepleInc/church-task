@@ -43,6 +43,17 @@ const authenticatedConfect = function* (
   });
 };
 
+// Every Task belongs to exactly one Team (ADR 0013): creation tests draw the
+// Church's first seeded Starter Team.
+const firstTeamId = (
+  authenticated: ReturnType<(typeof TestConfect.TestConfect.Service)["withIdentity"]>,
+  churchId: string,
+) =>
+  Effect.gen(function* () {
+    const teams = yield* authenticated.query(refs.public.teams.listForChurch, { churchId });
+    return teams.data.teams[0]!.id;
+  });
+
 const createChurch = (
   c: typeof TestConfect.TestConfect.Service,
   args: { readonly token: string; readonly name: string; readonly slug: string },
@@ -514,12 +525,13 @@ describe("Better Auth authenticated state spike", () => {
       const todoStatus = defaults.data.workflowStatuses.find(
         (status) => status.taskState === "todo",
       )!;
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
       const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
         churchId: church.id!,
         tasks: [
           {
             title: "Assign from MCP",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-03",
             parentTaskId: null,
@@ -594,19 +606,20 @@ describe("Better Auth authenticated state spike", () => {
         const todoStatus = defaults.data.workflowStatuses.find(
           (status) => status.taskState === "todo",
         )!;
+        const taskTeamId = yield* firstTeamId(authenticated, church.id!);
         const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
           churchId: church.id!,
           tasks: [
             {
               title: "Parent from MCP",
-              teamId: null,
+              teamId: taskTeamId,
               workflowStatusId: todoStatus.id,
               dueDate: "2026-06-03",
               parentTaskId: null,
             },
             {
               title: "Child from MCP",
-              teamId: null,
+              teamId: taskTeamId,
               workflowStatusId: todoStatus.id,
               dueDate: "2026-06-03",
               parentTaskId: null,
@@ -687,19 +700,20 @@ describe("Better Auth authenticated state spike", () => {
         const todoStatus = defaults.data.workflowStatuses.find(
           (status) => status.taskState === "todo",
         )!;
+        const taskTeamId = yield* firstTeamId(authenticated, church.id!);
         const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
           churchId: church.id!,
           tasks: [
             {
               title: "Complete from MCP",
-              teamId: null,
+              teamId: taskTeamId,
               workflowStatusId: todoStatus.id,
               dueDate: "2026-06-03",
               parentTaskId: null,
             },
             {
               title: "Cancel from MCP",
-              teamId: null,
+              teamId: taskTeamId,
               workflowStatusId: todoStatus.id,
               dueDate: "2026-06-04",
               parentTaskId: null,
@@ -817,9 +831,11 @@ describe("Better Auth authenticated state spike", () => {
           body: JSON.stringify(body),
         });
 
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
       const createAssignedResponse = yield* postTool("create-task", {
         churchId: church.id!,
         title: "Cross-surface assigned Task",
+        teamId: taskTeamId,
         assignedUserId: owner.user!.id!,
         workflowStatusId: todoStatus.id,
         dueDate: "2026-06-03",
@@ -831,6 +847,7 @@ describe("Better Auth authenticated state spike", () => {
       const createCancelableResponse = yield* postTool("create-task", {
         churchId: church.id!,
         title: "Cross-surface cancelable Task",
+        teamId: taskTeamId,
         workflowStatusId: todoStatus.id,
         dueDate: "2026-06-04",
       });
@@ -1016,9 +1033,25 @@ describe("Better Auth authenticated state spike", () => {
           body: JSON.stringify(body),
         });
 
+      // Task creation without a Team is rejected (ADR 0013).
+      const teamlessResponse = yield* postTool("create-task", {
+        churchId: church.id!,
+        title: "Create from MCP without a Team",
+        workflowStatusId: todoStatus.id,
+        dueDate: "2026-06-03",
+      });
+      const teamlessBody = (yield* Effect.promise(() => teamlessResponse.json())) as {
+        ok?: boolean;
+        error?: { code?: string };
+      };
+      expect(teamlessBody.ok).toBe(false);
+      expect(teamlessBody.error?.code).toBe("team_required");
+
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
       const createResponse = yield* postTool("create-task", {
         churchId: church.id!,
         title: "Create from MCP",
+        teamId: taskTeamId,
         assignedUserId: owner.user!.id!,
         workflowStatusId: todoStatus.id,
         dueDate: "2026-06-03",

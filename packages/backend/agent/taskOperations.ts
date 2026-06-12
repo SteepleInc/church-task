@@ -3,7 +3,9 @@ import { Schema } from "effect";
 
 const TaskCreateInput = Schema.Struct({
   title: Schema.String,
-  teamId: Schema.Union(Schema.String, Schema.Null),
+  // Every Task belongs to exactly one Team (ADR 0013); creation always
+  // requires a Team even while the stored schema stays nullable.
+  teamId: Schema.String,
   assignedUserId: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
   workflowStatusId: Schema.String,
   dueDate: Schema.String,
@@ -98,6 +100,7 @@ export const TaskErrorResponse = Schema.Struct({
       Schema.Literal("parent_task_not_found"),
       Schema.Literal("task_not_found"),
       Schema.Literal("team_not_found"),
+      Schema.Literal("team_required"),
       Schema.Literal("team_workflow_not_configured"),
       Schema.Literal("workflow_status_remap_failed"),
       Schema.Literal("invalid_task_transition"),

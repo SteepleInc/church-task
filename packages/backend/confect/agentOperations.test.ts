@@ -46,6 +46,18 @@ const authenticatedConfect = function* (
   });
 };
 
+type AuthenticatedTestConfect = ReturnType<
+  (typeof TestConfect.TestConfect.Service)["withIdentity"]
+>;
+
+// Every Task belongs to exactly one Team (ADR 0013): creation tests draw the
+// Church's first seeded Starter Team unless they need a specific Team.
+const firstTeamId = (authenticated: AuthenticatedTestConfect, churchId: string) =>
+  Effect.gen(function* () {
+    const teams = yield* authenticated.query(refs.public.teams.listForChurch, { churchId });
+    return teams.data.teams[0]!.id;
+  });
+
 const createChurch = (
   c: typeof TestConfect.TestConfect.Service,
   args: {
@@ -375,12 +387,13 @@ describe("agent operation boundary", () => {
         (status) => status.taskState === "todo",
       )!;
 
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
       yield* authenticated.mutation(refs.public.tasks.createBatch, {
         churchId: church.id!,
         tasks: [
           {
             title: "Preserve existing cycle boundary",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-03",
             parentTaskId: null,
@@ -978,12 +991,13 @@ describe("agent operation boundary", () => {
       const todoStatus = defaults.data.workflowStatuses.find(
         (status) => status.taskState === "todo",
       )!;
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
       const cycleSeed = yield* authenticated.mutation(refs.public.tasks.createBatch, {
         churchId: church.id!,
         tasks: [
           {
             title: "Seed cycle",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-03",
             parentTaskId: null,
@@ -1207,12 +1221,13 @@ describe("agent operation boundary", () => {
         (status) => status.taskState === "todo",
       )!;
 
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
       const cycleSeed = yield* authenticated.mutation(refs.public.tasks.createBatch, {
         churchId: church.id!,
         tasks: [
           {
             title: "Seed future adjustment cycle",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-17",
             parentTaskId: null,
@@ -1385,19 +1400,20 @@ describe("agent operation boundary", () => {
         (status) => status.taskState === "done",
       )!;
 
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
       const seededTasks = yield* authenticated.mutation(refs.public.tasks.createBatch, {
         churchId: church.id!,
         tasks: [
           {
             title: "Carry sermon outline",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-03",
             parentTaskId: null,
           },
           {
             title: "Completed slides",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: doneStatus.id,
             dueDate: "2026-06-04",
             parentTaskId: null,
@@ -1513,19 +1529,20 @@ describe("agent operation boundary", () => {
         (status) => status.taskState === "done",
       )!;
 
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
       const createdParent = yield* authenticated.mutation(refs.public.tasks.createBatch, {
         churchId: church.id!,
         tasks: [
           {
             title: "Prepare Sunday slides",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-03",
             parentTaskId: null,
           },
           {
             title: "Plan next month volunteers",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-17",
             parentTaskId: null,
@@ -1544,7 +1561,7 @@ describe("agent operation boundary", () => {
         tasks: [
           {
             title: "Export final slide deck",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: doneStatus.id,
             dueDate: "2026-06-10",
             parentTaskId: parentTask.id,
@@ -1660,12 +1677,13 @@ describe("agent operation boundary", () => {
         (status) => status.taskState === "todo",
       )!;
 
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
       const assigned = yield* authenticated.mutation(refs.public.tasks.createBatch, {
         churchId: church.id!,
         tasks: [
           {
             title: "Call assigned volunteer",
-            teamId: null,
+            teamId: taskTeamId,
             assignedUserId: member.user!.id!,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-03",
@@ -1678,7 +1696,7 @@ describe("agent operation boundary", () => {
         tasks: [
           {
             title: "Call outside volunteer",
-            teamId: null,
+            teamId: taskTeamId,
             assignedUserId: outsider.user!.id!,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-03",
@@ -1838,6 +1856,61 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("Task creation rejects Tasks without a Team", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const ownerResponse = yield* signUpWithEmail(
+        c,
+        `agent-task-team-required-${crypto.randomUUID()}@example.com`,
+      );
+      const owner = (yield* Effect.promise(() => ownerResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: owner.token!,
+        name: "Task Team Required Church",
+        slug: `task-team-required-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: owner.user!.id!,
+        sessionToken: owner.token!,
+      });
+      const defaults = yield* authenticated.query(refs.public.workDefaults.readForChurch, {
+        churchId: church.id!,
+      });
+      const todoStatus = defaults.data.workflowStatuses.find(
+        (status) => status.taskState === "todo",
+      )!;
+
+      // Every Task belongs to exactly one Team (ADR 0013): a null team no
+      // longer passes the creation args, so no code path can create a
+      // team-less Task through the centralized creation helper.
+      const teamlessExit = yield* authenticated
+        .mutation(refs.public.tasks.createBatch, {
+          churchId: church.id!,
+          tasks: [
+            {
+              title: "Teamless Task",
+              teamId: null as unknown as string,
+              workflowStatusId: todoStatus.id,
+              dueDate: "2026-06-03",
+              parentTaskId: null,
+            },
+          ],
+        })
+        .pipe(Effect.exit);
+
+      expect(teamlessExit._tag).toBe("Failure");
+
+      const listed = yield* authenticated.query(refs.public.tasks.listForChurch, {
+        churchId: church.id!,
+      });
+      expect(listed.data.tasks).toEqual([]);
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Task update assigns and unassigns Users with Activity history", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;
@@ -1898,12 +1971,13 @@ describe("agent operation boundary", () => {
       const todoStatus = defaults.data.workflowStatuses.find(
         (status) => status.taskState === "todo",
       )!;
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
       const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
         churchId: church.id!,
         tasks: [
           {
             title: "Assign through update",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-03",
             parentTaskId: null,
@@ -2112,12 +2186,20 @@ describe("agent operation boundary", () => {
           { teamId: invalidTeam.id!, fields: { defaultWorkflowId: invalidWorkflow.id } },
         ],
       });
+      // Create in a Starter Team still on the Church default Workflow so the
+      // default To Do status is valid for the new Task.
+      const teamsForCreate = yield* authenticated.query(refs.public.teams.listForChurch, {
+        churchId: church.id!,
+      });
+      const taskTeamId = teamsForCreate.data.teams.find(
+        (candidate) => candidate.defaultWorkflowId === null,
+      )!.id;
       const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
         churchId: church.id!,
         tasks: [
           {
             title: "Assign Team through update",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: defaultTodo.id,
             dueDate: "2026-06-03",
             parentTaskId: null,
@@ -2178,7 +2260,7 @@ describe("agent operation boundary", () => {
       });
       expect(activities.data.activities.map((activity) => activity.eventType)).toEqual([
         "task.created",
-        "task.team_assigned",
+        "task.team_changed",
         "task.team_changed",
         "task.team_unassigned",
       ]);
@@ -2189,7 +2271,7 @@ describe("agent operation boundary", () => {
         owner.user!.id!,
       ]);
       expect(activities.data.activities[1]!.metadata).toEqual({
-        previousTeamId: null,
+        previousTeamId: taskTeamId,
         teamId: team.id,
         previousWorkflowId: defaultWorkflow.id,
         workflowId: teamWorkflow.id,
@@ -2242,26 +2324,27 @@ describe("agent operation boundary", () => {
         (status) => status.taskState === "todo",
       )!;
 
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
       const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
         churchId: church.id!,
         tasks: [
           {
             title: "Move date and cycle",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-03",
             parentTaskId: null,
           },
           {
             title: "Create next cycle",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-10",
             parentTaskId: null,
           },
           {
             title: "Create later cycle",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-24",
             parentTaskId: null,
@@ -2431,12 +2514,13 @@ describe("agent operation boundary", () => {
         (status) => status.taskState === "done",
       )!;
 
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
       const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
         churchId: church.id!,
         tasks: [
           {
             title: "Current assigned to me",
-            teamId: null,
+            teamId: taskTeamId,
             assignedUserId: owner.user!.id!,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-03",
@@ -2444,7 +2528,7 @@ describe("agent operation boundary", () => {
           },
           {
             title: "Current assigned to another member",
-            teamId: null,
+            teamId: taskTeamId,
             assignedUserId: member.user!.id!,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-03",
@@ -2452,7 +2536,7 @@ describe("agent operation boundary", () => {
           },
           {
             title: "Overdue assigned to me",
-            teamId: null,
+            teamId: taskTeamId,
             assignedUserId: owner.user!.id!,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-05-29",
@@ -2460,7 +2544,7 @@ describe("agent operation boundary", () => {
           },
           {
             title: "Future assigned to me",
-            teamId: null,
+            teamId: taskTeamId,
             assignedUserId: owner.user!.id!,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-10",
@@ -2468,7 +2552,7 @@ describe("agent operation boundary", () => {
           },
           {
             title: "Finished during cycle assigned to me",
-            teamId: null,
+            teamId: taskTeamId,
             assignedUserId: owner.user!.id!,
             workflowStatusId: doneStatus.id,
             dueDate: "2026-06-02",
@@ -2476,7 +2560,7 @@ describe("agent operation boundary", () => {
           },
           {
             title: "Finished before cycle assigned to me",
-            teamId: null,
+            teamId: taskTeamId,
             assignedUserId: owner.user!.id!,
             workflowStatusId: doneStatus.id,
             dueDate: "2026-05-28",
@@ -2567,19 +2651,20 @@ describe("agent operation boundary", () => {
       const doneStatus = defaults.data.workflowStatuses.find(
         (status) => status.workflowId === defaultWorkflow.id && status.taskState === "done",
       )!;
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
       const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
         churchId: church.id!,
         tasks: [
           {
             title: "Complete me",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-03",
             parentTaskId: null,
           },
           {
             title: "Cancel me",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: doingStatus.id,
             dueDate: "2026-06-03",
             parentTaskId: null,
@@ -2746,12 +2831,13 @@ describe("agent operation boundary", () => {
       const otherTodoStatus = otherWorkflow.data.workflowStatuses.find(
         (status) => status.key === "todo",
       )!;
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
       const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
         churchId: church.id!,
         tasks: [
           {
             title: "Move through board",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-03",
             parentTaskId: null,
@@ -2781,7 +2867,7 @@ describe("agent operation boundary", () => {
         tasks: [
           {
             title: "Canceled task stays action-only",
-            teamId: null,
+            teamId: taskTeamId,
             workflowStatusId: todoStatus.id,
             dueDate: "2026-06-03",
             parentTaskId: null,
@@ -5108,6 +5194,7 @@ describe("agent operation boundary", () => {
           ? defaults.data.workflowStatuses.find((status) => status.taskState === "todo")!
           : null;
 
+      const taskTeamId = yield* firstTeamId(authenticated, church.id!);
       const write = yield* authenticated.mutation(refs.public.coreWork.batchWrite, {
         operations: [
           {
@@ -5118,7 +5205,7 @@ describe("agent operation boundary", () => {
               tasks: [
                 {
                   title: "Batch-created task",
-                  teamId: null,
+                  teamId: taskTeamId,
                   workflowStatusId: todoStatus!.id,
                   dueDate: "2026-06-01",
                   parentTaskId: null,

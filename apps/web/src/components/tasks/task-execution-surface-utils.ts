@@ -46,6 +46,36 @@ export function getTaskCreationDefaults(args: {
   };
 }
 
+/**
+ * Default Team for the create-task picker (ADR 0013). The surface preset
+ * (Team Board column, subtask parent) wins, then the last-used Team, then
+ * the user's first Team Membership, then the Church's first Team — never
+ * empty while the Church has Teams. Returns null only when no Teams exist.
+ */
+export function getDefaultCreateTaskTeamId(args: {
+  readonly presetTeamId?: string | null;
+  readonly lastUsedTeamId?: string | null;
+  readonly currentUserId: string;
+  readonly teams: readonly { readonly id: string; readonly sortOrder: number }[];
+  readonly memberships: readonly { readonly teamId: string; readonly userId: string }[];
+}): string | null {
+  const orderedTeams = [...args.teams].sort((left, right) => left.sortOrder - right.sortOrder);
+  const teamIds = new Set(orderedTeams.map((team) => team.id));
+
+  if (args.presetTeamId && teamIds.has(args.presetTeamId)) return args.presetTeamId;
+  if (args.lastUsedTeamId && teamIds.has(args.lastUsedTeamId)) return args.lastUsedTeamId;
+
+  const membershipTeamIds = new Set(
+    args.memberships
+      .filter((membership) => membership.userId === args.currentUserId)
+      .map((membership) => membership.teamId),
+  );
+  const membershipTeam = orderedTeams.find((team) => membershipTeamIds.has(team.id));
+  if (membershipTeam) return membershipTeam.id;
+
+  return orderedTeams[0]?.id ?? null;
+}
+
 export function getExecutionWorkflowId(args: {
   readonly surface: ExecutionSurface;
   readonly churchDefaultWorkflowId?: string | null;

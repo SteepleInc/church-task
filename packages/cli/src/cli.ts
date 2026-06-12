@@ -540,11 +540,12 @@ const runTaskCreate = (args: ReadonlyArray<string>) =>
     const body: Record<string, unknown> = {
       churchId: yield* requiredOptionFromArgs(args, "--church-id"),
       title: yield* requiredOptionFromArgs(args, "--title"),
+      // Every Task belongs to exactly one Team (ADR 0013).
+      teamId: yield* requiredOptionFromArgs(args, "--team-id"),
       workflowStatusId: yield* requiredOptionFromArgs(args, "--workflow-status-id"),
       dueDate: yield* requiredOptionFromArgs(args, "--due-date"),
     };
 
-    addOptionalValue(body, "teamId", nullableIdFromArgs(args, "--team-id"));
     addOptionalValue(body, "assignedUserId", nullableIdFromArgs(args, "--assigned-user-id"));
     addOptionalValue(body, "parentTaskId", nullableIdFromArgs(args, "--parent-task-id"));
 

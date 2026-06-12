@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   buildTeamMemberIndex,
+  getDefaultCreateTaskTeamId,
   getTaskCreationDefaults,
   getExecutionWorkflowId,
   getTaskExecutionFilters,
@@ -48,6 +49,83 @@ describe("Task execution surface", () => {
     ).toEqual({
       assignedUserId: null,
       teamId: "team-1",
+    });
+  });
+
+  describe("default create-task Team chain (ADR 0013)", () => {
+    const teams = [
+      { id: "team-b", sortOrder: 2 },
+      { id: "team-a", sortOrder: 1 },
+      { id: "team-c", sortOrder: 3 },
+    ];
+
+    test("a surface preset wins over everything", () => {
+      expect(
+        getDefaultCreateTaskTeamId({
+          presetTeamId: "team-c",
+          lastUsedTeamId: "team-b",
+          currentUserId: "user-1",
+          teams,
+          memberships: [{ teamId: "team-a", userId: "user-1" }],
+        }),
+      ).toBe("team-c");
+    });
+
+    test("falls back to the last-used Team when no preset", () => {
+      expect(
+        getDefaultCreateTaskTeamId({
+          lastUsedTeamId: "team-b",
+          currentUserId: "user-1",
+          teams,
+          memberships: [{ teamId: "team-a", userId: "user-1" }],
+        }),
+      ).toBe("team-b");
+    });
+
+    test("ignores stale presets and last-used Teams that no longer exist", () => {
+      expect(
+        getDefaultCreateTaskTeamId({
+          presetTeamId: "team-gone",
+          lastUsedTeamId: "team-also-gone",
+          currentUserId: "user-1",
+          teams,
+          memberships: [{ teamId: "team-b", userId: "user-1" }],
+        }),
+      ).toBe("team-b");
+    });
+
+    test("falls back to the user's first Team Membership by Team order", () => {
+      expect(
+        getDefaultCreateTaskTeamId({
+          currentUserId: "user-1",
+          teams,
+          memberships: [
+            { teamId: "team-c", userId: "user-1" },
+            { teamId: "team-b", userId: "user-1" },
+            { teamId: "team-a", userId: "user-2" },
+          ],
+        }),
+      ).toBe("team-b");
+    });
+
+    test("falls back to the Church's first Team when the user has no memberships", () => {
+      expect(
+        getDefaultCreateTaskTeamId({
+          currentUserId: "user-1",
+          teams,
+          memberships: [],
+        }),
+      ).toBe("team-a");
+    });
+
+    test("returns null only when the Church has no Teams", () => {
+      expect(
+        getDefaultCreateTaskTeamId({
+          currentUserId: "user-1",
+          teams: [],
+          memberships: [],
+        }),
+      ).toBeNull();
     });
   });
 

@@ -438,6 +438,12 @@ describe("church-task task execution", () => {
       const doingStatus = defaults.data.workflowStatuses.find(
         (status: { readonly taskState: string }) => status.taskState === "in_progress",
       )!;
+      // Every Task belongs to exactly one Team (ADR 0013): draw the Church's
+      // first seeded Starter Team for the create call.
+      const teams = yield* authenticated.query(refs.public.teams.listForChurch, {
+        churchId: church.id!,
+      });
+      const taskTeamId = (teams.data.teams[0] as { readonly id: string }).id;
       const env = { CHURCH_TASK_AUTH_TOKEN: owner.token! };
       const backendLayer = fakeBackend({
         taskTool: ({ token, tool, body }) =>
@@ -475,6 +481,8 @@ describe("church-task task execution", () => {
             church.id!,
             "--title",
             "Complete from CLI",
+            "--team-id",
+            taskTeamId,
             "--workflow-status-id",
             todoStatus.id,
             "--due-date",
@@ -503,6 +511,8 @@ describe("church-task task execution", () => {
             church.id!,
             "--title",
             "Cancel from CLI",
+            "--team-id",
+            taskTeamId,
             "--workflow-status-id",
             todoStatus.id,
             "--due-date",

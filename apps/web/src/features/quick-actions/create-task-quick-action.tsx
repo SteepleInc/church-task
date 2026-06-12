@@ -7,7 +7,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import {
-  getExecutionWorkflowId,
+  getDefaultCreateTaskTeamId,
   selectCurrentExecutionCycle,
 } from "@/components/tasks/task-execution-surface-utils";
 import { useOpenTaskDetailsPaneUrl } from "@/components/details-pane/details-pane-helpers";
@@ -18,6 +18,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { useCyclesCollection } from "@/data/cycles/cyclesData.app";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { useCreateTaskMutation } from "@/data/tasks/tasksData.app";
+import { useTeamMembershipsCollection, useTeamsCollection } from "@/data/teams/teamsData.app";
 import { getUserDisplayName, useChurchUsersCollection } from "@/data/users/usersData.app";
 import {
   useWorkflowStatusesCollection,
@@ -29,24 +30,31 @@ import {
   QuickActionsTitle,
   QuickActionsWrapper,
 } from "@/features/quick-actions/quick-actions-components";
+import { getLastUsedTeamId, lastUsedTeamIdsAtom, setLastUsedTeamId } from "@/shared/global-state";
 
 export type CreateTaskQuickActionState = {
   readonly assignTo: string | null;
   // Preset Workflow Status when created from a Board Column's "+" button.
   readonly workflowStatusId?: string | null;
+  // Preset Team: a Team Board presets its Team; subtask openers preset the
+  // parent Task's Team (ADR 0013).
   readonly teamId?: string | null;
+  // Creating a subtask: openers pass the parent Task plus its Team preset.
+  readonly parentTaskId?: string | null;
 } | null;
 
 export const createTaskQuickActionStateAtom = atom<CreateTaskQuickActionState>(null);
 
 const CreateTaskSchema = Schema.Struct({
   title: Schema.String.pipe(Schema.minLength(1, { message: () => "Enter a Task title." })),
+  teamId: Schema.String.pipe(Schema.minLength(1, { message: () => "Select a Team." })),
   assignedUserId: Schema.NullOr(Schema.String),
   workflowStatusId: Schema.String,
 });
 
 export function CreateTaskQuickAction() {
   const [state, setState] = useAtom(createTaskQuickActionStateAtom);
+  const [lastUsedTeamIds, setLastUsedTeamIds] = useAtom(lastUsedTeamIdsAtom);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const openTaskDetailsPaneUrl = useOpenTaskDetailsPaneUrl();
@@ -59,34 +67,53 @@ export function CreateTaskQuickAction() {
   const workflows = useWorkflowsCollection({ churchId });
   const workflowStatusesCollection = useWorkflowStatusesCollection({ churchId });
   const usersCollection = useChurchUsersCollection({ churchId });
+  const teamsCollection = useTeamsCollection({ churchId });
+  const teamMembershipsCollection = useTeamMembershipsCollection({ churchId });
   const today = new Date().toISOString().slice(0, 10);
   const currentCycle = selectCurrentExecutionCycle(cyclesCollection.cyclesCollection, today);
   const churchDefaultWorkflow = workflows.workflowsCollection.find(
     (workflow) => workflow.isDefault,
   );
-  const workflowId = getExecutionWorkflowId({
-    surface: "our_work",
-    churchDefaultWorkflowId: churchDefaultWorkflow?.id,
-    teamDefaultWorkflowId: null,
-  });
+  const teams = teamsCollection.teamsCollection;
+  const orderedTeams = [...teams].sort((left, right) => left.sortOrder - right.sortOrder);
+  const teamOptions = orderedTeams.map((team) => ({ value: team.id, label: team.name }));
+  // Default Team chain (ADR 0013): preset → last-used → first Team
+  // Membership → first Church Team. Never empty while Teams exist.
+  const defaultTeamId =
+    currentUserId !== null
+      ? getDefaultCreateTaskTeamId({
+          presetTeamId: state?.teamId ?? null,
+          lastUsedTeamId: churchId ? getLastUsedTeamId(lastUsedTeamIds, churchId) : null,
+          currentUserId,
+          teams,
+          memberships: teamMembershipsCollection.teamMembershipsCollection,
+        })
+      : null;
   const workflowStatuses = workflowStatusesCollection.workflowStatusesCollection;
   // A preset status (from a Board Column "+") pins the dialog to that status's
-  // Workflow; otherwise the Church default Workflow's first To Do status wins.
+  // Workflow; otherwise the selected Team's default Workflow (falling back to
+  // the Church default Workflow) provides the statuses.
   const presetStatus = state?.workflowStatusId
     ? workflowStatuses.find((status) => status.id === state.workflowStatusId)
     : undefined;
-  const effectiveWorkflowId = presetStatus?.workflowId ?? workflowId;
-  const creationStatus =
-    presetStatus ??
-    workflowStatuses.find(
-      (status) => status.workflowId === effectiveWorkflowId && status.taskState === "todo",
-    ) ??
-    workflowStatuses.find((status) => status.taskState === "todo") ??
-    workflowStatuses[0];
-  const workflowStatusOptions = workflowStatuses
-    .filter((status) => status.workflowId === effectiveWorkflowId)
-    .sort((left, right) => left.sortOrder - right.sortOrder)
-    .map((status) => ({ value: status.id, label: status.name }));
+  const getStatusContext = (teamId: string) => {
+    const team = teams.find((candidate) => candidate.id === teamId);
+    const effectiveWorkflowId =
+      presetStatus?.workflowId ?? team?.defaultWorkflowId ?? churchDefaultWorkflow?.id ?? null;
+    const creationStatus =
+      presetStatus ??
+      workflowStatuses.find(
+        (status) => status.workflowId === effectiveWorkflowId && status.taskState === "todo",
+      ) ??
+      workflowStatuses.find((status) => status.taskState === "todo") ??
+      workflowStatuses[0];
+    const options = workflowStatuses
+      .filter((status) => status.workflowId === effectiveWorkflowId)
+      .sort((left, right) => left.sortOrder - right.sortOrder)
+      .map((status) => ({ value: status.id, label: status.name }));
+
+    return { effectiveWorkflowId, creationStatus, options };
+  };
   const assigneeOptions = usersCollection.usersCollection.map((user) => ({
     id: user.id,
     label: getUserDisplayName(user),
@@ -97,6 +124,8 @@ export function CreateTaskQuickAction() {
     workflows.loading ||
     workflowStatusesCollection.loading ||
     usersCollection.loading ||
+    teamsCollection.loading ||
+    teamMembershipsCollection.loading ||
     !activeChurch;
 
   const close = () => {
@@ -108,6 +137,7 @@ export function CreateTaskQuickAction() {
   const form = useAppForm({
     defaultValues: {
       title: "",
+      teamId: state?.teamId ?? defaultTeamId ?? "",
       assignedUserId: state?.assignTo ?? (null as string | null),
       workflowStatusId: state?.workflowStatusId ?? "",
     },
@@ -127,10 +157,21 @@ export function CreateTaskQuickAction() {
         return;
       }
 
+      if (!value.teamId) {
+        setError("Select a Team.");
+        return;
+      }
+
+      const statusContext = getStatusContext(value.teamId);
       const selectedStatus = value.workflowStatusId
         ? workflowStatuses.find((status) => status.id === value.workflowStatusId)
         : undefined;
-      const submitStatus = selectedStatus ?? creationStatus;
+      // A status picked before switching Teams may belong to the wrong
+      // Workflow; fall back to the Team's To Do status.
+      const submitStatus =
+        selectedStatus && selectedStatus.workflowId === statusContext.effectiveWorkflowId
+          ? selectedStatus
+          : statusContext.creationStatus;
       if (!submitStatus) {
         setError("Task could not find a To Do Workflow Status.");
         return;
@@ -141,17 +182,19 @@ export function CreateTaskQuickAction() {
         churchId,
         actorUserId: currentUserId,
         title: trimmedTitle,
-        teamId: state?.teamId ?? null,
+        teamId: value.teamId,
         assignedUserId: value.assignedUserId,
         workflowStatusId: submitStatus.id,
         dueDate: currentCycle?.endDate ?? today,
-        parentTaskId: null,
+        parentTaskId: state?.parentTaskId ?? null,
       });
 
       if (!result.ok) {
         setError(result.error.message);
         return;
       }
+
+      setLastUsedTeamIds(setLastUsedTeamId(lastUsedTeamIds, churchId, value.teamId));
 
       const createdTaskId = result.data.tasks[0]?.id;
       formApi.reset();
@@ -199,16 +242,35 @@ export function CreateTaskQuickAction() {
                 />
               )}
             </form.AppField>
-            <form.AppField name="workflowStatusId">
+            <form.AppField name="teamId">
               {(field) => (
                 <field.SelectField
-                  disabled={isLoading || workflowStatusOptions.length === 0}
-                  label="Workflow Status"
-                  options={workflowStatusOptions}
-                  placeholder={creationStatus?.name ?? "Select a status"}
+                  disabled={isLoading || teamOptions.length === 0}
+                  label="Team"
+                  options={teamOptions}
+                  placeholder="Select a Team"
+                  required
                 />
               )}
             </form.AppField>
+            <form.Subscribe selector={(formState) => formState.values.teamId}>
+              {(selectedTeamId) => {
+                const statusContext = getStatusContext(selectedTeamId);
+
+                return (
+                  <form.AppField name="workflowStatusId">
+                    {(field) => (
+                      <field.SelectField
+                        disabled={isLoading || statusContext.options.length === 0}
+                        label="Workflow Status"
+                        options={statusContext.options}
+                        placeholder={statusContext.creationStatus?.name ?? "Select a status"}
+                      />
+                    )}
+                  </form.AppField>
+                );
+              }}
+            </form.Subscribe>
             <form.AppField name="assignedUserId">
               {(field) => (
                 <field.OrgUserSelectField

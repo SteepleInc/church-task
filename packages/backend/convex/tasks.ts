@@ -359,7 +359,8 @@ export const mcpCreateTask = mutation({
     churchId: v.string(),
     actorUserId: v.string(),
     title: v.string(),
-    teamId: v.optional(v.union(v.string(), v.null())),
+    // Every Task belongs to exactly one Team (ADR 0013).
+    teamId: v.string(),
     assignedUserId: v.optional(v.union(v.string(), v.null())),
     workflowStatusId: v.string(),
     dueDate: v.string(),
@@ -371,7 +372,6 @@ export const mcpCreateTask = mutation({
       {
         "church.id": args.churchId,
         "task.assigned": args.assignedUserId != null,
-        "task.team_assigned": args.teamId != null,
       },
       async () => {
         const isChurchMember = await requireMcpChurchMember(ctx, args);
@@ -402,13 +402,29 @@ export const mcpCreateTask = mutation({
           );
         }
 
+        const team = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "team",
+          where: [
+            { field: "_id", value: args.teamId },
+            { field: "organizationId", value: args.churchId },
+          ],
+        })) as { readonly archivedAt?: string | null } | null;
+
+        if (!team || team.archivedAt != null) {
+          return taskErrorResponse(
+            "createTasks",
+            "team_not_found",
+            "Team was not found in the active Church.",
+          );
+        }
+
         const created = await createTasks(ctx, {
           churchId: args.churchId,
           churchTimeZone: church.churchTimeZone,
           tasks: [
             {
               title: args.title,
-              teamId: args.teamId ?? null,
+              teamId: args.teamId,
               assignedUserId: args.assignedUserId ?? null,
               createdByUserId: args.actorUserId,
               workflowStatusId: args.workflowStatusId,

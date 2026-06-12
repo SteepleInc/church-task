@@ -45,7 +45,9 @@ function generateAppendBoardOrderKey(lastKey: string | null): string {
 
 type TaskCreateInput = {
   readonly title: string;
-  readonly teamId: string | null;
+  // Creation always requires a Team (ADR 0013). The stored field is still
+  // nullable until the strict-schema slice flips it.
+  readonly teamId: string;
   readonly assignedUserId?: string | null;
   readonly createdByUserId?: string | null;
   readonly workflowStatusId: string;

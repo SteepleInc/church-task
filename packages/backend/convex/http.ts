@@ -418,8 +418,23 @@ http.route({
       readonly parentTaskId?: string | null;
     };
 
+    // Every Task belongs to exactly one Team (ADR 0013); reject team-less
+    // creation here so agent callers get a clear error instead of an
+    // argument-validation failure.
+    if (typeof body.teamId !== "string" || body.teamId.length === 0) {
+      return Response.json({
+        ok: false,
+        tool: "create_task",
+        error: {
+          code: "team_required",
+          message: "Task creation requires a teamId.",
+        },
+      });
+    }
+
     const result = await ctx.runMutation(convexFunctionRefs.tasks.mcpCreateTask, {
       ...body,
+      teamId: body.teamId,
       actorUserId: session.user.id,
     });
 

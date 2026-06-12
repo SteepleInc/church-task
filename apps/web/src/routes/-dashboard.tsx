@@ -188,7 +188,11 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
           view={activeView}
           onViewChange={setView}
           onCreateTask={() =>
-            openCreateTask({ assignTo: activePanel === "my_work" ? currentUserId : null })
+            openCreateTask({
+              assignTo: activePanel === "my_work" ? currentUserId : null,
+              // On a Team Board the picker is preset to that Team (ADR 0013).
+              teamId: selectedTeam?.id ?? null,
+            })
           }
         />
       ) : null}

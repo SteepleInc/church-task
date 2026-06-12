@@ -2300,13 +2300,7 @@ const tasksCreateBatch = FunctionImpl.make(api, "tasks", "createBatch", (args) =
       }
     }
 
-    const teamIds = [
-      ...new Set(
-        args.tasks
-          .map((task) => task.teamId ?? null)
-          .filter((teamId): teamId is string => teamId !== null),
-      ),
-    ];
+    const teamIds = [...new Set(args.tasks.map((task) => task.teamId))];
     const teamWorkflowIds: Record<string, string> = {};
     for (const teamId of teamIds) {
       const team = (yield* Effect.promise(() =>
@@ -2346,9 +2340,7 @@ const tasksCreateBatch = FunctionImpl.make(api, "tasks", "createBatch", (args) =
         );
       }
 
-      const effectiveWorkflowId = task.teamId
-        ? teamWorkflowIds[task.teamId]
-        : churchDefaultWorkflow._id;
+      const effectiveWorkflowId = teamWorkflowIds[task.teamId];
       if (workflowStatus.workflowId !== effectiveWorkflowId) {
         return taskErrorResponse(
           "createTasks",
