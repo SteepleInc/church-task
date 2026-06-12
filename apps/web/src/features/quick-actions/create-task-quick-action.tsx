@@ -196,17 +196,18 @@ export function CreateTaskQuickAction() {
 
       setLastUsedTeamIds(setLastUsedTeamId(lastUsedTeamIds, churchId, value.teamId));
 
-      const createdTaskId = result.data.tasks[0]?.id;
+      // Task links carry the Task Identifier, not the database id (ADR 0013).
+      const createdTaskIdentifier = result.data.tasks[0]?.identifier;
       formApi.reset();
       setState(null);
       setError(null);
 
-      if (createdTaskId) {
+      if (createdTaskIdentifier) {
         toast.success("Task created.", {
           action: {
             label: "Open Task",
             onClick: () => {
-              const url = openTaskDetailsPaneUrl({ id: createdTaskId });
+              const url = openTaskDetailsPaneUrl({ id: createdTaskIdentifier });
               void navigate({ to: url.to, search: url.search });
             },
           },

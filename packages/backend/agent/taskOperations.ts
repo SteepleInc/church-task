@@ -43,6 +43,14 @@ export const TaskListArgs = Schema.Struct({
   cycleId: Schema.optional(Schema.String),
 });
 
+// Identifier resolution (ADR 0013): the identifier is a Task Identifier
+// string ("PRD-48"), matched case-insensitively, current-first with
+// previous-identifier alias fallback.
+export const TaskResolveArgs = Schema.Struct({
+  churchId: Schema.String,
+  identifier: Schema.String,
+});
+
 export const TaskTransitionBatchArgs = Schema.Struct({
   churchId: Schema.String,
   taskIds: Schema.Array(Schema.String),
@@ -66,6 +74,7 @@ export const TaskSuccessResponse = Schema.Struct({
     Schema.Literal("createTasks"),
     Schema.Literal("updateTasks"),
     Schema.Literal("listTasks"),
+    Schema.Literal("resolveTask"),
     Schema.Literal("completeTasks"),
     Schema.Literal("cancelTasks"),
     Schema.Literal("reopenTasks"),
@@ -82,6 +91,7 @@ export const TaskErrorResponse = Schema.Struct({
     Schema.Literal("createTasks"),
     Schema.Literal("updateTasks"),
     Schema.Literal("listTasks"),
+    Schema.Literal("resolveTask"),
     Schema.Literal("completeTasks"),
     Schema.Literal("cancelTasks"),
     Schema.Literal("reopenTasks"),

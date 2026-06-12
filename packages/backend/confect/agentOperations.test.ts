@@ -2695,6 +2695,7 @@ describe("agent operation boundary", () => {
               teamId: taskTeamId,
               // Test fixture bypassing createTasks; a fixed number is fine here.
               number: 9999,
+              previousIdentifiers: [],
               assignedUserId: null,
               cycleId: cancelMe.cycleId,
               dueDate: "2026-06-03",
@@ -3991,6 +3992,7 @@ describe("agent operation boundary", () => {
               teamId: team.id!,
               // Test fixture bypassing createTasks; a fixed number is fine here.
               number: 9999,
+              previousIdentifiers: [],
               assignedUserId: null,
               cycleId: "cycle-workflow-in-use",
               dueDate: "2026-06-03",
@@ -4339,6 +4341,7 @@ describe("agent operation boundary", () => {
               teamId: taskTeamId,
               // Test fixture bypassing createTasks; a fixed number is fine here.
               number: 9999,
+              previousIdentifiers: [],
               assignedUserId: null,
               cycleId: "cycle-status-in-use",
               dueDate: "2026-06-03",
@@ -4424,6 +4427,7 @@ describe("agent operation boundary", () => {
               teamId: taskTeamId,
               // Test fixture bypassing createTasks; a fixed number is fine here.
               number: 9999,
+              previousIdentifiers: [],
               assignedUserId: null,
               cycleId: "cycle-status-canceled-history",
               dueDate: "2026-06-03",
@@ -4542,6 +4546,7 @@ describe("agent operation boundary", () => {
               teamId: sourceTeamId,
               // Test fixture bypassing createTasks; a fixed number is fine here.
               number: 9999,
+              previousIdentifiers: [],
               assignedUserId: null,
               cycleId: "cycle-remap",
               dueDate: "2026-06-03",
@@ -4586,6 +4591,7 @@ describe("agent operation boundary", () => {
               teamId: sourceTeamId,
               // Test fixture bypassing createTasks; a fixed number is fine here.
               number: 9999,
+              previousIdentifiers: [],
               assignedUserId: null,
               cycleId: "cycle-remap",
               dueDate: "2026-06-03",
@@ -4684,6 +4690,7 @@ describe("agent operation boundary", () => {
               teamId: sourceTeamId,
               // Test fixture bypassing createTasks; a fixed number is fine here.
               number: 9999,
+              previousIdentifiers: [],
               assignedUserId: null,
               cycleId: "cycle-remap-default-fallback",
               dueDate: "2026-06-03",
@@ -5463,6 +5470,241 @@ describe("Task numbering and Task Identifiers", () => {
       // Concurrent draws never duplicate or skip: the per-Team sequence stays
       // dense (Convex serializable transactions).
       expect(numbers).toEqual([1, 2, 3]);
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+});
+
+describe("Task Identifier resolution", () => {
+  // Identifier resolution (ADR 0013): church + identifier string in, Task
+  // out — case-insensitive, current-first, alias fallback.
+  const setupResolutionChurch = function* (label: string) {
+    const c = yield* TestConfect.TestConfect;
+    const ownerResponse = yield* signUpWithEmail(c, `${label}-${crypto.randomUUID()}@example.com`);
+    const owner = (yield* Effect.promise(() => ownerResponse.json())) as {
+      user?: { id?: string };
+      token?: string;
+    };
+    const churchResponse = yield* createChurch(c, {
+      token: owner.token!,
+      name: `${label} Church`,
+      slug: `${label}-${crypto.randomUUID()}`,
+    });
+    const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+    const authenticated = yield* authenticatedConfect(c, {
+      userId: owner.user!.id!,
+      sessionToken: owner.token!,
+    });
+    const defaults = yield* authenticated.query(refs.public.workDefaults.readForChurch, {
+      churchId: church.id!,
+    });
+    const todoStatus = defaults.data.workflowStatuses.find(
+      (status) => status.taskState === "todo",
+    )!;
+    const teams = yield* authenticated.query(refs.public.teams.listForChurch, {
+      churchId: church.id!,
+    });
+
+    const createTask = (title: string, teamId: string) =>
+      Effect.gen(function* () {
+        const created = yield* authenticated.mutation(refs.public.tasks.createBatch, {
+          churchId: church.id!,
+          tasks: [
+            {
+              title,
+              teamId,
+              workflowStatusId: todoStatus.id,
+              dueDate: "2026-06-03",
+              parentTaskId: null,
+            },
+          ],
+        });
+        // createBatch returns the whole Task model, not only created Tasks.
+        return created.data.tasks.find((candidate) => candidate.title === title)!;
+      });
+
+    return {
+      c,
+      owner,
+      authenticated,
+      churchId: church.id!,
+      teams: teams.data.teams,
+      createTask,
+    };
+  };
+
+  it.effect("resolves a current Task Identifier case-insensitively", () =>
+    Effect.gen(function* () {
+      const setup = yield* setupResolutionChurch("resolve-current");
+      const team = setup.teams[0]!;
+      const task = yield* setup.createTask("Resolvable Task", team.id);
+
+      const exact = yield* setup.authenticated.query(refs.public.tasks.resolveByIdentifier, {
+        churchId: setup.churchId,
+        identifier: task.identifier,
+      });
+      expect(exact.data.tasks[0]).toMatchObject({ id: task.id, identifier: task.identifier });
+
+      // Case-insensitive matching, uppercase canonical form (ADR 0013):
+      // "prd-48" resolves and the payload carries the canonical identifier.
+      const lowercase = yield* setup.authenticated.query(refs.public.tasks.resolveByIdentifier, {
+        churchId: setup.churchId,
+        identifier: task.identifier.toLowerCase(),
+      });
+      expect(lowercase.data.tasks[0]).toMatchObject({ id: task.id, identifier: task.identifier });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("falls back to a Team's previous identifier after an identifier change", () =>
+    Effect.gen(function* () {
+      const setup = yield* setupResolutionChurch("resolve-team-alias");
+      const team = setup.teams[0]!;
+      const task = yield* setup.createTask("Aliased Team Task", team.id);
+      const retiredIdentifier = team.identifier;
+
+      yield* setup.authenticated.mutation(refs.public.teams.setIdentifierForChurch, {
+        churchId: setup.churchId,
+        teamId: team.id,
+        identifier: "ZZZZZ",
+      });
+
+      // The old link keeps resolving; the payload carries the new canonical
+      // identifier so the URL can normalize.
+      const resolved = yield* setup.authenticated.query(refs.public.tasks.resolveByIdentifier, {
+        churchId: setup.churchId,
+        identifier: `${retiredIdentifier}-${task.number}`,
+      });
+      expect(resolved.data.tasks[0]).toMatchObject({
+        id: task.id,
+        identifier: `ZZZZZ-${task.number}`,
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("a current identifier beats a retired alias on collision", () =>
+    Effect.gen(function* () {
+      const setup = yield* setupResolutionChurch("resolve-collision");
+      const teamA = setup.teams[0]!;
+      const teamB = setup.teams[1]!;
+
+      yield* setup.authenticated.mutation(refs.public.teams.setIdentifierForChurch, {
+        churchId: setup.churchId,
+        teamId: teamA.id,
+        identifier: "COL",
+      });
+      const taskA = yield* setup.createTask("Original COL Task", teamA.id);
+
+      // Team A retires "COL"; Team B claims it (retired identifiers are not
+      // reserved, ADR 0013).
+      yield* setup.authenticated.mutation(refs.public.teams.setIdentifierForChurch, {
+        churchId: setup.churchId,
+        teamId: teamA.id,
+        identifier: "MOV",
+      });
+      yield* setup.authenticated.mutation(refs.public.teams.setIdentifierForChurch, {
+        churchId: setup.churchId,
+        teamId: teamB.id,
+        identifier: "COL",
+      });
+      const taskB = yield* setup.createTask("New COL Task", teamB.id);
+      expect(taskA.number).toBe(taskB.number);
+
+      // Current always wins: "COL-1" now belongs to Team B's task.
+      const collided = yield* setup.authenticated.query(refs.public.tasks.resolveByIdentifier, {
+        churchId: setup.churchId,
+        identifier: `COL-${taskB.number}`,
+      });
+      expect(collided.data.tasks[0]).toMatchObject({ id: taskB.id });
+
+      // Team A's task is still reachable through its current identifier.
+      const moved = yield* setup.authenticated.query(refs.public.tasks.resolveByIdentifier, {
+        churchId: setup.churchId,
+        identifier: `MOV-${taskA.number}`,
+      });
+      expect(moved.data.tasks[0]).toMatchObject({ id: taskA.id });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("falls back to a Task's previous identifiers", () =>
+    Effect.gen(function* () {
+      const setup = yield* setupResolutionChurch("resolve-task-alias");
+      const team = setup.teams[0]!;
+      const task = yield* setup.createTask("Renumbered Task", team.id);
+
+      // Simulate the renumber-and-remember bookkeeping a team move performs:
+      // the old Task Identifier is appended to the task's
+      // previous-identifiers list (ADR 0013).
+      yield* setup.c.run(
+        Effect.gen(function* () {
+          const ctx = yield* MutationCtx.MutationCtx<DataModel>();
+
+          yield* Effect.promise(() =>
+            ctx.db.patch(task.id as Id<"tasks">, { previousIdentifiers: ["OLDTM-7"] }),
+          );
+          return null;
+        }),
+        Schema.Null,
+      );
+
+      const resolved = yield* setup.authenticated.query(refs.public.tasks.resolveByIdentifier, {
+        churchId: setup.churchId,
+        identifier: "oldtm-7",
+      });
+      expect(resolved.data.tasks[0]).toMatchObject({ id: task.id, identifier: task.identifier });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("scopes resolution to the Church", () =>
+    Effect.gen(function* () {
+      const setup = yield* setupResolutionChurch("resolve-scoping");
+      const team = setup.teams[0]!;
+      const task = yield* setup.createTask("Scoped Task", team.id);
+
+      const otherChurchResponse = yield* createChurch(setup.c, {
+        token: setup.owner.token!,
+        name: "Resolve Scoping Other Church",
+        slug: `resolve-scoping-other-${crypto.randomUUID()}`,
+      });
+      const otherChurch = (yield* Effect.promise(() => otherChurchResponse.json())) as {
+        id?: string;
+      };
+
+      const crossChurch = yield* setup.authenticated.query(refs.public.tasks.resolveByIdentifier, {
+        churchId: otherChurch.id!,
+        identifier: task.identifier,
+      });
+      expect(crossChurch).toMatchObject({
+        ok: false,
+        operation: "resolveTask",
+        error: { code: "task_not_found" },
+      });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
+  it.effect("unknown and malformed identifiers return task_not_found", () =>
+    Effect.gen(function* () {
+      const setup = yield* setupResolutionChurch("resolve-unknown");
+      const team = setup.teams[0]!;
+      yield* setup.createTask("Only Task", team.id);
+
+      const unknownNumber = yield* setup.authenticated.query(
+        refs.public.tasks.resolveByIdentifier,
+        { churchId: setup.churchId, identifier: `${team.identifier}-999` },
+      );
+      expect(unknownNumber).toMatchObject({
+        ok: false,
+        operation: "resolveTask",
+        error: { code: "task_not_found" },
+      });
+
+      const malformed = yield* setup.authenticated.query(refs.public.tasks.resolveByIdentifier, {
+        churchId: setup.churchId,
+        identifier: "not an identifier",
+      });
+      expect(malformed).toMatchObject({
+        ok: false,
+        operation: "resolveTask",
+        error: { code: "task_not_found" },
+      });
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 });

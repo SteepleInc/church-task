@@ -44,6 +44,10 @@ export const TaskTableFieldsSchema = Schema.Struct({
   // projection time. Dense within a Team; prefixed by the Team Identifier to
   // form the Task Identifier (ADR 0013).
   number: Schema.Number,
+  // Retired Task Identifiers (canonical uppercase, e.g. "PRD-48") this Task
+  // answered to before a team move renumbered it. Resolution falls back to
+  // these aliases only when nothing current matches (ADR 0013).
+  previousIdentifiers: Schema.Array(Schema.String),
   assignedUserId: Schema.Union(Schema.String, Schema.Null),
   cycleId: Schema.String,
   dueDate: Schema.String,

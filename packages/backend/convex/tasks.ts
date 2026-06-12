@@ -22,6 +22,7 @@ export const completeBatch = registeredFunctions.tasks.completeBatch;
 export const cancelBatch = registeredFunctions.tasks.cancelBatch;
 export const reopenBatch = registeredFunctions.tasks.reopenBatch;
 export const listForChurch = registeredFunctions.tasks.listForChurch;
+export const resolveByIdentifier = registeredFunctions.tasks.resolveByIdentifier;
 
 const requireMcpChurchMember = async (
   ctx: MutationCtx | QueryCtx,

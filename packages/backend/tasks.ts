@@ -360,6 +360,7 @@ export async function createTasks(
       title: task.title,
       teamId: task.teamId,
       number: await drawTaskNumber(task.teamId),
+      previousIdentifiers: [],
       assignedUserId: task.assignedUserId ?? null,
       createdByUserId: task.createdByUserId ?? null,
       cycleId,

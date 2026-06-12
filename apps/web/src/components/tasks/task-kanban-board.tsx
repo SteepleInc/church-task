@@ -106,7 +106,7 @@ type TaskKanbanBoardProps = {
   readonly onMoveTasks: (moves: readonly TaskBoardMove[]) => void | Promise<void>;
   readonly onAssignTask?: (change: TaskCardAssignChange) => void | Promise<void>;
   readonly onChangeTaskStatus?: (change: TaskCardStatusChange) => void | Promise<void>;
-  readonly onOpenTask?: (taskId: string) => void;
+  readonly onOpenTask?: (taskIdentifier: string) => void;
   readonly onAddTask?: (workflowStatusId: string) => void;
   readonly onToggleColumnHidden?: (workflowStatusId: string) => void;
   readonly className?: string;
@@ -438,7 +438,7 @@ interface TaskKanbanColumnProps extends Omit<
   readonly isOverlay?: boolean;
   readonly onAssignTask?: TaskKanbanBoardProps["onAssignTask"];
   readonly onChangeTaskStatus?: TaskKanbanBoardProps["onChangeTaskStatus"];
-  readonly onOpenTask?: (taskId: string) => void;
+  readonly onOpenTask?: (taskIdentifier: string) => void;
   readonly onAddTask?: (workflowStatusId: string) => void;
   readonly onHideColumn?: (workflowStatusId: string) => void;
   readonly onSelectAllInColumn?: (workflowStatusId: string) => void;
@@ -582,7 +582,7 @@ interface TaskKanbanCardProps extends Omit<
   readonly isOverlay?: boolean;
   readonly onAssignTask?: TaskKanbanBoardProps["onAssignTask"];
   readonly onChangeTaskStatus?: TaskKanbanBoardProps["onChangeTaskStatus"];
-  readonly onOpenTask?: (taskId: string) => void;
+  readonly onOpenTask?: (taskIdentifier: string) => void;
   readonly onToggleTaskSelected?: (taskId: string) => void;
 }
 
@@ -655,7 +655,8 @@ function TaskKanbanCard({
       onToggleTaskSelected(task.id);
       return;
     }
-    onOpenTask?.(task.id);
+    // Task links carry the Task Identifier, not the database id (ADR 0013).
+    onOpenTask?.(task.identifier);
   };
 
   const cardContent = (

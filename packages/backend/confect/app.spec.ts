@@ -65,6 +65,7 @@ import {
   TaskCreateBatchArgs,
   TaskListArgs,
   TaskReadResponse,
+  TaskResolveArgs,
   TaskTransitionBatchArgs,
   TaskUpdateBatchArgs,
   TaskWriteResponse,
@@ -352,6 +353,13 @@ export const tasks = GroupSpec.make("tasks")
     FunctionSpec.publicQuery({
       name: "listForChurch",
       args: TaskListArgs,
+      returns: TaskReadResponse,
+    }),
+  )
+  .addFunction(
+    FunctionSpec.publicQuery({
+      name: "resolveByIdentifier",
+      args: TaskResolveArgs,
       returns: TaskReadResponse,
     }),
   );

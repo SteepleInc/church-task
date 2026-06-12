@@ -233,8 +233,8 @@ export function TaskExecutionSurface({
               fields: { workflowStatusId: change.workflowStatusId },
             });
           }}
-          onOpenTask={(taskId) => {
-            const url = openTaskDetailsPaneUrl({ id: taskId });
+          onOpenTask={(taskIdentifier) => {
+            const url = openTaskDetailsPaneUrl({ id: taskIdentifier });
             void navigate({ to: url.to, search: url.search });
           }}
         />

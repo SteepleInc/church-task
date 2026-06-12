@@ -61,6 +61,7 @@ import {
   resolveKeyDateOccurrences,
 } from "../keyDateScheduling";
 import { readDefaultWorkModel, seedDefaultWorkModel } from "../workDefaults";
+import { resolveTaskByIdentifier } from "../identifierResolution";
 import {
   cancelTasks,
   completeTasks,
@@ -2634,6 +2635,45 @@ const tasksListForChurch = FunctionImpl.make(api, "tasks", "listForChurch", (arg
   }),
 );
 
+// Identifier resolution (ADR 0013): church + Task Identifier string in, Task
+// out. Case-insensitive, current-first with alias fallback; shared by the
+// URL layer, the details pane, and the MCP surface.
+const tasksResolveByIdentifier = FunctionImpl.make(api, "tasks", "resolveByIdentifier", (args) =>
+  Effect.gen(function* () {
+    const ctx = yield* QueryCtx.QueryCtx<DataModel>();
+    const auth = yield* getAuthenticatedChurchMember(args.churchId);
+
+    if (auth.status === "notAuthenticated") {
+      return taskErrorResponse("resolveTask", "not_authenticated", "Authentication is required.");
+    }
+    if (auth.status === "notChurchMember") {
+      return taskErrorResponse(
+        "resolveTask",
+        "not_church_member",
+        "Church membership is required.",
+      );
+    }
+
+    const task = yield* Effect.promise(() =>
+      resolveTaskByIdentifier(ctx, args.churchId, args.identifier),
+    ).pipe(Effect.orDie);
+
+    if (!task) {
+      return taskErrorResponse(
+        "resolveTask",
+        "task_not_found",
+        "No Task matches that Task Identifier in the active Church.",
+      );
+    }
+
+    const model = yield* Effect.promise(() =>
+      readTaskModel(ctx, args.churchId, { taskId: task._id }),
+    ).pipe(Effect.orDie);
+
+    return taskResponse("resolveTask", serializeTaskModel(model));
+  }),
+);
+
 const taskTransitionError = (
   operation: "completeTasks" | "cancelTasks" | "reopenTasks",
   code:
@@ -3993,6 +4033,7 @@ export const tasks = GroupImpl.make(api, "tasks").pipe(
   Layer.provide(tasksCancelBatch),
   Layer.provide(tasksReopenBatch),
   Layer.provide(tasksListForChurch),
+  Layer.provide(tasksResolveByIdentifier),
 );
 export const templates = GroupImpl.make(api, "templates").pipe(
   Layer.provide(templatesCreateForChurch),
