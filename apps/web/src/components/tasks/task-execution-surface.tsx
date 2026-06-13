@@ -1,5 +1,6 @@
 import { useOpenTaskDetailsPaneUrl } from "@/components/details-pane/details-pane-helpers";
 import { useCyclesCollection } from "@/data/cycles/cyclesData.app";
+import { useLabelsCollection } from "@/data/labels/labelsData.app";
 import { useTeamMembershipsCollection } from "@/data/teams/teamsData.app";
 import {
   useTasksCollection,
@@ -23,7 +24,11 @@ import { useAtom } from "jotai";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { TaskKanbanBoard } from "./task-kanban-board";
-import { UNASSIGNED_COLUMN_ID } from "./task-kanban-adapter";
+import {
+  NO_ESTIMATE_COLUMN_ID,
+  UNASSIGNED_COLUMN_ID,
+  type TaskBoardEstimate,
+} from "./task-kanban-adapter";
 import {
   buildTeamMemberIndex,
   getExecutionBoardGrouping,
@@ -85,6 +90,7 @@ export function TaskExecutionSurface({
   const workflowStatusesCollection = useWorkflowStatusesCollection({ churchId });
   const usersCollection = useChurchUsersCollection({ churchId });
   const teamMembershipsCollection = useTeamMembershipsCollection({ churchId });
+  const labelsCollection = useLabelsCollection({ churchId });
   const teamMemberIdsByTeamId = buildTeamMemberIndex(
     teamMembershipsCollection.teamMembershipsCollection,
   );
@@ -174,6 +180,7 @@ export function TaskExecutionSurface({
             label: getUserDisplayName(user),
           }))}
           teamOptions={teams}
+          labelOptions={labelsCollection.labelsCollection}
           currentUserId={currentUserId}
           teamMemberIdsByTeamId={teamMemberIdsByTeamId}
           grouping={boardGrouping}
@@ -194,7 +201,14 @@ export function TaskExecutionSurface({
                         const workflowStatusId = findTaskStateStatusId(move.taskId, move.columnId);
                         return workflowStatusId ? { workflowStatusId } : null;
                       })()
-                    : null;
+                    : resolvedView.grouping === "estimate"
+                      ? {
+                          estimate:
+                            move.columnId === NO_ESTIMATE_COLUMN_ID
+                              ? null
+                              : (move.columnId as TaskBoardEstimate),
+                        }
+                      : null;
             if (!fields) return;
             void updateTask({
               churchId,
@@ -257,6 +271,22 @@ export function TaskExecutionSurface({
               fields: { workflowStatusId: change.workflowStatusId },
             });
           }}
+          onChangeTaskLabels={(change) => {
+            void updateTask({
+              churchId,
+              actorUserId: currentUserId,
+              taskId: change.taskId,
+              fields: { labelIds: [...change.labelIds] },
+            });
+          }}
+          onChangeTaskEstimate={(change) => {
+            void updateTask({
+              churchId,
+              actorUserId: currentUserId,
+              taskId: change.taskId,
+              fields: { estimate: change.estimate },
+            });
+          }}
           onOpenTask={(taskIdentifier) => {
             const url = openTaskDetailsPaneUrl({ id: taskIdentifier });
             void navigate({ to: url.to, search: url.search });
@@ -314,6 +344,8 @@ function toBoardTask(task: TaskSummary, tasks: readonly TaskSummary[]) {
     parentTask: getTaskParentContext(task, tasks),
     workflowStatusId: task.workflowStatusId,
     taskState: task.taskState,
+    estimate: task.estimate ?? null,
     boardOrder: task.boardOrder,
+    labelIds: task.labelIds ?? [],
   };
 }

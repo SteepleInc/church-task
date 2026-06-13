@@ -22,7 +22,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { EllipsisIcon, PlusIcon, Triangle } from "lucide-react";
+import { EllipsisIcon, PlusIcon, Tag, Triangle } from "lucide-react";
 import {
   type ComponentProps,
   type MouseEvent as ReactMouseEvent,
@@ -38,14 +38,17 @@ import {
   formatCreatedAt,
   formatDueDate,
   getPriorityMeta,
-  getSizeMeta,
+  getEstimateMeta,
+  labelDotClassName,
+  LabelsComboboxSelector,
   PriorityComboboxSelector,
-  SizeComboboxSelector,
+  EstimateComboboxSelector,
   StatusComboboxSelector,
   WorkflowStatusIcon,
   type AssigneeOption,
+  type TaskLabelOption,
   type TaskPriority,
-  type TaskSize,
+  type TaskEstimate,
 } from "./task-card-fields";
 import {
   buildTaskBoardGroupColumns,
@@ -56,6 +59,7 @@ import {
   buildTaskBoardColumns,
   computeBoardMoves,
   type TaskBoardColumn,
+  type TaskBoardEstimate,
   type TaskBoardGroupColumn,
   type TaskBoardGrouping,
   type TaskBoardMove,
@@ -64,7 +68,12 @@ import {
   type TaskBoardWorkflowStatus,
 } from "./task-kanban-adapter";
 import { DEFAULT_TASK_VIEW_OPTIONS, type TaskDisplayProperty } from "./task-view-options";
-import { matchPickerHotkey, statusOptions, type PickerHotkey } from "./task-kanban-board-utils";
+import {
+  isEditableTarget,
+  matchPickerHotkey,
+  statusOptions,
+  type PickerHotkey,
+} from "./task-kanban-board-utils";
 
 export type TaskCardAssignChange = {
   readonly taskId: string;
@@ -74,6 +83,21 @@ export type TaskCardAssignChange = {
 export type TaskCardStatusChange = {
   readonly taskId: string;
   readonly workflowStatusId: string;
+};
+
+export type TaskCardLabelsChange = {
+  readonly taskId: string;
+  readonly labelIds: readonly string[];
+};
+
+/** A Label option as the Board consumes it; teamId scopes Team Labels. */
+export type TaskBoardLabelOption = TaskLabelOption & {
+  readonly teamId?: string | null;
+};
+
+export type TaskCardEstimateChange = {
+  readonly taskId: string;
+  readonly estimate: TaskBoardEstimate | null;
 };
 
 export type TaskBoardTeamOption = {
@@ -86,6 +110,7 @@ type TaskKanbanBoardProps = {
   readonly tasks: readonly TaskBoardTask[];
   readonly assigneeOptions?: readonly AssigneeOption[];
   readonly teamOptions?: readonly TaskBoardTeamOption[];
+  readonly labelOptions?: readonly TaskBoardLabelOption[];
   // The signed-in user, pinned to the top of the assignee picker.
   readonly currentUserId?: string | null;
   // Set of member user ids per Team id, used to render the "Team members"
@@ -106,6 +131,8 @@ type TaskKanbanBoardProps = {
   readonly onMoveTasks: (moves: readonly TaskBoardMove[]) => void | Promise<void>;
   readonly onAssignTask?: (change: TaskCardAssignChange) => void | Promise<void>;
   readonly onChangeTaskStatus?: (change: TaskCardStatusChange) => void | Promise<void>;
+  readonly onChangeTaskLabels?: (change: TaskCardLabelsChange) => void | Promise<void>;
+  readonly onChangeTaskEstimate?: (change: TaskCardEstimateChange) => void | Promise<void>;
   readonly onOpenTask?: (taskIdentifier: string) => void;
   readonly onAddTask?: (workflowStatusId: string) => void;
   readonly onToggleColumnHidden?: (workflowStatusId: string) => void;
@@ -126,7 +153,7 @@ function boardSignature(
     ...columns.map((column) => `${column.id}:${column.title}`),
     ...tasks.map(
       (task) =>
-        `${task.id}:${getTaskGroupColumnId(grouping, task)}:${task.taskState}:${task.boardOrder ?? ""}:${task.assignedUserId ?? ""}`,
+        `${task.id}:${getTaskGroupColumnId(grouping, task)}:${task.taskState}:${task.boardOrder ?? ""}:${task.assignedUserId ?? ""}:${task.estimate ?? ""}:${(task.labelIds ?? []).join(",")}`,
     ),
   ].join(":");
 }
@@ -135,15 +162,6 @@ const EMPTY_TEAM_MEMBERS: ReadonlyMap<string, ReadonlySet<string>> = new Map();
 const EMPTY_USER_ID_SET: ReadonlySet<string> = new Set();
 const EMPTY_HIDDEN_COLUMNS: readonly string[] = [];
 const EMPTY_SELECTION: ReadonlySet<string> = new Set();
-
-// Avoid hijacking shortcut keys while the user is typing in a field (e.g.
-// another open combobox/search box on the page).
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable) return true;
-  const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
-}
 
 // Opens a card's field picker when its shortcut is pressed while the card is
 // hovered. Listens on the document so the key works without the trigger being
@@ -169,6 +187,7 @@ export function TaskKanbanBoard({
   tasks,
   assigneeOptions = [],
   teamOptions = [],
+  labelOptions = [],
   currentUserId = null,
   teamMemberIdsByTeamId = EMPTY_TEAM_MEMBERS,
   grouping = "workflow_status",
@@ -179,6 +198,8 @@ export function TaskKanbanBoard({
   onMoveTasks,
   onAssignTask,
   onChangeTaskStatus,
+  onChangeTaskLabels,
+  onChangeTaskEstimate,
   onOpenTask,
   onAddTask,
   onToggleColumnHidden,
@@ -330,10 +351,13 @@ export function TaskKanbanBoard({
             teamMemberIdsByTeamId={teamMemberIdsByTeamId}
             displayProperties={displayPropertySet}
             teamsById={teamsById}
+            labelOptions={labelOptions}
             dragDisabled={!isDraggable}
             selectedTaskIds={selectedTaskIds}
             onAssignTask={onAssignTask}
             onChangeTaskStatus={onChangeTaskStatus}
+            onChangeTaskLabels={onChangeTaskLabels}
+            onChangeTaskEstimate={onChangeTaskEstimate}
             onOpenTask={onOpenTask}
             onAddTask={grouping === "workflow_status" ? onAddTask : undefined}
             onHideColumn={grouping === "workflow_status" ? onToggleColumnHidden : undefined}
@@ -369,6 +393,7 @@ export function TaskKanbanBoard({
                 teamMemberIdsByTeamId={teamMemberIdsByTeamId}
                 displayProperties={displayPropertySet}
                 teamsById={teamsById}
+                labelOptions={labelOptions}
                 dragDisabled={!isDraggable}
                 selectedTaskIds={EMPTY_SELECTION}
                 isOverlay
@@ -379,6 +404,53 @@ export function TaskKanbanBoard({
         }}
       </KanbanOverlay>
     </Kanban>
+  );
+}
+
+/**
+ * Linear-style label badges on a card: a muted tag chip when unlabeled (so the
+ * picker stays reachable, like the priority/estimate chips), individual
+ * dot+name badges for one or two labels, and a collapsed dot-cluster +
+ * "N labels" badge for three or more (density guard).
+ */
+function TaskCardLabelsBadge({ labels }: { readonly labels: readonly TaskBoardLabelOption[] }) {
+  if (labels.length === 0) {
+    return (
+      <span
+        aria-label="Labels"
+        className="flex size-6 items-center justify-center rounded-md border bg-background hover:bg-accent"
+      >
+        <Tag className="size-3.5" />
+      </span>
+    );
+  }
+  if (labels.length <= 2) {
+    return (
+      <span className="flex items-center gap-1.5">
+        {labels.map((option) => (
+          <Badge className="text-muted-foreground" key={option.id} variant="outline">
+            <span className={cn("size-1.5 rounded-full", labelDotClassName(option))} />
+            {option.name}
+          </Badge>
+        ))}
+      </span>
+    );
+  }
+  return (
+    <Badge className="text-muted-foreground" variant="outline">
+      <span className="flex items-center -space-x-0.5">
+        {labels.map((option) => (
+          <span
+            className={cn(
+              "size-1.5 rounded-full ring-1 ring-background",
+              labelDotClassName(option),
+            )}
+            key={option.id}
+          />
+        ))}
+      </span>
+      {labels.length} labels
+    </Badge>
   );
 }
 
@@ -433,11 +505,14 @@ interface TaskKanbanColumnProps extends Omit<
   readonly teamMemberIdsByTeamId: ReadonlyMap<string, ReadonlySet<string>>;
   readonly displayProperties: ReadonlySet<TaskDisplayProperty>;
   readonly teamsById: ReadonlyMap<string, TaskBoardTeamOption>;
+  readonly labelOptions: readonly TaskBoardLabelOption[];
   readonly dragDisabled?: boolean;
   readonly selectedTaskIds: ReadonlySet<string>;
   readonly isOverlay?: boolean;
   readonly onAssignTask?: TaskKanbanBoardProps["onAssignTask"];
   readonly onChangeTaskStatus?: TaskKanbanBoardProps["onChangeTaskStatus"];
+  readonly onChangeTaskLabels?: TaskKanbanBoardProps["onChangeTaskLabels"];
+  readonly onChangeTaskEstimate?: TaskKanbanBoardProps["onChangeTaskEstimate"];
   readonly onOpenTask?: (taskIdentifier: string) => void;
   readonly onAddTask?: (workflowStatusId: string) => void;
   readonly onHideColumn?: (workflowStatusId: string) => void;
@@ -455,11 +530,14 @@ function TaskKanbanColumn({
   teamMemberIdsByTeamId,
   displayProperties,
   teamsById,
+  labelOptions,
   dragDisabled,
   selectedTaskIds,
   isOverlay,
   onAssignTask,
   onChangeTaskStatus,
+  onChangeTaskLabels,
+  onChangeTaskEstimate,
   onOpenTask,
   onAddTask,
   onHideColumn,
@@ -549,12 +627,15 @@ function TaskKanbanColumn({
               teamMemberIdsByTeamId={teamMemberIdsByTeamId}
               displayProperties={displayProperties}
               teamsById={teamsById}
+              labelOptions={labelOptions}
               dragDisabled={dragDisabled}
               selectedTaskIds={selectedTaskIds}
               asHandle={!isOverlay}
               isOverlay={isOverlay}
               onAssignTask={onAssignTask}
               onChangeTaskStatus={onChangeTaskStatus}
+              onChangeTaskLabels={onChangeTaskLabels}
+              onChangeTaskEstimate={onChangeTaskEstimate}
               onOpenTask={onOpenTask}
               onToggleTaskSelected={onToggleTaskSelected}
             />
@@ -576,12 +657,15 @@ interface TaskKanbanCardProps extends Omit<
   readonly teamMemberIdsByTeamId: ReadonlyMap<string, ReadonlySet<string>>;
   readonly displayProperties: ReadonlySet<TaskDisplayProperty>;
   readonly teamsById: ReadonlyMap<string, TaskBoardTeamOption>;
+  readonly labelOptions: readonly TaskBoardLabelOption[];
   readonly dragDisabled?: boolean;
   readonly selectedTaskIds: ReadonlySet<string>;
   readonly asHandle?: boolean;
   readonly isOverlay?: boolean;
   readonly onAssignTask?: TaskKanbanBoardProps["onAssignTask"];
   readonly onChangeTaskStatus?: TaskKanbanBoardProps["onChangeTaskStatus"];
+  readonly onChangeTaskLabels?: TaskKanbanBoardProps["onChangeTaskLabels"];
+  readonly onChangeTaskEstimate?: TaskKanbanBoardProps["onChangeTaskEstimate"];
   readonly onOpenTask?: (taskIdentifier: string) => void;
   readonly onToggleTaskSelected?: (taskId: string) => void;
 }
@@ -594,12 +678,15 @@ function TaskKanbanCard({
   teamMemberIdsByTeamId,
   displayProperties,
   teamsById,
+  labelOptions,
   dragDisabled,
   selectedTaskIds,
   asHandle,
   isOverlay,
   onAssignTask,
   onChangeTaskStatus,
+  onChangeTaskLabels,
+  onChangeTaskEstimate,
   onOpenTask,
   onToggleTaskSelected,
   className,
@@ -626,7 +713,8 @@ function TaskKanbanCard({
   const statusOpenRef = useRef<(() => void) | null>(null);
   const assigneeOpenRef = useRef<(() => void) | null>(null);
   const priorityOpenRef = useRef<(() => void) | null>(null);
-  const sizeOpenRef = useRef<(() => void) | null>(null);
+  const estimateOpenRef = useRef<(() => void) | null>(null);
+  const labelsOpenRef = useRef<(() => void) | null>(null);
   const [isHovered, setIsHovered] = useState(false);
 
   const pickerHotkeys = useMemo<readonly PickerHotkey[]>(
@@ -634,7 +722,8 @@ function TaskKanbanCard({
       { key: "s", openRef: statusOpenRef },
       { key: "a", openRef: assigneeOpenRef },
       { key: "p", openRef: priorityOpenRef },
-      { key: "e", shift: true, openRef: sizeOpenRef },
+      { key: "e", shift: true, openRef: estimateOpenRef },
+      { key: "l", openRef: labelsOpenRef },
     ],
     [],
   );
@@ -643,7 +732,7 @@ function TaskKanbanCard({
   const form = useAppForm({
     defaultValues: {
       priority: "no_priority" as TaskPriority,
-      size: "no_estimate" as TaskSize,
+      estimate: (task.estimate ?? "no_estimate") as TaskEstimate,
       assignedUserId: task.assignedUserId ?? null,
       workflowStatusId: task.workflowStatusId,
     },
@@ -653,6 +742,15 @@ function TaskKanbanCard({
   const dueDateLabel = formatDueDate(task.dueDate);
   const teamName = teamsById.get(task.teamId)?.name ?? null;
   const showProperty = (property: TaskDisplayProperty) => displayProperties.has(property);
+
+  // Church Labels plus the Task's Team's Labels are applicable in the picker
+  // (see CONTEXT.md "Team Label"); the badge resolves only known ids.
+  const applicableLabels = labelOptions.filter(
+    (option) => (option.teamId ?? null) === null || option.teamId === task.teamId,
+  );
+  const taskLabels = (task.labelIds ?? [])
+    .map((labelId) => labelOptions.find((option) => option.id === labelId))
+    .filter((option) => option !== undefined);
 
   const handleCardClick = (event: ReactMouseEvent) => {
     // Card clicks never clear the selection from the board-level handler.
@@ -770,13 +868,19 @@ function TaskKanbanCard({
           </form.Field>
         ) : null}
         {showProperty("estimate") ? (
-          <form.Field name="size">
+          <form.Field name="estimate">
             {(field) => {
-              const meta = getSizeMeta(field.state.value);
+              const meta = getEstimateMeta(field.state.value);
               return (
-                <SizeComboboxSelector
-                  onValueChange={(next) => field.handleChange(next)}
-                  openRef={sizeOpenRef}
+                <EstimateComboboxSelector
+                  onValueChange={(next) => {
+                    field.handleChange(next);
+                    void onChangeTaskEstimate?.({
+                      taskId: task.id,
+                      estimate: next === "no_estimate" ? null : next,
+                    });
+                  }}
+                  openRef={estimateOpenRef}
                   trigger={
                     <span
                       aria-label={`Estimate: ${meta.label}`}
@@ -790,6 +894,19 @@ function TaskKanbanCard({
               );
             }}
           </form.Field>
+        ) : null}
+        {showProperty("labels") ? (
+          onChangeTaskLabels && !isOverlay ? (
+            <LabelsComboboxSelector
+              onValueChange={(next) => void onChangeTaskLabels({ taskId: task.id, labelIds: next })}
+              openRef={labelsOpenRef}
+              options={applicableLabels}
+              trigger={<TaskCardLabelsBadge labels={taskLabels} />}
+              value={task.labelIds ?? []}
+            />
+          ) : (
+            <TaskCardLabelsBadge labels={taskLabels} />
+          )
         ) : null}
         {showProperty("due_date") && dueDateLabel ? (
           <Badge className="text-muted-foreground" variant="outline">

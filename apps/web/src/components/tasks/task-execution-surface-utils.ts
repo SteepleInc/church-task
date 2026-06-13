@@ -19,13 +19,15 @@ export type TaskSummary = {
   readonly teamId: string;
   readonly assignedUserId: string | null;
   readonly cycleId: string;
-  readonly dueDate: string;
+  readonly dueDate: string | null;
   readonly createdAt: number;
   readonly parentTaskId: string | null;
   readonly workflowId: string;
   readonly workflowStatusId: string;
   readonly taskState: TaskState;
+  readonly estimate?: "xs" | "s" | "m" | "l" | "xl" | null;
   readonly boardOrder?: string;
+  readonly labelIds?: readonly string[];
 };
 
 export function selectCurrentExecutionCycle(

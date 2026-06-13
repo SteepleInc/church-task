@@ -1,7 +1,10 @@
 import { useEffect } from "react";
+import { Tag } from "lucide-react";
 
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
+import { useLabelsCollection } from "@/data/labels/labelsData.app";
 import { useTaskByIdentifier } from "@/data/tasks/taskData.app";
+import { useUpdateTaskMutation } from "@/data/tasks/tasksData.app";
 import { useTeamsCollection } from "@/data/teams/teamsData.app";
 import { useChurchUsersCollection } from "@/data/users/usersData.app";
 import { useWorkflowStatusesCollection } from "@/data/workflows/workflowsData.app";
@@ -12,7 +15,9 @@ import {
 } from "@/components/details-pane/details-components";
 import { useChangeDetailsPaneId } from "@/components/details-pane/details-pane-helpers";
 import { DetailsShell } from "@/components/details-pane/details-shell";
+import { labelDotClassName, LabelsComboboxSelector } from "@/components/tasks/task-card-fields";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 export function TaskDetailsPane({ identifier }: { readonly identifier: string }) {
   const { currentOrgOpt: activeChurch, loading: orgLoading } = useCurrentOrgOpt();
@@ -23,6 +28,8 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
   const teams = useTeamsCollection({ churchId: activeChurch?.id ?? null });
   const users = useChurchUsersCollection({ churchId: activeChurch?.id ?? null });
   const workflowStatuses = useWorkflowStatusesCollection({ churchId: activeChurch?.id ?? null });
+  const labels = useLabelsCollection({ churchId: activeChurch?.id ?? null });
+  const updateTask = useUpdateTaskMutation();
   const team = teams.teamsCollection.find((candidate) => candidate.id === task?.teamId) ?? null;
   const assignee = users.usersCollection.find((candidate) => candidate.id === task?.assignedUserId);
   const workflowStatus = workflowStatuses.workflowStatusesCollection.find(
@@ -40,6 +47,15 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
       changeDetailsPaneId(canonicalIdentifier).forceNav();
     }
   }, [canonicalIdentifier, changeDetailsPaneId, identifier]);
+
+  // Church Labels plus the Task's Team's Labels are applicable here
+  // (see CONTEXT.md "Team Label").
+  const applicableLabels = labels.labelsCollection.filter(
+    (label) => label.teamId === null || label.teamId === task?.teamId,
+  );
+  const taskLabels = (task?.labelIds ?? [])
+    .map((labelId) => labels.labelsCollection.find((label) => label.id === labelId))
+    .filter((label) => label !== undefined);
 
   return (
     <DetailsShell
@@ -64,11 +80,50 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
               label="Workflow Status"
               value={workflowStatus?.name ?? task.workflowStatusId}
             />
-            <DetailItem label="Due Date" value={task.dueDate} />
+            <DetailItem label="Due Date" value={task.dueDate ?? "No due date"} />
+            {task.description ? <DetailItem label="Description" value={task.description} /> : null}
             <DetailItem label="Team" value={team?.name ?? ""} />
             <DetailItem
               label="Assignee"
               value={assignee?.name ?? assignee?.email ?? "Unassigned"}
+            />
+            <DetailItem
+              label="Labels"
+              value={
+                activeChurch ? (
+                  <LabelsComboboxSelector
+                    onValueChange={(next) =>
+                      void updateTask({
+                        churchId: activeChurch.id,
+                        actorUserId: activeChurch.currentUserId,
+                        taskId: task.id,
+                        fields: { labelIds: [...next] },
+                      })
+                    }
+                    options={applicableLabels}
+                    trigger={
+                      taskLabels.length === 0 ? (
+                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                          <Tag className="size-3.5" />
+                          Add labels
+                        </span>
+                      ) : (
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          {taskLabels.map((label) => (
+                            <span className="flex items-center gap-1.5" key={label.id}>
+                              <span
+                                className={cn("size-2 rounded-full", labelDotClassName(label))}
+                              />
+                              {label.name}
+                            </span>
+                          ))}
+                        </span>
+                      )
+                    }
+                    value={task.labelIds ?? []}
+                  />
+                ) : null
+              }
             />
           </DetailSection>
         ) : loading ? (

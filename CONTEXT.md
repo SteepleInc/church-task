@@ -85,7 +85,7 @@ A Task that belongs to a parent Task. A Subtask may belong to a different Cycle 
 _Avoid_: Checklist item
 
 **Due Date**:
-The date by which a Task should be completed. Due Date is the only task date concept until the domain proves it needs separate scheduling and deadline language.
+The date by which a Task should be completed, when one is set. A Task may have no Due Date; it is never assigned one automatically. A Task created without a Due Date belongs to the Cycle containing its creation date. Due Date is the only task date concept until the domain proves it needs separate scheduling and deadline language.
 _Avoid_: Scheduled date, deadline
 
 **Team**:
@@ -171,8 +171,32 @@ A presentation lane on a Board derived from the Board's grouping or status mappi
 _Avoid_: Task status, Workflow Status
 
 **Board Order**:
-The manual, user-defined ordering of Tasks within a Board Column, changed by dragging a card and persisted so every viewer of the Board sees the same order. Board Order is the only card ordering concept; Tasks do not have a priority.
-_Avoid_: Priority, rank as a user-facing term, sort order of creation
+The manual, user-defined ordering of Tasks within a Board Column, changed by dragging a card and persisted so every viewer of the Board sees the same order. Board Order is the only card ordering concept; Priority is a descriptive attribute and does not affect ordering.
+_Avoid_: Rank as a user-facing term, sort order of creation
+
+**Priority**:
+A per-Task importance attribute: No priority, Urgent, High, Medium, or Low. Priority describes a Task; it does not order the Board — Board Order does. Priority is currently UI-only and not yet persisted in the data model.
+_Avoid_: Rank, severity, using priority to mean Board position
+
+**Estimate**:
+A per-Task effort size: No estimate, XS, S, M, L, or XL. Every Task, including a Subtask, has its own independent Estimate; a Subtask does not inherit its parent's Estimate, and a parent's Estimate never aggregates its Subtasks' Estimates. Template Tasks do not carry an Estimate.
+_Avoid_: Size, points, story points, rolling up or summing Estimates
+
+**Label**:
+A named, colored tag a Church defines and applies to Tasks to categorize work across Cycles, such as Worship, Outreach, or Facilities. A Label is scoped to the whole Church or to one Team; a Task may carry many Labels, and any User in the Church may create and manage Labels.
+_Avoid_: Tag, category
+
+**Team Label**:
+A Label scoped to one Team, applicable only to Tasks assigned to that Team. When a Task changes Teams, Team Labels foreign to the destination Team are removed; a Task with no Team carries only Church-scoped Labels.
+_Avoid_: Private label, team tag
+
+**Starter Labels**:
+The default Church-scoped Labels every new Church begins with: Worship, Kids & Youth, Outreach, Events, Facilities, Communications, and Admin. Starter Labels are seeded when the Church is created and may be renamed, recolored, or deleted like any Label.
+_Avoid_: Default labels as a separate concept, hard-coded labels
+
+**Label Color**:
+The color assigned to a Label from the same fixed product palette used for Team Color. A Label Color is derived from the Label's name when the Label is created and is stored with the Label so Users can change it later.
+_Avoid_: Arbitrary hex colors, per-label custom colors
 
 **Workflow**:
 The ordered set of Workflow Statuses a Task moves through. Every Team has its own Workflow, seeded with To Do, In Progress, and Done when the Team is created; a Task always uses its Team's Workflow. There is no Church-level default Workflow.

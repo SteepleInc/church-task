@@ -67,7 +67,7 @@ const TaskWorkflowSummary = Schema.Struct({
   title: Schema.String,
   teamId: Schema.String,
   cycleId: Schema.String,
-  dueDate: Schema.String,
+  dueDate: Schema.Union(Schema.String, Schema.Null),
   parentTaskId: Schema.Union(Schema.String, Schema.Null),
   workflowId: Schema.String,
   workflowStatusId: Schema.String,

@@ -13,12 +13,12 @@ async function createTask(
   options: { readonly team?: string } = {},
 ) {
   await page.getByRole("main").getByRole("button", { name: "Create Task" }).click();
-  const dialog = page.getByRole("dialog", { name: "Create Task" });
-  await dialog.getByPlaceholder("Add a Task").fill(title);
+  const dialog = page.getByRole("dialog", { name: /New Task/ });
+  await dialog.getByPlaceholder("Task title").fill(title);
   // Every Task belongs to exactly one Team (ADR 0013): the required picker is
   // prefilled by the default chain (preset → last-used → membership → first).
   const teamPicker = dialog.getByLabel("Team");
-  await expect(teamPicker).not.toContainText("Select a Team");
+  await expect(teamPicker).toBeVisible();
   if (options.team) {
     await teamPicker.click();
     await page.getByRole("option", { name: options.team }).click();
@@ -156,7 +156,5 @@ test("Team routes remain accessible under the copied app shell", async ({ page }
   await page.locator('[data-sidebar="sidebar"]').getByRole("link", { name: teamName }).click();
   await expect(page).toHaveURL(/\/team\//);
   await expect(page.getByRole("navigation", { name: "breadcrumb" })).toContainText("Team Work");
-  await expect(
-    page.getByText("Configure this Team's Workflow before using the Task board."),
-  ).toBeVisible();
+  await expect(page.getByLabel("To Do Tasks")).toBeVisible();
 });

@@ -1,15 +1,24 @@
 import {
   formatTaskIdentifier,
+  type TaskEstimate,
   type RestorableTaskStatus,
   type TaskStatus,
 } from "@church-task/domain/Task";
 import { deriveTeamIdentifierBase } from "@church-task/domain/Team";
 import type { GenericDatabaseReader, GenericMutationCtx, GenericQueryCtx } from "convex/server";
 
-import { buildCycleForLocalDate } from "./churchCycleCalendar";
+import { buildCycleForLocalDate, localDateForInstant } from "./churchCycleCalendar";
 import { components } from "./convex/_generated/api";
 import type { DataModel, Id } from "./convex/_generated/dataModel";
 import { writeActivity } from "./activityRegistry";
+import {
+  dedupeLabelIds,
+  labelNamesForIds,
+  labelsById,
+  listLabelsForChurch,
+  stripForeignTeamLabelIds,
+  validateTaskLabelIds,
+} from "./labels";
 
 type MutationCtx = GenericMutationCtx<DataModel>;
 
@@ -124,13 +133,19 @@ function generateAppendBoardOrderKey(lastKey: string | null): string {
 
 type TaskCreateInput = {
   readonly title: string;
+  readonly description?: string | null;
   // Every Task belongs to exactly one Team (ADR 0013).
   readonly teamId: string;
   readonly assignedUserId?: string | null;
   readonly createdByUserId?: string | null;
   readonly workflowStatusId: string;
-  readonly dueDate: string;
+  // Null means "no Due Date": the Task joins the Cycle containing its
+  // creation date and keeps dueDate null.
+  readonly dueDate: string | null;
   readonly parentTaskId: string | null;
+  readonly labelIds?: ReadonlyArray<string>;
+  // Null or absent means "no estimate".
+  readonly estimate?: TaskEstimate | null;
 };
 
 type TaskUpdateInput = {
@@ -140,10 +155,12 @@ type TaskUpdateInput = {
     readonly assignedUserId?: string | null;
     readonly teamId?: string;
     readonly workflowStatusId?: string;
-    readonly dueDate?: string;
+    readonly dueDate?: string | null;
     readonly cycleId?: string;
     readonly parentTaskId?: string | null;
     readonly boardOrder?: string;
+    readonly labelIds?: ReadonlyArray<string>;
+    readonly estimate?: TaskEstimate | null;
   };
 };
 
@@ -230,16 +247,25 @@ export async function readTaskModel(
 
     if (!executionCycle) return true;
 
+    // A Task with no Due Date surfaces from its own Cycle forward (like an
+    // overdue Task) until it is finished.
+    const effectiveDate =
+      task.dueDate ?? cycles.find((cycle) => cycle._id === task.cycleId)?.startDate;
+
     return (
-      task.dueDate <= executionCycle.endDate &&
+      effectiveDate !== undefined &&
+      effectiveDate <= executionCycle.endDate &&
       (task.finishedAt === null || task.finishedAt >= executionCycle.startsAt)
     );
   });
+  // Tasks without a Due Date sort after all dated Tasks.
+  const dueDateSortKey = (dueDate: string | null) => dueDate ?? "9999-12-31";
   const orderedTasks =
     filters.orderBy === "due_date"
       ? [...tasks].sort(
           (left, right) =>
-            left.dueDate.localeCompare(right.dueDate) || left._creationTime - right._creationTime,
+            dueDateSortKey(left.dueDate).localeCompare(dueDateSortKey(right.dueDate)) ||
+            left._creationTime - right._creationTime,
         )
       : tasks;
   const teamIdentifierById = await readTeamIdentifiers(ctx, churchId);
@@ -261,6 +287,7 @@ export const serializeTaskModel = (data: Awaited<ReturnType<typeof readTaskModel
     id: task._id,
     churchId: task.churchId,
     title: task.title,
+    description: task.description ?? null,
     teamId: task.teamId,
     number: task.number,
     // Computed at read time so a Team Identifier change re-renders every
@@ -272,9 +299,11 @@ export const serializeTaskModel = (data: Awaited<ReturnType<typeof readTaskModel
     createdAt: task._creationTime,
     createdByUserId: task.createdByUserId ?? null,
     parentTaskId: task.parentTaskId,
+    labelIds: task.labelIds ?? [],
     workflowId: task.workflowId,
     workflowStatusId: task.workflowStatusId,
     taskState: task.taskState,
+    estimate: task.estimate ?? null,
     boardOrder: task.boardOrder,
     finishedAt: task.finishedAt ?? null,
     sourceTemplateId: task.sourceTemplateId ?? null,
@@ -321,7 +350,10 @@ export async function createTasks(
     readonly workflowId: string;
     readonly workflowStatusId: Id<"workflowStatuses">;
     readonly taskState: TaskState;
+    readonly labelIds: ReadonlyArray<string>;
   }> = [];
+
+  const churchLabels = labelsById(await listLabelsForChurch(ctx, args.churchId));
 
   for (const task of args.tasks) {
     const workflowStatus = await ctx.db.get(task.workflowStatusId as Id<"workflowStatuses">);
@@ -340,33 +372,53 @@ export async function createTasks(
       }
     }
 
-    try {
-      buildCycleForLocalDate({ localDate: task.dueDate, churchTimeZone: args.churchTimeZone });
-    } catch {
-      return { ok: false as const, code: "invalidDueDate" };
+    if (task.dueDate !== null) {
+      try {
+        buildCycleForLocalDate({ localDate: task.dueDate, churchTimeZone: args.churchTimeZone });
+      } catch {
+        return { ok: false as const, code: "invalidDueDate" };
+      }
     }
+
+    // Labels must exist in the Church, and Team Labels must match the Task's
+    // Team (enforced here for every caller; see ADR 0013).
+    const labelIds = dedupeLabelIds(task.labelIds ?? []);
+    const labelValidation = validateTaskLabelIds(churchLabels, {
+      labelIds,
+      teamId: task.teamId,
+    });
+    if (!labelValidation.ok) return { ok: false as const, code: labelValidation.code };
 
     validatedTasks.push({
       task,
       workflowId: workflowStatus.workflowId,
       workflowStatusId: workflowStatus._id,
       taskState: workflowStatus.taskState,
+      labelIds,
     });
   }
 
   const appendBoardOrder = makeBoardOrderAppender(ctx);
   const drawTaskNumber = makeTaskNumberDrawer(ctx);
 
-  for (const { task, workflowId, workflowStatusId, taskState } of validatedTasks) {
+  for (const { task, workflowId, workflowStatusId, taskState, labelIds } of validatedTasks) {
+    // No Due Date: the Task joins the Cycle containing its creation date.
+    const cycleAnchorDate =
+      task.dueDate ??
+      localDateForInstant({
+        instant: new Date().toISOString(),
+        churchTimeZone: args.churchTimeZone,
+      });
     const cycleId = await ensureCycleForDueDate(ctx, {
       churchId: args.churchId,
-      dueDate: task.dueDate,
+      dueDate: cycleAnchorDate,
       churchTimeZone: args.churchTimeZone,
     });
 
     const taskId = await ctx.db.insert("tasks", {
       churchId: args.churchId,
       title: task.title,
+      description: task.description ?? null,
       teamId: task.teamId,
       number: await drawTaskNumber(task.teamId),
       previousIdentifiers: [],
@@ -375,9 +427,11 @@ export async function createTasks(
       cycleId,
       dueDate: task.dueDate,
       parentTaskId: task.parentTaskId,
+      labelIds: [...labelIds],
       workflowId,
       workflowStatusId,
       taskState,
+      estimate: task.estimate ?? null,
       boardOrder: await appendBoardOrder(workflowStatusId),
       finishedAt: null,
       sourceTemplateId: null,
@@ -404,6 +458,7 @@ export async function updateTasks(
 ) {
   const updates: Array<() => Promise<void>> = [];
   const drawTaskNumber = makeTaskNumberDrawer(ctx);
+  const churchLabels = labelsById(await listLabelsForChurch(ctx, args.churchId));
 
   for (const update of args.updates) {
     const task = await ctx.db.get(update.taskId as Id<"tasks">);
@@ -417,6 +472,14 @@ export async function updateTasks(
     if ("title" in update.fields && update.fields.title !== task.title) {
       patch.title = update.fields.title;
       updatedFields.push("title");
+    }
+
+    if (
+      "estimate" in update.fields &&
+      (update.fields.estimate ?? null) !== (task.estimate ?? null)
+    ) {
+      patch.estimate = update.fields.estimate ?? null;
+      updatedFields.push("estimate");
     }
 
     if (
@@ -436,44 +499,56 @@ export async function updateTasks(
     }
 
     let movedDueDate: {
-      readonly previousDueDate: string;
-      readonly dueDate: string;
+      readonly previousDueDate: string | null;
+      readonly dueDate: string | null;
       readonly previousCycleId: string;
-      readonly cycleId: Id<"cycles">;
+      readonly cycleId: Id<"cycles"> | string;
     } | null = null;
     let movedCycle: {
       readonly previousCycleId: string;
       readonly cycleId: Id<"cycles">;
-      readonly previousDueDate: string;
-      readonly dueDate: string;
+      readonly previousDueDate: string | null;
+      readonly dueDate: string | null;
     } | null = null;
 
     const requestedDueDate = update.fields.dueDate;
     if (requestedDueDate !== undefined && requestedDueDate !== task.dueDate) {
-      try {
-        buildCycleForLocalDate({
-          localDate: requestedDueDate,
+      if (requestedDueDate === null) {
+        // Clearing the Due Date keeps the Task in its current Cycle.
+        patch.dueDate = null;
+        updatedFields.push("dueDate");
+        movedDueDate = {
+          previousDueDate: task.dueDate,
+          dueDate: null,
+          previousCycleId: task.cycleId,
+          cycleId: task.cycleId,
+        };
+      } else {
+        try {
+          buildCycleForLocalDate({
+            localDate: requestedDueDate,
+            churchTimeZone: args.churchTimeZone,
+          });
+        } catch {
+          return { ok: false as const, code: "invalidDueDate" as const };
+        }
+
+        const cycleId = await ensureCycleForDueDate(ctx, {
+          churchId: args.churchId,
+          dueDate: requestedDueDate,
           churchTimeZone: args.churchTimeZone,
         });
-      } catch {
-        return { ok: false as const, code: "invalidDueDate" as const };
+
+        patch.dueDate = requestedDueDate;
+        patch.cycleId = cycleId;
+        updatedFields.push("dueDate");
+        movedDueDate = {
+          previousDueDate: task.dueDate,
+          dueDate: requestedDueDate,
+          previousCycleId: task.cycleId,
+          cycleId,
+        };
       }
-
-      const cycleId = await ensureCycleForDueDate(ctx, {
-        churchId: args.churchId,
-        dueDate: requestedDueDate,
-        churchTimeZone: args.churchTimeZone,
-      });
-
-      patch.dueDate = requestedDueDate;
-      patch.cycleId = cycleId;
-      updatedFields.push("dueDate");
-      movedDueDate = {
-        previousDueDate: task.dueDate,
-        dueDate: requestedDueDate,
-        previousCycleId: task.cycleId,
-        cycleId,
-      };
     }
 
     if (!movedDueDate && "cycleId" in update.fields && update.fields.cycleId !== task.cycleId) {
@@ -491,8 +566,12 @@ export async function updateTasks(
         return { ok: false as const, code: "cycleNotFound" as const };
       }
 
-      const weekdayOffset = daysBetween(previousCycle.startDate, task.dueDate);
-      const dueDate = addDays(targetCycle.startDate, weekdayOffset);
+      // A Task with no Due Date moves Cycles without gaining one; dated Tasks
+      // keep their weekday offset within the new Cycle.
+      const dueDate =
+        task.dueDate === null
+          ? null
+          : addDays(targetCycle.startDate, daysBetween(previousCycle.startDate, task.dueDate));
       patch.dueDate = dueDate;
       patch.cycleId = targetCycle._id;
       updatedFields.push("cycleId");
@@ -569,6 +648,46 @@ export async function updateTasks(
         previousIdentifier: formatTaskIdentifier(previousTeamIdentifier, task.number),
         teamIdentifier,
       };
+    }
+
+    // Labels: explicit `labelIds` updates are validated against the Task's
+    // effective Team; a Team change without explicit labels strips Team
+    // Labels foreign to the destination Team (see CONTEXT.md "Team Label").
+    let changedLabels: {
+      readonly previousLabelIds: ReadonlyArray<string>;
+      readonly labelIds: ReadonlyArray<string>;
+    } | null = null;
+
+    const effectiveTeamId =
+      "teamId" in update.fields ? (update.fields.teamId ?? null) : task.teamId;
+    const currentLabelIds = task.labelIds ?? [];
+
+    if ("labelIds" in update.fields && update.fields.labelIds !== undefined) {
+      const requestedLabelIds = dedupeLabelIds(update.fields.labelIds);
+      const labelValidation = validateTaskLabelIds(churchLabels, {
+        labelIds: requestedLabelIds,
+        teamId: effectiveTeamId,
+      });
+      if (!labelValidation.ok) return { ok: false as const, code: labelValidation.code };
+
+      const sameLabels =
+        requestedLabelIds.length === currentLabelIds.length &&
+        [...requestedLabelIds].sort().join("\n") === [...currentLabelIds].sort().join("\n");
+      if (!sameLabels) {
+        patch.labelIds = requestedLabelIds;
+        updatedFields.push("labelIds");
+        changedLabels = { previousLabelIds: currentLabelIds, labelIds: requestedLabelIds };
+      }
+    } else if (remappedTeam) {
+      const strippedLabelIds = stripForeignTeamLabelIds(churchLabels, {
+        labelIds: currentLabelIds,
+        teamId: effectiveTeamId,
+      });
+      if (strippedLabelIds.length !== currentLabelIds.length) {
+        patch.labelIds = strippedLabelIds;
+        updatedFields.push("labelIds");
+        changedLabels = { previousLabelIds: currentLabelIds, labelIds: strippedLabelIds };
+      }
     }
 
     let movedStatus: {
@@ -742,6 +861,33 @@ export async function updateTasks(
         });
       }
 
+      if (changedLabels) {
+        const previousSet = new Set(changedLabels.previousLabelIds);
+        const nextSet = new Set(changedLabels.labelIds);
+        await writeActivity(ctx, {
+          churchId: args.churchId,
+          entityType: "task",
+          entityId: task._id,
+          eventType: "task.labels_changed",
+          actorType: "user",
+          actorId: args.actorId,
+          occurredAt: args.occurredAt,
+          cycleId: task.cycleId,
+          metadata: {
+            previousLabelIds: changedLabels.previousLabelIds,
+            labelIds: changedLabels.labelIds,
+            addedLabelNames: labelNamesForIds(
+              churchLabels,
+              changedLabels.labelIds.filter((labelId) => !previousSet.has(labelId)),
+            ),
+            removedLabelNames: labelNamesForIds(
+              churchLabels,
+              changedLabels.previousLabelIds.filter((labelId) => !nextSet.has(labelId)),
+            ),
+          },
+        });
+      }
+
       if (movedStatus) {
         await writeActivity(ctx, {
           churchId: args.churchId,
@@ -791,7 +937,8 @@ export async function updateTasks(
           field !== "workflowStatusId" &&
           field !== "dueDate" &&
           field !== "cycleId" &&
-          field !== "boardOrder",
+          field !== "boardOrder" &&
+          field !== "labelIds",
       );
       if (nonAssignmentFields.length > 0) {
         const metadata: {

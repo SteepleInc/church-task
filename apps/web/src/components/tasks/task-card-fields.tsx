@@ -1,3 +1,4 @@
+import { getLabelColorForName, isLabelColor, type LabelColor } from "@church-task/domain/Label";
 import {
   Ban,
   Check,
@@ -7,6 +8,7 @@ import {
   CircleDot,
   CircleUserRound,
   LoaderCircle,
+  Plus,
   SignalHigh,
   SignalLow,
   SignalMedium,
@@ -27,7 +29,9 @@ import {
   type ReactNode,
 } from "react";
 
+import { TeamAvatar } from "@/components/avatars/teamAvatar";
 import { UserAvatar } from "@/components/avatars/userAvatar";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Combobox,
   ComboboxEmpty,
@@ -36,6 +40,7 @@ import {
   ComboboxList,
   ComboboxPrimitive,
 } from "@/components/ui/combobox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 import type { TaskBoardTaskState } from "./task-kanban-adapter";
@@ -83,17 +88,19 @@ export function getPriorityMeta(value: TaskPriority): PriorityMeta {
   return PRIORITY_OPTIONS.find((option) => option.value === value) ?? PRIORITY_OPTIONS[0];
 }
 
-// --- Size / estimate (stubbed: local-only, no backend yet) ------------------
+// --- Estimate ----------------------------------------------------------------
+// Persisted on the Task; "no_estimate" is the UI sentinel for the backend's
+// null/absent estimate.
 
-export type TaskSize = "no_estimate" | "xs" | "s" | "m" | "l" | "xl";
+export type TaskEstimate = "no_estimate" | "xs" | "s" | "m" | "l" | "xl";
 
-type SizeMeta = {
-  readonly value: TaskSize;
+type EstimateMeta = {
+  readonly value: TaskEstimate;
   readonly label: string;
   readonly short: string | null;
 };
 
-export const SIZE_OPTIONS: readonly SizeMeta[] = [
+export const ESTIMATE_OPTIONS: readonly EstimateMeta[] = [
   { value: "no_estimate", label: "No estimate", short: null },
   { value: "xs", label: "XS", short: "XS" },
   { value: "s", label: "S", short: "S" },
@@ -102,12 +109,45 @@ export const SIZE_OPTIONS: readonly SizeMeta[] = [
   { value: "xl", label: "XL", short: "XL" },
 ];
 
-export function getSizeMeta(value: TaskSize): SizeMeta {
-  return SIZE_OPTIONS.find((option) => option.value === value) ?? SIZE_OPTIONS[0];
+export function getEstimateMeta(value: TaskEstimate): EstimateMeta {
+  return ESTIMATE_OPTIONS.find((option) => option.value === value) ?? ESTIMATE_OPTIONS[0];
 }
 
-export function sizeValues(): readonly TaskSize[] {
-  return SIZE_OPTIONS.map((option) => option.value);
+export function estimateValues(): readonly TaskEstimate[] {
+  return ESTIMATE_OPTIONS.map((option) => option.value);
+}
+
+// --- Labels -------------------------------------------------------------------
+
+/** A Church Label as the pickers and badges consume it. */
+export type TaskLabelOption = {
+  readonly id: string;
+  readonly name: string;
+  // Label Color token from the fixed product palette (see CONTEXT.md).
+  readonly color: string;
+};
+
+// Label Color token -> Tailwind dot class. Tokens come from LABEL_COLORS in
+// @church-task/domain; Tailwind needs literal class strings, so the mapping
+// lives here on the web side (same pattern as TeamAvatar).
+const LABEL_COLOR_DOT_CLASSES: Record<LabelColor, string> = {
+  red: "bg-red-500",
+  orange: "bg-orange-500",
+  amber: "bg-amber-500",
+  emerald: "bg-emerald-500",
+  teal: "bg-teal-500",
+  blue: "bg-blue-500",
+  violet: "bg-violet-500",
+  pink: "bg-pink-500",
+};
+
+/** Resolves a Label's colored-dot class, falling back to the name-derived color. */
+export function labelDotClassName(option: {
+  readonly name: string;
+  readonly color: string;
+}): string {
+  const resolved = isLabelColor(option.color) ? option.color : getLabelColorForName(option.name);
+  return LABEL_COLOR_DOT_CLASSES[resolved];
 }
 
 // --- Created-at formatting --------------------------------------------------
@@ -412,6 +452,11 @@ type AssigneeComboboxSelectorProps = {
   readonly onValueChange: (value: string | null) => void;
   readonly trigger: ReactNode;
   readonly disabled?: boolean;
+  // Popup alignment relative to the trigger. Board cards keep the default
+  // "end" (the avatar sits on the card's right edge, so the popup grows left);
+  // the create dialog passes "start" so it opens rightward like its other
+  // pickers.
+  readonly align?: "start" | "end";
   // The parent populates this ref with a callback that opens the picker, so a
   // card-level "A" hover shortcut can open it without focusing the trigger.
   readonly openRef?: MutableRefObject<(() => void) | null>;
@@ -431,6 +476,7 @@ export function AssigneeComboboxSelector({
   onValueChange,
   trigger,
   disabled = false,
+  align = "end",
   openRef,
 }: AssigneeComboboxSelectorProps) {
   const partition = useMemo(
@@ -493,7 +539,7 @@ export function AssigneeComboboxSelector({
       </ComboboxPrimitive.Trigger>
       <ComboboxPrimitive.Portal>
         <ComboboxPrimitive.Positioner
-          align="end"
+          align={align}
           className="z-50 select-none"
           data-slot="combobox-positioner"
           side="bottom"
@@ -834,9 +880,9 @@ export function StatusComboboxSelector({
 
 // --- Estimate / size picker (Linear-style, flat list) -----------------------
 
-type SizeComboboxSelectorProps = {
-  readonly value: TaskSize;
-  readonly onValueChange: (value: TaskSize) => void;
+type EstimateComboboxSelectorProps = {
+  readonly value: TaskEstimate;
+  readonly onValueChange: (value: TaskEstimate) => void;
   readonly trigger: ReactNode;
   readonly disabled?: boolean;
   // Populated by the parent so a card-level "Shift+E" hover shortcut can open
@@ -850,24 +896,24 @@ type SizeComboboxSelectorProps = {
  * the trigger opens the picker. Unlike priority, estimate rows have no digit
  * shortcuts (matching Linear).
  */
-export function SizeComboboxSelector({
+export function EstimateComboboxSelector({
   value,
   onValueChange,
   trigger,
   disabled = false,
   openRef,
-}: SizeComboboxSelectorProps) {
-  const items = useMemo(() => sizeValues(), []);
-  const labelFor = (candidate: TaskSize) => getSizeMeta(candidate).label;
+}: EstimateComboboxSelectorProps) {
+  const items = useMemo(() => estimateValues(), []);
+  const labelFor = (candidate: TaskEstimate) => getEstimateMeta(candidate).label;
   const [open, setOpen] = usePickerOpener(openRef, disabled);
 
-  const select = (next: TaskSize) => {
+  const select = (next: TaskEstimate) => {
     onValueChange(next);
     setOpen(false);
   };
 
   return (
-    <Combobox<TaskSize>
+    <Combobox<TaskEstimate>
       disabled={disabled}
       items={items}
       itemToStringLabel={labelFor}
@@ -912,7 +958,7 @@ export function SizeComboboxSelector({
               <PickerHeader placeholder="Change estimate to..." shortcut="⇧ E" />
               <ComboboxEmpty>No results.</ComboboxEmpty>
               <ComboboxList>
-                {SIZE_OPTIONS.map((option) => (
+                {ESTIMATE_OPTIONS.map((option) => (
                   <ShortcutComboboxItem
                     key={option.value}
                     selected={option.value === value}
@@ -925,6 +971,382 @@ export function SizeComboboxSelector({
                     <span className="truncate">{option.label}</span>
                   </ShortcutComboboxItem>
                 ))}
+              </ComboboxList>
+            </ComboboxPrimitive.Popup>
+          </span>
+        </ComboboxPrimitive.Positioner>
+      </ComboboxPrimitive.Portal>
+    </Combobox>
+  );
+}
+
+// --- Labels picker (Linear-style, multi-select) ------------------------------
+
+type LabelsComboboxSelectorProps = {
+  readonly value: readonly string[];
+  readonly options: readonly TaskLabelOption[];
+  readonly onValueChange: (value: readonly string[]) => void;
+  // Inline label creation (Linear-style "Create label" row). Omitting it hides
+  // the create row. The handler creates the Label and appends its id to the
+  // selection once the id exists.
+  readonly onCreateLabel?: (name: string) => void;
+  readonly trigger: ReactNode;
+  readonly disabled?: boolean;
+  // Populated by the parent so an "L" hover/dialog shortcut can open the
+  // picker without focusing the trigger.
+  readonly openRef?: MutableRefObject<(() => void) | null>;
+};
+
+// Sentinel item that renders the "Create label" row. Its display label mirrors
+// the query so Base UI's filter always keeps it visible.
+const CREATE_LABEL_ITEM = "__create-label__";
+
+/**
+ * Linear-style labels picker. A multi-select list of labels with a leading
+ * colored dot and a check on every selected row; the popup stays open across
+ * selections. Pressing "L" on the trigger opens the picker. When the query
+ * matches no existing label exactly, a "Create label" row appears.
+ */
+export function LabelsComboboxSelector({
+  value,
+  options,
+  onValueChange,
+  onCreateLabel,
+  trigger,
+  disabled = false,
+  openRef,
+}: LabelsComboboxSelectorProps) {
+  const [query, setQuery] = useState("");
+  const trimmedQuery = query.trim();
+  const canCreate =
+    onCreateLabel !== undefined &&
+    trimmedQuery !== "" &&
+    !options.some((option) => option.name.trim().toLowerCase() === trimmedQuery.toLowerCase());
+  const items = useMemo(() => {
+    const ids = options.map((option) => option.id);
+    return canCreate ? [...ids, CREATE_LABEL_ITEM] : ids;
+  }, [options, canCreate]);
+  const labelFor = (candidate: string) => {
+    if (candidate === CREATE_LABEL_ITEM) return query;
+    return options.find((option) => option.id === candidate)?.name ?? candidate;
+  };
+  const [open, setOpen] = usePickerOpener(openRef, disabled);
+
+  return (
+    <Combobox<string, true>
+      disabled={disabled}
+      items={items}
+      itemToStringLabel={labelFor}
+      multiple
+      onInputValueChange={setQuery}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setQuery("");
+      }}
+      onValueChange={(next) => {
+        const selected = next ?? [];
+        if (selected.includes(CREATE_LABEL_ITEM)) {
+          if (canCreate) onCreateLabel(trimmedQuery);
+          onValueChange(selected.filter((candidate) => candidate !== CREATE_LABEL_ITEM));
+          return;
+        }
+        onValueChange(selected);
+      }}
+      open={open}
+      value={value as string[]}
+    >
+      <ComboboxPrimitive.Trigger
+        aria-label="Add labels"
+        className="inline-flex cursor-pointer items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-60"
+        data-slot="card-combobox-trigger"
+        // "L" opens the picker (matches Linear's "L" shortcut hint).
+        onKeyDown={(event) => {
+          if (disabled) return;
+          if (event.key === "l" || event.key === "L") {
+            event.preventDefault();
+            setOpen(true);
+          }
+        }}
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        {trigger}
+      </ComboboxPrimitive.Trigger>
+      <ComboboxPrimitive.Portal>
+        <ComboboxPrimitive.Positioner
+          align="start"
+          className="z-50 select-none"
+          data-slot="combobox-positioner"
+          side="bottom"
+          sideOffset={4}
+        >
+          <span className="relative flex max-h-full min-w-56 max-w-(--available-width) origin-(--transform-origin) rounded-lg border bg-popover not-dark:bg-clip-padding shadow-lg/5 transition-[scale,opacity] before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] dark:before:shadow-[0_-1px_--theme(--color-white/6%)]">
+            <ComboboxPrimitive.Popup
+              className="flex max-h-[min(var(--available-height),24rem)] flex-1 flex-col text-foreground"
+              data-slot="combobox-popup"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <PickerHeader placeholder="Add labels..." shortcut="L" />
+              <ComboboxEmpty>No labels.</ComboboxEmpty>
+              <ComboboxList>
+                {options.map((option) => (
+                  <ShortcutComboboxItem
+                    key={option.id}
+                    selected={value.includes(option.id)}
+                    shortcut={null}
+                    value={option.id}
+                  >
+                    <span className="flex size-4 shrink-0 items-center justify-center">
+                      <span className={cn("size-2.5 rounded-full", labelDotClassName(option))} />
+                    </span>
+                    <span className="truncate">{option.name}</span>
+                  </ShortcutComboboxItem>
+                ))}
+                {canCreate ? (
+                  <ShortcutComboboxItem selected={false} shortcut={null} value={CREATE_LABEL_ITEM}>
+                    <span className="flex size-4 shrink-0 items-center justify-center">
+                      <Plus className="size-3.5" />
+                    </span>
+                    <span className="truncate">Create label "{trimmedQuery}"</span>
+                  </ShortcutComboboxItem>
+                ) : null}
+              </ComboboxList>
+            </ComboboxPrimitive.Popup>
+          </span>
+        </ComboboxPrimitive.Positioner>
+      </ComboboxPrimitive.Portal>
+    </Combobox>
+  );
+}
+
+// --- Due date picker (calendar popover) ---------------------------------------
+
+/** Parses a Church-local YYYY-MM-DD string into a local Date for the calendar. */
+export function parseLocalDate(value: string | null): Date | undefined {
+  if (!value) return undefined;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return undefined;
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+/** Formats a local Date back into the Church-local YYYY-MM-DD string. */
+export function toLocalDateString(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+type DueDateSelectorProps = {
+  readonly value: string | null;
+  readonly onValueChange: (value: string | null) => void;
+  readonly trigger: ReactNode;
+  readonly disabled?: boolean;
+  // Populated by the parent so a "D" hover/dialog shortcut can open the
+  // picker without focusing the trigger.
+  readonly openRef?: MutableRefObject<(() => void) | null>;
+};
+
+/**
+ * Due Date picker: a calendar popover with a "No due date" clear row. The Due
+ * Date is never auto-set — it stays empty until the user picks a date here.
+ * Pressing "D" on the trigger opens the picker.
+ */
+export function DueDateSelector({
+  value,
+  onValueChange,
+  trigger,
+  disabled = false,
+  openRef,
+}: DueDateSelectorProps) {
+  const [open, setOpen] = usePickerOpener(openRef, disabled);
+  const selected = parseLocalDate(value);
+
+  return (
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger
+        aria-label="Set due date"
+        className="inline-flex cursor-pointer items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-60"
+        data-slot="card-combobox-trigger"
+        disabled={disabled}
+        onKeyDown={(event) => {
+          if (disabled) return;
+          if (event.key === "d" || event.key === "D") {
+            event.preventDefault();
+            setOpen(true);
+          }
+        }}
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        {trigger}
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto p-0" side="bottom" sideOffset={4}>
+        <Calendar
+          autoFocus
+          mode="single"
+          onSelect={(next) => {
+            onValueChange(next ? toLocalDateString(next) : null);
+            setOpen(false);
+          }}
+          selected={selected}
+        />
+        {value !== null ? (
+          <button
+            className="flex w-full cursor-pointer items-center gap-2 border-t px-3 py-2 text-muted-foreground text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+            onClick={() => {
+              onValueChange(null);
+              setOpen(false);
+            }}
+            type="button"
+          >
+            <Ban className="size-4" />
+            No due date
+          </button>
+        ) : null}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// --- Team picker (Linear-style, sectioned) ------------------------------------
+
+export type TeamPickerOption = {
+  readonly id: string;
+  readonly name: string;
+  readonly color: string | null;
+};
+
+export type TeamPartition = {
+  readonly yourTeams: readonly TeamPickerOption[];
+  readonly otherTeams: readonly TeamPickerOption[];
+};
+
+/**
+ * Splits Teams into Linear's picker layout: "Your teams" (Teams the current
+ * user is a member of) followed by "Other teams". There is no "No team" row —
+ * every Task belongs to a Team.
+ */
+export function partitionTeams({
+  options,
+  memberTeamIds,
+}: {
+  readonly options: readonly TeamPickerOption[];
+  readonly memberTeamIds: ReadonlySet<string>;
+}): TeamPartition {
+  return {
+    yourTeams: options.filter((option) => memberTeamIds.has(option.id)),
+    otherTeams: options.filter((option) => !memberTeamIds.has(option.id)),
+  };
+}
+
+function TeamRowItem({
+  option,
+  selectedTeamId,
+}: {
+  readonly option: TeamPickerOption;
+  readonly selectedTeamId: string | null;
+}) {
+  return (
+    <ShortcutComboboxItem selected={option.id === selectedTeamId} shortcut={null} value={option.id}>
+      <TeamAvatar color={option.color} name={option.name} size={20} />
+      <span className="truncate">{option.name}</span>
+    </ShortcutComboboxItem>
+  );
+}
+
+type TeamComboboxSelectorProps = {
+  readonly value: string | null;
+  readonly options: readonly TeamPickerOption[];
+  readonly memberTeamIds: ReadonlySet<string>;
+  readonly onValueChange: (value: string) => void;
+  readonly trigger: ReactNode;
+  readonly disabled?: boolean;
+  readonly openRef?: MutableRefObject<(() => void) | null>;
+};
+
+/**
+ * Linear-style Team picker, sectioned into "Your teams" and "Other teams".
+ * Selecting a Team is required — there is no "No team" row.
+ */
+export function TeamComboboxSelector({
+  value,
+  options,
+  memberTeamIds,
+  onValueChange,
+  trigger,
+  disabled = false,
+  openRef,
+}: TeamComboboxSelectorProps) {
+  const partition = useMemo(
+    () => partitionTeams({ options, memberTeamIds }),
+    [options, memberTeamIds],
+  );
+  const items = useMemo(() => options.map((option) => option.id), [options]);
+  const labelFor = useMemo(() => {
+    const lookup = new Map(options.map((option) => [option.id, option.name]));
+    return (candidate: string) => lookup.get(candidate) ?? candidate;
+  }, [options]);
+  const [open, setOpen] = usePickerOpener(openRef, disabled);
+
+  const select = (next: string | null) => {
+    if (!next) return;
+    onValueChange(next);
+    setOpen(false);
+  };
+
+  return (
+    <Combobox<string>
+      disabled={disabled}
+      items={items}
+      itemToStringLabel={labelFor}
+      onOpenChange={setOpen}
+      onValueChange={(next) => select(next ?? null)}
+      open={open}
+      value={value ?? ""}
+    >
+      <ComboboxPrimitive.Trigger
+        aria-label="Change team"
+        className="inline-flex cursor-pointer items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-60"
+        data-slot="card-combobox-trigger"
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        {trigger}
+      </ComboboxPrimitive.Trigger>
+      <ComboboxPrimitive.Portal>
+        <ComboboxPrimitive.Positioner
+          align="start"
+          className="z-50 select-none"
+          data-slot="combobox-positioner"
+          side="bottom"
+          sideOffset={4}
+        >
+          <span className="relative flex max-h-full min-w-64 max-w-(--available-width) origin-(--transform-origin) rounded-lg border bg-popover not-dark:bg-clip-padding shadow-lg/5 transition-[scale,opacity] before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] dark:before:shadow-[0_-1px_--theme(--color-white/6%)]">
+            <ComboboxPrimitive.Popup
+              className="flex max-h-[min(var(--available-height),24rem)] flex-1 flex-col text-foreground"
+              data-slot="combobox-popup"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <PickerHeader placeholder="Change team..." shortcut="T" />
+              <ComboboxEmpty>No teams.</ComboboxEmpty>
+              <ComboboxList>
+                {partition.yourTeams.length > 0 ? (
+                  <ComboboxGroup>
+                    <ComboboxGroupLabel>Your teams</ComboboxGroupLabel>
+                    {partition.yourTeams.map((option) => (
+                      <TeamRowItem key={option.id} option={option} selectedTeamId={value} />
+                    ))}
+                  </ComboboxGroup>
+                ) : null}
+                {partition.otherTeams.length > 0 ? (
+                  <ComboboxGroup>
+                    <ComboboxGroupLabel>Other teams</ComboboxGroupLabel>
+                    {partition.otherTeams.map((option) => (
+                      <TeamRowItem key={option.id} option={option} selectedTeamId={value} />
+                    ))}
+                  </ComboboxGroup>
+                ) : null}
               </ComboboxList>
             </ComboboxPrimitive.Popup>
           </span>
