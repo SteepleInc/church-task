@@ -21,7 +21,9 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
+import type { ColumnConfig, FilterItem } from "@/components/data-table-filter/core/types";
 import type { ExecutionSurface } from "@/components/tasks/task-execution-surface-utils";
+import { TaskFilterAddMenu, TaskFilterChips } from "@/components/tasks/task-filters-bar";
 import {
   DEFAULT_TASK_VIEW_OPTIONS,
   getTaskViewTabs,
@@ -43,6 +45,9 @@ type TaskViewTopBarProps = {
   readonly onCreateTask?: () => void;
   readonly insightsOpen?: boolean;
   readonly onToggleInsights?: () => void;
+  readonly filterFields?: ReadonlyArray<ColumnConfig<unknown>>;
+  readonly filters?: readonly FilterItem[];
+  readonly onFiltersChange?: (filters: FilterItem[]) => void;
 };
 
 const GROUPING_OPTIONS: ReadonlyArray<{
@@ -79,56 +84,88 @@ export function TaskViewTopBar({
   onCreateTask,
   insightsOpen = false,
   onToggleInsights,
+  filterFields,
+  filters,
+  onFiltersChange,
 }: TaskViewTopBarProps) {
   const tabs = getTaskViewTabs(surface);
+  const canFilter = Boolean(filterFields && onFiltersChange);
+  const activeFilters = filters ?? [];
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <div aria-label="View Tabs" className="flex items-center gap-1" role="tablist">
-        {tabs.map((candidate) => {
-          const isActive = candidate.value === tab;
-
-          return (
-            <Button
-              aria-selected={isActive}
-              className="rounded-full"
-              key={candidate.value}
-              onClick={() => onTabChange(candidate.value)}
-              role="tab"
-              size="sm"
-              type="button"
-              variant={isActive ? "secondary" : "ghost"}
-            >
-              {candidate.label}
-            </Button>
-          );
-        })}
-      </div>
-
-      <div className="flex items-center gap-1">
-        {onCreateTask ? (
-          <Button onClick={onCreateTask} size="sm" type="button">
-            Create Task
-          </Button>
-        ) : null}
-        <Button aria-label="Filter" size="icon-sm" type="button" variant="ghost">
-          <ListFilter />
-        </Button>
-        <TaskViewOptionsPopover onViewChange={onViewChange} view={view} />
-        <Button
-          aria-label="Insights"
-          aria-pressed={insightsOpen}
-          onClick={onToggleInsights}
-          size="icon-sm"
-          type="button"
-          variant={insightsOpen ? "secondary" : "ghost"}
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div
+          aria-label="View Tabs"
+          className="flex flex-1 flex-wrap items-center gap-2"
+          role="tablist"
         >
-          <ChartNoAxesColumn />
-        </Button>
-        <Button aria-label="Breakdown panel" size="icon-sm" type="button" variant="ghost">
-          <PanelRight />
-        </Button>
+          {tabs.map((candidate) => {
+            const isActive = candidate.value === tab;
+
+            return (
+              <Button
+                aria-selected={isActive}
+                className="rounded-full"
+                key={candidate.value}
+                onClick={() => onTabChange(candidate.value)}
+                role="tab"
+                size="sm"
+                type="button"
+                variant={isActive ? "secondary" : "ghost"}
+              >
+                {candidate.label}
+              </Button>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-1">
+          {onCreateTask ? (
+            <Button onClick={onCreateTask} size="sm" type="button">
+              Create Task
+            </Button>
+          ) : null}
+          {canFilter ? (
+            <TaskFilterAddMenu
+              fields={filterFields!}
+              filters={activeFilters}
+              onChange={onFiltersChange!}
+              trigger={
+                <Button aria-label="Filter" size="icon-sm" type="button" variant="ghost">
+                  <ListFilter />
+                </Button>
+              }
+            />
+          ) : (
+            <Button aria-label="Filter" size="icon-sm" type="button" variant="ghost">
+              <ListFilter />
+            </Button>
+          )}
+          <TaskViewOptionsPopover onViewChange={onViewChange} view={view} />
+          <Button
+            aria-label="Insights"
+            aria-pressed={insightsOpen}
+            onClick={onToggleInsights}
+            size="icon-sm"
+            type="button"
+            variant={insightsOpen ? "secondary" : "ghost"}
+          >
+            <ChartNoAxesColumn />
+          </Button>
+          <Button aria-label="Breakdown panel" size="icon-sm" type="button" variant="ghost">
+            <PanelRight />
+          </Button>
+        </div>
       </div>
+
+      {canFilter && activeFilters.length > 0 ? (
+        <TaskFilterChips
+          fields={filterFields!}
+          filters={activeFilters}
+          onChange={onFiltersChange!}
+        />
+      ) : null}
     </div>
   );
 }

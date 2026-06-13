@@ -56,7 +56,11 @@ import {
   toInsightsSearchValue,
   type ResolvedInsightsState,
 } from "@/components/tasks/task-insights-options";
+import { useTaskFilterFields } from "@/components/tasks/task-filters";
 import { TaskViewTopBar } from "@/components/tasks/task-view-top-bar";
+import type { ColumnConfig } from "@/components/data-table-filter/core/types";
+import { FilterKeys } from "@/shared/global-state";
+import { useFilters } from "@/shared/hooks/useFilters";
 import {
   getDefaultTaskViewTab,
   resolveTaskViewOptions,
@@ -161,6 +165,13 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
   const activeTab = resolveTaskViewTab(surface, search.tab);
   const activeView = resolveTaskViewOptions(search.view);
   const activeInsights = resolveInsightsState(search.insights);
+  const [taskFilters, setTaskFilters] = useFilters(FilterKeys.Tasks);
+  const taskFilterFields = useTaskFilterFields({
+    churchId: showTopBar ? (activeChurch?.id ?? null) : null,
+    surface,
+    teamId: selectedTeam?.id ?? null,
+    tab: activeTab,
+  });
 
   useEffect(() => {
     if (typeof activePanel !== "object" || canonicalTeamIdentifier === null) return;
@@ -219,6 +230,9 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
           onViewChange={setView}
           insightsOpen={activeInsights.open}
           onToggleInsights={() => setInsights({ ...activeInsights, open: !activeInsights.open })}
+          filterFields={taskFilterFields as ReadonlyArray<ColumnConfig<unknown>>}
+          filters={taskFilters}
+          onFiltersChange={setTaskFilters}
           onCreateTask={() =>
             openCreateTask({
               assignTo: activePanel === "my_work" ? currentUserId : null,
