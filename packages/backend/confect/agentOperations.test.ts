@@ -3433,6 +3433,72 @@ describe("agent operation boundary", () => {
     }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("Team delete and archive are blocked for the last active Team", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-team-floor-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Team Floor Church",
+        slug: `team-floor-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+
+      const initialTeams = yield* authenticated.query(refs.public.teams.listForChurch, {
+        churchId: church.id!,
+      });
+      const [remainingTeam, ...discardedTeams] = initialTeams.data.teams;
+      expect(remainingTeam).toBeDefined();
+
+      for (const team of discardedTeams) {
+        const deleted = yield* authenticated.mutation(refs.public.teams.deleteForChurch, {
+          churchId: church.id!,
+          teamId: team.id,
+        });
+        expect(deleted.ok).toBe(true);
+      }
+
+      const deleteLast = yield* authenticated.mutation(refs.public.teams.deleteForChurch, {
+        churchId: church.id!,
+        teamId: remainingTeam!.id,
+      });
+      const archiveLast = yield* authenticated.mutation(refs.public.teams.archiveForChurch, {
+        churchId: church.id!,
+        teamId: remainingTeam!.id,
+      });
+      const teams = yield* authenticated.query(refs.public.teams.listForChurch, {
+        churchId: church.id!,
+      });
+
+      expect(deleteLast).toEqual({
+        ok: false,
+        operation: "deleteTeam",
+        error: {
+          code: "last_team_required",
+          message: "A Church must keep at least one active Team.",
+        },
+      });
+      expect(archiveLast).toEqual({
+        ok: false,
+        operation: "archiveTeam",
+        error: {
+          code: "last_team_required",
+          message: "A Church must keep at least one active Team.",
+        },
+      });
+      expect(teams.data.teams).toEqual([expect.objectContaining({ id: remainingTeam!.id })]);
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Church members can read but cannot mutate Team setup", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;

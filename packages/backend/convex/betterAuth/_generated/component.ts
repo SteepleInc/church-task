@@ -207,7 +207,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   archivedAt?: null | string;
                   color?: null | string;
                   createdAt: number;
-                  defaultWorkflowId?: null | string;
                   identifier?: null | string;
                   name: string;
                   nextTaskNumber?: null | number;
@@ -742,7 +741,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "updatedAt"
                     | "archivedAt"
                     | "sortOrder"
-                    | "defaultWorkflowId"
                     | "color"
                     | "identifier"
                     | "previousIdentifiers"
@@ -1347,7 +1345,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "updatedAt"
                     | "archivedAt"
                     | "sortOrder"
-                    | "defaultWorkflowId"
                     | "color"
                     | "identifier"
                     | "previousIdentifiers"
@@ -2186,7 +2183,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   archivedAt?: null | string;
                   color?: null | string;
                   createdAt?: number;
-                  defaultWorkflowId?: null | string;
                   identifier?: null | string;
                   name?: string;
                   nextTaskNumber?: null | number;
@@ -2204,7 +2200,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "updatedAt"
                     | "archivedAt"
                     | "sortOrder"
-                    | "defaultWorkflowId"
                     | "color"
                     | "identifier"
                     | "previousIdentifiers"
@@ -2966,7 +2961,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   archivedAt?: null | string;
                   color?: null | string;
                   createdAt?: number;
-                  defaultWorkflowId?: null | string;
                   identifier?: null | string;
                   name?: string;
                   nextTaskNumber?: null | number;
@@ -2984,7 +2978,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "updatedAt"
                     | "archivedAt"
                     | "sortOrder"
-                    | "defaultWorkflowId"
                     | "color"
                     | "identifier"
                     | "previousIdentifiers"

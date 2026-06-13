@@ -250,6 +250,14 @@ const activeTeamsForChurch = (churchId: string) =>
     Effect.map((teams) => teams.filter((team) => (team.archivedAt ?? null) === null)),
   );
 
+const isLastActiveTeam = (churchId: string, team: BetterAuthTeam) =>
+  Effect.gen(function* () {
+    if ((team.archivedAt ?? null) !== null) return false;
+
+    const activeTeams = yield* activeTeamsForChurch(churchId);
+    return activeTeams.length <= 1;
+  });
+
 const listTeamMembershipsForChurch = (churchId: string) =>
   Effect.gen(function* () {
     const teams = yield* listTeamsForChurch(churchId);
@@ -1927,6 +1935,17 @@ const teamArchiveForChurch = FunctionImpl.make(api, "teams", "archiveForChurch",
       );
     }
 
+    const isLastTeam = yield* isLastActiveTeam(args.churchId, team).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+    if (isLastTeam) {
+      return teamErrorResponse(
+        "archiveTeam",
+        "last_team_required",
+        "A Church must keep at least one active Team.",
+      );
+    }
+
     const archivedAt = new Date().toISOString();
     yield* Effect.promise(() =>
       ctx.runMutation(components.betterAuth.adapter.updateOne, {
@@ -1989,6 +2008,17 @@ const teamDeleteForChurch = FunctionImpl.make(api, "teams", "deleteForChurch", (
         "deleteTeam",
         "team_not_found",
         "Team was not found in the active Church.",
+      );
+    }
+
+    const isLastTeam = yield* isLastActiveTeam(args.churchId, team).pipe(
+      Effect.provideService(QueryCtx.QueryCtx<DataModel>(), ctx),
+    );
+    if (isLastTeam) {
+      return teamErrorResponse(
+        "deleteTeam",
+        "last_team_required",
+        "A Church must keep at least one active Team.",
       );
     }
 

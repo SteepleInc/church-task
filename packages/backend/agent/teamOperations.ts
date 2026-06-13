@@ -112,6 +112,7 @@ export const TeamOperationErrorResponse = Schema.Struct({
       Schema.Literal("not_authorized"),
       Schema.Literal("team_not_found"),
       Schema.Literal("team_has_tasks"),
+      Schema.Literal("last_team_required"),
       Schema.Literal("workflow_not_found"),
       Schema.Literal("invalid_team_reorder"),
       Schema.Literal("invalid_team_identifier"),

@@ -138,6 +138,24 @@ const completeOnboarding = () =>
             });
           }
 
+          const teams = await ctx.context.adapter.findMany<{
+            readonly archivedAt?: string | null;
+          }>({
+            model: "team",
+            where: [
+              { field: "organizationId", value: orgId },
+              { field: "archivedAt", value: null },
+            ],
+            limit: 1,
+          });
+
+          if (teams.length === 0) {
+            throw ctx.error("BAD_REQUEST", {
+              code: "team_required",
+              message: "A Church must have at least one Team before onboarding can be completed.",
+            });
+          }
+
           await ctx.context.adapter.update({
             model: "organization",
             update: { completedOnboarding: true },
