@@ -861,6 +861,7 @@ describe("agent operation boundary", () => {
         churchId: church.id!,
       });
       const easter = keyDates.data.keyDates.find((keyDate) => keyDate.key === "easter")!;
+      const templateTeamId = yield* firstTeamId(authenticated, church.id!);
 
       const created = yield* authenticated.mutation(refs.public.templates.createForChurch, {
         churchId: church.id!,
@@ -869,6 +870,7 @@ describe("agent operation boundary", () => {
             key: "easter-prep",
             name: "Easter Prep",
             recurrence: "yearly",
+            templateTeams: [{ key: "owner", name: "Owner", mappedTeamId: templateTeamId }],
             focusWindows: [
               {
                 key: "holy-week",
@@ -884,12 +886,14 @@ describe("agent operation boundary", () => {
               {
                 key: "fixed",
                 title: "Fixed date work",
+                templateTeamKey: null,
                 parentTemplateTaskKey: null,
                 schedulingRule: { kind: "fixedDate", localDate: "2026-03-28" },
               },
               {
                 key: "window-start",
                 title: "Focus window work",
+                templateTeamKey: null,
                 parentTemplateTaskKey: "fixed",
                 schedulingRule: {
                   kind: "relativeToFocusWindow",
@@ -901,6 +905,7 @@ describe("agent operation boundary", () => {
               {
                 key: "anchor",
                 title: "Anchor date work",
+                templateTeamKey: null,
                 parentTemplateTaskKey: null,
                 schedulingRule: {
                   kind: "relativeToAnchorDate",
@@ -911,6 +916,7 @@ describe("agent operation boundary", () => {
               {
                 key: "key-date",
                 title: "Key Date work",
+                templateTeamKey: null,
                 parentTemplateTaskKey: null,
                 schedulingRule: {
                   kind: "relativeToKeyDate",
@@ -922,6 +928,7 @@ describe("agent operation boundary", () => {
               {
                 key: "cycle-offset",
                 title: "Cycle offset work",
+                templateTeamKey: null,
                 parentTemplateTaskKey: null,
                 schedulingRule: {
                   kind: "cycleOffset",
@@ -983,6 +990,7 @@ describe("agent operation boundary", () => {
         userId: signUpBody.user!.id!,
         sessionToken: signUpBody.token!,
       });
+      const templateTeamId = yield* firstTeamId(authenticated, church.id!);
 
       const created = yield* authenticated.mutation(refs.public.templates.createForChurch, {
         churchId: church.id!,
@@ -990,11 +998,13 @@ describe("agent operation boundary", () => {
           key: `template-${recurrence}`,
           name: `Template ${recurrence}`,
           recurrence,
+          templateTeams: [{ key: "owner", name: "Owner", mappedTeamId: templateTeamId }],
           focusWindows: [],
           templateTasks: [
             {
               key: "task",
               title: `Task ${recurrence}`,
+              templateTeamKey: null,
               parentTemplateTaskKey: null,
               schedulingRule: { kind: "fixedDate", localDate: "2026-06-01" },
             },
@@ -1059,23 +1069,27 @@ describe("agent operation boundary", () => {
             key: "weekly-prep",
             name: "Weekly Prep",
             recurrence: "weekly",
+            templateTeams: [{ key: "owner", name: "Owner", mappedTeamId: taskTeamId }],
             focusWindows: [],
             templateTasks: [
               {
                 key: "parent",
                 title: "Prepare worship plan",
+                templateTeamKey: null,
                 parentTemplateTaskKey: null,
                 schedulingRule: { kind: "fixedDate", localDate: "2026-06-03" },
               },
               {
                 key: "child",
                 title: "Confirm musicians",
+                templateTeamKey: null,
                 parentTemplateTaskKey: "parent",
                 schedulingRule: { kind: "fixedDate", localDate: "2026-06-03" },
               },
               {
                 key: "skip-me",
                 title: "Print handouts",
+                templateTeamKey: null,
                 parentTemplateTaskKey: null,
                 schedulingRule: { kind: "fixedDate", localDate: "2026-06-03" },
               },
@@ -1170,6 +1184,7 @@ describe("agent operation boundary", () => {
           userId: signUpBody.user!.id!,
           sessionToken: signUpBody.token!,
         });
+        const templateTeamId = yield* firstTeamId(authenticated, church.id!);
 
         const created = yield* authenticated.mutation(refs.public.templates.createForChurch, {
           churchId: church.id!,
@@ -1178,17 +1193,20 @@ describe("agent operation boundary", () => {
               key: "weekly-service",
               name: "Weekly Service",
               recurrence: "weekly",
+              templateTeams: [{ key: "owner", name: "Owner", mappedTeamId: templateTeamId }],
               focusWindows: [],
               templateTasks: [
                 {
                   key: "parent",
                   title: "Prepare service plan",
+                  templateTeamKey: null,
                   parentTemplateTaskKey: null,
                   schedulingRule: { kind: "fixedDate", localDate: "2026-06-03" },
                 },
                 {
                   key: "child-next-week",
                   title: "Prepare follow-up email",
+                  templateTeamKey: null,
                   parentTemplateTaskKey: "parent",
                   schedulingRule: { kind: "fixedDate", localDate: "2026-06-10" },
                 },
@@ -1242,6 +1260,101 @@ describe("agent operation boundary", () => {
       }).pipe(Effect.provide(TestConfect.layer())),
   );
 
+  it.effect("Template Teams map projected Tasks to each slot's Team sequence", () =>
+    Effect.gen(function* () {
+      const c = yield* TestConfect.TestConfect;
+      const email = `agent-template-teams-${crypto.randomUUID()}@example.com`;
+      const signUpResponse = yield* signUpWithEmail(c, email);
+      const signUpBody = (yield* Effect.promise(() => signUpResponse.json())) as {
+        user?: { id?: string };
+        token?: string;
+      };
+      const churchResponse = yield* createChurch(c, {
+        token: signUpBody.token!,
+        name: "Template Teams Church",
+        slug: `template-teams-${crypto.randomUUID()}`,
+      });
+      const church = (yield* Effect.promise(() => churchResponse.json())) as { id?: string };
+      const authenticated = yield* authenticatedConfect(c, {
+        userId: signUpBody.user!.id!,
+        sessionToken: signUpBody.token!,
+      });
+      const firstTeamIdValue = yield* firstTeamId(authenticated, church.id!);
+      const createdTeams = yield* authenticated.mutation(refs.public.teams.createForChurch, {
+        churchId: church.id!,
+        name: "Production",
+      });
+      const productionTeam = createdTeams.data.teams.find((team) => team.name === "Production")!;
+      const defaults = yield* authenticated.query(refs.public.workDefaults.readForChurch, {
+        churchId: church.id!,
+      });
+      const firstTeamTodo = statusForTeam(defaults, firstTeamIdValue, "todo");
+
+      yield* authenticated.mutation(refs.public.tasks.createBatch, {
+        churchId: church.id!,
+        tasks: [
+          {
+            title: "Seed first team number",
+            teamId: firstTeamIdValue,
+            workflowStatusId: firstTeamTodo.id,
+            dueDate: "2026-06-01",
+            parentTaskId: null,
+          },
+        ],
+      });
+      const created = yield* authenticated.mutation(refs.public.templates.createForChurch, {
+        churchId: church.id!,
+        templates: [
+          {
+            key: "multi-team-service",
+            name: "Multi-team Service",
+            recurrence: "weekly",
+            templateTeams: [
+              { key: "worship", name: "Worship Slot", mappedTeamId: firstTeamIdValue },
+              { key: "production", name: "Production Slot", mappedTeamId: productionTeam.id },
+            ],
+            focusWindows: [],
+            templateTasks: [
+              {
+                key: "plan-songs",
+                title: "Plan songs",
+                templateTeamKey: "worship",
+                parentTemplateTaskKey: null,
+                schedulingRule: { kind: "fixedDate", localDate: "2026-06-03" },
+              },
+              {
+                key: "prep-slides",
+                title: "Prep slides",
+                templateTeamKey: "production",
+                parentTemplateTaskKey: null,
+                schedulingRule: { kind: "fixedDate", localDate: "2026-06-03" },
+              },
+            ],
+          },
+        ],
+      });
+      const materialized = yield* authenticated.mutation(
+        refs.public.templates.materializeProjectedTasks,
+        { churchId: church.id!, occurrenceCycleIds: [] },
+      );
+      const listed = yield* authenticated.query(refs.public.tasks.listForChurch, {
+        churchId: church.id!,
+      });
+      const worshipTask = listed.data.tasks.find((task) => task.title === "Plan songs")!;
+      const productionTask = listed.data.tasks.find((task) => task.title === "Prep slides")!;
+      const worshipSlot = created.data.templateTeams.find((slot) => slot.key === "worship")!;
+      const worshipTemplateTask = created.data.templateTasks.find(
+        (task) => task.key === "plan-songs",
+      )!;
+
+      expect(created.ok).toBe(true);
+      expect(worshipTemplateTask.templateTeamId).toBe(worshipSlot.id);
+      expect(materialized.ok).toBe(true);
+      expect(worshipTask).toMatchObject({ teamId: firstTeamIdValue, number: 2 });
+      expect(productionTask).toMatchObject({ teamId: productionTeam.id, number: 1 });
+    }).pipe(Effect.provide(TestConfect.layer())),
+  );
+
   it.effect("Template Task edits sync only future unadjusted projected Tasks", () =>
     Effect.gen(function* () {
       const c = yield* TestConfect.TestConfect;
@@ -1289,35 +1402,41 @@ describe("agent operation boundary", () => {
             key: "template-sync",
             name: "Template Sync",
             recurrence: "weekly",
+            templateTeams: [{ key: "owner", name: "Owner", mappedTeamId: taskTeamId }],
             focusWindows: [],
             templateTasks: [
               {
                 key: "past",
                 title: "Past projected work",
+                templateTeamKey: null,
                 parentTemplateTaskKey: null,
                 schedulingRule: { kind: "fixedDate", localDate: "2026-06-03" },
               },
               {
                 key: "current",
                 title: "Current projected work",
+                templateTeamKey: null,
                 parentTemplateTaskKey: null,
                 schedulingRule: { kind: "fixedDate", localDate: "2026-06-10" },
               },
               {
                 key: "future",
                 title: "Future projected work",
+                templateTeamKey: null,
                 parentTemplateTaskKey: null,
                 schedulingRule: { kind: "fixedDate", localDate: "2026-06-17" },
               },
               {
                 key: "adjusted",
                 title: "Adjusted projected work",
+                templateTeamKey: null,
                 parentTemplateTaskKey: null,
                 schedulingRule: { kind: "fixedDate", localDate: "2026-06-17" },
               },
               {
                 key: "rolled",
                 title: "Rolled projected work",
+                templateTeamKey: null,
                 parentTemplateTaskKey: null,
                 schedulingRule: { kind: "fixedDate", localDate: "2026-06-03" },
               },
@@ -1474,11 +1593,13 @@ describe("agent operation boundary", () => {
             key: "next-week-service",
             name: "Next Week Service",
             recurrence: "weekly",
+            templateTeams: [{ key: "owner", name: "Owner", mappedTeamId: taskTeamId }],
             focusWindows: [],
             templateTasks: [
               {
                 key: "prepare-next-week",
                 title: "Prepare next week service plan",
+                templateTeamKey: null,
                 parentTemplateTaskKey: null,
                 schedulingRule: { kind: "fixedDate", localDate: "2026-06-10" },
               },

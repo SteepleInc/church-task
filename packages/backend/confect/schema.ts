@@ -5,6 +5,7 @@ import {
   CycleAdjustmentTableFieldsSchema,
   FocusWindowTableFieldsSchema,
   TemplateTableFieldsSchema,
+  TemplateTeamTableFieldsSchema,
   TemplateTaskTableFieldsSchema,
 } from "@church-task/domain/Template";
 import {
@@ -106,6 +107,12 @@ export const Templates = Table.make("templates", TemplateTableFieldsSchema)
   .index("by_churchId_and_key", ["churchId", "key"])
   .index("by_churchId", ["churchId"]);
 
+export const TemplateTeams = Table.make("templateTeams", TemplateTeamTableFieldsSchema)
+  .index("by_churchId", ["churchId"])
+  .index("by_templateId", ["templateId"])
+  .index("by_templateId_and_key", ["templateId", "key"])
+  .index("by_churchId_and_mappedTeamId", ["churchId", "mappedTeamId"]);
+
 export const FocusWindows = Table.make("focusWindows", FocusWindowTableFieldsSchema)
   .index("by_churchId", ["churchId"])
   .index("by_templateId", ["templateId"])
@@ -113,6 +120,7 @@ export const FocusWindows = Table.make("focusWindows", FocusWindowTableFieldsSch
 
 export const TemplateTasks = Table.make("templateTasks", TemplateTaskTableFieldsSchema)
   .index("by_churchId", ["churchId"])
+  .index("by_templateTeamId", ["templateTeamId"])
   .index("by_templateId", ["templateId"])
   .index("by_templateId_and_key", ["templateId", "key"]);
 
@@ -146,6 +154,7 @@ export default DatabaseSchema.make()
   .addTable(KeyDates)
   .addTable(KeyDateOccurrences)
   .addTable(Templates)
+  .addTable(TemplateTeams)
   .addTable(FocusWindows)
   .addTable(TemplateTasks)
   .addTable(CycleAdjustments)

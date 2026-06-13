@@ -509,6 +509,14 @@ const serializeTemplateModel = (
     recurrence: template.recurrence,
     archivedAt: template.archivedAt,
   })),
+  templateTeams: data.templateTeams.map((templateTeam) => ({
+    id: templateTeam._id,
+    templateId: templateTeam.templateId,
+    key: templateTeam.key,
+    name: templateTeam.name,
+    mappedTeamId: templateTeam.mappedTeamId,
+    archivedAt: templateTeam.archivedAt,
+  })),
   focusWindows: data.focusWindows.map((focusWindow) => ({
     id: focusWindow._id,
     templateId: focusWindow.templateId,
@@ -524,6 +532,7 @@ const serializeTemplateModel = (
   templateTasks: data.templateTasks.map((templateTask) => ({
     id: templateTask._id,
     templateId: templateTask.templateId,
+    templateTeamId: templateTask.templateTeamId,
     key: templateTask.key,
     title: templateTask.title,
     parentTemplateTaskId: templateTask.parentTemplateTaskId,
@@ -2792,6 +2801,13 @@ const templatesCreateForChurch = FunctionImpl.make(api, "templates", "createForC
         Effect.succeed({ ok: false as const, code: "invalidTemplate" as const }),
       ),
     );
+    if (!created.ok && created.code === "teamNotFound") {
+      return templateErrorResponse(
+        "createTemplates",
+        "team_not_found",
+        "Template Team mapping must reference an active Team in the Church.",
+      );
+    }
     if (!created.ok) {
       return templateErrorResponse(
         "createTemplates",
