@@ -6,8 +6,10 @@ import {
   PanelRight,
   SlidersHorizontal,
 } from "lucide-react";
+import { useEffect, useState, type MutableRefObject } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -43,6 +45,11 @@ type TaskViewTopBarProps = {
   readonly onCreateTask?: () => void;
   readonly insightsOpen?: boolean;
   readonly onToggleInsights?: () => void;
+  // Imperative openers populated for the keyboard layer: Shift+V opens View
+  // Options, F opens Filter. The route passes mutable refs the keyboard layer
+  // calls.
+  readonly openDisplayOptionsRef?: MutableRefObject<(() => void) | null>;
+  readonly openFilterRef?: MutableRefObject<(() => void) | null>;
 };
 
 const GROUPING_OPTIONS: ReadonlyArray<{
@@ -79,8 +86,19 @@ export function TaskViewTopBar({
   onCreateTask,
   insightsOpen = false,
   onToggleInsights,
+  openDisplayOptionsRef,
+  openFilterRef,
 }: TaskViewTopBarProps) {
   const tabs = getTaskViewTabs(surface);
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  useEffect(() => {
+    if (!openFilterRef) return;
+    openFilterRef.current = () => setFilterOpen(true);
+    return () => {
+      openFilterRef.current = null;
+    };
+  }, [openFilterRef]);
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -111,10 +129,27 @@ export function TaskViewTopBar({
             Create Task
           </Button>
         ) : null}
-        <Button aria-label="Filter" size="icon-sm" type="button" variant="ghost">
-          <ListFilter />
-        </Button>
-        <TaskViewOptionsPopover onViewChange={onViewChange} view={view} />
+        <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+          <PopoverTrigger
+            render={
+              <Button aria-label="Filter" size="icon-sm" type="button" variant="ghost">
+                <ListFilter />
+              </Button>
+            }
+          />
+          <PopoverContent align="end" className="w-64 text-sm">
+            <p className="font-medium">Filters</p>
+            <p className="mt-1 text-muted-foreground text-xs">
+              Property filters are coming soon. For now, use the View Tabs to narrow Tasks, and View
+              Options (<Kbd>⇧</Kbd> <Kbd>V</Kbd>) to group and order them.
+            </p>
+          </PopoverContent>
+        </Popover>
+        <TaskViewOptionsPopover
+          onViewChange={onViewChange}
+          openRef={openDisplayOptionsRef}
+          view={view}
+        />
         <Button
           aria-label="Insights"
           aria-pressed={insightsOpen}
@@ -136,10 +171,22 @@ export function TaskViewTopBar({
 function TaskViewOptionsPopover({
   view,
   onViewChange,
+  openRef,
 }: {
   readonly view: ResolvedTaskViewOptions;
   readonly onViewChange: (view: ResolvedTaskViewOptions) => void;
+  readonly openRef?: MutableRefObject<(() => void) | null>;
 }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!openRef) return;
+    openRef.current = () => setOpen(true);
+    return () => {
+      openRef.current = null;
+    };
+  }, [openRef]);
+
   const toggleDisplayProperty = (property: TaskDisplayProperty) => {
     const isShown = view.displayProperties.includes(property);
     onViewChange({
@@ -153,7 +200,7 @@ function TaskViewOptionsPopover({
   const isDefaultView = toTaskViewSearchValue(view) === undefined;
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={<Button aria-label="View Options" size="icon-sm" type="button" variant="ghost" />}
       >

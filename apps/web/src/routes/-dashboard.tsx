@@ -46,7 +46,7 @@ import { revalidateLogic } from "@tanstack/react-form";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { Schema } from "effect";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import SignInForm from "@/components/sign-in-form";
 import SignUpForm from "@/components/sign-up-form";
@@ -56,6 +56,7 @@ import {
   toInsightsSearchValue,
   type ResolvedInsightsState,
 } from "@/components/tasks/task-insights-options";
+import { TaskShortcutsHelp } from "@/components/tasks/task-shortcuts-help";
 import { TaskViewTopBar } from "@/components/tasks/task-view-top-bar";
 import {
   getDefaultTaskViewTab,
@@ -162,6 +163,11 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
   const activeView = resolveTaskViewOptions(search.view);
   const activeInsights = resolveInsightsState(search.insights);
 
+  // Imperative openers the keyboard layer triggers; populated by the top bar.
+  const openDisplayOptionsRef = useRef<(() => void) | null>(null);
+  const openFilterRef = useRef<(() => void) | null>(null);
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+
   useEffect(() => {
     if (typeof activePanel !== "object" || canonicalTeamIdentifier === null) return;
 
@@ -197,6 +203,10 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
     });
   };
 
+  // Cmd/Ctrl+B flips Board <-> List (Linear's layout toggle).
+  const toggleLayout = () =>
+    setView({ ...activeView, mode: activeView.mode === "board" ? "list" : "board" });
+
   const setInsights = (insights: ResolvedInsightsState) => {
     void navigate({
       to: ".",
@@ -210,6 +220,7 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
 
   const content = (
     <>
+      <TaskShortcutsHelp open={shortcutsHelpOpen} onOpenChange={setShortcutsHelpOpen} />
       {showTopBar ? (
         <TaskViewTopBar
           surface={surface}
@@ -217,6 +228,8 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
           onTabChange={setTab}
           view={activeView}
           onViewChange={setView}
+          openDisplayOptionsRef={openDisplayOptionsRef}
+          openFilterRef={openFilterRef}
           insightsOpen={activeInsights.open}
           onToggleInsights={() => setInsights({ ...activeInsights, open: !activeInsights.open })}
           onCreateTask={() =>
@@ -262,6 +275,10 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
           view={search.view}
           insights={activeInsights}
           onInsightsChange={setInsights}
+          onToggleLayout={toggleLayout}
+          onOpenDisplayOptions={() => openDisplayOptionsRef.current?.()}
+          onOpenFilter={() => openFilterRef.current?.()}
+          onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
         />
       ) : (
         <>
