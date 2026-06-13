@@ -18,6 +18,7 @@ export type TaskBoardTask = {
   readonly assignedUserId?: string | null;
   readonly dueDate?: string | null;
   readonly createdAt?: number | null;
+  readonly labelIds?: readonly string[];
   readonly parentTask?: {
     readonly id: string;
     readonly title: string;

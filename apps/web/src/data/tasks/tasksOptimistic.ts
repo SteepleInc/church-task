@@ -15,6 +15,7 @@ export type OptimisticTask = {
   readonly dueDate: string;
   readonly cycleId: string;
   readonly parentTaskId: string | null;
+  readonly labelIds: readonly string[];
 };
 
 /**
@@ -30,6 +31,7 @@ export type TaskUpdateFields = {
   readonly cycleId?: string;
   readonly parentTaskId?: string | null;
   readonly boardOrder?: string;
+  readonly labelIds?: readonly string[];
 };
 
 /**
@@ -67,6 +69,7 @@ export function applyTaskUpdate<Task extends OptimisticTask>(
     ...(fields.cycleId !== undefined ? { cycleId: fields.cycleId } : {}),
     ...(fields.parentTaskId !== undefined ? { parentTaskId: fields.parentTaskId } : {}),
     ...(fields.boardOrder !== undefined ? { boardOrder: fields.boardOrder } : {}),
+    ...(fields.labelIds !== undefined ? { labelIds: fields.labelIds } : {}),
     workflowStatusId: nextWorkflowStatusId,
     taskState: nextTaskState,
   };

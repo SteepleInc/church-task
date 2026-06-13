@@ -33,6 +33,7 @@ export const TaskDisplayPropertySchema = Schema.Literal(
   "parent",
   "priority",
   "estimate",
+  "labels",
 );
 export type TaskDisplayProperty = typeof TaskDisplayPropertySchema.Type;
 
@@ -68,6 +69,7 @@ export const TASK_DISPLAY_PROPERTIES: ReadonlyArray<{
   { value: "parent", label: "Parent" },
   { value: "priority", label: "Priority" },
   { value: "estimate", label: "Estimate" },
+  { value: "labels", label: "Labels" },
 ];
 
 export const DEFAULT_TASK_VIEW_OPTIONS: ResolvedTaskViewOptions = {

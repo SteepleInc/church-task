@@ -18,7 +18,7 @@ import {
   formatDueDate,
   getEstimateMeta,
   getPriorityMeta,
-  getTaskLabelMeta,
+  labelDotClassName,
   LabelsComboboxSelector,
   PriorityComboboxSelector,
   StatusComboboxSelector,
@@ -37,6 +37,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Switch } from "@/components/ui/switch";
+import { useCreateLabelMutation, useLabelsCollection } from "@/data/labels/labelsData.app";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { useCreateTaskMutation } from "@/data/tasks/tasksData.app";
 import { useTeamMembershipsCollection, useTeamsCollection } from "@/data/teams/teamsData.app";
@@ -82,6 +83,7 @@ const CreateTaskSchema = Schema.Struct({
   // UI-only fields (no backend persistence yet); validated for shape only.
   priority: Schema.Literal("no_priority", "urgent", "high", "medium", "low"),
   estimate: Schema.Literal("no_estimate", "xs", "s", "m", "l", "xl"),
+  // Label ids; persisted on the created Task.
   labels: Schema.Array(Schema.String),
 });
 
@@ -125,6 +127,8 @@ export function CreateTaskQuickAction() {
   const usersCollection = useChurchUsersCollection({ churchId });
   const teamsCollection = useTeamsCollection({ churchId });
   const teamMemberships = useTeamMembershipsCollection({ churchId });
+  const labelsCollection = useLabelsCollection({ churchId });
+  const createLabel = useCreateLabelMutation();
 
   const titleInputRef = useRef<HTMLInputElement>(null);
   const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
@@ -242,6 +246,7 @@ export function CreateTaskQuickAction() {
         workflowStatusId: submitStatus.id,
         dueDate: value.dueDate,
         parentTaskId: null,
+        labelIds: [...value.labels],
       });
 
       if (!result.ok) {
@@ -321,6 +326,25 @@ export function CreateTaskQuickAction() {
     form.reset();
   };
 
+  // Inline label creation from the picker. Always creates a Church-scoped
+  // Label (see CONTEXT.md "Label"); on success the new Label joins the
+  // selection.
+  const handleCreateLabel = async (name: string) => {
+    if (!churchId) return;
+    const result = await createLabel({ churchId, name });
+    if (!result.ok) {
+      toast.error(result.error.message);
+      return;
+    }
+    const normalized = name.trim().toLowerCase();
+    const created = result.data.labels.find(
+      (label) => label.teamId === null && label.name.trim().toLowerCase() === normalized,
+    );
+    if (created) {
+      form.setFieldValue("labels", [...form.state.values.labels, created.id]);
+    }
+  };
+
   const submit = (mode: "default" | "open") => {
     submitModeRef.current = mode;
     void form.handleSubmit();
@@ -379,6 +403,17 @@ export function CreateTaskQuickAction() {
                         // The new Team's Workflow takes over: the status pill
                         // resets to that Workflow's default.
                         form.setFieldValue("workflowStatusId", "");
+                        // Team Labels foreign to the destination Team drop out
+                        // of the selection (see CONTEXT.md "Team Label").
+                        const applicable = new Set(
+                          labelsCollection.labelsCollection
+                            .filter((label) => label.teamId === null || label.teamId === next)
+                            .map((label) => label.id),
+                        );
+                        form.setFieldValue(
+                          "labels",
+                          form.state.values.labels.filter((labelId) => applicable.has(labelId)),
+                        );
                       }}
                       options={teamPickerOptions}
                       trigger={
@@ -591,16 +626,28 @@ export function CreateTaskQuickAction() {
                   );
                 }}
               </form.Field>
-              <form.Field name="labels">
-                {(field) => {
-                  const selected = field.state.value
-                    .map((value) => getTaskLabelMeta(value))
-                    .filter((meta) => meta !== null);
+              <form.Subscribe
+                selector={(formState) =>
+                  [formState.values.teamId, formState.values.labels] as const
+                }
+              >
+                {([teamId, labels]) => {
+                  const effectiveTeamId = resolveTeamId(teamId);
+                  // Church Labels plus the effective Team's Labels are
+                  // applicable (see CONTEXT.md "Team Label").
+                  const labelOptions = labelsCollection.labelsCollection.filter(
+                    (label) => label.teamId === null || label.teamId === effectiveTeamId,
+                  );
+                  const selected = labels
+                    .map((labelId) => labelOptions.find((option) => option.id === labelId))
+                    .filter((option) => option !== undefined);
                   return (
                     <LabelsComboboxSelector
                       disabled={isLoading}
-                      onValueChange={(next) => field.handleChange(next)}
+                      onCreateLabel={(name) => void handleCreateLabel(name)}
+                      onValueChange={(next) => form.setFieldValue("labels", next)}
                       openRef={labelsOpenRef}
+                      options={labelOptions}
                       trigger={
                         <FieldPill muted={selected.length === 0}>
                           {selected.length === 0 ? (
@@ -611,28 +658,28 @@ export function CreateTaskQuickAction() {
                           ) : (
                             <>
                               <span className="flex items-center -space-x-1">
-                                {selected.map((meta) => (
+                                {selected.map((option) => (
                                   <span
                                     className={cn(
                                       "size-2.5 rounded-full ring-2 ring-background",
-                                      meta.dotClassName,
+                                      labelDotClassName(option),
                                     )}
-                                    key={meta.value}
+                                    key={option.id}
                                   />
                                 ))}
                               </span>
                               {selected.length === 1
-                                ? selected[0]?.label
+                                ? selected[0]?.name
                                 : `${selected.length} labels`}
                             </>
                           )}
                         </FieldPill>
                       }
-                      value={field.state.value}
+                      value={labels}
                     />
                   );
                 }}
-              </form.Field>
+              </form.Subscribe>
               <form.Field name="dueDate">
                 {(field) => {
                   const dueDateLabel = formatDueDate(field.state.value);
