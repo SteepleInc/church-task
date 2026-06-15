@@ -19,6 +19,11 @@ const statuses = [
   { id: "status-1", name: "To Do", taskState: "todo" as const },
   { id: "status-2", name: "Done", taskState: "done" as const },
 ];
+const repeatedStatuses = [
+  { id: "status-1", name: "To Do", taskState: "todo" as const },
+  { id: "status-2", name: "To Do", taskState: "todo" as const },
+  { id: "status-3", name: "In Progress", taskState: "in_progress" as const },
+];
 
 function fieldIds(fields: ReturnType<typeof buildTaskFilterFields>) {
   return fields.map((field) => field.id);
@@ -84,6 +89,27 @@ describe("task filter field catalog (per-surface)", () => {
     const assignee = fields.find((field) => field.id === "assignee");
     expect(assignee?.options?.[0]?.value).toBe(UNASSIGNED_FILTER_VALUE);
   });
+
+  test("status options group repeated workflow statuses", () => {
+    const fields = buildTaskFilterFields({
+      surface: "our_work",
+      users,
+      teams,
+      workflowStatuses: repeatedStatuses,
+    });
+    const status = fields.find((field) => field.id === "workflowStatus");
+    expect(status?.options?.map((option) => option.label)).toEqual(["To Do", "In Progress"]);
+  });
+
+  test("task state field is presented as Status type", () => {
+    const fields = buildTaskFilterFields({
+      surface: "our_work",
+      users,
+      teams,
+      workflowStatuses: statuses,
+    });
+    expect(fields.find((field) => field.id === "taskState")?.displayName).toBe("Status type");
+  });
 });
 
 describe("taskFiltersToCollectionFilters", () => {
@@ -131,5 +157,28 @@ describe("taskFiltersToCollectionFilters", () => {
     expect(taskFiltersToCollectionFilters(filters)).toEqual({
       taskStateIn: ["todo", "done"],
     });
+  });
+
+  test("grouped workflow status values expand to all status ids", () => {
+    const fields = buildTaskFilterFields({
+      surface: "our_work",
+      users,
+      teams,
+      workflowStatuses: repeatedStatuses,
+    });
+    const status = fields.find((field) => field.id === "workflowStatus");
+    const groupedToDoValue = status?.options?.find((option) => option.label === "To Do")?.value;
+
+    expect(groupedToDoValue).toBeDefined();
+    expect(
+      taskFiltersToCollectionFilters([
+        {
+          columnId: "workflowStatus",
+          operator: "is any of",
+          type: "option",
+          values: [groupedToDoValue ?? ""],
+        },
+      ]),
+    ).toEqual({ workflowStatusIdIn: ["status-1", "status-2"] });
   });
 });

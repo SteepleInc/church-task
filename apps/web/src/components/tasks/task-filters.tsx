@@ -52,6 +52,7 @@ type WorkflowStatusOption = {
 };
 
 const TASK_STATE_VALUES: readonly TaskState[] = ["todo", "in_progress", "done", "canceled"];
+const WORKFLOW_STATUS_GROUP_PREFIX = "workflow-status-group:";
 
 function userOptions(users: readonly UserOption[]): readonly ColumnOption[] {
   return users.map((user) => ({
@@ -81,8 +82,24 @@ function teamOptions(teams: readonly TeamOption[]): readonly ColumnOption[] {
 }
 
 function workflowStatusOptions(statuses: readonly WorkflowStatusOption[]): readonly ColumnOption[] {
-  return statuses.map((status) => ({
-    value: status.id,
+  const groups = new Map<string, { ids: string[]; name: string; taskState: TaskState }>();
+
+  for (const status of statuses) {
+    const key = `${status.taskState}:${status.name}`;
+    const group = groups.get(key);
+
+    if (group) {
+      group.ids.push(status.id);
+    } else {
+      groups.set(key, { ids: [status.id], name: status.name, taskState: status.taskState });
+    }
+  }
+
+  return [...groups.values()].map((status) => ({
+    value:
+      status.ids.length === 1
+        ? status.ids[0]
+        : `${WORKFLOW_STATUS_GROUP_PREFIX}${status.ids.join(",")}`,
     label: status.name,
     icon: <WorkflowStatusIcon taskState={status.taskState} />,
   }));
@@ -165,7 +182,7 @@ export function buildTaskFilterFields(args: {
       .option()
       .id("taskState")
       .accessor((task) => task.taskState)
-      .displayName("Task State")
+      .displayName("Status type")
       .options(taskStateOptions())
       .build(),
   );
@@ -250,6 +267,14 @@ function toUserIdValue(value: string): string | null {
   return value === UNASSIGNED_FILTER_VALUE ? null : value;
 }
 
+function workflowStatusValues(values: readonly string[]): string[] {
+  return values.flatMap((value) =>
+    value.startsWith(WORKFLOW_STATUS_GROUP_PREFIX)
+      ? value.slice(WORKFLOW_STATUS_GROUP_PREFIX.length).split(",").filter(Boolean)
+      : [value],
+  );
+}
+
 /**
  * Convert the active `FilterItem[]` into `mcpListTasks` include/exclude args.
  * Only option filters with >=1 value contribute (a value-less filter never
@@ -295,8 +320,8 @@ export function taskFiltersToCollectionFilters(
         break;
       }
       case "workflowStatus":
-        if (exclude) result.workflowStatusIdNotIn = [...filter.values];
-        else result.workflowStatusIdIn = [...filter.values];
+        if (exclude) result.workflowStatusIdNotIn = workflowStatusValues(filter.values);
+        else result.workflowStatusIdIn = workflowStatusValues(filter.values);
         break;
       case "taskState": {
         const values = filter.values.filter((value): value is TaskState =>
