@@ -3,6 +3,9 @@ import { useCyclesCollection } from "@/data/cycles/cyclesData.app";
 import { useLabelsCollection } from "@/data/labels/labelsData.app";
 import { useTeamMembershipsCollection } from "@/data/teams/teamsData.app";
 import {
+  useCancelTaskMutation,
+  useCompleteTaskMutation,
+  useReopenTaskMutation,
   useTasksCollection,
   useUpdateTaskMutation,
   useUpdateTasksBatchMutation,
@@ -21,6 +24,7 @@ import {
 } from "@/shared/global-state";
 import { useNavigate } from "@tanstack/react-router";
 import { useAtom } from "jotai";
+import type { ReactNode } from "react";
 
 import { taskFiltersToCollectionFilters } from "@/components/tasks/task-filters";
 import { FilterKeys } from "@/shared/global-state";
@@ -37,10 +41,16 @@ import {
   INSIGHTS_DIMENSION_OPTIONS,
   type ResolvedInsightsState,
 } from "@/components/tasks/task-insights-options";
+import {
+  TaskContextMenuProvider,
+  type TaskContextMenuConfig,
+  type TaskStateTransition,
+} from "./task-context-menu";
 import { TaskKanbanBoard } from "./task-kanban-board";
 import { TaskListSurface } from "./task-list-surface";
 import {
   TaskSurfaceKeyboardProvider,
+  useTaskSurfaceKeyboard,
   type TaskSurfaceKeyboardActions,
 } from "./task-surface-keyboard";
 import {
@@ -179,6 +189,15 @@ export function TaskExecutionSurface({
 
   const updateTask = useUpdateTaskMutation();
   const updateTasksBatch = useUpdateTasksBatchMutation();
+  const completeTask = useCompleteTaskMutation();
+  const cancelTask = useCancelTaskMutation();
+  const reopenTask = useReopenTaskMutation();
+
+  const transitionTask = (taskId: string, transition: TaskStateTransition) => {
+    const mutate =
+      transition === "complete" ? completeTask : transition === "cancel" ? cancelTask : reopenTask;
+    void mutate({ churchId, actorUserId: currentUserId, taskId });
+  };
 
   const tasks = tasksCollection.tasksCollection;
   const isLoading =
@@ -292,196 +311,261 @@ export function TaskExecutionSurface({
 
   const insightsOpen = Boolean(insightsState?.open && onInsightsChange);
 
+  // Shared right-click menu data + callbacks, published once around both
+  // surfaces. Field/state changes apply to the right-clicked Task (or the whole
+  // selection when it is part of one); see TaskContextMenu. `selectedTaskIds`
+  // is layered in by TaskContextMenuBridge, which reads the keyboard layer.
+  const contextMenuConfig: Omit<TaskContextMenuConfig, "selectedTaskIds"> = {
+    workflowStatuses: workflowStatuses.map(toBoardWorkflowStatus),
+    assigneeOptions,
+    labelOptions: labelsCollection.labelsCollection,
+    currentUserId,
+    teamMemberIdsByTeamId,
+    onAssignTask: sharedSurfaceProps.onAssignTask,
+    onChangeTaskStatus: sharedSurfaceProps.onChangeTaskStatus,
+    onChangeTaskLabels: sharedSurfaceProps.onChangeTaskLabels,
+    onChangeTaskEstimate: sharedSurfaceProps.onChangeTaskEstimate,
+    onChangeTaskDueDate: (change) => {
+      void updateTask({
+        churchId,
+        actorUserId: currentUserId,
+        taskId: change.taskId,
+        fields: { dueDate: change.dueDate },
+      });
+    },
+    onTransitionTask: (change) => transitionTask(change.taskId, change.transition),
+    onOpenTask: sharedSurfaceProps.onOpenTask,
+    buildTaskUrl: (taskIdentifier) => {
+      const url = openTaskDetailsPaneUrl({ id: taskIdentifier });
+      const search = url.search(
+        Object.fromEntries(new URLSearchParams(window.location.search)),
+      ) as Record<string, unknown>;
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(search)) {
+        if (value === undefined || value === null) continue;
+        params.set(key, typeof value === "string" ? value : JSON.stringify(value));
+      }
+      const query = params.toString();
+      return `${window.location.origin}${window.location.pathname}${query ? `?${query}` : ""}`;
+    },
+  };
+
   return (
     <TaskSurfaceKeyboardProvider actions={keyboardActions}>
-      {/* Insights is a right-hand side pane (Linear): the Board/List keeps the
-          remaining width, the pane scrolls independently. */}
-      <section className="flex min-h-0 flex-1 gap-4">
-        <div className="flex min-h-0 flex-1 flex-col gap-4">
-          {isLoading && !showBoard ? <TaskBoardSkeleton /> : null}
+      <TaskContextMenuBridge config={contextMenuConfig}>
+        {/* Insights is a right-hand side pane (Linear): the Board/List keeps the
+            remaining width, the pane scrolls independently. */}
+        <section className="flex min-h-0 flex-1 gap-4">
+          <div className="flex min-h-0 flex-1 flex-col gap-4">
+            {isLoading && !showBoard ? <TaskBoardSkeleton /> : null}
 
-          {showBoard && resolvedView.mode === "list" ? (
-            <TaskListSurface
-              className="min-h-0 flex-1"
-              {...sharedSurfaceProps}
-              onAddTask={onAddTaskForColumn}
-            />
-          ) : showBoard ? (
-            <TaskKanbanBoard
-              className="min-h-0 flex-1"
-              workflowStatuses={workflowStatuses.map(toBoardWorkflowStatus)}
-              tasks={boardTasks}
-              assigneeOptions={assigneeOptions}
-              teamOptions={teams}
-              labelOptions={labelsCollection.labelsCollection}
-              currentUserId={currentUserId}
-              teamMemberIdsByTeamId={teamMemberIdsByTeamId}
-              grouping={boardGrouping}
-              showEmptyColumns={resolvedView.showEmptyColumns}
-              displayProperties={resolvedView.displayProperties}
-              onMoveTask={(move) => {
-                // The drag's destination column id means a different field per
-                // grouping; team lanes are not draggable.
-                const fields =
-                  boardGrouping === "workflow_status"
-                    ? { workflowStatusId: move.columnId }
-                    : boardGrouping === "assignee"
-                      ? {
-                          assignedUserId:
-                            move.columnId === UNASSIGNED_COLUMN_ID ? null : move.columnId,
-                        }
-                      : boardGrouping === "task_state"
-                        ? (() => {
-                            const workflowStatusId = findTaskStateStatusId(
-                              move.taskId,
-                              move.columnId,
-                            );
-                            return workflowStatusId ? { workflowStatusId } : null;
-                          })()
-                        : resolvedView.grouping === "estimate"
-                          ? {
-                              estimate:
-                                move.columnId === NO_ESTIMATE_COLUMN_ID
-                                  ? null
-                                  : (move.columnId as TaskBoardEstimate),
-                            }
-                          : null;
-                if (!fields) return;
-                void updateTask({
-                  churchId,
-                  actorUserId: currentUserId,
-                  taskId: move.taskId,
-                  fields,
-                });
-              }}
-              hiddenColumnIds={hiddenColumnIds}
-              onMoveTasks={(moves) => {
-                if (moves.length === 1) {
-                  const move = moves[0];
+            {showBoard && resolvedView.mode === "list" ? (
+              <TaskListSurface
+                className="min-h-0 flex-1"
+                {...sharedSurfaceProps}
+                onAddTask={onAddTaskForColumn}
+              />
+            ) : showBoard ? (
+              <TaskKanbanBoard
+                className="min-h-0 flex-1"
+                workflowStatuses={workflowStatuses.map(toBoardWorkflowStatus)}
+                tasks={boardTasks}
+                assigneeOptions={assigneeOptions}
+                teamOptions={teams}
+                labelOptions={labelsCollection.labelsCollection}
+                currentUserId={currentUserId}
+                teamMemberIdsByTeamId={teamMemberIdsByTeamId}
+                grouping={boardGrouping}
+                showEmptyColumns={resolvedView.showEmptyColumns}
+                displayProperties={resolvedView.displayProperties}
+                onMoveTask={(move) => {
+                  // The drag's destination column id means a different field per
+                  // grouping; team lanes are not draggable.
+                  const fields =
+                    boardGrouping === "workflow_status"
+                      ? { workflowStatusId: move.columnId }
+                      : boardGrouping === "assignee"
+                        ? {
+                            assignedUserId:
+                              move.columnId === UNASSIGNED_COLUMN_ID ? null : move.columnId,
+                          }
+                        : boardGrouping === "task_state"
+                          ? (() => {
+                              const workflowStatusId = findTaskStateStatusId(
+                                move.taskId,
+                                move.columnId,
+                              );
+                              return workflowStatusId ? { workflowStatusId } : null;
+                            })()
+                          : resolvedView.grouping === "estimate"
+                            ? {
+                                estimate:
+                                  move.columnId === NO_ESTIMATE_COLUMN_ID
+                                    ? null
+                                    : (move.columnId as TaskBoardEstimate),
+                              }
+                            : null;
+                  if (!fields) return;
                   void updateTask({
                     churchId,
                     actorUserId: currentUserId,
                     taskId: move.taskId,
-                    fields: {
-                      workflowStatusId: move.workflowStatusId,
-                      boardOrder: move.boardOrder,
-                    },
+                    fields,
                   });
-                  return;
-                }
-                void updateTasksBatch({
-                  churchId,
-                  actorUserId: currentUserId,
-                  updates: moves.map((move) => ({
-                    taskId: move.taskId,
-                    fields: {
-                      workflowStatusId: move.workflowStatusId,
-                      boardOrder: move.boardOrder,
-                    },
-                  })),
-                });
-              }}
-              onAddTask={(workflowStatusId) => {
-                const defaults = getTaskCreationDefaults({
-                  surface,
-                  currentUserId,
-                  teamId: team?.id ?? null,
-                });
-                openCreateTask({
-                  assignTo: defaults.assignedUserId,
-                  teamId: defaults.teamId,
-                  workflowStatusId,
-                });
-              }}
-              onToggleColumnHidden={(workflowStatusId) => {
-                setHiddenBoardColumns((current) =>
-                  toggleHiddenBoardColumn(current, boardKey, workflowStatusId),
-                );
-              }}
-              onAssignTask={(change) => {
-                void updateTask({
-                  churchId,
-                  actorUserId: currentUserId,
-                  taskId: change.taskId,
-                  fields: { assignedUserId: change.assignedUserId },
-                });
-              }}
-              onChangeTaskStatus={(change) => {
-                void updateTask({
-                  churchId,
-                  actorUserId: currentUserId,
-                  taskId: change.taskId,
-                  fields: { workflowStatusId: change.workflowStatusId },
-                });
-              }}
-              onChangeTaskLabels={(change) => {
-                void updateTask({
-                  churchId,
-                  actorUserId: currentUserId,
-                  taskId: change.taskId,
-                  fields: { labelIds: [...change.labelIds] },
-                });
-              }}
-              onChangeTaskEstimate={(change) => {
-                void updateTask({
-                  churchId,
-                  actorUserId: currentUserId,
-                  taskId: change.taskId,
-                  fields: { estimate: change.estimate },
-                });
-              }}
-              onOpenTask={(taskIdentifier) => {
-                const url = openTaskDetailsPaneUrl({ id: taskIdentifier });
-                void navigate({ to: url.to, search: url.search });
-              }}
-            />
-          ) : !isLoading ? (
-            <p className="text-sm text-muted-foreground">
-              Configure this Team's Workflow before using the Task board.
-            </p>
-          ) : null}
-        </div>
+                }}
+                hiddenColumnIds={hiddenColumnIds}
+                onMoveTasks={(moves) => {
+                  if (moves.length === 1) {
+                    const move = moves[0];
+                    void updateTask({
+                      churchId,
+                      actorUserId: currentUserId,
+                      taskId: move.taskId,
+                      fields: {
+                        workflowStatusId: move.workflowStatusId,
+                        boardOrder: move.boardOrder,
+                      },
+                    });
+                    return;
+                  }
+                  void updateTasksBatch({
+                    churchId,
+                    actorUserId: currentUserId,
+                    updates: moves.map((move) => ({
+                      taskId: move.taskId,
+                      fields: {
+                        workflowStatusId: move.workflowStatusId,
+                        boardOrder: move.boardOrder,
+                      },
+                    })),
+                  });
+                }}
+                onAddTask={(workflowStatusId) => {
+                  const defaults = getTaskCreationDefaults({
+                    surface,
+                    currentUserId,
+                    teamId: team?.id ?? null,
+                  });
+                  openCreateTask({
+                    assignTo: defaults.assignedUserId,
+                    teamId: defaults.teamId,
+                    workflowStatusId,
+                  });
+                }}
+                onToggleColumnHidden={(workflowStatusId) => {
+                  setHiddenBoardColumns((current) =>
+                    toggleHiddenBoardColumn(current, boardKey, workflowStatusId),
+                  );
+                }}
+                onAssignTask={(change) => {
+                  void updateTask({
+                    churchId,
+                    actorUserId: currentUserId,
+                    taskId: change.taskId,
+                    fields: { assignedUserId: change.assignedUserId },
+                  });
+                }}
+                onChangeTaskStatus={(change) => {
+                  void updateTask({
+                    churchId,
+                    actorUserId: currentUserId,
+                    taskId: change.taskId,
+                    fields: { workflowStatusId: change.workflowStatusId },
+                  });
+                }}
+                onChangeTaskLabels={(change) => {
+                  void updateTask({
+                    churchId,
+                    actorUserId: currentUserId,
+                    taskId: change.taskId,
+                    fields: { labelIds: [...change.labelIds] },
+                  });
+                }}
+                onChangeTaskEstimate={(change) => {
+                  void updateTask({
+                    churchId,
+                    actorUserId: currentUserId,
+                    taskId: change.taskId,
+                    fields: { estimate: change.estimate },
+                  });
+                }}
+                onOpenTask={(taskIdentifier) => {
+                  const url = openTaskDetailsPaneUrl({ id: taskIdentifier });
+                  void navigate({ to: url.to, search: url.search });
+                }}
+              />
+            ) : !isLoading ? (
+              <p className="text-sm text-muted-foreground">
+                Configure this Team's Workflow before using the Task board.
+              </p>
+            ) : null}
+          </div>
 
-        {insightsOpen && insightsState && onInsightsChange ? (
-          <TaskInsightsPanel
-            className="min-h-0 w-full max-w-md shrink-0 self-stretch overflow-y-auto md:w-96 lg:w-[28rem]"
-            meta={insightsMeta}
-            onClose={() => onInsightsChange({ ...insightsState, open: false })}
-            onCopyLink={() => {
-              void navigator.clipboard?.writeText(window.location.href);
-            }}
-            onExportCsv={() => {
-              const sliceLabel =
-                INSIGHTS_DIMENSION_OPTIONS.find((option) => option.value === insightsState.slice)
-                  ?.label ?? "Slice";
-              const scoped = insightsState.showCanceled
-                ? boardTasks
-                : boardTasks.filter((task) => task.taskState !== "canceled");
-              const csv = insightsToCsv(
-                buildInsightsData({
-                  slice: insightsState.slice,
-                  segment: insightsState.segment,
-                  tasks: scoped,
-                  meta: insightsMeta,
-                }),
-                sliceLabel,
-              );
-              downloadCsv(csv, "insights.csv");
-            }}
-            onRefresh={() => {
-              // Data is live (Convex subscriptions); Refresh is a no-op re-render
-              // hook kept for parity with Linear's menu.
-              onInsightsChange({ ...insightsState });
-            }}
-            onStateChange={onInsightsChange}
-            state={insightsState}
-            tasks={boardTasks}
-          />
-        ) : null}
-      </section>
+          {insightsOpen && insightsState && onInsightsChange ? (
+            <TaskInsightsPanel
+              className="min-h-0 w-full max-w-md shrink-0 self-stretch overflow-y-auto md:w-96 lg:w-[28rem]"
+              meta={insightsMeta}
+              onClose={() => onInsightsChange({ ...insightsState, open: false })}
+              onCopyLink={() => {
+                void navigator.clipboard?.writeText(window.location.href);
+              }}
+              onExportCsv={() => {
+                const sliceLabel =
+                  INSIGHTS_DIMENSION_OPTIONS.find((option) => option.value === insightsState.slice)
+                    ?.label ?? "Slice";
+                const scoped = insightsState.showCanceled
+                  ? boardTasks
+                  : boardTasks.filter((task) => task.taskState !== "canceled");
+                const csv = insightsToCsv(
+                  buildInsightsData({
+                    slice: insightsState.slice,
+                    segment: insightsState.segment,
+                    tasks: scoped,
+                    meta: insightsMeta,
+                  }),
+                  sliceLabel,
+                );
+                downloadCsv(csv, "insights.csv");
+              }}
+              onRefresh={() => {
+                // Data is live (Convex subscriptions); Refresh is a no-op re-render
+                // hook kept for parity with Linear's menu.
+                onInsightsChange({ ...insightsState });
+              }}
+              onStateChange={onInsightsChange}
+              state={insightsState}
+              tasks={boardTasks}
+            />
+          ) : null}
+        </section>
+      </TaskContextMenuBridge>
     </TaskSurfaceKeyboardProvider>
   );
 }
+
+/**
+ * Reads the shared keyboard selection and publishes it with the rest of the
+ * context-menu config, so a right-click action can fan out to the whole
+ * selection. Kept separate from the orchestrator because the selection lives in
+ * the keyboard context, which the orchestrator mounts but is not itself inside.
+ */
+function TaskContextMenuBridge({
+  config,
+  children,
+}: {
+  readonly config: Omit<TaskContextMenuConfig, "selectedTaskIds">;
+  readonly children: ReactNode;
+}) {
+  const keyboard = useTaskSurfaceKeyboard();
+  const selectedTaskIds = keyboard?.selectedTaskIds ?? EMPTY_CONTEXT_MENU_SELECTION;
+  return (
+    <TaskContextMenuProvider config={{ ...config, selectedTaskIds }}>
+      {children}
+    </TaskContextMenuProvider>
+  );
+}
+
+const EMPTY_CONTEXT_MENU_SELECTION: ReadonlySet<string> = new Set();
 
 /**
  * Board-shaped Skeleton shown while Workflow Statuses and Tasks have not yet
@@ -527,6 +611,7 @@ function toBoardTask(task: TaskSummary, tasks: readonly TaskSummary[]) {
     id: task.id,
     identifier: task.identifier,
     title: task.title,
+    description: task.description ?? null,
     teamId: task.teamId,
     workflowId: task.workflowId,
     cycleId: task.cycleId,

@@ -19,6 +19,8 @@ export type TaskBoardTask = {
   // per-Team sequence number, computed by the backend at read time (ADR 0013).
   readonly identifier: string;
   readonly title: string;
+  // Free-form Task description (Markdown body). Optional/null when unset.
+  readonly description?: string | null;
   // The Task's Team's Workflow (ADR 0013: every Team owns its Workflow);
   // scopes the card's status picker on cross-team boards.
   readonly workflowId: string;

@@ -46,6 +46,7 @@ import type {
 } from "./task-kanban-board";
 import { DEFAULT_TASK_VIEW_OPTIONS, type TaskDisplayProperty } from "./task-view-options";
 import { statusOptions } from "./task-kanban-board-utils";
+import { useTaskContextMenu } from "./task-context-menu";
 import {
   useRegisterSurfaceOrder,
   useRegisterTaskShortcuts,
@@ -399,6 +400,7 @@ function TaskListRow({
   );
 
   const keyboard = useTaskSurfaceKeyboard();
+  const wrapWithContextMenu = useTaskContextMenu();
   const { isFocused, isSelected } = useRegisterTaskShortcuts(task.id, {
     open: onOpenTask ? () => onOpenTask(task.identifier) : undefined,
     pickers,
@@ -446,7 +448,7 @@ function TaskListRow({
     onOpenTask?.(task.identifier);
   };
 
-  return (
+  const row = (
     <div
       ref={rowRef}
       data-selected={isSelected || undefined}
@@ -610,4 +612,6 @@ function TaskListRow({
       </div>
     </div>
   );
+
+  return wrapWithContextMenu({ task, rowState, children: row });
 }
