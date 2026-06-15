@@ -16,6 +16,7 @@ export type TaskSummary = {
   // from the Team Identifier and the Task's per-Team number (ADR 0013).
   readonly identifier: string;
   readonly title: string;
+  readonly description?: string | null;
   readonly teamId: string;
   readonly assignedUserId: string | null;
   readonly cycleId: string;

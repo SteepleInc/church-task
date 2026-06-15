@@ -69,6 +69,7 @@ import {
 } from "./task-kanban-adapter";
 import { DEFAULT_TASK_VIEW_OPTIONS, type TaskDisplayProperty } from "./task-view-options";
 import { statusOptions } from "./task-kanban-board-utils";
+import { useTaskContextMenu } from "./task-context-menu";
 import {
   useRegisterSurfaceOrder,
   useRegisterTaskShortcuts,
@@ -748,6 +749,7 @@ function TaskKanbanCard({
   );
 
   const keyboard = useTaskSurfaceKeyboard();
+  const wrapWithContextMenu = useTaskContextMenu();
   const { isFocused, isSelected: selectedFromKeyboard } = useRegisterTaskShortcuts(task.id, {
     open: onOpenTask ? () => onOpenTask(task.identifier) : undefined,
     pickers,
@@ -969,6 +971,11 @@ function TaskKanbanCard({
     </Card>
   );
 
+  // The overlay is a drag preview, not an interactive card — no context menu.
+  const wrappedContent = isOverlay
+    ? cardContent
+    : wrapWithContextMenu({ task, rowState: cardState, children: cardContent });
+
   return (
     <KanbanItem
       value={task.id}
@@ -977,7 +984,11 @@ function TaskKanbanCard({
       data-selected={isSelected || undefined}
       {...props}
     >
-      {asHandle && !isOverlay ? <KanbanItemHandle>{cardContent}</KanbanItemHandle> : cardContent}
+      {asHandle && !isOverlay ? (
+        <KanbanItemHandle>{wrappedContent}</KanbanItemHandle>
+      ) : (
+        wrappedContent
+      )}
     </KanbanItem>
   );
 }
