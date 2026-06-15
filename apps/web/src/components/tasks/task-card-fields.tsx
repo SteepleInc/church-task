@@ -1,7 +1,6 @@
 import { getLabelColorForName, isLabelColor, type LabelColor } from "@church-task/domain/Label";
 import {
   Ban,
-  Check,
   CircleAlert,
   CircleCheck,
   CircleDashed,
@@ -17,12 +16,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
-  useEffect,
   useId,
   useMemo,
   useRef,
   useState,
-  type ComponentProps,
   type ComponentType,
   type KeyboardEvent as ReactKeyboardEvent,
   type MutableRefObject,
@@ -38,7 +35,11 @@ import {
   ComboboxGroup,
   ComboboxGroupLabel,
   ComboboxList,
+  ComboboxOption,
   ComboboxPrimitive,
+  PickerHeader,
+  PickerPopup,
+  usePickerOpener,
 } from "@/components/ui/combobox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -322,104 +323,6 @@ function allRows(partition: AssigneePartition): readonly AssigneeRow[] {
   ];
 }
 
-function ShortcutHint({ shortcut }: { readonly shortcut: string | null }) {
-  if (!shortcut) return null;
-  return (
-    <kbd className="flex h-5 min-w-5 items-center justify-center rounded border bg-muted px-1 font-medium text-[0.625rem] text-muted-foreground">
-      {shortcut}
-    </kbd>
-  );
-}
-
-/**
- * A single picker row used by the assignee and priority pickers. Unlike the
- * shared `ComboboxItem`, it has no leading check indicator column — Linear
- * shows a single trailing check on the selected row, and the digit shortcut on
- * the others.
- */
-function ShortcutComboboxItem({
-  value,
-  selected,
-  shortcut,
-  children,
-}: {
-  readonly value: string;
-  readonly selected: boolean;
-  readonly shortcut: string | null;
-  readonly children: ReactNode;
-}) {
-  return (
-    <ComboboxPrimitive.Item
-      className="flex min-h-8 cursor-default items-center gap-2 rounded-sm py-1 ps-2 pe-2 text-base outline-none data-disabled:pointer-events-none data-disabled:opacity-64 data-highlighted:bg-accent data-highlighted:text-accent-foreground sm:min-h-7 sm:text-sm [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0"
-      data-slot="combobox-item"
-      value={value}
-    >
-      {children}
-      <span className="ms-auto flex shrink-0 items-center gap-2">
-        <Check className={cn("size-4 text-foreground", selected ? undefined : "invisible")} />
-        <ShortcutHint shortcut={shortcut} />
-      </span>
-    </ComboboxPrimitive.Item>
-  );
-}
-
-/**
- * The search header shared by every card picker: a filter input plus the
- * field's open-shortcut kbd. The kbd sits in the same trailing column as each
- * row's digit (an invisible check spacer mirrors the rows' check column, and
- * the padding matches), so the header hint lines up vertically with the row
- * shortcuts. A bottom border separates the header from the list (Linear-style).
- */
-function PickerHeader({
-  placeholder,
-  shortcut,
-  inputProps,
-}: {
-  readonly placeholder: string;
-  readonly shortcut: string;
-  readonly inputProps?: ComponentProps<typeof ComboboxPrimitive.Input>;
-}) {
-  return (
-    // Full-bleed bottom border (Linear-style): the inset lives in padding, not
-    // margin, so the divider spans the whole popup width.
-    <div className="mt-1 mb-1 flex items-center gap-2 border-b ps-1 pe-3 pb-1">
-      <ComboboxPrimitive.Input
-        className="h-8 min-w-0 flex-1 rounded-md border-0 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground"
-        placeholder={placeholder}
-        {...inputProps}
-      />
-      <span className="flex shrink-0 items-center gap-2">
-        {/* Invisible check spacer keeps the kbd aligned with the rows' digit
-            column, which sits to the right of each row's check. */}
-        <Check aria-hidden className="invisible size-4" />
-        <ShortcutHint shortcut={shortcut} />
-      </span>
-    </div>
-  );
-}
-
-/**
- * Controlled open state for a card picker plus an imperative opener exposed
- * through `openRef`, so a card-level hover shortcut (e.g. "A"/"P") can open the
- * picker without focusing its trigger.
- */
-function usePickerOpener(
-  openRef: MutableRefObject<(() => void) | null> | undefined,
-  disabled: boolean,
-): readonly [boolean, (next: boolean) => void] {
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (!openRef) return;
-    openRef.current = disabled ? null : () => setOpen(true);
-    return () => {
-      openRef.current = null;
-    };
-  }, [openRef, disabled]);
-
-  return [open, setOpen];
-}
-
 function AssigneeRowItem({
   row,
   selectedUserId,
@@ -431,7 +334,7 @@ function AssigneeRowItem({
   return (
     // Empty string stands in for the "No assignee" value (null) so the
     // primitive can key the row.
-    <ShortcutComboboxItem selected={isSelected} shortcut={row.shortcut} value={row.userId ?? ""}>
+    <ComboboxOption selected={isSelected} shortcut={row.shortcut} value={row.userId ?? ""}>
       {row.userId === null ? (
         <span className="flex size-5 items-center justify-center text-muted-foreground">
           <UserRound className="size-4" strokeWidth={1.5} />
@@ -440,7 +343,7 @@ function AssigneeRowItem({
         <AssigneeAvatar assignee={{ id: row.userId, label: row.label }} size={20} />
       )}
       <span className="truncate">{row.label}</span>
-    </ShortcutComboboxItem>
+    </ComboboxOption>
   );
 }
 
@@ -537,63 +440,45 @@ export function AssigneeComboboxSelector({
       >
         {trigger}
       </ComboboxPrimitive.Trigger>
-      <ComboboxPrimitive.Portal>
-        <ComboboxPrimitive.Positioner
-          align={align}
-          className="z-50 select-none"
-          data-slot="combobox-positioner"
-          side="bottom"
-          sideOffset={4}
-        >
-          <span className="relative flex max-h-full min-w-64 max-w-(--available-width) origin-(--transform-origin) rounded-lg border bg-popover not-dark:bg-clip-padding shadow-lg/5 transition-[scale,opacity] before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] dark:before:shadow-[0_-1px_--theme(--color-white/6%)]">
-            <ComboboxPrimitive.Popup
-              className="flex max-h-[min(var(--available-height),24rem)] flex-1 flex-col text-foreground"
-              data-slot="combobox-popup"
-              onClick={(event) => event.stopPropagation()}
-              onKeyDown={handleShortcutKey}
-            >
-              <PickerHeader
-                inputProps={{ "aria-controls": listId }}
-                placeholder="Assign to..."
-                shortcut="A"
-              />
-              <ComboboxEmpty>No members.</ComboboxEmpty>
-              <ComboboxList id={listId}>
-                <ComboboxGroup>
-                  <AssigneeRowItem row={partition.noAssignee} selectedUserId={value} />
-                  {partition.pinned ? (
-                    <AssigneeRowItem row={partition.pinned} selectedUserId={value} />
-                  ) : null}
-                </ComboboxGroup>
-                {partition.teamMembers.length > 0 ? (
-                  <ComboboxGroup>
-                    <ComboboxGroupLabel>Team members</ComboboxGroupLabel>
-                    {partition.teamMembers.map((row) => (
-                      <AssigneeRowItem
-                        key={row.userId ?? "none"}
-                        row={row}
-                        selectedUserId={value}
-                      />
-                    ))}
-                  </ComboboxGroup>
-                ) : null}
-                {partition.otherMembers.length > 0 ? (
-                  <ComboboxGroup>
-                    <ComboboxGroupLabel>Members</ComboboxGroupLabel>
-                    {partition.otherMembers.map((row) => (
-                      <AssigneeRowItem
-                        key={row.userId ?? "none"}
-                        row={row}
-                        selectedUserId={value}
-                      />
-                    ))}
-                  </ComboboxGroup>
-                ) : null}
-              </ComboboxList>
-            </ComboboxPrimitive.Popup>
-          </span>
-        </ComboboxPrimitive.Positioner>
-      </ComboboxPrimitive.Portal>
+      <PickerPopup
+        align={align}
+        popupProps={{
+          onClick: (event) => event.stopPropagation(),
+          onKeyDown: handleShortcutKey,
+        }}
+        width="lg"
+      >
+        <PickerHeader
+          inputProps={{ "aria-controls": listId }}
+          placeholder="Assign to..."
+          shortcut="A"
+        />
+        <ComboboxEmpty>No members.</ComboboxEmpty>
+        <ComboboxList id={listId}>
+          <ComboboxGroup>
+            <AssigneeRowItem row={partition.noAssignee} selectedUserId={value} />
+            {partition.pinned ? (
+              <AssigneeRowItem row={partition.pinned} selectedUserId={value} />
+            ) : null}
+          </ComboboxGroup>
+          {partition.teamMembers.length > 0 ? (
+            <ComboboxGroup>
+              <ComboboxGroupLabel>Team members</ComboboxGroupLabel>
+              {partition.teamMembers.map((row) => (
+                <AssigneeRowItem key={row.userId ?? "none"} row={row} selectedUserId={value} />
+              ))}
+            </ComboboxGroup>
+          ) : null}
+          {partition.otherMembers.length > 0 ? (
+            <ComboboxGroup>
+              <ComboboxGroupLabel>Members</ComboboxGroupLabel>
+              {partition.otherMembers.map((row) => (
+                <AssigneeRowItem key={row.userId ?? "none"} row={row} selectedUserId={value} />
+              ))}
+            </ComboboxGroup>
+          ) : null}
+        </ComboboxList>
+      </PickerPopup>
     </Combobox>
   );
 }
@@ -684,46 +569,34 @@ export function PriorityComboboxSelector({
       >
         {trigger}
       </ComboboxPrimitive.Trigger>
-      <ComboboxPrimitive.Portal>
-        <ComboboxPrimitive.Positioner
-          align="start"
-          className="z-50 select-none"
-          data-slot="combobox-positioner"
-          side="bottom"
-          sideOffset={4}
-        >
-          <span className="relative flex max-h-full min-w-56 max-w-(--available-width) origin-(--transform-origin) rounded-lg border bg-popover not-dark:bg-clip-padding shadow-lg/5 transition-[scale,opacity] before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] dark:before:shadow-[0_-1px_--theme(--color-white/6%)]">
-            <ComboboxPrimitive.Popup
-              className="flex max-h-[min(var(--available-height),24rem)] flex-1 flex-col text-foreground"
-              data-slot="combobox-popup"
-              onClick={(event) => event.stopPropagation()}
-              onKeyDown={handleShortcutKey}
-            >
-              <PickerHeader placeholder="Change priority to..." shortcut="P" />
-              <ComboboxEmpty>No results.</ComboboxEmpty>
-              <ComboboxList>
-                {rows.map((row) => {
-                  const meta = getPriorityMeta(row.value);
-                  const Icon = meta.icon;
-                  return (
-                    <ShortcutComboboxItem
-                      key={row.value}
-                      selected={row.value === value}
-                      shortcut={row.shortcut}
-                      value={row.value}
-                    >
-                      <span className="flex size-4 shrink-0 items-center justify-center">
-                        <Icon className={cn("size-4", meta.className)} />
-                      </span>
-                      <span className="truncate">{meta.label}</span>
-                    </ShortcutComboboxItem>
-                  );
-                })}
-              </ComboboxList>
-            </ComboboxPrimitive.Popup>
-          </span>
-        </ComboboxPrimitive.Positioner>
-      </ComboboxPrimitive.Portal>
+      <PickerPopup
+        popupProps={{
+          onClick: (event) => event.stopPropagation(),
+          onKeyDown: handleShortcutKey,
+        }}
+      >
+        <PickerHeader placeholder="Change priority to..." shortcut="P" />
+        <ComboboxEmpty>No results.</ComboboxEmpty>
+        <ComboboxList>
+          {rows.map((row) => {
+            const meta = getPriorityMeta(row.value);
+            const Icon = meta.icon;
+            return (
+              <ComboboxOption
+                key={row.value}
+                selected={row.value === value}
+                shortcut={row.shortcut}
+                value={row.value}
+              >
+                <span className="flex size-4 shrink-0 items-center justify-center">
+                  <Icon className={cn("size-4", meta.className)} />
+                </span>
+                <span className="truncate">{meta.label}</span>
+              </ComboboxOption>
+            );
+          })}
+        </ComboboxList>
+      </PickerPopup>
     </Combobox>
   );
 }
@@ -836,44 +709,30 @@ export function StatusComboboxSelector({
       >
         {trigger}
       </ComboboxPrimitive.Trigger>
-      <ComboboxPrimitive.Portal>
-        <ComboboxPrimitive.Positioner
-          align="start"
-          className="z-50 select-none"
-          data-slot="combobox-positioner"
-          side="bottom"
-          sideOffset={4}
-        >
-          <span className="relative flex max-h-full min-w-56 max-w-(--available-width) origin-(--transform-origin) rounded-lg border bg-popover not-dark:bg-clip-padding shadow-lg/5 transition-[scale,opacity] before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] dark:before:shadow-[0_-1px_--theme(--color-white/6%)]">
-            <ComboboxPrimitive.Popup
-              className="flex max-h-[min(var(--available-height),24rem)] flex-1 flex-col text-foreground"
-              data-slot="combobox-popup"
-              onClick={(event) => event.stopPropagation()}
-              onKeyDown={handleShortcutKey}
+      <PickerPopup
+        popupProps={{
+          onClick: (event) => event.stopPropagation(),
+          onKeyDown: handleShortcutKey,
+        }}
+      >
+        <PickerHeader placeholder="Change status..." shortcut="S" />
+        <ComboboxEmpty>{emptyText}</ComboboxEmpty>
+        <ComboboxList>
+          {rows.map((row) => (
+            <ComboboxOption
+              key={row.value}
+              selected={row.value === value}
+              shortcut={row.shortcut}
+              value={row.value}
             >
-              <PickerHeader placeholder="Change status..." shortcut="S" />
-              <ComboboxEmpty>{emptyText}</ComboboxEmpty>
-              <ComboboxList>
-                {rows.map((row) => (
-                  <ShortcutComboboxItem
-                    key={row.value}
-                    selected={row.value === value}
-                    shortcut={row.shortcut}
-                    value={row.value}
-                  >
-                    {row.icon ? (
-                      <span className="flex size-4 shrink-0 items-center justify-center">
-                        {row.icon}
-                      </span>
-                    ) : null}
-                    <span className="truncate">{row.label}</span>
-                  </ShortcutComboboxItem>
-                ))}
-              </ComboboxList>
-            </ComboboxPrimitive.Popup>
-          </span>
-        </ComboboxPrimitive.Positioner>
-      </ComboboxPrimitive.Portal>
+              {row.icon ? (
+                <span className="flex size-4 shrink-0 items-center justify-center">{row.icon}</span>
+              ) : null}
+              <span className="truncate">{row.label}</span>
+            </ComboboxOption>
+          ))}
+        </ComboboxList>
+      </PickerPopup>
     </Combobox>
   );
 }
@@ -941,41 +800,25 @@ export function EstimateComboboxSelector({
       >
         {trigger}
       </ComboboxPrimitive.Trigger>
-      <ComboboxPrimitive.Portal>
-        <ComboboxPrimitive.Positioner
-          align="start"
-          className="z-50 select-none"
-          data-slot="combobox-positioner"
-          side="bottom"
-          sideOffset={4}
-        >
-          <span className="relative flex max-h-full min-w-56 max-w-(--available-width) origin-(--transform-origin) rounded-lg border bg-popover not-dark:bg-clip-padding shadow-lg/5 transition-[scale,opacity] before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] dark:before:shadow-[0_-1px_--theme(--color-white/6%)]">
-            <ComboboxPrimitive.Popup
-              className="flex max-h-[min(var(--available-height),24rem)] flex-1 flex-col text-foreground"
-              data-slot="combobox-popup"
-              onClick={(event) => event.stopPropagation()}
+      <PickerPopup popupProps={{ onClick: (event) => event.stopPropagation() }}>
+        <PickerHeader placeholder="Change estimate to..." shortcut="⇧ E" />
+        <ComboboxEmpty>No results.</ComboboxEmpty>
+        <ComboboxList>
+          {ESTIMATE_OPTIONS.map((option) => (
+            <ComboboxOption
+              key={option.value}
+              selected={option.value === value}
+              shortcut={null}
+              value={option.value}
             >
-              <PickerHeader placeholder="Change estimate to..." shortcut="⇧ E" />
-              <ComboboxEmpty>No results.</ComboboxEmpty>
-              <ComboboxList>
-                {ESTIMATE_OPTIONS.map((option) => (
-                  <ShortcutComboboxItem
-                    key={option.value}
-                    selected={option.value === value}
-                    shortcut={null}
-                    value={option.value}
-                  >
-                    <span className="flex size-4 shrink-0 items-center justify-center">
-                      <Triangle className="size-3.5" />
-                    </span>
-                    <span className="truncate">{option.label}</span>
-                  </ShortcutComboboxItem>
-                ))}
-              </ComboboxList>
-            </ComboboxPrimitive.Popup>
-          </span>
-        </ComboboxPrimitive.Positioner>
-      </ComboboxPrimitive.Portal>
+              <span className="flex size-4 shrink-0 items-center justify-center">
+                <Triangle className="size-3.5" />
+              </span>
+              <span className="truncate">{option.label}</span>
+            </ComboboxOption>
+          ))}
+        </ComboboxList>
+      </PickerPopup>
     </Combobox>
   );
 }
@@ -1072,49 +915,33 @@ export function LabelsComboboxSelector({
       >
         {trigger}
       </ComboboxPrimitive.Trigger>
-      <ComboboxPrimitive.Portal>
-        <ComboboxPrimitive.Positioner
-          align="start"
-          className="z-50 select-none"
-          data-slot="combobox-positioner"
-          side="bottom"
-          sideOffset={4}
-        >
-          <span className="relative flex max-h-full min-w-56 max-w-(--available-width) origin-(--transform-origin) rounded-lg border bg-popover not-dark:bg-clip-padding shadow-lg/5 transition-[scale,opacity] before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] dark:before:shadow-[0_-1px_--theme(--color-white/6%)]">
-            <ComboboxPrimitive.Popup
-              className="flex max-h-[min(var(--available-height),24rem)] flex-1 flex-col text-foreground"
-              data-slot="combobox-popup"
-              onClick={(event) => event.stopPropagation()}
+      <PickerPopup popupProps={{ onClick: (event) => event.stopPropagation() }}>
+        <PickerHeader placeholder="Add labels..." shortcut="L" />
+        <ComboboxEmpty>No labels.</ComboboxEmpty>
+        <ComboboxList>
+          {options.map((option) => (
+            <ComboboxOption
+              key={option.id}
+              selected={value.includes(option.id)}
+              shortcut={null}
+              value={option.id}
             >
-              <PickerHeader placeholder="Add labels..." shortcut="L" />
-              <ComboboxEmpty>No labels.</ComboboxEmpty>
-              <ComboboxList>
-                {options.map((option) => (
-                  <ShortcutComboboxItem
-                    key={option.id}
-                    selected={value.includes(option.id)}
-                    shortcut={null}
-                    value={option.id}
-                  >
-                    <span className="flex size-4 shrink-0 items-center justify-center">
-                      <span className={cn("size-2.5 rounded-full", labelDotClassName(option))} />
-                    </span>
-                    <span className="truncate">{option.name}</span>
-                  </ShortcutComboboxItem>
-                ))}
-                {canCreate ? (
-                  <ShortcutComboboxItem selected={false} shortcut={null} value={CREATE_LABEL_ITEM}>
-                    <span className="flex size-4 shrink-0 items-center justify-center">
-                      <Plus className="size-3.5" />
-                    </span>
-                    <span className="truncate">Create label "{trimmedQuery}"</span>
-                  </ShortcutComboboxItem>
-                ) : null}
-              </ComboboxList>
-            </ComboboxPrimitive.Popup>
-          </span>
-        </ComboboxPrimitive.Positioner>
-      </ComboboxPrimitive.Portal>
+              <span className="flex size-4 shrink-0 items-center justify-center">
+                <span className={cn("size-2.5 rounded-full", labelDotClassName(option))} />
+              </span>
+              <span className="truncate">{option.name}</span>
+            </ComboboxOption>
+          ))}
+          {canCreate ? (
+            <ComboboxOption selected={false} shortcut={null} value={CREATE_LABEL_ITEM}>
+              <span className="flex size-4 shrink-0 items-center justify-center">
+                <Plus className="size-3.5" />
+              </span>
+              <span className="truncate">Create label "{trimmedQuery}"</span>
+            </ComboboxOption>
+          ) : null}
+        </ComboboxList>
+      </PickerPopup>
     </Combobox>
   );
 }
@@ -1248,10 +1075,10 @@ function TeamRowItem({
   readonly selectedTeamId: string | null;
 }) {
   return (
-    <ShortcutComboboxItem selected={option.id === selectedTeamId} shortcut={null} value={option.id}>
+    <ComboboxOption selected={option.id === selectedTeamId} shortcut={null} value={option.id}>
       <TeamAvatar color={option.color} name={option.name} size={20} />
       <span className="truncate">{option.name}</span>
-    </ShortcutComboboxItem>
+    </ComboboxOption>
   );
 }
 
@@ -1314,44 +1141,28 @@ export function TeamComboboxSelector({
       >
         {trigger}
       </ComboboxPrimitive.Trigger>
-      <ComboboxPrimitive.Portal>
-        <ComboboxPrimitive.Positioner
-          align="start"
-          className="z-50 select-none"
-          data-slot="combobox-positioner"
-          side="bottom"
-          sideOffset={4}
-        >
-          <span className="relative flex max-h-full min-w-64 max-w-(--available-width) origin-(--transform-origin) rounded-lg border bg-popover not-dark:bg-clip-padding shadow-lg/5 transition-[scale,opacity] before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-lg)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] dark:before:shadow-[0_-1px_--theme(--color-white/6%)]">
-            <ComboboxPrimitive.Popup
-              className="flex max-h-[min(var(--available-height),24rem)] flex-1 flex-col text-foreground"
-              data-slot="combobox-popup"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <PickerHeader placeholder="Change team..." shortcut="T" />
-              <ComboboxEmpty>No teams.</ComboboxEmpty>
-              <ComboboxList>
-                {partition.yourTeams.length > 0 ? (
-                  <ComboboxGroup>
-                    <ComboboxGroupLabel>Your teams</ComboboxGroupLabel>
-                    {partition.yourTeams.map((option) => (
-                      <TeamRowItem key={option.id} option={option} selectedTeamId={value} />
-                    ))}
-                  </ComboboxGroup>
-                ) : null}
-                {partition.otherTeams.length > 0 ? (
-                  <ComboboxGroup>
-                    <ComboboxGroupLabel>Other teams</ComboboxGroupLabel>
-                    {partition.otherTeams.map((option) => (
-                      <TeamRowItem key={option.id} option={option} selectedTeamId={value} />
-                    ))}
-                  </ComboboxGroup>
-                ) : null}
-              </ComboboxList>
-            </ComboboxPrimitive.Popup>
-          </span>
-        </ComboboxPrimitive.Positioner>
-      </ComboboxPrimitive.Portal>
+      <PickerPopup popupProps={{ onClick: (event) => event.stopPropagation() }} width="lg">
+        <PickerHeader placeholder="Change team..." shortcut="T" />
+        <ComboboxEmpty>No teams.</ComboboxEmpty>
+        <ComboboxList>
+          {partition.yourTeams.length > 0 ? (
+            <ComboboxGroup>
+              <ComboboxGroupLabel>Your teams</ComboboxGroupLabel>
+              {partition.yourTeams.map((option) => (
+                <TeamRowItem key={option.id} option={option} selectedTeamId={value} />
+              ))}
+            </ComboboxGroup>
+          ) : null}
+          {partition.otherTeams.length > 0 ? (
+            <ComboboxGroup>
+              <ComboboxGroupLabel>Other teams</ComboboxGroupLabel>
+              {partition.otherTeams.map((option) => (
+                <TeamRowItem key={option.id} option={option} selectedTeamId={value} />
+              ))}
+            </ComboboxGroup>
+          ) : null}
+        </ComboboxList>
+      </PickerPopup>
     </Combobox>
   );
 }

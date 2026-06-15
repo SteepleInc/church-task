@@ -18,6 +18,13 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
 import {
+  Combobox,
+  ComboboxEmpty,
+  ComboboxList,
+  ComboboxOption,
+  PickerHeader,
+} from "@/components/ui/combobox";
+import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -1127,190 +1134,118 @@ function FilterSubmenuContent<T = unknown>({
   onBack,
   onClose,
 }: FilterSubmenuContentProps<T>) {
-  const [searchInput, setSearchInput] = useState("");
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
-  const baseId = useId();
+  const listId = useId();
+  const searchable = field.searchable !== false;
 
+  // Focus the search box when the submenu becomes active so typing filters
+  // immediately (matches the card pickers).
   useEffect(() => {
-    if (isActive) {
-      if (field.searchable !== false) {
-        inputRef.current?.focus();
-      } else {
-        const listbox = document.getElementById(`${baseId}-listbox`);
-        listbox?.focus();
-      }
+    if (isActive && searchable) {
+      inputRef.current?.focus();
     }
-  }, [isActive, field.searchable, baseId]);
+  }, [isActive, searchable]);
 
-  useEffect(() => {
-    setHighlightedIndex(-1);
-  }, [searchInput]);
+  const options = useMemo(() => field.options ?? [], [field.options]);
+  const items = useMemo(() => options.map((option) => option.value), [options]);
+  const labelFor = useMemo(() => {
+    const lookup = new Map(options.map((option) => [option.value, option.label]));
+    return (candidate: T) => lookup.get(candidate) ?? String(candidate);
+  }, [options]);
 
-  useEffect(() => {
-    if (highlightedIndex >= 0 && isActive) {
-      const element = document.getElementById(`${baseId}-item-${highlightedIndex}`);
-      element?.scrollIntoView({ block: "nearest" });
+  // ArrowLeft backs out to the root list; Escape closes the whole menu. All
+  // other keys (ArrowUp/Down highlight, Enter select, typing to filter) are
+  // handled natively by the Combobox primitive.
+  const handleNavKeys = (event: React.KeyboardEvent) => {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      onBack?.();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      onClose?.();
     }
-  }, [highlightedIndex, isActive, baseId]);
+    event.stopPropagation();
+  };
 
-  const filteredOptions = useMemo(() => {
-    return (
-      field.options?.filter((option) => {
-        const isSelected = currentValues.includes(option.value);
-        if (isSelected) return true;
-        if (!searchInput) return true;
-        return option.label.toLowerCase().includes(searchInput.toLowerCase());
-      }) || []
-    );
-  }, [field.options, searchInput, currentValues]);
+  const optionRows = (
+    <>
+      <ComboboxEmpty>{i18n.noResultsFound}</ComboboxEmpty>
+      <ComboboxList id={listId}>
+        {options.map((option) => (
+          <ComboboxOption
+            className={option.className}
+            key={String(option.value)}
+            selected={currentValues.includes(option.value)}
+            value={option.value}
+          >
+            {option.icon ? (
+              <span className="flex size-4 shrink-0 items-center justify-center">
+                {option.icon}
+              </span>
+            ) : null}
+            <span className="truncate">{option.label}</span>
+          </ComboboxOption>
+        ))}
+      </ComboboxList>
+    </>
+  );
 
-  useEffect(() => {
-    if (isActive && filteredOptions.length > 0) {
-      setHighlightedIndex(0);
-    }
-  }, [isActive, filteredOptions.length]);
+  const sharedRootProps = {
+    items,
+    itemToStringLabel: labelFor,
+    // Stay open while inside the submenu; the parent DropdownMenuSub controls
+    // visibility. ArrowLeft/Escape unmount us via onBack/onClose.
+    open: true,
+    inputRef,
+  } as const;
 
   return (
-    <div className="flex flex-col" onMouseEnter={onActive}>
-      {field.searchable !== false && (
-        <>
-          <Input
-            ref={inputRef}
-            role="combobox"
-            aria-autocomplete="list"
-            aria-expanded={true}
-            aria-haspopup="listbox"
-            aria-controls={`${baseId}-listbox`}
-            aria-activedescendant={
-              highlightedIndex >= 0 ? `${baseId}-item-${highlightedIndex}` : undefined
+    <div className="flex flex-col" onKeyDownCapture={handleNavKeys} onMouseEnter={onActive}>
+      {isMultiSelect ? (
+        <Combobox<T, true>
+          {...sharedRootProps}
+          multiple
+          onValueChange={(next) => {
+            const selected = (next ?? []) as T[];
+            const added = selected.find((value) => !currentValues.includes(value));
+            if (added !== undefined) {
+              onToggle(added, false);
+              return;
             }
-            placeholder={i18n.placeholders.searchField(field.label || "")}
-            className={cn(
-              "h-8 rounded-none border-0 bg-transparent! px-2 text-sm shadow-none",
-              "focus-visible:border-border focus-visible:ring-0 focus-visible:ring-offset-0",
-              isActive && "placeholder:text-foreground",
-            )}
-            value={searchInput}
-            onBlur={() => isActive && inputRef.current?.focus()}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onFocus={() => onActive?.()}
-            onMouseEnter={(e) => {
-              onActive?.();
-              e.stopPropagation();
-            }}
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                if (filteredOptions.length > 0) {
-                  setHighlightedIndex((prev) => (prev < filteredOptions.length - 1 ? prev + 1 : 0));
-                }
-              } else if (e.key === "ArrowUp") {
-                e.preventDefault();
-                if (filteredOptions.length > 0) {
-                  setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : filteredOptions.length - 1));
-                }
-              } else if (e.key === "ArrowLeft") {
-                e.preventDefault();
-                onBack?.();
-              } else if (e.key === "Enter" && highlightedIndex >= 0) {
-                e.preventDefault();
-                const option = filteredOptions[highlightedIndex];
-                if (option) {
-                  onToggle(option.value as T, currentValues.includes(option.value));
-                  if (!isMultiSelect) {
-                    onBack?.();
-                  }
-                }
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                onClose?.();
-              }
-              e.stopPropagation();
-            }}
-          />
-          <DropdownMenuSeparator />
-        </>
-      )}
-      <div className="relative flex max-h-full">
-        <div
-          className="flex max-h-[min(var(--available-height),24rem)] w-full scroll-pt-2 scroll-pb-2 flex-col overscroll-contain outline-hidden"
-          role="listbox"
-          id={`${baseId}-listbox`}
-          tabIndex={field.searchable === false ? 0 : -1}
-          onKeyDown={(e) => {
-            if (field.searchable === false) {
-              if (e.key === "ArrowDown") {
-                e.preventDefault();
-                if (filteredOptions.length > 0) {
-                  setHighlightedIndex((prev) => (prev < filteredOptions.length - 1 ? prev + 1 : 0));
-                }
-              } else if (e.key === "ArrowUp") {
-                e.preventDefault();
-                if (filteredOptions.length > 0) {
-                  setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : filteredOptions.length - 1));
-                }
-              } else if (e.key === "ArrowLeft") {
-                e.preventDefault();
-                onBack?.();
-              } else if (e.key === "Enter" && highlightedIndex >= 0) {
-                e.preventDefault();
-                const option = filteredOptions[highlightedIndex];
-                if (option) {
-                  onToggle(option.value as T, currentValues.includes(option.value));
-                  if (!isMultiSelect) {
-                    onBack?.();
-                  }
-                }
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                onClose?.();
-              }
-              e.stopPropagation();
+            const removed = currentValues.find((value) => !selected.includes(value));
+            if (removed !== undefined) {
+              onToggle(removed, true);
             }
           }}
+          value={currentValues}
         >
-          <ScrollArea className="size-full min-h-0 **:data-[slot=scroll-area-scrollbar]:m-0 [&_[data-slot=scroll-area-viewport]]:h-full [&_[data-slot=scroll-area-viewport]]:overscroll-contain">
-            {filteredOptions.length === 0 ? (
-              <div className="text-muted-foreground py-2 text-center text-sm">
-                {i18n.noResultsFound}
-              </div>
-            ) : (
-              <DropdownMenuGroup>
-                {filteredOptions.map((option, index) => {
-                  const isSelected = currentValues.includes(option.value);
-                  const isHighlighted = highlightedIndex === index;
-                  const itemId = `${baseId}-item-${index}`;
-
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={String(option.value)}
-                      id={itemId}
-                      role="option"
-                      aria-selected={isHighlighted}
-                      data-highlighted={isHighlighted || undefined}
-                      onMouseEnter={() => setHighlightedIndex(index)}
-                      checked={isSelected}
-                      className={cn(
-                        "data-highlighted:bg-accent data-highlighted:text-accent-foreground",
-                        option.className,
-                      )}
-                      onSelect={(e) => {
-                        if (isMultiSelect) e.preventDefault();
-                      }}
-                      onCheckedChange={() => onToggle(option.value as T, isSelected)}
-                    >
-                      {option.icon}
-                      <span className="truncate">{option.label}</span>
-                    </DropdownMenuCheckboxItem>
-                  );
-                })}
-              </DropdownMenuGroup>
-            )}
-          </ScrollArea>
-        </div>
-      </div>
+          {searchable ? (
+            <PickerHeader
+              inputProps={{ "aria-controls": listId, onFocus: () => onActive?.() }}
+              placeholder={i18n.placeholders.searchField(field.label || "")}
+            />
+          ) : null}
+          {optionRows}
+        </Combobox>
+      ) : (
+        <Combobox<T>
+          {...sharedRootProps}
+          onValueChange={(next) => {
+            if (next === null || next === undefined) return;
+            onToggle(next, currentValues.includes(next));
+            onBack?.();
+          }}
+          value={currentValues[0] ?? null}
+        >
+          {searchable ? (
+            <PickerHeader
+              inputProps={{ "aria-controls": listId, onFocus: () => onActive?.() }}
+              placeholder={i18n.placeholders.searchField(field.label || "")}
+            />
+          ) : null}
+          {optionRows}
+        </Combobox>
+      )}
     </div>
   );
 }
