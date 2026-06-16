@@ -15,16 +15,19 @@ import { cn } from "@/lib/utils";
 export function SettingsPage({
   children,
   className,
+  contentClassName,
   ...domProps
-}: ComponentProps<typeof ScrollArea>) {
+}: ComponentProps<typeof ScrollArea> & { readonly contentClassName?: string }) {
   return (
     <ScrollArea
       className={cn("flex-1", className)}
       data-slot="settings-page"
-      viewportClassName="px-6 py-10 md:px-10"
+      viewportClassName="px-8 py-10 md:px-12"
       {...domProps}
     >
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-10">{children}</div>
+      <div className={cn("mx-auto flex w-full max-w-2xl flex-col gap-10", contentClassName)}>
+        {children}
+      </div>
     </ScrollArea>
   );
 }

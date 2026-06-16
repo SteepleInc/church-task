@@ -65,8 +65,10 @@ import { resolveTaskByIdentifier } from "../identifierResolution";
 import {
   createLabelForChurch,
   deleteLabelForChurch,
+  labelNamesForIds,
+  labelsById,
   listLabelsForChurch,
-  serializeLabel,
+  listSerializedLabelsForChurch,
   updateLabelForChurch,
 } from "../labels";
 import {
@@ -390,7 +392,8 @@ const serializeWorkDefaults = (data: Awaited<ReturnType<typeof readDefaultWorkMo
     schedule: keyDate.schedule,
     archivedAt: keyDate.archivedAt,
   })),
-  labels: data.labels.map(serializeLabel),
+  // Labels are already serialized with their derived stats by readDefaultWorkModel.
+  labels: data.labels,
 });
 
 const serializeKeyDateModel = (
@@ -1244,11 +1247,11 @@ const labelsListForChurch = FunctionImpl.make(api, "labels", "listForChurch", (a
       );
     }
 
-    const labels = yield* Effect.promise(() => listLabelsForChurch(ctx, args.churchId)).pipe(
-      Effect.orDie,
-    );
+    const labels = yield* Effect.promise(() =>
+      listSerializedLabelsForChurch(ctx, args.churchId),
+    ).pipe(Effect.orDie);
 
-    return labelsResponse("listLabels", labels.map(serializeLabel));
+    return labelsResponse("listLabels", labels);
   }),
 );
 
@@ -1309,11 +1312,11 @@ const labelsCreateForChurch = FunctionImpl.make(api, "labels", "createForChurch"
       );
     }
 
-    const labels = yield* Effect.promise(() => listLabelsForChurch(ctx, args.churchId)).pipe(
-      Effect.orDie,
-    );
+    const labels = yield* Effect.promise(() =>
+      listSerializedLabelsForChurch(ctx, args.churchId),
+    ).pipe(Effect.orDie);
 
-    return labelsResponse("createLabel", labels.map(serializeLabel));
+    return labelsResponse("createLabel", labels);
   }),
 );
 
@@ -1362,11 +1365,11 @@ const labelsUpdateForChurch = FunctionImpl.make(api, "labels", "updateForChurch"
       );
     }
 
-    const labels = yield* Effect.promise(() => listLabelsForChurch(ctx, args.churchId)).pipe(
-      Effect.orDie,
-    );
+    const labels = yield* Effect.promise(() =>
+      listSerializedLabelsForChurch(ctx, args.churchId),
+    ).pipe(Effect.orDie);
 
-    return labelsResponse("updateLabel", labels.map(serializeLabel));
+    return labelsResponse("updateLabel", labels);
   }),
 );
 
@@ -1400,11 +1403,11 @@ const labelsDeleteForChurch = FunctionImpl.make(api, "labels", "deleteForChurch"
       );
     }
 
-    const labels = yield* Effect.promise(() => listLabelsForChurch(ctx, args.churchId)).pipe(
-      Effect.orDie,
-    );
+    const labels = yield* Effect.promise(() =>
+      listSerializedLabelsForChurch(ctx, args.churchId),
+    ).pipe(Effect.orDie);
 
-    return labelsResponse("deleteLabel", labels.map(serializeLabel));
+    return labelsResponse("deleteLabel", labels);
   }),
 );
 
@@ -2659,6 +2662,13 @@ const tasksCreateBatch = FunctionImpl.make(api, "tasks", "createBatch", (args) =
     }
 
     const occurredAt = new Date().toISOString();
+    // Labels applied at creation are recorded as a `task.labels_changed`
+    // Activity (from an empty previous set), so the Labels settings table's
+    // "last applied" reflects Labels set when a Task is first created — not just
+    // later edits.
+    const churchLabelsForActivity = labelsById(
+      yield* Effect.promise(() => listLabelsForChurch(ctx, args.churchId)).pipe(Effect.orDie),
+    );
     for (const taskId of created.createdTaskIds) {
       const task = yield* Effect.promise(() => ctx.db.get(taskId)).pipe(Effect.orDie);
       if (!task) continue;
@@ -2676,6 +2686,28 @@ const tasksCreateBatch = FunctionImpl.make(api, "tasks", "createBatch", (args) =
           metadata: { parentTaskId: task.parentTaskId },
         }),
       ).pipe(Effect.orDie);
+
+      const initialLabelIds = task.labelIds ?? [];
+      if (initialLabelIds.length > 0) {
+        yield* Effect.promise(() =>
+          writeActivity(ctx, {
+            churchId: args.churchId,
+            entityType: "task",
+            entityId: task._id,
+            eventType: "task.labels_changed",
+            actorType: "user",
+            actorId: auth.authUser._id,
+            occurredAt,
+            cycleId: task.cycleId,
+            metadata: {
+              previousLabelIds: [],
+              labelIds: [...initialLabelIds],
+              addedLabelNames: labelNamesForIds(churchLabelsForActivity, initialLabelIds),
+              removedLabelNames: [],
+            },
+          }),
+        ).pipe(Effect.orDie);
+      }
     }
 
     const model = yield* Effect.promise(() => readTaskModel(ctx, args.churchId)).pipe(Effect.orDie);

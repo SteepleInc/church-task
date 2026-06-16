@@ -16,6 +16,12 @@ export type LabelItem = {
   readonly teamId: string | null;
   readonly name: string;
   readonly color: string;
+  // Epoch ms of the Label's creation.
+  readonly createdAt: number;
+  // Number of Tasks currently carrying this Label.
+  readonly taskCount: number;
+  // ISO timestamp of the most recent application to a Task, or null.
+  readonly lastAppliedAt: string | null;
 };
 
 function optimisticId(): string {
@@ -58,6 +64,9 @@ export function useCreateLabelMutation() {
           teamId: null,
           name: args.name,
           color: getLabelColorForName(args.name),
+          createdAt: Date.now(),
+          taskCount: 0,
+          lastAppliedAt: null,
         }),
     }),
   );

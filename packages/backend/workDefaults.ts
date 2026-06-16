@@ -8,7 +8,7 @@ import type { GenericDatabaseReader, GenericMutationCtx } from "convex/server";
 
 import { components } from "./convex/_generated/api";
 import type { DataModel } from "./convex/_generated/dataModel";
-import { listLabelsForChurch, STARTER_LABELS } from "./labels";
+import { listLabelsForChurch, listSerializedLabelsForChurch, STARTER_LABELS } from "./labels";
 
 type MutationCtx = GenericMutationCtx<DataModel>;
 
@@ -246,7 +246,9 @@ export async function readDefaultWorkModel(
     .query("keyDates")
     .withIndex("by_churchId", (q) => q.eq("churchId", churchId))
     .collect();
-  const labels = await listLabelsForChurch(ctx, churchId);
+  // Labels arrive already serialized with their derived stats (creation time,
+  // Task usage count, last applied) for the settings table.
+  const labels = await listSerializedLabelsForChurch(ctx, churchId);
 
   return {
     workflows,

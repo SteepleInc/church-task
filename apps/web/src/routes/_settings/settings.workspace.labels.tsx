@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { SettingsLabelsPanel } from "@/features/settings/label-settings";
-import { SettingsPage, SettingsPageHeader } from "@/features/settings/settings-page";
+import { SettingsPage } from "@/features/settings/settings-page";
 
 export const Route = createFileRoute("/_settings/settings/workspace/labels")({
   component: RouteComponent,
@@ -9,11 +9,7 @@ export const Route = createFileRoute("/_settings/settings/workspace/labels")({
 
 function RouteComponent() {
   return (
-    <SettingsPage>
-      <SettingsPageHeader
-        description="Labels categorize Tasks across the Church. Every member can create and manage them."
-        title="Labels"
-      />
+    <SettingsPage contentClassName="mx-0 max-w-none">
       <SettingsLabelsPanel />
     </SettingsPage>
   );
