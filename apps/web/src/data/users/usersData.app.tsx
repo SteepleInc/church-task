@@ -1,8 +1,9 @@
-import { api } from "@church-task/backend-old/convex/_generated/api";
+import { queries, type Member, type Organization, type User } from "@church-task/zero";
+import { useQuery } from "@rocicorp/zero/react";
 
 import { authClient } from "@/lib/auth-client";
 import { FilterKeys } from "@/shared/global-state";
-import { useFilterQuery } from "@/shared/hooks/useFilterQuery";
+import { useZeroListArgs } from "@/shared/hooks/useZeroListArgs";
 
 export type UserCollectionItem = {
   readonly id: string;
@@ -56,23 +57,51 @@ export function useChurchUsersCollection(params: { readonly churchId: string | n
   };
 }
 
+const userColumnMap = {
+  createdAt: "created_at",
+} as const;
+
+const mapUser = (
+  user: User,
+  members: readonly Member[],
+  orgsById: ReadonlyMap<string, Organization>,
+): UserCollectionItem => ({
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  image: user.image ?? null,
+  createdAt: user.createdAt ?? undefined,
+  role: user.role ?? undefined,
+  churches: members
+    .filter((member) => member.userId === user.id)
+    .map((member) => {
+      const org = orgsById.get(member.organizationId);
+
+      return {
+        id: member.organizationId,
+        name: org?.name ?? member.organizationId,
+        role: member.role,
+        slug: org?.slug ?? null,
+      };
+    }),
+});
+
 export function useAllUsersCollectionWithFilters() {
-  const {
-    result: usersCollection,
-    info,
-    nextPage,
-    pageSize,
-    limit,
-  } = useFilterQuery<UserCollectionItem>({
+  const { limit, listArgs, nextPage, pageSize } = useZeroListArgs({
+    columnMap: userColumnMap,
     filterKey: FilterKeys.Users,
-    query: api.admin.listAllUsers,
   });
+  const [userRows] = useQuery(queries.user.admin_list({ list_args: listArgs }));
+  const [memberRows] = useQuery(queries.member.admin_all());
+  const [orgRows] = useQuery(queries.organization.admin_list({ list_args: { limit: 500 } }));
+  const orgsById = new Map(orgRows.map((org) => [org.id, org]));
+  const usersCollection = userRows.map((user) => mapUser(user, memberRows, orgsById));
 
   return {
-    canLoadMore: info === "CanLoadMore",
+    canLoadMore: userRows.length >= limit,
     limit,
-    loading: info === "LoadingFirstPage",
-    loadingMore: info === "LoadingMore",
+    loading: false,
+    loadingMore: false,
     nextPage,
     pageSize,
     usersCollection,

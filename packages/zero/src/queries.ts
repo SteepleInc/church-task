@@ -10,6 +10,7 @@ import {
   requireActiveChurchAccess,
   requireAppAdminSession,
 } from "./session-context";
+import { applyZeroListQuery, ListArgsEffectSchema } from "./list-query";
 import { zql } from "./zero-schema.gen";
 
 import type { OptionalZeroSessionContext } from "./session-context";
@@ -17,6 +18,7 @@ import type { Schema as ZeroSchema } from "./zero-schema.gen";
 
 const DemoItemByIdArgs = Schema.standardSchemaV1(Schema.Struct({ id: Schema.String }));
 const ChurchScopedArgs = Schema.standardSchemaV1(Schema.Struct({ church_id: Schema.String }));
+const AdminListArgs = Schema.standardSchemaV1(Schema.Struct({ list_args: ListArgsEffectSchema }));
 const TaskByIdentifierArgs = Schema.standardSchemaV1(
   Schema.Struct({ church_id: Schema.String, identifier: Schema.String }),
 );
@@ -50,6 +52,57 @@ export const queries = defineQueries({
         .where("deleted_at", "IS", null)
         .one(),
     ),
+  },
+  organization: {
+    admin_list: defineChurchTaskQuery(AdminListArgs, ({ args, ctx }) => {
+      requireAppAdminSession(ctx);
+
+      return applyZeroListQuery(zql.organization, args.list_args, {
+        allowed_columns: [
+          "id",
+          "name",
+          "slug",
+          "church_time_zone",
+          "completed_onboarding",
+          "state",
+          "size",
+          "created_at",
+        ],
+        column_map: {
+          church_time_zone: "churchTimeZone",
+          completed_onboarding: "completedOnboarding",
+          created_at: "createdAt",
+        },
+        default_order_by: "created_at",
+        default_order_direction: "desc",
+      });
+    }),
+  },
+  user: {
+    admin_list: defineChurchTaskQuery(AdminListArgs, ({ args, ctx }) => {
+      requireAppAdminSession(ctx);
+
+      return applyZeroListQuery(zql.user, args.list_args, {
+        allowed_columns: ["id", "name", "email", "role", "created_at"],
+        column_map: { created_at: "createdAt" },
+        default_order_by: "created_at",
+        default_order_direction: "desc",
+      });
+    }),
+  },
+  member: {
+    admin_all: defineChurchTaskQuery(({ ctx }) => {
+      requireAppAdminSession(ctx);
+
+      return zql.member.orderBy("createdAt", "desc");
+    }),
+  },
+  teams_admin: {
+    admin_all: defineChurchTaskQuery(({ ctx }) => {
+      requireAppAdminSession(ctx);
+
+      return zql.teams.where("deleted_at", "IS", null).orderBy("created_at", "desc");
+    }),
   },
   teams: {
     by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {

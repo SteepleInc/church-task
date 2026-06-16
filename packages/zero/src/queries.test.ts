@@ -37,4 +37,28 @@ describe("Zero product queries", () => {
       ).toThrow("Authentication required.");
     }
   });
+
+  test("requires App Administrator context for admin collections", () => {
+    expect(() =>
+      mustGetQuery(queries, "organization.admin_list").fn({
+        args: { list_args: { limit: 25 } },
+        ctx: { authenticated: false, runtime: "server" },
+      }),
+    ).toThrow("Authentication required.");
+
+    expect(() =>
+      mustGetQuery(queries, "user.admin_list").fn({
+        args: { list_args: { limit: 25 } },
+        ctx: {
+          active_church_id: "org_123",
+          authenticated: true,
+          church_role: "member",
+          is_app_admin: false,
+          runtime: "server",
+          session_id: "session_123",
+          user_id: "user_123",
+        },
+      }),
+    ).toThrow("App Administrator access required.");
+  });
 });
