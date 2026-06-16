@@ -6,12 +6,17 @@ import {
   Link01Icon,
   Logout02Icon,
   MoreHorizontalIcon,
+  PlayCircleIcon,
   PlusSignIcon,
+  RefreshIcon,
   Settings01Icon,
+  Task01Icon,
+  Time04Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useSetAtom } from "jotai";
+import type { ComponentProps } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -38,8 +43,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Kbd } from "@/components/ui/kbd";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   SidebarGroupAction,
@@ -59,20 +66,24 @@ import { cn } from "@/lib/utils";
 // The team's destination surfaces. They all point at the team's Default Team
 // View (/team/$identifier) for now; real Cycle-scoped pages come later. Each
 // child keeps a stable key so its expansion state can be remembered.
+type IconType = ComponentProps<typeof HugeiconsIcon>["icon"];
+
 type TeamChild = {
   readonly key: string;
   readonly label: string;
+  readonly icon: IconType;
   readonly children?: readonly TeamChild[];
 };
 
 const TEAM_CHILDREN: readonly TeamChild[] = [
-  { key: "tasks", label: "Tasks" },
+  { key: "tasks", label: "Tasks", icon: Task01Icon },
   {
     key: "cycles",
     label: "Cycles",
+    icon: RefreshIcon,
     children: [
-      { key: "current", label: "Current" },
-      { key: "upcoming", label: "Upcoming" },
+      { key: "current", label: "Current", icon: PlayCircleIcon },
+      { key: "upcoming", label: "Upcoming", icon: Time04Icon },
     ],
   },
 ];
@@ -284,17 +295,26 @@ function TeamChildItem({
         render={<SidebarMenuSubItem />}
       >
         <CollapsibleTrigger render={<SidebarMenuSubButton className="cursor-pointer" />}>
+          <ChildIcon icon={child.icon} />
+          <span className="flex-1 truncate">{child.label}</span>
           <HugeiconsIcon
-            className={cn("transition-transform", isOpen ? "rotate-0" : "-rotate-90")}
+            className={cn(
+              "ml-auto shrink-0 transition-transform",
+              isOpen ? "rotate-0" : "-rotate-90",
+            )}
             icon={ArrowDown01Icon}
             strokeWidth={2}
           />
-          <span>{child.label}</span>
         </CollapsibleTrigger>
         <CollapsibleContent>
           <SidebarMenuSub>
             {child.children.map((grandchild) => (
-              <ChildLink key={grandchild.key} href={href} label={grandchild.label} />
+              <ChildLink
+                key={grandchild.key}
+                href={href}
+                icon={grandchild.icon}
+                label={grandchild.label}
+              />
             ))}
           </SidebarMenuSub>
         </CollapsibleContent>
@@ -314,7 +334,8 @@ function TeamChildItem({
             />
           }
         >
-          <span>{child.label}</span>
+          <ChildIcon icon={child.icon} />
+          <span className="flex-1 truncate">{child.label}</span>
         </ContextMenuTrigger>
         <ChildContextMenuContent href={href} />
       </ContextMenu>
@@ -322,7 +343,28 @@ function TeamChildItem({
   );
 }
 
-function ChildLink({ href, label }: { readonly href: string; readonly label: string }) {
+// Leading content icon for a team sub-item. Muted by default and lit on
+// hover/active to match Linear, where the label is primary and the icon is a
+// quiet wayfinding cue.
+function ChildIcon({ icon }: { readonly icon: IconType }) {
+  return (
+    <HugeiconsIcon
+      className="text-muted-foreground! group-hover/menu-sub-item:text-sidebar-accent-foreground!"
+      icon={icon}
+      strokeWidth={2}
+    />
+  );
+}
+
+function ChildLink({
+  href,
+  label,
+  icon,
+}: {
+  readonly href: string;
+  readonly label: string;
+  readonly icon: IconType;
+}) {
   const { setOpenMobile } = useSidebar();
 
   return (
@@ -337,7 +379,8 @@ function ChildLink({ href, label }: { readonly href: string; readonly label: str
             />
           }
         >
-          <span>{label}</span>
+          <ChildIcon icon={icon} />
+          <span className="flex-1 truncate">{label}</span>
         </ContextMenuTrigger>
         <ChildContextMenuContent href={href} />
       </ContextMenu>
@@ -384,8 +427,30 @@ function TeamActionsMenu({
 }) {
   const navigate = useNavigate();
   const removeTeamMember = useRemoveTeamMemberMutation();
+  const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingLeave, setConfirmingLeave] = useState(false);
   const [leaving, setLeaving] = useState(false);
+
+  // The team menu's shortcuts (matching Linear) are scoped to this menu: they
+  // only fire while this team's menu is open, and they act on this team. There
+  // is no global registration, so two teams' menus can share the same keys
+  // without ambiguity.
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handler = (event: KeyboardEvent) => {
+      if (event.repeat) return;
+      // Copy URL = ⌘⇧, (Cmd/Ctrl + Shift + comma), as in Linear.
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key === ",") {
+        event.preventDefault();
+        setMenuOpen(false);
+        void copyTeamLink(team.identifier);
+      }
+    };
+
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [menuOpen, team.identifier]);
 
   const leaveTeam = async () => {
     if (!currentUserId) return;
@@ -407,7 +472,7 @@ function TeamActionsMenu({
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu onOpenChange={setMenuOpen} open={menuOpen}>
         <DropdownMenuTrigger
           render={
             <SidebarMenuAction aria-label={`${team.name} actions`} showOnHover>
@@ -425,6 +490,9 @@ function TeamActionsMenu({
           <DropdownMenuItem onClick={() => void copyTeamLink(team.identifier)}>
             <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
             Copy URL
+            <DropdownMenuShortcut>
+              <Kbd>mod shift ,</Kbd>
+            </DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
