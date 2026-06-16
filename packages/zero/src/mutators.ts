@@ -2,12 +2,14 @@ import {
   DEFAULT_WORKFLOW_STATUSES,
   formatTaskIdentifier,
   generateTeamIdentifier,
+  getLabelColorForName,
   getTeamColorForName,
   normalizeTeamIdentifier,
   TEAM_IDENTIFIER_MAX_LENGTH,
 } from "@church-task/domain";
 import {
   getDemoItemId,
+  getLabelId,
   getTaskId,
   getTeamId,
   getTeamMembershipId,
@@ -20,6 +22,7 @@ import { Schema } from "effect";
 
 import {
   demo_items,
+  labels,
   tasks,
   team_memberships,
   teams,
@@ -50,6 +53,25 @@ const ReorderTeamsArgs = Schema.standardSchemaV1(
 );
 const TeamMemberArgs = Schema.standardSchemaV1(
   Schema.Struct({ church_id: Schema.String, team_id: Schema.String, user_id: Schema.String }),
+);
+const CreateLabelArgs = Schema.standardSchemaV1(
+  Schema.Struct({
+    church_id: Schema.String,
+    color: Schema.optional(Schema.String),
+    name: Schema.String,
+    team_id: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+  }),
+);
+const UpdateLabelArgs = Schema.standardSchemaV1(
+  Schema.Struct({
+    church_id: Schema.String,
+    color: Schema.optional(Schema.String),
+    label_id: Schema.String,
+    name: Schema.optional(Schema.String),
+  }),
+);
+const DeleteLabelArgs = Schema.standardSchemaV1(
+  Schema.Struct({ church_id: Schema.String, label_id: Schema.String }),
 );
 const RenameWorkflowArgs = Schema.standardSchemaV1(
   Schema.Struct({ church_id: Schema.String, name: Schema.String, workflow_id: Schema.String }),
@@ -176,9 +198,28 @@ const appendBoardOrderKey = (lastKey: string | null): string => {
   return `${prefix}${Number.isFinite(parsed) ? parsed + 1 : 1}`;
 };
 
+const parseSerializedStringArray = (value: string): readonly string[] => {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+};
+
+type LabelScopeRow = {
+  readonly id: string;
+  readonly name: string;
+  readonly team_id: string | null;
+};
+
 type ServerTx = {
   readonly dbTransaction: {
     readonly wrappedTransaction: {
+      readonly delete: (table: unknown) => any;
       readonly insert: (table: unknown) => any;
       readonly select: (fields?: unknown) => any;
       readonly update: (table: unknown) => any;
@@ -189,6 +230,64 @@ type ServerTx = {
 const serverDb = (tx: { readonly location: string }) => {
   if (tx.location !== "server") return null;
   return (tx as typeof tx & ServerTx).dbTransaction.wrappedTransaction;
+};
+
+const getChurchLabels = async (
+  db: ServerTx["dbTransaction"]["wrappedTransaction"],
+  church_id: string,
+) =>
+  (await db
+    .select({ id: labels.id, name: labels.name, team_id: labels.team_id })
+    .from(labels)
+    .where(and(eq(labels.church_id, church_id), isNull(labels.deleted_at)))) as LabelScopeRow[];
+
+const normalizeLabelName = (name: string) => name.trim().toLowerCase();
+
+const ensureUniqueLabelName = (
+  existingLabels: readonly LabelScopeRow[],
+  args: {
+    readonly exclude_id?: string;
+    readonly name: string;
+    readonly team_id: string | null;
+  },
+) => {
+  const normalized = normalizeLabelName(args.name);
+  const duplicate = existingLabels.some(
+    (label) =>
+      label.id !== args.exclude_id &&
+      label.team_id === args.team_id &&
+      normalizeLabelName(label.name) === normalized,
+  );
+
+  if (duplicate) throw new Error("A Label with that name already exists in this scope.");
+};
+
+const validateTaskLabelIds = (
+  existingLabels: readonly LabelScopeRow[],
+  args: { readonly label_ids: readonly string[]; readonly team_id: string },
+) => {
+  const labelsById = new Map(existingLabels.map((label) => [label.id, label]));
+
+  for (const label_id of args.label_ids) {
+    const label = labelsById.get(label_id);
+    if (!label) throw new Error("Label not found.");
+    if (label.team_id !== null && label.team_id !== args.team_id) {
+      throw new Error("Label is not in this Task's Team scope.");
+    }
+  }
+};
+
+const stripForeignTeamLabelIds = (
+  existingLabels: readonly LabelScopeRow[],
+  args: { readonly label_ids: readonly string[]; readonly team_id: string },
+) => {
+  const labelsById = new Map(existingLabels.map((label) => [label.id, label]));
+
+  return args.label_ids.filter((label_id) => {
+    const label = labelsById.get(label_id);
+
+    return label !== undefined && (label.team_id === null || label.team_id === args.team_id);
+  });
 };
 
 const getTaskWithTeamIdentifier = async (
@@ -256,8 +355,6 @@ const taskPatchForFields = async (
   if (args.fields.due_date !== undefined) patch.due_date = args.fields.due_date;
   if (args.fields.parent_task_id !== undefined) patch.parent_task_id = args.fields.parent_task_id;
   if (args.fields.board_order !== undefined) patch.board_order = args.fields.board_order;
-  if (args.fields.label_ids !== undefined)
-    patch.label_ids = serializeStringArray(args.fields.label_ids);
   if (args.fields.estimate !== undefined) patch.estimate = args.fields.estimate;
 
   if (args.fields.workflow_status_id !== undefined) {
@@ -355,6 +452,24 @@ const taskPatchForFields = async (
         updated_by: args.session_user_id,
       })
       .where(eq(teams.id, team.id));
+  }
+
+  const effectiveTeamId = (patch.team_id as string | undefined) ?? task.team_id;
+  if (args.fields.label_ids !== undefined) {
+    const churchLabels = await getChurchLabels(db, args.church_id);
+    validateTaskLabelIds(churchLabels, {
+      label_ids: args.fields.label_ids,
+      team_id: effectiveTeamId,
+    });
+    patch.label_ids = serializeStringArray(args.fields.label_ids);
+  } else if (patch.team_id !== undefined) {
+    const churchLabels = await getChurchLabels(db, args.church_id);
+    patch.label_ids = serializeStringArray(
+      stripForeignTeamLabelIds(churchLabels, {
+        label_ids: parseSerializedStringArray(task.label_ids),
+        team_id: effectiveTeamId,
+      }),
+    );
   }
 
   return patch;
@@ -742,6 +857,113 @@ export const mutators = defineMutators({
         );
     }),
   },
+  labels: {
+    create: defineChurchTaskMutator(CreateLabelArgs, async ({ args, ctx, tx }) => {
+      const db = serverDb(tx);
+      if (!db) return;
+
+      const session = requireTeamManager(ctx, args.church_id);
+      const name = args.name.trim();
+      if (!name) throw new Error("Label name is required.");
+
+      const teamId = args.team_id ?? null;
+      if (teamId !== null) {
+        const teamRows = (await db
+          .select({ id: teams.id })
+          .from(teams)
+          .where(
+            and(
+              eq(teams.id, teamId),
+              eq(teams.church_id, args.church_id),
+              isNull(teams.deleted_at),
+            ),
+          )) as Array<{ readonly id: string }>;
+        if (teamRows.length === 0) throw new Error("Team was not found in the active Church.");
+      }
+
+      const existingLabels = await getChurchLabels(db, args.church_id);
+      ensureUniqueLabelName(existingLabels, { name, team_id: teamId });
+      const now = new Date();
+
+      await db.insert(labels).values({
+        _tag: "label",
+        church_id: args.church_id,
+        color: args.color ?? getLabelColorForName(name),
+        created_at: now,
+        created_by: session.user_id,
+        id: getLabelId(),
+        name,
+        team_id: teamId,
+        updated_at: now,
+        updated_by: session.user_id,
+      });
+    }),
+    update: defineChurchTaskMutator(UpdateLabelArgs, async ({ args, ctx, tx }) => {
+      const db = serverDb(tx);
+      if (!db) return;
+
+      const session = requireTeamManager(ctx, args.church_id);
+      const existingLabels = await getChurchLabels(db, args.church_id);
+      const label = existingLabels.find((candidate) => candidate.id === args.label_id);
+      if (!label) throw new Error("Label not found.");
+
+      const patch: Record<string, unknown> = {
+        updated_at: new Date(),
+        updated_by: session.user_id,
+      };
+
+      if (args.name !== undefined) {
+        const name = args.name.trim();
+        if (!name) throw new Error("Label name is required.");
+        ensureUniqueLabelName(existingLabels, {
+          exclude_id: args.label_id,
+          name,
+          team_id: label.team_id,
+        });
+        patch.name = name;
+      }
+
+      if (args.color !== undefined) patch.color = args.color;
+
+      await db
+        .update(labels)
+        .set(patch)
+        .where(and(eq(labels.id, args.label_id), eq(labels.church_id, args.church_id)));
+    }),
+    delete: defineChurchTaskMutator(DeleteLabelArgs, async ({ args, ctx, tx }) => {
+      const db = serverDb(tx);
+      if (!db) return;
+
+      requireTeamManager(ctx, args.church_id);
+      const existingLabels = await getChurchLabels(db, args.church_id);
+      if (!existingLabels.some((label) => label.id === args.label_id)) {
+        throw new Error("Label not found.");
+      }
+
+      const taskRows = (await db
+        .select({ id: tasks.id, label_ids: tasks.label_ids })
+        .from(tasks)
+        .where(and(eq(tasks.church_id, args.church_id), isNull(tasks.deleted_at)))) as Array<{
+        readonly id: string;
+        readonly label_ids: string;
+      }>;
+
+      for (const task of taskRows) {
+        const currentLabelIds = parseSerializedStringArray(task.label_ids);
+        const nextLabelIds = currentLabelIds.filter((label_id) => label_id !== args.label_id);
+        if (nextLabelIds.length === currentLabelIds.length) continue;
+
+        await db
+          .update(tasks)
+          .set({ label_ids: serializeStringArray(nextLabelIds) })
+          .where(eq(tasks.id, task.id));
+      }
+
+      await db
+        .delete(labels)
+        .where(and(eq(labels.id, args.label_id), eq(labels.church_id, args.church_id)));
+    }),
+  },
   tasks: {
     create: defineChurchTaskMutator(CreateTaskArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
@@ -807,6 +1029,12 @@ export const mutators = defineMutators({
       if (workflowRows.length === 0)
         throw new Error("Workflow Status is not in the Team Workflow.");
 
+      const labelIds = args.label_ids ?? [];
+      validateTaskLabelIds(await getChurchLabels(db, args.church_id), {
+        label_ids: labelIds,
+        team_id: team.id,
+      });
+
       const boardRows = (await db
         .select({ board_order: tasks.board_order })
         .from(tasks)
@@ -836,7 +1064,7 @@ export const mutators = defineMutators({
         estimate: args.estimate ?? null,
         finished_at: status.task_state === "done" ? now : null,
         id: taskId,
-        label_ids: serializeStringArray(args.label_ids ?? []),
+        label_ids: serializeStringArray(labelIds),
         number: team.next_task_number,
         parent_task_id: args.parent_task_id ?? null,
         previous_identifiers: "[]",

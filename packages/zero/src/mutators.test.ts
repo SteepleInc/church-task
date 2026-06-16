@@ -4,6 +4,7 @@ import { mustGetMutator } from "@rocicorp/zero";
 import { describe, expect, test } from "vitest";
 
 import {
+  labels,
   tasks,
   team_memberships,
   teams,
@@ -316,6 +317,111 @@ describe("Zero Workflow mutators", () => {
   });
 });
 
+describe("Zero Label mutators", () => {
+  const createServerTx = (selectResults: Array<unknown>) => {
+    const deleteCalls: Array<{ readonly table: unknown; readonly where: unknown }> = [];
+    const insertCalls: Array<{ readonly table: unknown; readonly values: unknown }> = [];
+    const updateCalls: Array<{
+      readonly table: unknown;
+      readonly set: unknown;
+      readonly where: unknown;
+    }> = [];
+    const nextSelectResult = async () => selectResults.shift() ?? [];
+
+    const tx = {
+      dbTransaction: {
+        wrappedTransaction: {
+          delete: (table: unknown) => ({
+            where: async (where: unknown) => {
+              deleteCalls.push({ table, where });
+            },
+          }),
+          insert: (table: unknown) => ({
+            values: async (values: unknown) => {
+              insertCalls.push({ table, values });
+            },
+          }),
+          select: () => ({
+            from: () => ({
+              where: nextSelectResult,
+            }),
+          }),
+          update: (table: unknown) => ({
+            set: (set: unknown) => ({
+              where: async (where: unknown) => {
+                updateCalls.push({ table, set, where });
+              },
+            }),
+          }),
+        },
+      },
+      location: "server",
+    } as never;
+
+    return { deleteCalls, insertCalls, tx, updateCalls };
+  };
+
+  test("creates Church and Team Labels with scoped uniqueness", async () => {
+    const { insertCalls, tx } = createServerTx([
+      [],
+      [{ id: "team_worship" }],
+      [{ id: "label_church", name: "Worship", team_id: null }],
+    ]);
+
+    await mustGetMutator(mutators, "labels.create").fn({
+      args: { church_id: "org_test", name: "Worship" },
+      ctx: signedInContext,
+      tx,
+    });
+    await mustGetMutator(mutators, "labels.create").fn({
+      args: { church_id: "org_test", name: "Worship", team_id: "team_worship" },
+      ctx: signedInContext,
+      tx,
+    });
+
+    const labelInserts = insertCalls
+      .filter((call) => call.table === labels)
+      .map((call) => {
+        return call.values as {
+          readonly id: string;
+          readonly name: string;
+          readonly team_id: string | null;
+        };
+      });
+
+    expect(labelInserts).toHaveLength(2);
+    expect(labelInserts.every((label) => getIdType(label.id) === "label")).toBe(true);
+    expect(labelInserts.map((label) => label.team_id)).toEqual([null, "team_worship"]);
+  });
+
+  test("updates Labels and hard-deletes them from Tasks", async () => {
+    const { deleteCalls, tx, updateCalls } = createServerTx([
+      [{ id: "label_worship", name: "Worship", team_id: null }],
+      [{ id: "label_worship", name: "Worship", team_id: null }],
+      [
+        { id: "task_one", label_ids: '["label_worship","label_other"]' },
+        { id: "task_two", label_ids: '["label_other"]' },
+      ],
+    ]);
+
+    await mustGetMutator(mutators, "labels.update").fn({
+      args: { church_id: "org_test", color: "blue", label_id: "label_worship", name: "Music" },
+      ctx: signedInContext,
+      tx,
+    });
+    await mustGetMutator(mutators, "labels.delete").fn({
+      args: { church_id: "org_test", label_id: "label_worship" },
+      ctx: signedInContext,
+      tx,
+    });
+
+    expect(updateCalls.map((call) => call.table)).toEqual([labels, tasks]);
+    expect(updateCalls[0]?.set).toMatchObject({ color: "blue", name: "Music" });
+    expect(updateCalls[1]?.set).toMatchObject({ label_ids: '["label_other"]' });
+    expect(deleteCalls.map((call) => call.table)).toEqual([labels]);
+  });
+});
+
 describe("Zero Task mutators", () => {
   const createServerTx = (selectResults: Array<unknown>) => {
     const insertCalls: Array<{ readonly table: unknown; readonly values: unknown }> = [];
@@ -362,6 +468,7 @@ describe("Zero Task mutators", () => {
       [{ id: "workflowstatus_todo", task_state: "todo", workflow_id: "workflow_production" }],
       [{ id: "team_production", identifier: "PRO", next_task_number: 7 }],
       [{ id: "workflow_production" }],
+      [],
       [{ board_order: "a1" }, { board_order: "a3" }],
     ]);
 
@@ -452,6 +559,50 @@ describe("Zero Task mutators", () => {
     expect(
       updateCalls.map((call) => (call.set as { readonly board_order: string }).board_order),
     ).toEqual(["a2", "a1"]);
+  });
+
+  test("strips foreign Team Labels when moving a Task between Teams", async () => {
+    const { tx, updateCalls } = createServerTx([
+      [
+        {
+          board_order: "a1",
+          church_id: "org_test",
+          deleted_at: null,
+          finished_at: null,
+          id: "task_one",
+          label_ids: '["label_church","label_old_team","label_missing"]',
+          number: 1,
+          previous_identifiers: "[]",
+          task_state: "todo",
+          team_id: "team_old",
+          team_identifier: "OLD",
+          workflow_id: "workflow_old",
+          workflow_status_id: "workflowstatus_todo_old",
+        },
+      ],
+      [{ id: "team_new", identifier: "NEW", next_task_number: 4 }],
+      [{ id: "workflow_new" }],
+      [{ id: "workflowstatus_todo_new", task_state: "todo" }],
+      [
+        { id: "label_church", name: "Church Label", team_id: null },
+        { id: "label_old_team", name: "Old Team Label", team_id: "team_old" },
+        { id: "label_new_team", name: "New Team Label", team_id: "team_new" },
+      ],
+    ]);
+
+    await mustGetMutator(mutators, "tasks.update").fn({
+      args: { church_id: "org_test", fields: { team_id: "team_new" }, task_id: "task_one" },
+      ctx: signedInContext,
+      tx,
+    });
+
+    expect(updateCalls.map((call) => call.table)).toEqual([teams, tasks]);
+    expect(updateCalls[1]?.set).toMatchObject({
+      label_ids: '["label_church"]',
+      team_id: "team_new",
+      workflow_id: "workflow_new",
+      workflow_status_id: "workflowstatus_todo_new",
+    });
   });
 
   test("complete and reopen move Tasks through workflow statuses", async () => {

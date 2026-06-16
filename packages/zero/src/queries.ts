@@ -77,6 +77,19 @@ export const queries = defineQueries({
       return scoped.orderBy("created_at", "asc");
     }),
   },
+  labels: {
+    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+      const scoped = zql.labels.where("church_id", args.church_id);
+
+      if (!hasActiveChurchAccess(ctx, args.church_id)) {
+        if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
+
+        return zql.labels.where("id", "__unauthorized__").where("deleted_at", "IS", null);
+      }
+
+      return scoped.where("deleted_at", "IS", null).orderBy("name", "asc");
+    }),
+  },
   workflows: {
     by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
       const scoped = zql.workflows.where("church_id", args.church_id);

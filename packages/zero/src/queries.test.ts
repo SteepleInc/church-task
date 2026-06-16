@@ -25,6 +25,7 @@ describe("Zero product queries", () => {
   test("fails closed for unauthenticated server-side Workflow queries", () => {
     for (const name of [
       "team_memberships.by_church",
+      "labels.by_church",
       "workflows.by_church",
       "workflow_statuses.by_church",
     ] as const) {
