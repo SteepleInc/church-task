@@ -25,6 +25,7 @@
     "@types/pg": "catalog:",
     "drizzle-kit": "catalog:",
     "testcontainers": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

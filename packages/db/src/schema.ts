@@ -1,9 +1,9 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
-const utcTimestamp = (name: string) => timestamp(name, { mode: "date", withTimezone: true });
+export const utcTimestamp = (name: string) => timestamp(name, { mode: "date", withTimezone: true });
 
-const baseEntityFields = {
+export const baseEntityFields = {
   _tag: text("_tag").notNull(),
   created_at: utcTimestamp("created_at").notNull().defaultNow(),
   created_by: text("created_by"),
@@ -15,6 +15,8 @@ const baseEntityFields = {
   deleted_at: utcTimestamp("deleted_at"),
   deleted_by: text("deleted_by"),
 };
+
+export type BaseEntityFields = typeof baseEntityFields;
 
 export const demo_items = pgTable(
   "demo_items",
