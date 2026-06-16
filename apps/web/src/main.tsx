@@ -6,6 +6,7 @@ import { ConvexQueryCacheProvider } from "convex-helpers/react/cache";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import ReactDOM from "react-dom/client";
 
+import { ZeroRuntimeProvider } from "./lib/zero-runtime-provider";
 import { routeTree } from "./routeTree.gen";
 const convex = new ConvexReactClient(env.VITE_CONVEX_URL);
 
@@ -19,7 +20,9 @@ const router = createRouter({
   Wrap: function WrapComponent({ children }: { children: React.ReactNode }) {
     return (
       <ConvexProvider client={convex}>
-        <ConvexQueryCacheProvider>{children}</ConvexQueryCacheProvider>
+        <ConvexQueryCacheProvider>
+          <ZeroRuntimeProvider>{children}</ZeroRuntimeProvider>
+        </ConvexQueryCacheProvider>
       </ConvexProvider>
     );
   },

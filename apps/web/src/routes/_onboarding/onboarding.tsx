@@ -16,10 +16,10 @@ import { TeamAvatar } from "@/components/avatars/teamAvatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
-  useDeleteTeamMutation,
-  useTeamsCollection,
-  type TeamCollectionItem,
-} from "@/data/teams/teamsData.app";
+  useDeleteOnboardingTeamMutation,
+  useOnboardingTeamsCollection,
+  type OnboardingTeamCollectionItem,
+} from "@/data/teams/onboardingTeamsData.app";
 import { useQuickActionOpeners } from "@/features/quick-actions/quick-actions-state";
 import {
   getOnboardingStepTitle,
@@ -343,18 +343,16 @@ function InitialTeamsStepCard(props: {
   readonly churchId: string;
   readonly onComplete: () => Promise<void>;
 }) {
-  const { teamsCollection } = useTeamsCollection({ churchId: props.churchId });
-  const deleteTeam = useDeleteTeamMutation();
+  const { teamsCollection } = useOnboardingTeamsCollection({ churchId: props.churchId });
+  const deleteTeam = useDeleteOnboardingTeamMutation();
   const { openCreateTeam, openEditTeam } = useQuickActionOpeners();
 
   const teams = [...teamsCollection].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   const hasTeams = teams.length > 0;
 
-  const removeTeam = (team: TeamCollectionItem) => {
-    void deleteTeam({ churchId: props.churchId, teamId: team.id }).then((result) => {
-      if ("error" in result) {
-        toast.error(result.error.message);
-      }
+  const removeTeam = (team: OnboardingTeamCollectionItem) => {
+    void deleteTeam({ churchId: props.churchId, teamId: team.id }).catch((error: unknown) => {
+      toast.error(error instanceof Error ? error.message : "Could not remove Team.");
     });
   };
 

@@ -8,6 +8,12 @@ export interface ZeroSessionContext {
 
 export type OptionalZeroSessionContext = ZeroSessionContext | null;
 
+declare module "@rocicorp/zero" {
+  interface DefaultTypes {
+    context: OptionalZeroSessionContext;
+  }
+}
+
 export const isAppAdminSession = (ctx: OptionalZeroSessionContext) => ctx?.is_app_admin === true;
 
 export const requireSignedInSession = (ctx: OptionalZeroSessionContext) => {
