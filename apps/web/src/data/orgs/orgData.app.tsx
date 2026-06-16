@@ -1,12 +1,12 @@
 import { nullOp } from "@church-task/shared/noOps";
 import { api } from "@church-task/backend-old/convex/_generated/api";
 import { useMutation } from "convex/react";
-import { useConvexQuery as useQuery } from "@/data/query-hooks";
 import type { ReactNode } from "react";
 
-import { recordFromCollection, recordFromQueryResult } from "@/data/convex-query-adapter";
+import { recordFromCollection } from "@/data/convex-query-adapter";
 import { recordOptimisticUpdate } from "@/data/optimistic-collection";
 import { useUserOrgsCollection, type OrgCollectionItem } from "@/data/orgs/orgsData.app";
+import { authClient } from "@/lib/auth-client";
 
 export type CurrentOrg = {
   readonly id: string;
@@ -44,12 +44,42 @@ export function useOrgData(params: { readonly orgId: string }) {
 }
 
 export function useCurrentOrgOpt() {
-  const activeOrg = useQuery(api.dashboard.getActiveOrganization);
-  const state = recordFromQueryResult<CurrentOrg>(activeOrg);
+  const { data: activeOrg, isPending } = authClient.useActiveOrganization();
+  const session = authClient.useSession();
+  const activeMember = activeOrg?.members?.find(
+    (member) => member.userId === session.data?.user?.id,
+  );
+  const currentOrgOpt: CurrentOrg | null = activeOrg
+    ? {
+        id: activeOrg.id,
+        name: activeOrg.name,
+        slug: activeOrg.slug ?? null,
+        churchTimeZone: activeOrg.churchTimeZone ?? null,
+        completedOnboarding: Boolean(activeOrg.completedOnboarding),
+        url: activeOrg.url ?? null,
+        street: activeOrg.street ?? null,
+        city: activeOrg.city ?? null,
+        state: activeOrg.state ?? null,
+        zip: activeOrg.zip ?? null,
+        countryCode: activeOrg.countryCode ?? null,
+        latitude: activeOrg.latitude ?? null,
+        longitude: activeOrg.longitude ?? null,
+        size: activeOrg.size ?? null,
+        role: activeMember?.role ?? "member",
+        currentUserId: session.data?.user?.id ?? "",
+        invitations:
+          activeOrg.invitations?.map((invitation) => ({
+            id: invitation.id,
+            email: invitation.email,
+            role: invitation.role,
+            status: invitation.status,
+          })) ?? [],
+      }
+    : null;
 
   return {
-    loading: state.loading,
-    currentOrgOpt: state.record,
+    loading: isPending || session.isPending,
+    currentOrgOpt,
   };
 }
 

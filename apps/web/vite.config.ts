@@ -11,6 +11,14 @@ export default defineConfig(({ mode }) => {
     envDir,
     server: {
       port: Number(env.VITE_PORT ?? 2001),
+      proxy: env.CHURCH_TASK_E2E_API_URL
+        ? {
+            "/api": {
+              changeOrigin: true,
+              target: env.CHURCH_TASK_E2E_API_URL,
+            },
+          }
+        : undefined,
     },
     resolve: {
       tsconfigPaths: true,

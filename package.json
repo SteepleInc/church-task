@@ -60,6 +60,7 @@
     "test:backend": "turbo -F @church-task/backend-old test:backend",
     "test:cli": "turbo -F @church-task/cli test:cli",
     "test:e2e": "playwright test",
+    "test:e2e:onboarding": "CHURCH_TASK_E2E_ONBOARDING_STACK=1 playwright test tests/e2e/onboarding-new-stack.spec.ts --workers=1",
     "test:e2e:tracer": "CHURCH_TASK_E2E_TRACER=1 playwright test --project=tracer",
     "test:e2e:setup": "bun scripts/setup-e2e.ts",
     "test:e2e:local": "bun scripts/setup-e2e.ts && playwright test",
@@ -97,9 +98,11 @@
   },
   "devDependencies": {
     "@church-task/config": "workspace:*",
+    "@church-task/test-harness": "workspace:*",
     "@playwright/test": "^1.60.0",
     "oxfmt": "^0.46.0",
     "oxlint": "^1.61.0",
+    "tsx": "catalog:",
     "turbo": "^2.8.12",
     "typescript": "catalog:"
   },

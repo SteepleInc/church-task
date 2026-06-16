@@ -60,6 +60,11 @@ const modelIds = {
   verification: getVerificationId,
 } satisfies Record<string, () => string>;
 
+const getTrustedOrigins = () =>
+  [process.env.CORS_ORIGIN, process.env.SITE_URL, process.env.E2E_SITE_URL].filter(
+    (origin): origin is string => Boolean(origin),
+  );
+
 type SessionCreateHookInput = typeof session.$inferInsert;
 
 export const enrichNewSession = async (db: ChurchTaskDb, newSession: SessionCreateHookInput) => {
@@ -242,6 +247,7 @@ export const createAuthOptions = (
         userRole: { required: false, type: "string" },
       },
     },
+    trustedOrigins: getTrustedOrigins(),
   } satisfies BetterAuthOptions;
 
   return options;

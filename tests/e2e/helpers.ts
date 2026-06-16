@@ -51,7 +51,14 @@ export async function waitForOtp(page: Page, email: string) {
 
 export async function signInWithOtp(page: Page, email: string) {
   await page.goto("/sign-in");
-  await page.getByLabel("Email address").fill(email);
+  await expect(page).toHaveURL(/\/sign-in$/, { timeout: 20_000 });
+  const emailField = page.getByLabel("Email address");
+  if (!(await emailField.isVisible({ timeout: 20_000 }).catch(() => false))) {
+    throw new Error(
+      `Sign-in email field did not render at ${page.url()}. Body: ${await page.locator("body").innerText()}`,
+    );
+  }
+  await emailField.fill(email);
   await page.locator('button[data-loading="false"]', { hasText: "Continue" }).click();
   await page.getByLabel("Verification Code").fill(await waitForOtp(page, email));
   await expect(page).toHaveURL(/\/(my-work|onboarding)$/, { timeout: 20_000 });
@@ -63,11 +70,26 @@ export async function completeOnboarding(page: Page, churchName: string) {
   await page.getByTestId("onboarding-enter-manually").click();
   await page.getByLabel("Church Name").fill(churchName);
   await page.getByLabel("Church Time Zone").fill("America/Chicago");
-  await page.getByRole("button", { name: "Next" }).click();
+  await page.locator("form").getByRole("button", { name: "Next" }).click();
 
-  await expect(page.getByText("Review the starting Teams", { exact: false })).toBeVisible({
-    timeout: 20_000,
-  });
+  const teamsStepHeading = page.getByText("Review the starting Teams", { exact: false });
+  if (!(await teamsStepHeading.isVisible({ timeout: 20_000 }).catch(() => false))) {
+    const activeOrgState = await page.evaluate(async () => {
+      const { authClient } = await import("/src/lib/auth-client.ts");
+      const session = await authClient.getSession();
+      const activeOrganization = await authClient.organization.getFullOrganization();
+
+      return {
+        activeOrganization: activeOrganization.data,
+        activeOrganizationError: activeOrganization.error?.message,
+        session: session.data?.session,
+        sessionError: session.error?.message,
+      };
+    });
+    throw new Error(
+      `Onboarding did not advance to Initial Teams at ${page.url()}. Active org state: ${JSON.stringify(activeOrgState)}. Body: ${await page.locator("body").innerText()}`,
+    );
+  }
   // Wait for the seeded Starter Teams to finish streaming in so the layout
   // is stable before clicking Next.
   await expect(

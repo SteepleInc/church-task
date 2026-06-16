@@ -73,10 +73,12 @@ export const startPostgresHarness = async () => {
 };
 
 export const startZeroCacheHarness = async (options: {
+  readonly appId?: string;
   readonly apiBaseUrl: string;
   readonly databaseUrl: string;
+  readonly port?: number;
 }) => {
-  const port = await getOpenPort();
+  const port = options.port ?? (await getOpenPort());
   const tmpDir = await mkdtemp(join(tmpdir(), "church-task-zero-"));
   const replicaFile = join(tmpDir, "zero.db");
   const zeroUrl = `http://127.0.0.1:${port}`;
@@ -84,7 +86,7 @@ export const startZeroCacheHarness = async (options: {
     env: {
       ...process.env,
       DO_NOT_TRACK: "1",
-      ZERO_APP_ID: "tracer",
+      ZERO_APP_ID: options.appId ?? "tracer",
       ZERO_CHANGE_DB: options.databaseUrl,
       ZERO_CVR_DB: options.databaseUrl,
       ZERO_ENABLE_TELEMETRY: "false",

@@ -325,7 +325,10 @@ function ChurchProfileStepCard() {
                   className="ml-auto"
                   disabled={!canSubmit}
                   loading={isSubmitting}
-                  type="submit"
+                  onClick={() => {
+                    void form.handleSubmit();
+                  }}
+                  type="button"
                 >
                   Next
                   <ArrowRight />
