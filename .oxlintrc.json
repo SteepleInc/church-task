@@ -4,9 +4,42 @@
   "categories": {
     "correctness": "error"
   },
-  "ignorePatterns": ["**/_generated/**", "apps/web/src/routeTree.gen.ts"],
+  "ignorePatterns": [
+    "**/_generated/**",
+    "apps/web/src/routeTree.gen.ts",
+    "packages/backend-old/**",
+    "packages/domain-old/**"
+  ],
   "rules": {},
   "overrides": [
+    {
+      "files": [
+        "backend/server/src/**",
+        "packages/auth/src/**",
+        "packages/db/src/**",
+        "packages/domain/src/**",
+        "packages/test-harness/src/**",
+        "packages/zero/src/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@church-task/backend-old",
+                "message": "Old backend code is reference-only during the migration; target packages must not import it."
+              },
+              {
+                "name": "@church-task/domain-old",
+                "message": "Old domain code is reference-only during the migration; target packages must not import it."
+              }
+            ],
+            "patterns": ["@church-task/backend-old/*", "@church-task/domain-old/*"]
+          }
+        ]
+      }
+    },
     {
       "files": ["apps/web/src/**"],
       "rules": {

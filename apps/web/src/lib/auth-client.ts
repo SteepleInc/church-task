@@ -1,5 +1,5 @@
 import { env } from "@church-task/env/web";
-import type { clearOrgForOnboarding } from "@church-task/backend/authCore";
+import type { clearOrgForOnboarding } from "@church-task/backend-old/authCore";
 import { convexClient, crossDomainClient } from "@convex-dev/better-auth/client/plugins";
 import type { BetterAuthClientPlugin } from "better-auth/client";
 import { adminClient, emailOTPClient, organizationClient } from "better-auth/client/plugins";

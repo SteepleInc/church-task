@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { formatTaskIdentifier, parseTaskIdentifier } from "@church-task/domain/Task";
+import { formatTaskIdentifier, parseTaskIdentifier } from "@church-task/domain-old/Task";
 
 describe("formatTaskIdentifier", () => {
   test("joins the Team Identifier and task number with a dash", () => {

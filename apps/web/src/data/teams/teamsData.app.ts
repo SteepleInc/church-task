@@ -1,10 +1,10 @@
-import { api } from "@church-task/backend/convex/_generated/api";
+import { api } from "@church-task/backend-old/convex/_generated/api";
 import {
   generateTeamIdentifier,
   getTeamColorForName,
   type Team,
   type TeamMembership,
-} from "@church-task/domain";
+} from "@church-task/domain-old";
 import { useMutation } from "convex/react";
 import { useConvexQuery as useQuery } from "@/data/query-hooks";
 

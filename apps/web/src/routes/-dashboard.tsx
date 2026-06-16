@@ -1,4 +1,4 @@
-import refs from "@church-task/backend/confect/_generated/refs";
+import refs from "@church-task/backend-old/confect/_generated/refs";
 import { MainContainer, PageContainer, PageWrapper } from "@/components/pageComponents";
 import { useAppForm } from "@/components/form/ts-form";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { QueryResult, useQuery as useConfectQuery } from "@/data/query-hooks";
-import { normalizeTeamIdentifier } from "@church-task/domain/Team";
+import { normalizeTeamIdentifier } from "@church-task/domain-old/Team";
 import { revalidateLogic } from "@tanstack/react-form";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Authenticated, Unauthenticated } from "convex/react";

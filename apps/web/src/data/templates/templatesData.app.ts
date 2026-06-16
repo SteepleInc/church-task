@@ -1,4 +1,4 @@
-import type { Template } from "@church-task/domain";
+import type { Template } from "@church-task/domain-old";
 
 import { collectionFromQueryResult } from "@/data/convex-query-adapter";
 

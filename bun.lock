@@ -5,9 +5,12 @@
     "": {
       "name": "church-task",
       "dependencies": {
+        "@church-task/auth": "workspace:*",
+        "@church-task/db": "workspace:*",
         "@church-task/domain": "workspace:*",
         "@church-task/env": "workspace:*",
         "@church-task/shared": "workspace:*",
+        "@church-task/zero": "workspace:*",
         "@opentelemetry/api": "^1.9.1",
         "@opentelemetry/api-logs": "^0.218.0",
         "@opentelemetry/auto-instrumentations-node": "^0.76.0",
@@ -41,8 +44,8 @@
       "version": "0.0.0",
       "dependencies": {
         "@base-ui/react": "^1.5.0",
-        "@church-task/backend": "workspace:*",
-        "@church-task/domain": "workspace:*",
+        "@church-task/backend-old": "workspace:*",
+        "@church-task/domain-old": "workspace:*",
         "@church-task/env": "workspace:*",
         "@confect/core": "catalog:",
         "@confect/react": "catalog:",
@@ -105,12 +108,30 @@
         "vite": "^8.0.8",
       },
     },
-    "packages/backend": {
-      "name": "@church-task/backend",
+    "backend/server": {
+      "name": "@church-task/server",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@church-task/config": "workspace:*",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/auth": {
+      "name": "@church-task/auth",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@church-task/config": "workspace:*",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/backend-old": {
+      "name": "@church-task/backend-old",
       "version": "1.0.0",
       "dependencies": {
         "@better-auth/api-key": "catalog:",
-        "@church-task/domain": "workspace:*",
+        "@church-task/domain-old": "workspace:*",
         "@confect/core": "catalog:",
         "@confect/server": "catalog:",
         "@convex-dev/better-auth": "catalog:",
@@ -142,7 +163,7 @@
         "church-task": "./src/bin.ts",
       },
       "dependencies": {
-        "@church-task/backend": "workspace:*",
+        "@church-task/backend-old": "workspace:*",
         "convex": "catalog:",
         "effect": "catalog:",
       },
@@ -157,8 +178,26 @@
       "name": "@church-task/config",
       "version": "0.0.0",
     },
+    "packages/db": {
+      "name": "@church-task/db",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@church-task/config": "workspace:*",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
     "packages/domain": {
       "name": "@church-task/domain",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@church-task/config": "workspace:*",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/domain-old": {
+      "name": "@church-task/domain-old",
       "version": "0.0.0",
       "dependencies": {
         "effect": "catalog:",
@@ -189,6 +228,24 @@
       "dependencies": {
         "@church-task/env": "workspace:*",
       },
+      "devDependencies": {
+        "@church-task/config": "workspace:*",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/test-harness": {
+      "name": "@church-task/test-harness",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@church-task/config": "workspace:*",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/zero": {
+      "name": "@church-task/zero",
+      "version": "0.0.0",
       "devDependencies": {
         "@church-task/config": "workspace:*",
         "@types/node": "catalog:",
@@ -302,17 +359,29 @@
 
     "@better-fetch/fetch": ["@better-fetch/fetch@1.1.21", "", {}, "sha512-/ImESw0sskqlVR94jB+5+Pxjf+xBwDZF/N5+y2/q4EqD7IARUTSpPfIo8uf39SYpCxyOCtbyYpUrZ3F/k0zT4A=="],
 
-    "@church-task/backend": ["@church-task/backend@workspace:packages/backend"],
+    "@church-task/auth": ["@church-task/auth@workspace:packages/auth"],
+
+    "@church-task/backend-old": ["@church-task/backend-old@workspace:packages/backend-old"],
 
     "@church-task/cli": ["@church-task/cli@workspace:packages/cli"],
 
     "@church-task/config": ["@church-task/config@workspace:packages/config"],
 
+    "@church-task/db": ["@church-task/db@workspace:packages/db"],
+
     "@church-task/domain": ["@church-task/domain@workspace:packages/domain"],
+
+    "@church-task/domain-old": ["@church-task/domain-old@workspace:packages/domain-old"],
 
     "@church-task/env": ["@church-task/env@workspace:packages/env"],
 
+    "@church-task/server": ["@church-task/server@workspace:backend/server"],
+
     "@church-task/shared": ["@church-task/shared@workspace:packages/shared"],
+
+    "@church-task/test-harness": ["@church-task/test-harness@workspace:packages/test-harness"],
+
+    "@church-task/zero": ["@church-task/zero@workspace:packages/zero"],
 
     "@confect/core": ["@confect/core@8.0.0", "", { "peerDependencies": { "convex": "^1.30.0", "effect": "^3.21.2" } }, "sha512-OcafD3Y+cQGto1BAq+USPPsmiCzELW1Bi6u76RbCSCTio2QqaIZVPb3jcZG3XjiR45tvhJ7MKQOdW1v9sKBD7Q=="],
 

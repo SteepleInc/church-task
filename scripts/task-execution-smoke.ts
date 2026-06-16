@@ -55,7 +55,7 @@ const steps: readonly Step[] = [
     command: [
       "bun",
       "--filter",
-      "@church-task/backend",
+      "@church-task/backend-old",
       "test:backend",
       "--",
       "confect/authenticatedStateSpike.test.ts",

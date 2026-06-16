@@ -4,6 +4,7 @@
   "workspaces": {
     "packages": [
       "apps/*",
+      "backend/*",
       "packages/*"
     ],
     "catalog": {
@@ -36,11 +37,11 @@
     "build": "turbo build",
     "check-types": "turbo check-types",
     "dev:web": "turbo -F web dev",
-    "dev:server": "turbo -F @church-task/backend dev",
-    "dev:server:e2e": "turbo -F @church-task/backend dev:e2e",
-    "dev:setup": "turbo -F @church-task/backend dev:setup",
+    "dev:server": "turbo -F @church-task/server dev",
+    "dev:server:e2e": "turbo -F @church-task/server dev:e2e",
+    "dev:setup": "turbo -F @church-task/server dev:setup",
     "convex:wipe": "bun --env-file=.env scripts/wipe-convex-db.ts",
-    "test:backend": "turbo -F @church-task/backend test:backend",
+    "test:backend": "turbo -F @church-task/backend-old test:backend",
     "test:cli": "turbo -F @church-task/cli test:cli",
     "test:e2e": "playwright test",
     "test:e2e:setup": "bun scripts/setup-e2e.ts",
@@ -50,9 +51,12 @@
     "check": "oxlint && oxfmt --write"
   },
   "dependencies": {
+    "@church-task/auth": "workspace:*",
+    "@church-task/db": "workspace:*",
     "@church-task/domain": "workspace:*",
     "@church-task/env": "workspace:*",
     "@church-task/shared": "workspace:*",
+    "@church-task/zero": "workspace:*",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.218.0",
     "@opentelemetry/auto-instrumentations-node": "^0.76.0",

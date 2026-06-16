@@ -11,7 +11,7 @@
     "test:cli": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@church-task/backend": "workspace:*",
+    "@church-task/backend-old": "workspace:*",
     "convex": "catalog:",
     "effect": "catalog:"
   },

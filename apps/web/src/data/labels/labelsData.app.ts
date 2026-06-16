@@ -1,5 +1,5 @@
-import { api } from "@church-task/backend/convex/_generated/api";
-import { getLabelColorForName } from "@church-task/domain/Label";
+import { api } from "@church-task/backend-old/convex/_generated/api";
+import { getLabelColorForName } from "@church-task/domain-old/Label";
 import { useMutation } from "convex/react";
 import { useConvexQuery as useQuery } from "@/data/query-hooks";
 

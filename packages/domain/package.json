@@ -4,22 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./index.ts",
-    "./ChurchInvitation": "./ChurchInvitation.ts",
-    "./Cycle": "./Cycle.ts",
-    "./Label": "./Label.ts",
-    "./Org": "./Org.ts",
-    "./Task": "./Task.ts",
-    "./Team": "./Team.ts",
-    "./Template": "./Template.ts",
-    "./User": "./User.ts",
-    "./Workflow": "./Workflow.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "check-types": "tsc --noEmit"
-  },
-  "dependencies": {
-    "effect": "catalog:"
   },
   "devDependencies": {
     "@church-task/config": "workspace:*",

@@ -1,4 +1,4 @@
-import { getLabelColorForName, isLabelColor, type LabelColor } from "@church-task/domain/Label";
+import { getLabelColorForName, isLabelColor, type LabelColor } from "@church-task/domain-old/Label";
 import {
   Ban,
   CircleAlert,
@@ -129,7 +129,7 @@ export type TaskLabelOption = {
 };
 
 // Label Color token -> Tailwind dot class. Tokens come from LABEL_COLORS in
-// @church-task/domain; Tailwind needs literal class strings, so the mapping
+// @church-task/domain-old; Tailwind needs literal class strings, so the mapping
 // lives here on the web side (same pattern as TeamAvatar).
 const LABEL_COLOR_DOT_CLASSES: Record<LabelColor, string> = {
   red: "bg-red-500",

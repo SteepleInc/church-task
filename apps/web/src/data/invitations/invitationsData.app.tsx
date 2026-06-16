@@ -1,5 +1,5 @@
-import { api } from "@church-task/backend/convex/_generated/api";
-import type { ChurchInvitation } from "@church-task/domain";
+import { api } from "@church-task/backend-old/convex/_generated/api";
+import type { ChurchInvitation } from "@church-task/domain-old";
 import { useConvexQuery as useQuery } from "@/data/query-hooks";
 
 import { collectionFromQueryResult } from "@/data/convex-query-adapter";

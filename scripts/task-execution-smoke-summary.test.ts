@@ -10,7 +10,7 @@ import {
 describe("Task execution smoke summary", () => {
   const passedResult: TaskExecutionSmokeStepResult = {
     name: "backend public-boundary smoke",
-    command: "bun --filter @church-task/backend test:backend",
+    command: "bun --filter @church-task/backend-old test:backend",
     covers: ["Backend public contracts execute the Task lifecycle."],
     exitCode: 0,
     durationMs: 1234,

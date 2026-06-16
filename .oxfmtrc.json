@@ -1,3 +1,8 @@
 {
-  "ignorePatterns": ["**/_generated/**", "apps/web/src/routeTree.gen.ts"]
+  "ignorePatterns": [
+    "**/_generated/**",
+    "apps/web/src/routeTree.gen.ts",
+    "packages/backend-old/**",
+    "packages/domain-old/**"
+  ]
 }

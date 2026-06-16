@@ -1,8 +1,8 @@
-import type { TaskEstimate, TaskStatus } from "@church-task/domain";
+import type { TaskEstimate, TaskStatus } from "@church-task/domain-old";
 
 /**
  * Minimal shape of a serialized Task as returned inside `mcpListTasks`.
- * Mirrors `TaskSchema` in `@church-task/domain/Task`; kept structural so the
+ * Mirrors `TaskSchema` in `@church-task/domain-old/Task`; kept structural so the
  * optimistic merge stays decoupled from the full backend response type.
  */
 export type OptimisticTask = {

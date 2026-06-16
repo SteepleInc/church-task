@@ -1,4 +1,4 @@
-import { api } from "@church-task/backend/convex/_generated/api";
+import { api } from "@church-task/backend-old/convex/_generated/api";
 import { useMutation } from "convex/react";
 
 import { collectionFromQueryResult } from "@/data/convex-query-adapter";

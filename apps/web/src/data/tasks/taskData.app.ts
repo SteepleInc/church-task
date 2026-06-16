@@ -1,4 +1,4 @@
-import { api } from "@church-task/backend/convex/_generated/api";
+import { api } from "@church-task/backend-old/convex/_generated/api";
 
 import { successfulResponseCollection } from "@/data/convex-query-adapter";
 import { useConvexQuery as useQuery } from "@/data/query-hooks";

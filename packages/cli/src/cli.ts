@@ -1,14 +1,14 @@
-import { api } from "@church-task/backend/convex/_generated/api";
+import { api } from "@church-task/backend-old/convex/_generated/api";
 import type {
   CoreWorkBatchReadArgs,
   CoreWorkBatchReadResponse,
   CoreWorkBatchWriteArgs,
   CoreWorkBatchWriteResponse,
-} from "@church-task/backend/agent/coreWorkOperations";
+} from "@church-task/backend-old/agent/coreWorkOperations";
 import type {
   ActiveChurchResponse,
   CurrentUserResponse,
-} from "@church-task/backend/agent/operations";
+} from "@church-task/backend-old/agent/operations";
 import { ConvexHttpClient } from "convex/browser";
 import { Context, Data, Effect, Layer } from "effect";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";

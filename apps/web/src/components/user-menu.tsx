@@ -1,4 +1,4 @@
-import refs from "@church-task/backend/confect/_generated/refs";
+import refs from "@church-task/backend-old/confect/_generated/refs";
 import { LogOutIcon } from "lucide-react";
 import { type ComponentProps, useState } from "react";
 
