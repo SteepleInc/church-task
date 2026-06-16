@@ -13,6 +13,7 @@
   "dependencies": {
     "@church-task/db": "workspace:*",
     "@church-task/shared": "workspace:*",
+    "@rocicorp/zero": "catalog:",
     "@testcontainers/postgresql": "catalog:",
     "drizzle-orm": "catalog:",
     "testcontainers": "catalog:"

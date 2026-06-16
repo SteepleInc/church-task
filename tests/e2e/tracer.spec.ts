@@ -8,16 +8,20 @@ const baseUrl = `http://127.0.0.1:${port}`;
 let server: Awaited<ReturnType<typeof startTracerHttpServer>>;
 
 test.beforeAll(async () => {
-  server = await startTracerHttpServer(port);
+  server = await startTracerHttpServer(port, { startZeroCache: true });
 }, 90_000);
 
 test.afterAll(async () => {
-  await server.stop();
+  await server?.stop();
 });
 
 test("tracer API creates a demo item through the local stack", async ({ request }) => {
   const health = await request.get(`${baseUrl}/api/tracer`);
   await expect(health).toBeOK();
+
+  expect(server.zeroCacheUrl).toBeTruthy();
+  const zeroHealth = await request.get(`${server.zeroCacheUrl}/statz`);
+  await expect(zeroHealth).toBeOK();
 
   const response = await request.post(`${baseUrl}/api/tracer/demo-items`, {
     data: { name: "Playwright tracer item" },

@@ -273,6 +273,7 @@
       "dependencies": {
         "@church-task/db": "workspace:*",
         "@church-task/shared": "workspace:*",
+        "@rocicorp/zero": "catalog:",
         "@testcontainers/postgresql": "catalog:",
         "drizzle-orm": "catalog:",
         "testcontainers": "catalog:",
@@ -301,6 +302,9 @@
       },
     },
   },
+  "trustedDependencies": [
+    "@rocicorp/zero-sqlite3",
+  ],
   "catalog": {
     "@better-auth/api-key": "~1.6.9",
     "@better-auth/drizzle-adapter": "1.6.19",
