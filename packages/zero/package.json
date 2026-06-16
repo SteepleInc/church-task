@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@church-task/config": "workspace:*",
+    "@church-task/test-harness": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
