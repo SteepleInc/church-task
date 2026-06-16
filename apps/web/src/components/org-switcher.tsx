@@ -228,8 +228,6 @@ export function OrgSwitcher() {
               </DropdownMenuSubContent>
             </DropdownMenuSub>
 
-            <DropdownMenuSeparator />
-
             <DropdownMenuItemWithLoading loading={isSigningOut} onClick={signOut}>
               <LogOutIcon className="size-4" />
               <span>Log out</span>
