@@ -1,7 +1,18 @@
 import { createDb } from "@church-task/db";
-import { member, organization, user } from "@church-task/db/schema";
+import {
+  labels,
+  member,
+  organization,
+  team_memberships,
+  teams,
+  user,
+} from "@church-task/db/schema";
 import { getOrgId, getOrgUserId, getSessionId, getUserId } from "@church-task/shared/get-ids";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
+import { createAuthClient } from "better-auth/client";
+import { organizationClient } from "better-auth/client/plugins";
+import { parseSetCookieHeader } from "better-auth/cookies";
+import { betterAuth } from "better-auth/minimal";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { describe, expect, test } from "vitest";
 
@@ -114,6 +125,77 @@ describe("Better Auth Postgres foundation", () => {
         orgType: "church",
         skipOrgFallback: false,
       });
+    } finally {
+      await pool.end();
+      await container.stop();
+    }
+  }, 60_000);
+
+  test("creates a Church organization, seeds onboarding data, and activates it", async () => {
+    const container = await new PostgreSqlContainer("postgres:16-alpine").start();
+    const { db, pool } = createDb(container.getConnectionUri());
+
+    try {
+      await migrate(db, {
+        migrationsFolder: new URL("../../db/drizzle", import.meta.url).pathname,
+      });
+
+      const auth = betterAuth(createAuthOptions(db));
+      const cookieHeaders = new Headers();
+      const authClient = createAuthClient({
+        baseURL: "http://localhost:3000",
+        fetchOptions: {
+          customFetchImpl: async (input, init) => {
+            const response = await auth.handler(new Request(input, init));
+            return response;
+          },
+        },
+        plugins: [
+          organizationClient({
+            schema: {
+              organization: {
+                additionalFields: {
+                  churchTimeZone: { required: true, type: "string" },
+                  completedOnboarding: { required: false, type: "boolean" },
+                },
+              },
+            },
+          }),
+        ],
+      });
+
+      await authClient.signUp.email({
+        email: "founder@church-task.test",
+        fetchOptions: {
+          onSuccess: (context) => {
+            const cookies = parseSetCookieHeader(context.response.headers.get("set-cookie") ?? "");
+            const sessionCookie = cookies.get("better-auth.session_token")?.value;
+            if (sessionCookie) {
+              cookieHeaders.set("cookie", `better-auth.session_token=${sessionCookie}`);
+            }
+          },
+        },
+        name: "Founder",
+        password: "password-12345678",
+      });
+
+      const created = await authClient.organization.create({
+        churchTimeZone: "America/Chicago",
+        completedOnboarding: false,
+        fetchOptions: { headers: cookieHeaders },
+        name: "Regression Church",
+        slug: "regression-church",
+      });
+
+      expect(created.error).toBeNull();
+      expect(created.data?.id).toEqual(expect.stringMatching(/^org_/));
+
+      const session = await authClient.getSession({ fetchOptions: { headers: cookieHeaders } });
+
+      expect(session.data?.session.activeOrganizationId).toBe(created.data?.id);
+      await expect(db.select().from(teams)).resolves.toHaveLength(3);
+      await expect(db.select().from(team_memberships)).resolves.toHaveLength(3);
+      await expect(db.select().from(labels)).resolves.toHaveLength(7);
     } finally {
       await pool.end();
       await container.stop();

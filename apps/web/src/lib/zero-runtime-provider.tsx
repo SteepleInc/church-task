@@ -11,6 +11,16 @@ type SessionWithZeroContext = {
   readonly userRole?: string | null;
 };
 
+const getZeroCacheUrl = () => {
+  const configuredUrl = env.VITE_ZERO_CACHE_URL;
+
+  if (!configuredUrl) return "http://127.0.0.1:4848";
+
+  return configuredUrl.includes("127.0.0.1") || configuredUrl.includes("localhost")
+    ? `${typeof window === "undefined" ? "" : window.location.origin}/zero`
+    : configuredUrl;
+};
+
 export function ZeroRuntimeProvider(props: { readonly children: React.ReactNode }) {
   const { data } = authClient.useSession();
   const session = data?.session as SessionWithZeroContext | undefined;
@@ -28,8 +38,9 @@ export function ZeroRuntimeProvider(props: { readonly children: React.ReactNode 
 
   return (
     <ZeroProvider
-      cacheURL={env.VITE_ZERO_CACHE_URL ?? "http://127.0.0.1:4848"}
+      cacheURL={getZeroCacheUrl()}
       context={context}
+      key={`${userId}:${session?.id ?? "anonymous"}:${session?.activeOrganizationId ?? "none"}`}
       mutators={mutators}
       schema={schema}
       userID={userId}

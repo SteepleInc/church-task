@@ -73,7 +73,14 @@ export async function completeOnboarding(page: Page, churchName: string) {
   await page.locator("form").getByRole("button", { name: "Next" }).click();
 
   const teamsStepHeading = page.getByText("Review the starting Teams", { exact: false });
-  if (!(await teamsStepHeading.isVisible({ timeout: 20_000 }).catch(() => false))) {
+  if (
+    !(await expect(teamsStepHeading)
+      .toBeVisible({ timeout: 20_000 })
+      .then(
+        () => true,
+        () => false,
+      ))
+  ) {
     const activeOrgState = await page.evaluate(async () => {
       const { authClient } = await import("/src/lib/auth-client.ts");
       const session = await authClient.getSession();
@@ -94,7 +101,7 @@ export async function completeOnboarding(page: Page, churchName: string) {
   // is stable before clicking Next.
   await expect(
     page.getByLabel("Initial Teams").getByRole("button", { name: /^Edit / }),
-  ).toHaveCount(6, {
+  ).toHaveCount(3, {
     timeout: 20_000,
   });
   await page.getByRole("button", { name: "Next" }).click();
