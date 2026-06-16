@@ -7,7 +7,7 @@ const ZERO_PATH_REGEX = /^\/zero/;
 
 export default defineConfig(({ mode }) => {
   const envDir = "../..";
-  const env = loadEnv(mode, envDir, "");
+  const env = { ...loadEnv(mode, envDir, ""), ...process.env };
 
   return {
     envDir,

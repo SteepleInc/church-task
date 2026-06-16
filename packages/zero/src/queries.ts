@@ -2,7 +2,9 @@ import { defineQueries, defineQueryWithType } from "@rocicorp/zero";
 import { Schema } from "effect";
 
 import {
+  hasActiveChurchAccess,
   isAppAdminSession,
+  isServerContext,
   requireActiveChurchAccess,
   requireAppAdminSession,
 } from "./session-context";
@@ -26,7 +28,7 @@ export const queries = defineQueries({
     all: defineChurchTaskQuery(({ ctx }) => {
       const scoped = isAppAdminSession(ctx)
         ? zql.demo_items
-        : ctx
+        : ctx?.authenticated === true
           ? zql.demo_items.where("owner_user_id", ctx.user_id)
           : zql.demo_items.where("owner_user_id", "IS", null);
 
@@ -35,7 +37,7 @@ export const queries = defineQueries({
     by_id: defineChurchTaskQuery(DemoItemByIdArgs, ({ args, ctx }) =>
       (isAppAdminSession(ctx)
         ? zql.demo_items
-        : ctx
+        : ctx?.authenticated === true
           ? zql.demo_items.where("owner_user_id", ctx.user_id)
           : zql.demo_items.where("owner_user_id", "IS", null)
       )
@@ -46,8 +48,13 @@ export const queries = defineQueries({
   },
   teams: {
     by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
-      requireActiveChurchAccess(ctx, args.church_id);
       const scoped = zql.teams.where("church_id", args.church_id);
+
+      if (!hasActiveChurchAccess(ctx, args.church_id)) {
+        if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
+
+        return zql.teams.where("id", "__unauthorized__").where("deleted_at", "IS", null);
+      }
 
       return scoped.where("deleted_at", "IS", null).orderBy("sort_order", "asc");
     }),

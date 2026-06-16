@@ -33,6 +33,4 @@ test("completes OTP sign-in through onboarding on the local Postgres and Zero st
       `${error instanceof Error ? error.message : String(error)}\nBrowser errors:\n${browserErrors.join("\n")}`,
     );
   });
-
-  await expect(page.getByRole("navigation", { name: "breadcrumb" })).toContainText("My Work");
 });

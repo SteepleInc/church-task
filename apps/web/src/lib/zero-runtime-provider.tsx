@@ -23,14 +23,19 @@ const getZeroCacheUrl = () => {
 
 export function ZeroRuntimeProvider(props: { readonly children: React.ReactNode }) {
   const { data } = authClient.useSession();
+  const { data: activeOrganization } = authClient.useActiveOrganization();
   const session = data?.session as SessionWithZeroContext | undefined;
   const userId = data?.user?.id ?? "anonymous";
+  const activeMember = activeOrganization?.members?.find((member) => member.userId === userId);
+  const activeChurchId = activeOrganization?.id ?? session?.activeOrganizationId ?? null;
   const context: OptionalZeroSessionContext | null =
     data?.user && data.session
       ? {
-          active_church_id: session?.activeOrganizationId ?? null,
-          church_role: session?.orgRole ?? null,
+          authenticated: true,
+          active_church_id: activeChurchId,
+          church_role: activeMember?.role ?? session?.orgRole ?? null,
           is_app_admin: session?.userRole === "admin",
+          runtime: "client",
           session_id: session?.id ?? data.session.id,
           user_id: data.user.id,
         }
@@ -40,7 +45,7 @@ export function ZeroRuntimeProvider(props: { readonly children: React.ReactNode 
     <ZeroProvider
       cacheURL={getZeroCacheUrl()}
       context={context}
-      key={`${userId}:${session?.id ?? "anonymous"}:${session?.activeOrganizationId ?? "none"}`}
+      key={`${userId}:${session?.id ?? "anonymous"}:${activeChurchId ?? "none"}`}
       mutators={mutators}
       schema={schema}
       userID={userId}

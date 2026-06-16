@@ -7,9 +7,11 @@ import {
 } from "./session-context";
 
 const memberContext = {
+  authenticated: true,
   active_church_id: "org_seed",
   church_role: "owner",
   is_app_admin: false,
+  runtime: "server",
   session_id: "session_seed",
   user_id: "user_seed",
 } as const;

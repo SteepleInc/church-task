@@ -1,7 +1,7 @@
 import { createAuth, createLocalOtpStore } from "@church-task/auth";
 import { createDb } from "@church-task/db";
 import { demo_items } from "@church-task/db/schema";
-import { mutators, queries, schema } from "@church-task/zero";
+import { anonymousServerContext, mutators, queries, schema } from "@church-task/zero";
 import { handleMutateRequest, handleQueryRequest } from "@rocicorp/zero/server";
 import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
 import { mustGetMutator, mustGetQuery } from "@rocicorp/zero";
@@ -17,7 +17,7 @@ const getSessionContext = async (
   const authSession = await auth.api.getSession({ headers: request.headers });
 
   if (!authSession) {
-    return null;
+    return anonymousServerContext();
   }
 
   const session = authSession.session as typeof authSession.session & {
@@ -27,9 +27,11 @@ const getSessionContext = async (
   };
 
   return {
+    authenticated: true,
     active_church_id: session.activeOrganizationId ?? null,
     church_role: session.orgRole ?? null,
     is_app_admin: session.userRole === "admin",
+    runtime: "server",
     session_id: authSession.session.id,
     user_id: authSession.user.id,
   };
