@@ -294,7 +294,11 @@ function TeamChildItem({
         onOpenChange={(open) => setExpanded(expansionKey, open)}
         render={<SidebarMenuSubItem />}
       >
-        <CollapsibleTrigger render={<SidebarMenuSubButton className="cursor-pointer" />}>
+        <CollapsibleTrigger
+          render={
+            <SidebarMenuSubButton className="cursor-pointer" render={<button type="button" />} />
+          }
+        >
           <ChildIcon icon={child.icon} />
           <span className="flex-1 truncate">{child.label}</span>
           <HugeiconsIcon
@@ -482,7 +486,7 @@ function TeamActionsMenu({
         />
         <DropdownMenuContent align="start" className="min-w-48" side="right">
           <DropdownMenuItem
-            render={<Link to="/settings/team/$teamTab" params={{ teamTab: "members" }} />}
+            render={<Link to="/settings/teams/$teamId/members" params={{ teamId: team.id }} />}
           >
             <HugeiconsIcon icon={Settings01Icon} strokeWidth={2} />
             Team settings
