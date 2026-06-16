@@ -28,6 +28,14 @@ export type SeedResult = {
 
 const tableNames = [
   "tasks",
+  "cycle_adjustments",
+  "template_tasks",
+  "focus_windows",
+  "template_teams",
+  "templates",
+  "key_date_occurrences",
+  "key_dates",
+  "cycles",
   "workflow_statuses",
   "workflows",
   "team_memberships",

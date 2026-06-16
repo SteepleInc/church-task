@@ -106,3 +106,5 @@ export const parseTaskIdentifier = (value: string): ParsedTaskIdentifier | null 
 
   return { teamIdentifier: match[1]!.toUpperCase(), taskNumber };
 };
+
+export * from "./template-projection";

@@ -12,7 +12,7 @@ import {
   workflows,
 } from "@church-task/db/schema";
 
-import { mutators } from "./mutators";
+import { buildTemplateCycleTaskInserts, mutators } from "./mutators";
 
 const signedInContext = {
   active_church_id: "org_test",
@@ -666,5 +666,172 @@ describe("Zero Task mutators", () => {
       task_state: "todo",
       workflow_status_id: "workflowstatus_todo",
     });
+  });
+});
+
+describe("Zero Template and Cycle projection", () => {
+  test("materializes adjusted Template Tasks into Cycle Tasks with local-date due dates", () => {
+    const projection = buildTemplateCycleTaskInserts({
+      adjustments: [
+        {
+          lifecycle: "active",
+          overrides: JSON.stringify([{ field: "title", value: "Prepare Easter rehearsal" }]),
+          template_task_id: "templatetask_rehearsal",
+        },
+      ],
+      church_id: "org_test",
+      cycle: { id: "cycle_easter", start_date: "2026-03-30" },
+      focus_windows: [
+        {
+          anchor_date: "2026-04-05",
+          end_date: "2026-04-05",
+          id: "focuswindow_easter",
+          start_date: "2026-03-30",
+        },
+      ],
+      key_date_occurrences: [],
+      now: new Date("2026-01-01T00:00:00.000Z"),
+      session_user_id: "user_test",
+      start_number_by_team_id: new Map([["team_worship", 7]]),
+      template_id: "template_easter",
+      template_tasks: [
+        {
+          id: "templatetask_rehearsal",
+          key: "rehearsal",
+          parent_template_task_id: null,
+          scheduling_rule: JSON.stringify({
+            edge: "start",
+            focusWindowId: "focuswindow_easter",
+            kind: "relativeToFocusWindow",
+            offsetDays: 2,
+          }),
+          template_team_id: "templateteam_worship",
+          title: "Prepare rehearsal",
+        },
+      ],
+      template_teams: [{ id: "templateteam_worship", mapped_team_id: "team_worship" }],
+      todo_status_by_workflow_id: new Map([
+        ["workflow_worship", { id: "workflowstatus_todo", workflow_id: "workflow_worship" }],
+      ]),
+      workflow_by_team_id: new Map([
+        ["team_worship", { id: "workflow_worship", team_id: "team_worship" }],
+      ]),
+    });
+
+    expect(projection.inserts).toHaveLength(1);
+    expect(projection.inserts[0]).toMatchObject({
+      church_id: "org_test",
+      cycle_id: "cycle_easter",
+      due_date: "2026-04-01",
+      number: 7,
+      source_template_cycle_id: "cycle_easter",
+      source_template_id: "template_easter",
+      source_template_sync_enabled: true,
+      source_template_task_id: "templatetask_rehearsal",
+      task_state: "todo",
+      team_id: "team_worship",
+      title: "Prepare Easter rehearsal",
+      workflow_status_id: "workflowstatus_todo",
+    });
+    expect(projection.nextNumberByTeamId.get("team_worship")).toBe(8);
+  });
+
+  test("links projected child Tasks to projected parent Tasks", () => {
+    const projection = buildTemplateCycleTaskInserts({
+      adjustments: [],
+      church_id: "org_test",
+      cycle: { id: "cycle_easter", start_date: "2026-03-30" },
+      focus_windows: [],
+      key_date_occurrences: [],
+      now: new Date("2026-01-01T00:00:00.000Z"),
+      session_user_id: "user_test",
+      start_number_by_team_id: new Map([["team_worship", 7]]),
+      template_id: "template_easter",
+      template_tasks: [
+        {
+          id: "templatetask_parent",
+          key: "parent",
+          parent_template_task_id: null,
+          scheduling_rule: JSON.stringify({ kind: "fixedDate", localDate: "2026-04-01" }),
+          template_team_id: "templateteam_worship",
+          title: "Prepare service plan",
+        },
+        {
+          id: "templatetask_child",
+          key: "child",
+          parent_template_task_id: "templatetask_parent",
+          scheduling_rule: JSON.stringify({ kind: "fixedDate", localDate: "2026-04-02" }),
+          template_team_id: "templateteam_worship",
+          title: "Confirm readers",
+        },
+      ],
+      template_teams: [{ id: "templateteam_worship", mapped_team_id: "team_worship" }],
+      todo_status_by_workflow_id: new Map([
+        ["workflow_worship", { id: "workflowstatus_todo", workflow_id: "workflow_worship" }],
+      ]),
+      workflow_by_team_id: new Map([
+        ["team_worship", { id: "workflow_worship", team_id: "team_worship" }],
+      ]),
+    });
+
+    const [parent, child] = projection.inserts;
+
+    expect(parent?.parent_task_id).toBeNull();
+    expect(child?.parent_task_id).toBe(parent?.id);
+    expect(child).toMatchObject({
+      due_date: "2026-04-02",
+      source_template_task_id: "templatetask_child",
+      title: "Confirm readers",
+    });
+  });
+
+  test("does not duplicate existing projected Template Tasks for the same Cycle", () => {
+    const projection = buildTemplateCycleTaskInserts({
+      adjustments: [],
+      church_id: "org_test",
+      cycle: { id: "cycle_easter", start_date: "2026-03-30" },
+      existing_projected_tasks: [
+        { id: "task_existing_parent", source_template_task_id: "templatetask_parent" },
+      ],
+      focus_windows: [],
+      key_date_occurrences: [],
+      now: new Date("2026-01-01T00:00:00.000Z"),
+      session_user_id: "user_test",
+      start_number_by_team_id: new Map([["team_worship", 7]]),
+      template_id: "template_easter",
+      template_tasks: [
+        {
+          id: "templatetask_parent",
+          key: "parent",
+          parent_template_task_id: null,
+          scheduling_rule: JSON.stringify({ kind: "fixedDate", localDate: "2026-04-01" }),
+          template_team_id: "templateteam_worship",
+          title: "Prepare service plan",
+        },
+        {
+          id: "templatetask_child",
+          key: "child",
+          parent_template_task_id: "templatetask_parent",
+          scheduling_rule: JSON.stringify({ kind: "fixedDate", localDate: "2026-04-02" }),
+          template_team_id: "templateteam_worship",
+          title: "Confirm readers",
+        },
+      ],
+      template_teams: [{ id: "templateteam_worship", mapped_team_id: "team_worship" }],
+      todo_status_by_workflow_id: new Map([
+        ["workflow_worship", { id: "workflowstatus_todo", workflow_id: "workflow_worship" }],
+      ]),
+      workflow_by_team_id: new Map([
+        ["team_worship", { id: "workflow_worship", team_id: "team_worship" }],
+      ]),
+    });
+
+    expect(projection.inserts).toHaveLength(1);
+    expect(projection.inserts[0]).toMatchObject({
+      number: 7,
+      parent_task_id: "task_existing_parent",
+      source_template_task_id: "templatetask_child",
+    });
+    expect(projection.nextNumberByTeamId.get("team_worship")).toBe(8);
   });
 });

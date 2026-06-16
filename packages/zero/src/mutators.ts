@@ -1,5 +1,9 @@
 import {
   DEFAULT_WORKFLOW_STATUSES,
+  mergeTemplateTaskProjection,
+  resolveSchedulingRule,
+  type CycleAdjustmentOverride,
+  type SchedulingRule,
   formatTaskIdentifier,
   generateTeamIdentifier,
   getLabelColorForName,
@@ -8,8 +12,16 @@ import {
   TEAM_IDENTIFIER_MAX_LENGTH,
 } from "@church-task/domain";
 import {
+  getCycleAdjustmentId,
+  getCycleId,
   getDemoItemId,
+  getFocusWindowId,
+  getKeyDateId,
+  getKeyDateOccurrenceId,
   getLabelId,
+  getTemplateId,
+  getTemplateTaskId,
+  getTemplateTeamId,
   getTaskId,
   getTeamId,
   getTeamMembershipId,
@@ -21,15 +33,22 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { Schema } from "effect";
 
 import {
+  cycle_adjustments,
+  cycles,
   demo_items,
+  focus_windows,
+  key_date_occurrences,
+  key_dates,
   labels,
   tasks,
   team_memberships,
   teams,
+  template_tasks,
+  template_teams,
+  templates,
   workflow_statuses,
   workflows,
 } from "@church-task/db/schema";
-
 import { requireActiveChurchAccess, requireSignedInSession } from "./session-context";
 
 import type { OptionalZeroSessionContext } from "./session-context";
@@ -152,6 +171,128 @@ const UpdateTasksBatchArgs = Schema.standardSchemaV1(
 );
 const TaskTransitionArgs = Schema.standardSchemaV1(
   Schema.Struct({ church_id: Schema.String, task_id: Schema.String }),
+);
+const KeyDateScheduleArg = Schema.Union(
+  Schema.Struct({ kind: Schema.Literal("fixedYearly"), month: Schema.Number, day: Schema.Number }),
+  Schema.Struct({
+    kind: Schema.Literal("computedYearly"),
+    rule: Schema.Union(
+      Schema.Literal("easter"),
+      Schema.Literal("palm_sunday"),
+      Schema.Literal("pentecost"),
+      Schema.Literal("mothers_day"),
+      Schema.Literal("fathers_day"),
+    ),
+  }),
+  Schema.Struct({ kind: Schema.Literal("manualOccurrences") }),
+  Schema.Struct({ kind: Schema.Literal("oneTime") }),
+);
+const SchedulingRuleArg = Schema.Union(
+  Schema.Struct({ kind: Schema.Literal("fixedDate"), localDate: Schema.String }),
+  Schema.Struct({
+    edge: Schema.Union(Schema.Literal("start"), Schema.Literal("end")),
+    focusWindowId: Schema.String,
+    kind: Schema.Literal("relativeToFocusWindow"),
+    offsetDays: Schema.Number,
+  }),
+  Schema.Struct({
+    focusWindowId: Schema.String,
+    kind: Schema.Literal("relativeToAnchorDate"),
+    offsetDays: Schema.Number,
+  }),
+  Schema.Struct({
+    keyDateId: Schema.String,
+    kind: Schema.Literal("relativeToKeyDate"),
+    offsetDays: Schema.Number,
+    year: Schema.Number,
+  }),
+  Schema.Struct({
+    baseLocalDate: Schema.String,
+    dayOffset: Schema.Number,
+    kind: Schema.Literal("cycleOffset"),
+    offsetCycles: Schema.Number,
+  }),
+);
+const CycleAdjustmentOverrideArg = Schema.Union(
+  Schema.Struct({ field: Schema.Literal("title"), value: Schema.String }),
+  Schema.Struct({ field: Schema.Literal("dueDate"), value: Schema.String }),
+  Schema.Struct({
+    field: Schema.Literal("parentTemplateTaskId"),
+    value: Schema.Union(Schema.String, Schema.Null),
+  }),
+);
+const UpsertCycleArgs = Schema.standardSchemaV1(
+  Schema.Struct({
+    church_id: Schema.String,
+    church_time_zone: Schema.String,
+    end_date: Schema.String,
+    ends_at: Schema.String,
+    start_date: Schema.String,
+    starts_at: Schema.String,
+  }),
+);
+const CreateKeyDateArgs = Schema.standardSchemaV1(
+  Schema.Struct({
+    church_id: Schema.String,
+    key: Schema.String,
+    name: Schema.String,
+    schedule: KeyDateScheduleArg,
+  }),
+);
+const CreateKeyDateOccurrenceArgs = Schema.standardSchemaV1(
+  Schema.Struct({
+    church_id: Schema.String,
+    key_date_id: Schema.String,
+    label: Schema.Union(Schema.String, Schema.Null),
+    local_date: Schema.String,
+  }),
+);
+const CreateTemplateArgs = Schema.standardSchemaV1(
+  Schema.Struct({
+    church_id: Schema.String,
+    focus_windows: Schema.Array(
+      Schema.Struct({
+        anchor_date: Schema.Union(Schema.String, Schema.Null),
+        end_date: Schema.Union(Schema.String, Schema.Null),
+        key: Schema.String,
+        key_date_id: Schema.Union(Schema.String, Schema.Null),
+        name: Schema.String,
+        start_date: Schema.String,
+        type: Schema.String,
+      }),
+    ),
+    key: Schema.String,
+    name: Schema.String,
+    recurrence: Schema.String,
+    template_tasks: Schema.Array(
+      Schema.Struct({
+        key: Schema.String,
+        parent_template_task_key: Schema.Union(Schema.String, Schema.Null),
+        scheduling_rule: SchedulingRuleArg,
+        template_team_key: Schema.Union(Schema.String, Schema.Null),
+        title: Schema.String,
+      }),
+    ),
+    template_teams: Schema.Array(
+      Schema.Struct({ key: Schema.String, mapped_team_id: Schema.String, name: Schema.String }),
+    ),
+  }),
+);
+const SetCycleAdjustmentsArgs = Schema.standardSchemaV1(
+  Schema.Struct({
+    adjustments: Schema.Array(
+      Schema.Struct({
+        cycle_id: Schema.String,
+        lifecycle: Schema.Union(Schema.Literal("active"), Schema.Literal("skipped")),
+        overrides: Schema.Array(CycleAdjustmentOverrideArg),
+        template_task_id: Schema.String,
+      }),
+    ),
+    church_id: Schema.String,
+  }),
+);
+const ProjectTemplateCycleArgs = Schema.standardSchemaV1(
+  Schema.Struct({ church_id: Schema.String, cycle_id: Schema.String, template_id: Schema.String }),
 );
 
 const defineChurchTaskMutator = defineMutatorWithType<
@@ -333,6 +474,202 @@ const getTaskWithTeamIdentifier = async (
   }>;
 
   return rows[0] ?? null;
+};
+
+const stringifyJson = (value: unknown) => JSON.stringify(value);
+
+const parseJson = <Value>(value: string, fallback: Value): Value => {
+  try {
+    return JSON.parse(value) as Value;
+  } catch {
+    return fallback;
+  }
+};
+
+const requireTemplateManager = (ctx: OptionalZeroSessionContext, church_id: string) =>
+  requireTeamManager(ctx, church_id);
+
+const parseIsoInstant = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error("Instant must be a valid ISO timestamp.");
+  return date;
+};
+
+type TemplateTaskRow = {
+  readonly id: string;
+  readonly key: string;
+  readonly parent_template_task_id: string | null;
+  readonly scheduling_rule: string;
+  readonly template_team_id: string;
+  readonly title: string;
+};
+
+type TemplateTeamRow = { readonly id: string; readonly mapped_team_id: string };
+type CycleRow = { readonly id: string; readonly start_date: string };
+type FocusWindowRow = {
+  readonly anchor_date: string | null;
+  readonly end_date: string | null;
+  readonly id: string;
+  readonly start_date: string;
+};
+type KeyDateOccurrenceRow = { readonly key_date_id: string; readonly local_date: string };
+type CycleAdjustmentRow = {
+  readonly lifecycle: "active" | "skipped";
+  readonly overrides: string;
+  readonly template_task_id: string;
+};
+type WorkflowRow = { readonly id: string; readonly team_id: string };
+type TodoStatusRow = { readonly id: string; readonly workflow_id: string };
+type ExistingProjectedTaskRow = {
+  readonly id: string;
+  readonly source_template_task_id: string;
+};
+type ProjectionTaskInsert = {
+  readonly _tag: "task";
+  readonly board_order: string;
+  readonly church_id: string;
+  readonly created_at: Date;
+  readonly created_by: string;
+  readonly created_by_user_id: string;
+  readonly cycle_id: string;
+  readonly due_date: string;
+  readonly finished_at: null;
+  readonly id: string;
+  readonly label_ids: string;
+  readonly number: number;
+  parent_task_id: string | null;
+  readonly previous_identifiers: string;
+  readonly source_template_cycle_id: string;
+  readonly source_template_id: string;
+  readonly source_template_sync_enabled: boolean;
+  readonly source_template_task_id: string;
+  readonly task_state: "todo";
+  readonly team_id: string;
+  readonly title: string;
+  readonly updated_at: Date;
+  readonly updated_by: string;
+  readonly workflow_id: string;
+  readonly workflow_status_id: string;
+};
+
+export const buildTemplateCycleTaskInserts = (args: {
+  readonly adjustments: readonly CycleAdjustmentRow[];
+  readonly church_id: string;
+  readonly cycle: CycleRow;
+  readonly existing_projected_tasks?: readonly ExistingProjectedTaskRow[];
+  readonly focus_windows: readonly FocusWindowRow[];
+  readonly key_date_occurrences: readonly KeyDateOccurrenceRow[];
+  readonly now: Date;
+  readonly session_user_id: string;
+  readonly start_number_by_team_id: ReadonlyMap<string, number>;
+  readonly template_id: string;
+  readonly template_tasks: readonly TemplateTaskRow[];
+  readonly template_teams: readonly TemplateTeamRow[];
+  readonly todo_status_by_workflow_id: ReadonlyMap<string, TodoStatusRow>;
+  readonly workflow_by_team_id: ReadonlyMap<string, WorkflowRow>;
+}) => {
+  const templateTeamById = new Map(args.template_teams.map((team) => [team.id, team]));
+  const adjustmentByTemplateTaskId = new Map(
+    args.adjustments.map((adjustment) => [adjustment.template_task_id, adjustment]),
+  );
+  const nextNumberByTeamId = new Map(args.start_number_by_team_id);
+  const insertedTasksByTemplateTaskId = new Map<string, string>();
+  const pendingParentLinks: Array<{
+    readonly parentTemplateTaskId: string;
+    readonly taskId: string;
+  }> = [];
+  const inserts: ProjectionTaskInsert[] = [];
+
+  for (const existingTask of args.existing_projected_tasks ?? []) {
+    insertedTasksByTemplateTaskId.set(existingTask.source_template_task_id, existingTask.id);
+  }
+
+  for (const templateTask of args.template_tasks) {
+    const templateTeam = templateTeamById.get(templateTask.template_team_id);
+    if (!templateTeam) throw new Error("Template Task does not reference an active Template Team.");
+
+    const dueDate = resolveSchedulingRule(
+      parseJson<SchedulingRule>(templateTask.scheduling_rule, {
+        kind: "fixedDate",
+        localDate: args.cycle.start_date,
+      }),
+      {
+        cycle_start_date: args.cycle.start_date,
+        focus_windows: args.focus_windows,
+        key_date_occurrences: args.key_date_occurrences,
+      },
+    );
+    const adjustment = adjustmentByTemplateTaskId.get(templateTask.id);
+    const merged = mergeTemplateTaskProjection(
+      {
+        dueDate,
+        parentTemplateTaskId: templateTask.parent_template_task_id,
+        templateTaskId: templateTask.id,
+        templateTaskKey: templateTask.key,
+        title: templateTask.title,
+      },
+      adjustment
+        ? {
+            lifecycle: adjustment.lifecycle,
+            overrides: parseJson<readonly CycleAdjustmentOverride[]>(adjustment.overrides, []),
+          }
+        : null,
+    );
+    if (merged.skipped || !merged.effectiveTask) continue;
+
+    if (insertedTasksByTemplateTaskId.has(templateTask.id)) continue;
+
+    const workflow = args.workflow_by_team_id.get(templateTeam.mapped_team_id);
+    if (!workflow) throw new Error("Template Team mapped Team does not have an active Workflow.");
+    const todoStatus = args.todo_status_by_workflow_id.get(workflow.id);
+    if (!todoStatus) throw new Error("Mapped Team Workflow does not have a To Do status.");
+    const number = nextNumberByTeamId.get(templateTeam.mapped_team_id) ?? 1;
+    nextNumberByTeamId.set(templateTeam.mapped_team_id, number + 1);
+    const taskId = getTaskId();
+    insertedTasksByTemplateTaskId.set(templateTask.id, taskId);
+    if (merged.effectiveTask.parentTemplateTaskId) {
+      pendingParentLinks.push({
+        parentTemplateTaskId: merged.effectiveTask.parentTemplateTaskId,
+        taskId,
+      });
+    }
+
+    inserts.push({
+      _tag: "task",
+      board_order: appendBoardOrderKey(null),
+      church_id: args.church_id,
+      created_at: args.now,
+      created_by: args.session_user_id,
+      created_by_user_id: args.session_user_id,
+      cycle_id: args.cycle.id,
+      due_date: merged.effectiveTask.dueDate,
+      finished_at: null,
+      id: taskId,
+      label_ids: "[]",
+      number,
+      parent_task_id: null,
+      previous_identifiers: "[]",
+      source_template_cycle_id: args.cycle.id,
+      source_template_id: args.template_id,
+      source_template_sync_enabled: true,
+      source_template_task_id: templateTask.id,
+      task_state: "todo",
+      team_id: templateTeam.mapped_team_id,
+      title: merged.effectiveTask.title,
+      updated_at: args.now,
+      updated_by: args.session_user_id,
+      workflow_id: workflow.id,
+      workflow_status_id: todoStatus.id,
+    });
+  }
+
+  for (const link of pendingParentLinks) {
+    const parentTaskId = insertedTasksByTemplateTaskId.get(link.parentTemplateTaskId) ?? null;
+    const child = inserts.find((insert) => insert.id === link.taskId);
+    if (child) child.parent_task_id = parentTaskId;
+  }
+
+  return { inserts, nextNumberByTeamId };
 };
 
 const taskPatchForFields = async (
@@ -964,6 +1301,400 @@ export const mutators = defineMutators({
       await db
         .delete(labels)
         .where(and(eq(labels.id, args.label_id), eq(labels.church_id, args.church_id)));
+    }),
+  },
+  cycles: {
+    upsert: defineChurchTaskMutator(UpsertCycleArgs, async ({ args, ctx, tx }) => {
+      const db = serverDb(tx);
+      if (!db) return;
+
+      const session = requireActiveChurchAccess(ctx, args.church_id);
+      const now = new Date();
+      const existing = (await db
+        .select({ id: cycles.id })
+        .from(cycles)
+        .where(
+          and(
+            eq(cycles.church_id, args.church_id),
+            eq(cycles.start_date, args.start_date),
+            isNull(cycles.deleted_at),
+          ),
+        )) as Array<{ readonly id: string }>;
+
+      if (existing[0]) {
+        await db
+          .update(cycles)
+          .set({
+            church_time_zone: args.church_time_zone,
+            end_date: args.end_date,
+            ends_at: parseIsoInstant(args.ends_at),
+            start_date: args.start_date,
+            starts_at: parseIsoInstant(args.starts_at),
+            updated_at: now,
+            updated_by: session.user_id,
+          })
+          .where(eq(cycles.id, existing[0].id));
+        return;
+      }
+
+      await db.insert(cycles).values({
+        _tag: "cycle",
+        church_id: args.church_id,
+        church_time_zone: args.church_time_zone,
+        created_at: now,
+        created_by: session.user_id,
+        end_date: args.end_date,
+        ends_at: parseIsoInstant(args.ends_at),
+        id: getCycleId(),
+        start_date: args.start_date,
+        starts_at: parseIsoInstant(args.starts_at),
+        updated_at: now,
+        updated_by: session.user_id,
+      });
+    }),
+  },
+  key_dates: {
+    create: defineChurchTaskMutator(CreateKeyDateArgs, async ({ args, ctx, tx }) => {
+      const db = serverDb(tx);
+      if (!db) return;
+
+      const session = requireTemplateManager(ctx, args.church_id);
+      const now = new Date();
+      await db.insert(key_dates).values({
+        _tag: "keydate",
+        church_id: args.church_id,
+        created_at: now,
+        created_by: session.user_id,
+        id: getKeyDateId(),
+        key: args.key,
+        name: args.name,
+        schedule: stringifyJson(args.schedule),
+        updated_at: now,
+        updated_by: session.user_id,
+      });
+    }),
+    create_occurrence: defineChurchTaskMutator(
+      CreateKeyDateOccurrenceArgs,
+      async ({ args, ctx, tx }) => {
+        const db = serverDb(tx);
+        if (!db) return;
+
+        const session = requireTemplateManager(ctx, args.church_id);
+        const now = new Date();
+        await db.insert(key_date_occurrences).values({
+          _tag: "keydateoccurrence",
+          church_id: args.church_id,
+          created_at: now,
+          created_by: session.user_id,
+          id: getKeyDateOccurrenceId(),
+          key_date_id: args.key_date_id,
+          label: args.label,
+          local_date: args.local_date,
+          updated_at: now,
+          updated_by: session.user_id,
+        });
+      },
+    ),
+  },
+  templates: {
+    create: defineChurchTaskMutator(CreateTemplateArgs, async ({ args, ctx, tx }) => {
+      const db = serverDb(tx);
+      if (!db) return;
+
+      const session = requireTemplateManager(ctx, args.church_id);
+      const now = new Date();
+      const templateId = getTemplateId();
+      const templateTeamIdByKey = new Map<string, string>();
+      const templateTaskIdByKey = new Map<string, string>();
+
+      for (const templateTeam of args.template_teams) {
+        templateTeamIdByKey.set(templateTeam.key, getTemplateTeamId());
+      }
+      for (const templateTask of args.template_tasks) {
+        templateTaskIdByKey.set(templateTask.key, getTemplateTaskId());
+      }
+
+      await db.insert(templates).values({
+        _tag: "template",
+        church_id: args.church_id,
+        created_at: now,
+        created_by: session.user_id,
+        id: templateId,
+        key: args.key,
+        name: args.name,
+        recurrence: args.recurrence,
+        updated_at: now,
+        updated_by: session.user_id,
+      });
+
+      await db.insert(template_teams).values(
+        args.template_teams.map((templateTeam) => ({
+          _tag: "templateteam",
+          church_id: args.church_id,
+          created_at: now,
+          created_by: session.user_id,
+          id: templateTeamIdByKey.get(templateTeam.key)!,
+          key: templateTeam.key,
+          mapped_team_id: templateTeam.mapped_team_id,
+          name: templateTeam.name,
+          template_id: templateId,
+          updated_at: now,
+          updated_by: session.user_id,
+        })),
+      );
+
+      if (args.focus_windows.length > 0) {
+        await db.insert(focus_windows).values(
+          args.focus_windows.map((focusWindow) => ({
+            _tag: "focuswindow",
+            anchor_date: focusWindow.anchor_date,
+            church_id: args.church_id,
+            created_at: now,
+            created_by: session.user_id,
+            end_date: focusWindow.end_date,
+            id: getFocusWindowId(),
+            key: focusWindow.key,
+            key_date_id: focusWindow.key_date_id,
+            name: focusWindow.name,
+            start_date: focusWindow.start_date,
+            template_id: templateId,
+            type: focusWindow.type,
+            updated_at: now,
+            updated_by: session.user_id,
+          })),
+        );
+      }
+
+      await db.insert(template_tasks).values(
+        args.template_tasks.map((templateTask) => {
+          const templateTeamKey = templateTask.template_team_key ?? args.template_teams[0]?.key;
+          const templateTeamId = templateTeamKey
+            ? templateTeamIdByKey.get(templateTeamKey)
+            : undefined;
+          if (!templateTeamId) throw new Error("Template Task must reference a Template Team.");
+          return {
+            _tag: "templatetask",
+            church_id: args.church_id,
+            created_at: now,
+            created_by: session.user_id,
+            id: templateTaskIdByKey.get(templateTask.key)!,
+            key: templateTask.key,
+            parent_template_task_id: templateTask.parent_template_task_key
+              ? (templateTaskIdByKey.get(templateTask.parent_template_task_key) ?? null)
+              : null,
+            scheduling_rule: stringifyJson(templateTask.scheduling_rule),
+            template_id: templateId,
+            template_team_id: templateTeamId,
+            title: templateTask.title,
+            updated_at: now,
+            updated_by: session.user_id,
+          };
+        }),
+      );
+    }),
+    project_cycle: defineChurchTaskMutator(ProjectTemplateCycleArgs, async ({ args, ctx, tx }) => {
+      const db = serverDb(tx);
+      if (!db) return;
+
+      const session = requireActiveChurchAccess(ctx, args.church_id);
+      const [cycle] = (await db
+        .select({ id: cycles.id, start_date: cycles.start_date })
+        .from(cycles)
+        .where(
+          and(
+            eq(cycles.id, args.cycle_id),
+            eq(cycles.church_id, args.church_id),
+            isNull(cycles.deleted_at),
+          ),
+        )) as CycleRow[];
+      if (!cycle) throw new Error("Cycle not found.");
+
+      const templateTeams = (await db
+        .select({ id: template_teams.id, mapped_team_id: template_teams.mapped_team_id })
+        .from(template_teams)
+        .where(
+          and(
+            eq(template_teams.template_id, args.template_id),
+            eq(template_teams.church_id, args.church_id),
+            isNull(template_teams.deleted_at),
+          ),
+        )) as TemplateTeamRow[];
+      const templateTasks = (await db
+        .select({
+          id: template_tasks.id,
+          key: template_tasks.key,
+          parent_template_task_id: template_tasks.parent_template_task_id,
+          scheduling_rule: template_tasks.scheduling_rule,
+          template_team_id: template_tasks.template_team_id,
+          title: template_tasks.title,
+        })
+        .from(template_tasks)
+        .where(
+          and(
+            eq(template_tasks.template_id, args.template_id),
+            eq(template_tasks.church_id, args.church_id),
+            isNull(template_tasks.deleted_at),
+          ),
+        )) as TemplateTaskRow[];
+      const focusWindows = (await db
+        .select({
+          anchor_date: focus_windows.anchor_date,
+          end_date: focus_windows.end_date,
+          id: focus_windows.id,
+          start_date: focus_windows.start_date,
+        })
+        .from(focus_windows)
+        .where(
+          and(
+            eq(focus_windows.template_id, args.template_id),
+            eq(focus_windows.church_id, args.church_id),
+            isNull(focus_windows.deleted_at),
+          ),
+        )) as FocusWindowRow[];
+      const keyDateOccurrences = (await db
+        .select({
+          key_date_id: key_date_occurrences.key_date_id,
+          local_date: key_date_occurrences.local_date,
+        })
+        .from(key_date_occurrences)
+        .where(
+          and(
+            eq(key_date_occurrences.church_id, args.church_id),
+            isNull(key_date_occurrences.deleted_at),
+          ),
+        )) as KeyDateOccurrenceRow[];
+      const adjustments = (await db
+        .select({
+          lifecycle: cycle_adjustments.lifecycle,
+          overrides: cycle_adjustments.overrides,
+          template_task_id: cycle_adjustments.template_task_id,
+        })
+        .from(cycle_adjustments)
+        .where(
+          and(
+            eq(cycle_adjustments.church_id, args.church_id),
+            eq(cycle_adjustments.cycle_id, args.cycle_id),
+            isNull(cycle_adjustments.deleted_at),
+          ),
+        )) as CycleAdjustmentRow[];
+      const existingProjectedTasks = (await db
+        .select({
+          id: tasks.id,
+          source_template_task_id: tasks.source_template_task_id,
+        })
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.church_id, args.church_id),
+            eq(tasks.source_template_id, args.template_id),
+            eq(tasks.source_template_cycle_id, args.cycle_id),
+            isNull(tasks.deleted_at),
+          ),
+        )) as ExistingProjectedTaskRow[];
+      const mappedTeamIds = templateTeams.map((templateTeam) => templateTeam.mapped_team_id);
+      const teamRows = (await db
+        .select({ id: teams.id, next_task_number: teams.next_task_number })
+        .from(teams)
+        .where(
+          and(
+            eq(teams.church_id, args.church_id),
+            inArray(teams.id, mappedTeamIds),
+            isNull(teams.deleted_at),
+          ),
+        )) as Array<{ readonly id: string; readonly next_task_number: number }>;
+      const workflowRows = (await db
+        .select({ id: workflows.id, team_id: workflows.team_id })
+        .from(workflows)
+        .where(
+          and(
+            eq(workflows.church_id, args.church_id),
+            inArray(workflows.team_id, mappedTeamIds),
+            isNull(workflows.deleted_at),
+          ),
+        )) as WorkflowRow[];
+      const statusRows = (await db
+        .select({ id: workflow_statuses.id, workflow_id: workflow_statuses.workflow_id })
+        .from(workflow_statuses)
+        .where(
+          and(
+            eq(workflow_statuses.church_id, args.church_id),
+            eq(workflow_statuses.task_state, "todo"),
+            isNull(workflow_statuses.deleted_at),
+          ),
+        )) as TodoStatusRow[];
+
+      const projection = buildTemplateCycleTaskInserts({
+        adjustments,
+        church_id: args.church_id,
+        cycle,
+        existing_projected_tasks: existingProjectedTasks,
+        focus_windows: focusWindows,
+        key_date_occurrences: keyDateOccurrences,
+        now: new Date(),
+        session_user_id: session.user_id,
+        start_number_by_team_id: new Map(teamRows.map((team) => [team.id, team.next_task_number])),
+        template_id: args.template_id,
+        template_tasks: templateTasks,
+        template_teams: templateTeams,
+        todo_status_by_workflow_id: new Map(
+          statusRows.map((status) => [status.workflow_id, status]),
+        ),
+        workflow_by_team_id: new Map(workflowRows.map((workflow) => [workflow.team_id, workflow])),
+      });
+
+      if (projection.inserts.length > 0) await db.insert(tasks).values(projection.inserts);
+      for (const [team_id, next_task_number] of projection.nextNumberByTeamId.entries()) {
+        await db
+          .update(teams)
+          .set({ next_task_number, updated_at: new Date(), updated_by: session.user_id })
+          .where(eq(teams.id, team_id));
+      }
+    }),
+  },
+  cycle_adjustments: {
+    set: defineChurchTaskMutator(SetCycleAdjustmentsArgs, async ({ args, ctx, tx }) => {
+      const db = serverDb(tx);
+      if (!db) return;
+
+      const session = requireTemplateManager(ctx, args.church_id);
+      const now = new Date();
+      for (const adjustment of args.adjustments) {
+        const existing = (await db
+          .select({ id: cycle_adjustments.id })
+          .from(cycle_adjustments)
+          .where(
+            and(
+              eq(cycle_adjustments.church_id, args.church_id),
+              eq(cycle_adjustments.cycle_id, adjustment.cycle_id),
+              eq(cycle_adjustments.template_task_id, adjustment.template_task_id),
+              isNull(cycle_adjustments.deleted_at),
+            ),
+          )) as Array<{ readonly id: string }>;
+        const values = {
+          lifecycle: adjustment.lifecycle,
+          overrides: stringifyJson(adjustment.overrides),
+          updated_at: now,
+          updated_by: session.user_id,
+        };
+
+        if (existing[0]) {
+          await db
+            .update(cycle_adjustments)
+            .set(values)
+            .where(eq(cycle_adjustments.id, existing[0].id));
+        } else {
+          await db.insert(cycle_adjustments).values({
+            ...values,
+            _tag: "cycleadjustment",
+            church_id: args.church_id,
+            created_at: now,
+            created_by: session.user_id,
+            cycle_id: adjustment.cycle_id,
+            id: getCycleAdjustmentId(),
+            template_task_id: adjustment.template_task_id,
+          });
+        }
+      }
     }),
   },
   tasks: {
