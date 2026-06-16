@@ -2,6 +2,8 @@ import {
   DEFAULT_WORKFLOW_STATUSES,
   generateTeamIdentifier,
   getTeamColorForName,
+  normalizeTeamIdentifier,
+  TEAM_IDENTIFIER_MAX_LENGTH,
 } from "@church-task/domain";
 import {
   getDemoItemId,
@@ -31,8 +33,20 @@ const CreateDemoItemArgs = Schema.standardSchemaV1(Schema.Struct({ name: Schema.
 const CreateTeamArgs = Schema.standardSchemaV1(
   Schema.Struct({ church_id: Schema.String, name: Schema.String }),
 );
+const RenameTeamArgs = Schema.standardSchemaV1(
+  Schema.Struct({ church_id: Schema.String, name: Schema.String, team_id: Schema.String }),
+);
+const SetTeamIdentifierArgs = Schema.standardSchemaV1(
+  Schema.Struct({ church_id: Schema.String, identifier: Schema.String, team_id: Schema.String }),
+);
 const DeleteTeamArgs = Schema.standardSchemaV1(
   Schema.Struct({ church_id: Schema.String, team_id: Schema.String }),
+);
+const ReorderTeamsArgs = Schema.standardSchemaV1(
+  Schema.Struct({ church_id: Schema.String, team_ids: Schema.Array(Schema.String) }),
+);
+const TeamMemberArgs = Schema.standardSchemaV1(
+  Schema.Struct({ church_id: Schema.String, team_id: Schema.String, user_id: Schema.String }),
 );
 
 const defineChurchTaskMutator = defineMutatorWithType<
@@ -40,6 +54,33 @@ const defineChurchTaskMutator = defineMutatorWithType<
   OptionalZeroSessionContext,
   unknown
 >();
+
+const requireTeamManager = (ctx: OptionalZeroSessionContext, church_id: string) => {
+  const session = requireActiveChurchAccess(ctx, church_id);
+
+  if (!session.is_app_admin && session.church_role !== "owner" && session.church_role !== "admin") {
+    throw new Error("Only Church owners and admins can change Teams.");
+  }
+
+  return session;
+};
+
+const isValidTeamIdentifier = (identifier: string) =>
+  identifier.length > 0 &&
+  identifier.length <= TEAM_IDENTIFIER_MAX_LENGTH &&
+  /^[A-Z0-9]+$/.test(identifier);
+
+const parsePreviousIdentifiers = (value: string): readonly string[] => {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+};
 
 export const mutators = defineMutators({
   demo_items: {
@@ -75,7 +116,7 @@ export const mutators = defineMutators({
         throw new Error("teams.create must run on the server");
       }
 
-      const session = requireActiveChurchAccess(ctx, args.church_id);
+      const session = requireTeamManager(ctx, args.church_id);
       const now = new Date();
       const serverTx = tx as typeof tx & {
         readonly dbTransaction: {
@@ -157,12 +198,111 @@ export const mutators = defineMutators({
         })),
       );
     }),
+    rename: defineChurchTaskMutator(RenameTeamArgs, async ({ args, ctx, tx }) => {
+      if (tx.location !== "server") {
+        throw new Error("teams.rename must run on the server");
+      }
+
+      const session = requireTeamManager(ctx, args.church_id);
+      const name = args.name.trim();
+      if (!name) throw new Error("Team name is required.");
+
+      const serverTx = tx as typeof tx & {
+        readonly dbTransaction: {
+          readonly wrappedTransaction: { readonly update: (table: unknown) => any };
+        };
+      };
+
+      await serverTx.dbTransaction.wrappedTransaction
+        .update(teams)
+        .set({ name, updated_at: new Date(), updated_by: session.user_id })
+        .where(
+          and(
+            eq(teams.id, args.team_id),
+            eq(teams.church_id, args.church_id),
+            isNull(teams.deleted_at),
+          ),
+        );
+    }),
+    set_identifier: defineChurchTaskMutator(SetTeamIdentifierArgs, async ({ args, ctx, tx }) => {
+      if (tx.location !== "server") {
+        throw new Error("teams.set_identifier must run on the server");
+      }
+
+      const session = requireTeamManager(ctx, args.church_id);
+      const identifier = normalizeTeamIdentifier(args.identifier);
+      if (!isValidTeamIdentifier(identifier)) {
+        throw new Error(
+          `Team Identifier must be 1-${TEAM_IDENTIFIER_MAX_LENGTH} letters or numbers.`,
+        );
+      }
+
+      const serverTx = tx as typeof tx & {
+        readonly dbTransaction: {
+          readonly wrappedTransaction: {
+            readonly select: (fields: unknown) => any;
+            readonly update: (table: unknown) => any;
+          };
+        };
+      };
+      const db = serverTx.dbTransaction.wrappedTransaction;
+      const existingTeams = (await db
+        .select({
+          id: teams.id,
+          identifier: teams.identifier,
+          previous_identifiers: teams.previous_identifiers,
+        })
+        .from(teams)
+        .where(and(eq(teams.church_id, args.church_id), isNull(teams.deleted_at)))) as Array<{
+        readonly id: string;
+        readonly identifier: string;
+        readonly previous_identifiers: string;
+      }>;
+      const team = existingTeams.find((candidate) => candidate.id === args.team_id);
+
+      if (!team) throw new Error("Team was not found in the active Church.");
+      if (
+        existingTeams.some(
+          (candidate) =>
+            candidate.id !== args.team_id &&
+            normalizeTeamIdentifier(candidate.identifier) === identifier,
+        )
+      ) {
+        throw new Error("Another Team in this Church already uses that identifier.");
+      }
+
+      const previousIdentifier = normalizeTeamIdentifier(team.identifier);
+      if (identifier === previousIdentifier) return;
+
+      const previousIdentifiers = [
+        ...parsePreviousIdentifiers(team.previous_identifiers).filter(
+          (value) => value !== identifier,
+        ),
+        previousIdentifier,
+      ];
+
+      await db
+        .update(teams)
+        .set({
+          identifier,
+          previous_identifiers: JSON.stringify(previousIdentifiers),
+          updated_at: new Date(),
+          updated_by: session.user_id,
+        })
+        .where(
+          and(
+            eq(teams.id, args.team_id),
+            eq(teams.church_id, args.church_id),
+            isNull(teams.deleted_at),
+          ),
+        );
+    }),
     delete: defineChurchTaskMutator(DeleteTeamArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
         throw new Error("teams.delete must run on the server");
       }
 
-      const session = requireActiveChurchAccess(ctx, args.church_id);
+      const session = requireTeamManager(ctx, args.church_id);
       const now = new Date();
       const serverTx = tx as typeof tx & {
         readonly dbTransaction: {
@@ -229,6 +369,97 @@ export const mutators = defineMutators({
           and(
             eq(team_memberships.church_id, args.church_id),
             eq(team_memberships.team_id, args.team_id),
+          ),
+        );
+    }),
+    reorder: defineChurchTaskMutator(ReorderTeamsArgs, async ({ args, ctx, tx }) => {
+      if (tx.location !== "server") {
+        throw new Error("teams.reorder must run on the server");
+      }
+
+      const session = requireTeamManager(ctx, args.church_id);
+      const serverTx = tx as typeof tx & {
+        readonly dbTransaction: {
+          readonly wrappedTransaction: { readonly update: (table: unknown) => any };
+        };
+      };
+      const now = new Date();
+
+      await Promise.all(
+        args.team_ids.map((team_id, sort_order) =>
+          serverTx.dbTransaction.wrappedTransaction
+            .update(teams)
+            .set({ sort_order, updated_at: now, updated_by: session.user_id })
+            .where(
+              and(
+                eq(teams.id, team_id),
+                eq(teams.church_id, args.church_id),
+                isNull(teams.deleted_at),
+              ),
+            ),
+        ),
+      );
+    }),
+    add_member: defineChurchTaskMutator(TeamMemberArgs, async ({ args, ctx, tx }) => {
+      if (tx.location !== "server") {
+        throw new Error("teams.add_member must run on the server");
+      }
+
+      const session = requireTeamManager(ctx, args.church_id);
+      const serverTx = tx as typeof tx & {
+        readonly dbTransaction: {
+          readonly wrappedTransaction: {
+            readonly insert: (table: unknown) => any;
+            readonly select: (fields: unknown) => any;
+          };
+        };
+      };
+      const db = serverTx.dbTransaction.wrappedTransaction;
+      const existing = await db
+        .select({ id: team_memberships.id })
+        .from(team_memberships)
+        .where(
+          and(
+            eq(team_memberships.church_id, args.church_id),
+            eq(team_memberships.team_id, args.team_id),
+            eq(team_memberships.user_id, args.user_id),
+          ),
+        );
+
+      if (existing.length > 0) return;
+
+      const now = new Date();
+      await db.insert(team_memberships).values({
+        _tag: "teammembership",
+        church_id: args.church_id,
+        created_at: now,
+        created_by: session.user_id,
+        id: getTeamMembershipId(),
+        team_id: args.team_id,
+        updated_at: now,
+        updated_by: session.user_id,
+        user_id: args.user_id,
+      });
+    }),
+    remove_member: defineChurchTaskMutator(TeamMemberArgs, async ({ args, ctx, tx }) => {
+      if (tx.location !== "server") {
+        throw new Error("teams.remove_member must run on the server");
+      }
+
+      requireTeamManager(ctx, args.church_id);
+      const serverTx = tx as typeof tx & {
+        readonly dbTransaction: {
+          readonly wrappedTransaction: { readonly delete: (table: unknown) => any };
+        };
+      };
+
+      await serverTx.dbTransaction.wrappedTransaction
+        .delete(team_memberships)
+        .where(
+          and(
+            eq(team_memberships.church_id, args.church_id),
+            eq(team_memberships.team_id, args.team_id),
+            eq(team_memberships.user_id, args.user_id),
           ),
         );
     }),

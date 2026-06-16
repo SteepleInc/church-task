@@ -76,4 +76,87 @@ describe("Zero Team mutators", () => {
     expect(statusInsert.every((status) => status.workflow_id === workflowInsert.id)).toBe(true);
     expect(statusInsert.every((status) => getIdType(status.id) === "workflowstatus")).toBe(true);
   });
+
+  test("reorders Teams within the active Church", async () => {
+    const updateCalls: Array<{
+      readonly table: unknown;
+      readonly set: unknown;
+      readonly where: unknown;
+    }> = [];
+    const tx = {
+      dbTransaction: {
+        wrappedTransaction: {
+          update: (table: unknown) => ({
+            set: (set: unknown) => ({
+              where: async (where: unknown) => {
+                updateCalls.push({ table, set, where });
+              },
+            }),
+          }),
+        },
+      },
+      location: "server",
+    } as never;
+
+    await mustGetMutator(mutators, "teams.reorder").fn({
+      args: { church_id: "org_test", team_ids: ["team_two", "team_one"] },
+      ctx: signedInContext,
+      tx,
+    });
+
+    expect(updateCalls).toHaveLength(2);
+    expect(updateCalls.map((call) => call.table)).toEqual([teams, teams]);
+    expect(
+      updateCalls.map((call) => (call.set as { readonly sort_order: number }).sort_order),
+    ).toEqual([0, 1]);
+  });
+
+  test("adds and removes Team Memberships", async () => {
+    const insertCalls: Array<{ readonly table: unknown; readonly values: unknown }> = [];
+    const deleteCalls: Array<{ readonly table: unknown; readonly where: unknown }> = [];
+    const tx = {
+      dbTransaction: {
+        wrappedTransaction: {
+          delete: (table: unknown) => ({
+            where: async (where: unknown) => {
+              deleteCalls.push({ table, where });
+            },
+          }),
+          insert: (table: unknown) => ({
+            values: async (values: unknown) => {
+              insertCalls.push({ table, values });
+            },
+          }),
+          select: () => ({
+            from: () => ({
+              where: async () => [],
+            }),
+          }),
+        },
+      },
+      location: "server",
+    } as never;
+
+    await mustGetMutator(mutators, "teams.add_member").fn({
+      args: { church_id: "org_test", team_id: "team_test", user_id: "user_two" },
+      ctx: signedInContext,
+      tx,
+    });
+
+    await mustGetMutator(mutators, "teams.remove_member").fn({
+      args: { church_id: "org_test", team_id: "team_test", user_id: "user_two" },
+      ctx: signedInContext,
+      tx,
+    });
+
+    const membershipInsert = insertCalls.find((call) => call.table === team_memberships)
+      ?.values as {
+      readonly id: string;
+      readonly user_id: string;
+    };
+
+    expect(getIdType(membershipInsert.id)).toBe("teammembership");
+    expect(membershipInsert.user_id).toBe("user_two");
+    expect(deleteCalls.map((call) => call.table)).toEqual([team_memberships]);
+  });
 });
