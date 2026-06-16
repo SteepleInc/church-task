@@ -1,11 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import {
-  SettingsPage,
-  SettingsPageHeader,
-  SettingsSection,
-} from "@/features/settings/settings-page";
-import { TeamInvitationsSettingsPanel, TeamMembersSettingsPanel } from "@/routes/-dashboard";
+import { SettingsMembersPanel } from "@/features/settings/member-settings";
+import { SettingsPage } from "@/features/settings/settings-page";
 
 export const Route = createFileRoute("/_settings/settings/workspace/members")({
   component: RouteComponent,
@@ -13,17 +9,8 @@ export const Route = createFileRoute("/_settings/settings/workspace/members")({
 
 function RouteComponent() {
   return (
-    <SettingsPage>
-      <SettingsPageHeader
-        description="Manage Church members, Teams, and invitations."
-        title="Members"
-      />
-      <SettingsSection>
-        <TeamMembersSettingsPanel />
-      </SettingsSection>
-      <SettingsSection title="Invitations">
-        <TeamInvitationsSettingsPanel />
-      </SettingsSection>
+    <SettingsPage contentClassName="mx-0 max-w-none">
+      <SettingsMembersPanel />
     </SettingsPage>
   );
 }
