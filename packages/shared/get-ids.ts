@@ -1,0 +1,16 @@
+import { getType, typeid } from "typeid-js";
+
+const getEntityId = <const Prefix extends string>(prefix: Prefix) => typeid(prefix).toString();
+
+export const getIdType = (id: string) => getType(id as never);
+
+export const getOrgId = () => getEntityId("org");
+export const getUserId = () => getEntityId("user");
+export const getTeamId = () => getEntityId("team");
+export const getTaskId = () => getEntityId("task");
+export const getTemplateId = () => getEntityId("template");
+export const getCycleId = () => getEntityId("cycle");
+export const getWorkflowId = () => getEntityId("workflow");
+export const getWorkflowStatusId = () => getEntityId("workflowstatus");
+export const getChurchInvitationId = () => getEntityId("churchinvitation");
+export const getDemoItemId = () => getEntityId("demoitem");

@@ -8,13 +8,26 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
+    "test": "vitest run",
     "dev": "bun --watch src/index.ts",
     "dev:e2e": "bun --watch src/index.ts",
     "dev:setup": "bun src/index.ts"
   },
+  "dependencies": {
+    "@church-task/auth": "workspace:*",
+    "@church-task/db": "workspace:*",
+    "@church-task/zero": "workspace:*",
+    "@effect/platform": "catalog:",
+    "@rocicorp/zero": "catalog:",
+    "drizzle-orm": "catalog:",
+    "effect": "catalog:"
+  },
   "devDependencies": {
     "@church-task/config": "workspace:*",
+    "@church-task/test-harness": "workspace:*",
     "@types/node": "catalog:",
-    "typescript": "catalog:"
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

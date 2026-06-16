@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 
 const e2eEnvFile = ".env.e2e";
 const hasE2eEnvFile = existsSync(e2eEnvFile);
+const tracerE2e = process.env.CHURCH_TASK_E2E_TRACER === "1";
 
 if (hasE2eEnvFile) {
   config({ path: e2eEnvFile, quiet: true });
@@ -12,7 +13,8 @@ if (hasE2eEnvFile) {
 const requiredEnvNames = ["VITE_CONVEX_URL", "VITE_CONVEX_SITE_URL"] as const;
 const missingEnvNames = requiredEnvNames.filter((name) => !process.env[name]);
 const allowsProcessE2eEnv = Boolean(process.env.CI);
-const e2eEnvReady = missingEnvNames.length === 0 && (hasE2eEnvFile || allowsProcessE2eEnv);
+const e2eEnvReady =
+  tracerE2e || (missingEnvNames.length === 0 && (hasE2eEnvFile || allowsProcessE2eEnv));
 const e2eSkipReason = hasE2eEnvFile
   ? `Missing ${missingEnvNames.join(", ")} in ${e2eEnvFile}. E2E tests must not fall back to normal development Convex state.`
   : allowsProcessE2eEnv
@@ -27,7 +29,15 @@ process.env.CHURCH_TASK_E2E_READY = e2eEnvReady ? "1" : "0";
 process.env.CHURCH_TASK_E2E_SKIP_REASON = e2eSkipReason;
 
 const e2ePort = Number(process.env.E2E_WEB_PORT ?? 2101);
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${e2ePort}`;
+const tracerPort = Number(process.env.E2E_TRACER_PORT ?? 2102);
+const baseURL =
+  process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${tracerE2e ? tracerPort : e2ePort}`;
+const repoRoot = process.cwd();
+const webServerEnv = {
+  ...process.env,
+  PATH: process.env.PATH ?? "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+  SHELL: process.env.SHELL ?? "/bin/zsh",
+};
 const convexUrl = process.env.VITE_CONVEX_URL;
 const convexSiteUrl = process.env.VITE_CONVEX_SITE_URL;
 const shouldStartLocalConvex = convexUrl?.startsWith("http://127.0.0.1:") ?? false;
@@ -36,8 +46,8 @@ const webServers = [
     ? [
         {
           command: "bun run dev:e2e",
-          cwd: "./packages/backend",
-          env: process.env,
+          cwd: `${repoRoot}/packages/backend`,
+          env: webServerEnv,
           url: `${convexSiteUrl}/api/auth/get-session`,
           reuseExistingServer: false,
           timeout: 120_000,
@@ -46,9 +56,9 @@ const webServers = [
     : []),
   {
     command: "bun run dev -- --mode e2e --host 127.0.0.1",
-    cwd: "./apps/web",
+    cwd: `${repoRoot}/apps/web`,
     env: {
-      ...process.env,
+      ...webServerEnv,
       VITE_PORT: String(e2ePort),
     },
     url: baseURL,
@@ -59,8 +69,8 @@ const webServers = [
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  fullyParallel: !shouldStartLocalConvex,
-  workers: shouldStartLocalConvex ? 1 : undefined,
+  fullyParallel: tracerE2e ? false : !shouldStartLocalConvex,
+  workers: tracerE2e || shouldStartLocalConvex ? 1 : undefined,
   reporter: "list",
   use: {
     baseURL,
@@ -69,10 +79,16 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testIgnore: /tracer\.spec\.ts$/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "tracer",
+      testMatch: /tracer\.spec\.ts$/,
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  ...(e2eEnvReady
+  ...(e2eEnvReady && !tracerE2e
     ? {
         webServer: webServers,
       }

@@ -1,1 +1,1 @@
-export const authPackageName = "@church-task/auth";
+export * from "./auth";

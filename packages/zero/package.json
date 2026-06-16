@@ -4,14 +4,24 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./schema": "./src/zero-schema.gen.ts"
   },
   "scripts": {
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "generate": "drizzle-zero generate -s drizzle-zero.config.ts -o src/zero-schema.gen.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@church-task/db": "workspace:*",
+    "@rocicorp/zero": "catalog:",
+    "drizzle-zero": "catalog:",
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@church-task/config": "workspace:*",
     "@types/node": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

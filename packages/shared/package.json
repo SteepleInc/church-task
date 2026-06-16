@@ -6,6 +6,7 @@
   "exports": {
     ".": "./index.ts",
     "./env": "./env.ts",
+    "./get-ids": "./get-ids.ts",
     "./getIds": "./getIds.ts",
     "./noOps": "./noOps.ts",
     "./string": "./string.ts",
@@ -15,7 +16,8 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@church-task/env": "workspace:*"
+    "@church-task/env": "workspace:*",
+    "typeid-js": "catalog:"
   },
   "devDependencies": {
     "@church-task/config": "workspace:*",
