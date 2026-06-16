@@ -41,6 +41,98 @@ export const serializeLabel = (label: LabelDoc) => ({
   color: label.color,
 });
 
+export type LabelStats = {
+  readonly taskCount: number;
+  readonly lastAppliedAt: string | null;
+};
+
+/**
+ * The client-facing Label shape: the stored fields plus the read-only derived
+ * stats the Labels settings table renders (creation time, current Task usage
+ * count, and the most recent time the Label was applied to a Task).
+ */
+export const serializeLabelWithStats = (label: LabelDoc, stats: LabelStats) => ({
+  ...serializeLabel(label),
+  createdAt: label._creationTime,
+  taskCount: stats.taskCount,
+  lastAppliedAt: stats.lastAppliedAt,
+});
+
+/**
+ * Computes per-Label stats for a Church in a single pass. Reads the Church's
+ * Tasks (for current usage counts) and its `task.labels_changed` Activities (for
+ * "last applied") through the same bounded `by_churchId` scans used elsewhere,
+ * so adding stats does not change the read-cost profile of label reads.
+ *
+ * "Last applied" is the most recent Activity in which the Label id was newly
+ * added to a Task (present in `labelIds` but not `previousLabelIds`), which is
+ * id-based and survives renames.
+ */
+export async function computeLabelStatsForChurch(
+  ctx: ReaderCtx,
+  churchId: string,
+): Promise<ReadonlyMap<string, LabelStats>> {
+  const tasks = await ctx.db
+    .query("tasks")
+    .withIndex("by_churchId", (q) => q.eq("churchId", churchId))
+    .collect();
+
+  const taskCounts = new Map<string, number>();
+  for (const task of tasks) {
+    for (const labelId of task.labelIds ?? []) {
+      taskCounts.set(labelId, (taskCounts.get(labelId) ?? 0) + 1);
+    }
+  }
+
+  const activities = await ctx.db
+    .query("activities")
+    .withIndex("by_churchId", (q) => q.eq("churchId", churchId))
+    .collect();
+
+  const lastAppliedById = new Map<string, string>();
+  for (const activity of activities) {
+    if (activity.eventType !== "task.labels_changed") continue;
+    const metadata = activity.metadata as {
+      readonly previousLabelIds?: ReadonlyArray<string>;
+      readonly labelIds?: ReadonlyArray<string>;
+    };
+    const previous = new Set(metadata.previousLabelIds ?? []);
+    for (const labelId of metadata.labelIds ?? []) {
+      if (previous.has(labelId)) continue;
+      const current = lastAppliedById.get(labelId);
+      if (!current || activity.occurredAt > current) {
+        lastAppliedById.set(labelId, activity.occurredAt);
+      }
+    }
+  }
+
+  const labelIds = new Set<string>([...taskCounts.keys(), ...lastAppliedById.keys()]);
+  const stats = new Map<string, LabelStats>();
+  for (const labelId of labelIds) {
+    stats.set(labelId, {
+      taskCount: taskCounts.get(labelId) ?? 0,
+      lastAppliedAt: lastAppliedById.get(labelId) ?? null,
+    });
+  }
+  return stats;
+}
+
+const EMPTY_LABEL_STATS: LabelStats = { taskCount: 0, lastAppliedAt: null };
+
+/**
+ * Loads the Church's Labels and returns them in the client-facing shape,
+ * enriched with derived stats. Used by every read path that surfaces Labels to
+ * the UI (the Labels list and the work-defaults read).
+ */
+export async function listSerializedLabelsForChurch(ctx: ReaderCtx, churchId: string) {
+  const labels = await listLabelsForChurch(ctx, churchId);
+  const statsById = await computeLabelStatsForChurch(ctx, churchId);
+
+  return labels.map((label) =>
+    serializeLabelWithStats(label, statsById.get(label._id) ?? EMPTY_LABEL_STATS),
+  );
+}
+
 // Label names are unique case-insensitively within their scope: one scope per
 // Church (teamId null) plus one per Team. A Team Label may shadow a
 // Church-scoped name.

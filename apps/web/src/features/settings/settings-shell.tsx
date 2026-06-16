@@ -13,10 +13,12 @@ export function SettingsShell() {
   useAuthGuard({ requireAuth: true, requireOnboarding: true });
 
   return (
-    <div className="flex h-svh w-full overflow-hidden bg-background">
+    <div className="flex h-svh w-full overflow-hidden bg-sidebar">
       <SettingsSidebar />
-      <main className="flex flex-1 flex-col overflow-hidden">
-        <Outlet />
+      <main className="flex flex-1 flex-col overflow-hidden p-2 pl-0">
+        <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+          <Outlet />
+        </div>
       </main>
     </div>
   );

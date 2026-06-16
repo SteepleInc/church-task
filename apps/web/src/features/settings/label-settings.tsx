@@ -1,22 +1,29 @@
-import { isLabelColor, LABEL_COLORS } from "@church-task/domain/Label";
-import { useState } from "react";
+import {
+  getLabelColorForName,
+  isLabelColor,
+  LABEL_COLORS,
+  type LabelColor,
+} from "@church-task/domain/Label";
+import type { ColumnDef } from "@tanstack/react-table";
+import { format, formatDistanceToNow } from "date-fns";
+import { Check, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 
-import { labelDotClassName } from "@/components/tasks/task-card-fields";
+import { SettingsColumnHeader, SettingsTable } from "@/components/collections/settingsTable";
+import { labelColorDotClassName, labelDotClassName } from "@/components/tasks/task-card-fields";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/native-select";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   useCreateLabelMutation,
   useDeleteLabelMutation,
@@ -27,228 +34,426 @@ import {
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { cn } from "@/lib/utils";
 
-const LABEL_COLOR_OPTIONS = LABEL_COLORS.map((color) => ({
-  value: color,
-  label: color.charAt(0).toUpperCase() + color.slice(1),
-}));
+type LabelMutationResult = { readonly ok: boolean; readonly error?: { readonly message: string } };
+
+const formatCreated = (createdAt: number): string => format(new Date(createdAt), "MMM yyyy");
+
+const formatLastApplied = (lastAppliedAt: string | null): string => {
+  if (!lastAppliedAt) return "—";
+  const date = new Date(lastAppliedAt);
+  if (Number.isNaN(date.getTime())) return "—";
+  return `${formatDistanceToNow(date)} ago`;
+};
 
 export function SettingsLabelsPanel() {
   const { currentOrgOpt: activeChurch, loading } = useCurrentOrgOpt();
   const labels = useLabelsCollection({ churchId: activeChurch?.id ?? null });
 
-  if (loading || (activeChurch && labels.loading)) {
-    return (
-      <div className="flex flex-col gap-4">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-9 w-full max-w-md" />
-        <Skeleton className="h-32 w-full" />
-      </div>
-    );
-  }
-
-  if (!activeChurch) {
-    return <p className="text-sm text-muted-foreground">No active Church selected.</p>;
-  }
-
-  return <LabelSettingsCard churchId={activeChurch.id} labels={labels.labelsCollection} />;
+  return (
+    <LabelSettingsPanel
+      churchId={activeChurch?.id ?? null}
+      hasChurch={Boolean(activeChurch) || loading}
+      labels={labels.labelsCollection}
+      loading={loading || labels.loading}
+    />
+  );
 }
 
 /**
- * Label management card (mirrors the Teams settings card): an inline create
- * form, then a table of rows with inline rename, a color select, and delete.
- * Labels are open to every Church member — deliberately not role-gated
- * (see CONTEXT.md "Label").
+ * Linear-style Labels settings: the entire pane lives in a single framed card
+ * with a title, a search + "New label" toolbar, then a dense table with inline
+ * rename, a color-swatch picker, per-row stats (Tasks / Last applied / Created),
+ * and a "..." menu. Labels are open to every Church member — deliberately not
+ * role-gated (see CONTEXT.md "Label").
  */
-function LabelSettingsCard({
+function LabelSettingsPanel({
   churchId,
+  hasChurch,
   labels,
+  loading,
 }: {
-  readonly churchId: string;
+  readonly churchId: string | null;
+  readonly hasChurch: boolean;
   readonly labels: readonly LabelItem[];
+  readonly loading: boolean;
 }) {
   const createLabel = useCreateLabelMutation();
   const updateLabel = useUpdateLabelMutation();
   const deleteLabel = useDeleteLabelMutation();
-  const [newLabelName, setNewLabelName] = useState("");
-  const [renameDrafts, setRenameDrafts] = useState<Record<string, string>>({});
+
+  const [filter, setFilter] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [pendingAction, setPendingAction] = useState<string | null>(null);
 
-  const runLabelMutation = async (
-    action: string,
-    mutation: () => Promise<{ ok: boolean; error?: { message: string } }>,
-    onSuccess: () => void,
-  ) => {
+  const run = async (mutation: () => Promise<LabelMutationResult>): Promise<boolean> => {
     setError(null);
-    setSuccess(null);
-    setPendingAction(action);
     const result = await mutation();
-    setPendingAction(null);
-
     if (!result.ok) {
       setError(result.error?.message ?? "Could not update Labels.");
-      return;
+      return false;
     }
+    return true;
+  };
 
-    onSuccess();
+  const columns = useMemo<Array<ColumnDef<LabelItem>>>(
+    () => [
+      {
+        accessorKey: "name",
+        cell: ({ row }) => {
+          const label = row.original;
+          return (
+            <div className="flex min-w-0 items-center gap-3">
+              <LabelColorPicker
+                color={label.color}
+                disabled={!churchId}
+                name={label.name}
+                onSelect={(color) => {
+                  if (!churchId) return;
+                  void run(() => updateLabel({ churchId, color, labelId: label.id }));
+                }}
+              />
+              {editingId === label.id ? (
+                <LabelNameInput
+                  defaultValue={label.name}
+                  onCancel={() => setEditingId(null)}
+                  onSubmit={(name) => {
+                    setEditingId(null);
+                    if (!churchId || name === label.name) return;
+                    void run(() => updateLabel({ churchId, labelId: label.id, name }));
+                  }}
+                />
+              ) : (
+                <button
+                  className={cn(
+                    "flex h-8 w-56 items-center truncate rounded-lg border border-transparent px-2.5 text-left text-sm transition-colors",
+                    "hover:border-input hover:bg-background hover:shadow-xs",
+                  )}
+                  onClick={() => setEditingId(label.id)}
+                  type="button"
+                >
+                  {label.name}
+                </button>
+              )}
+            </div>
+          );
+        },
+        header: ({ column }) => <SettingsColumnHeader column={column}>Name</SettingsColumnHeader>,
+        id: "name",
+      },
+      {
+        accessorFn: (label) => label.taskCount,
+        cell: ({ row }) => (
+          <span className="text-muted-foreground tabular-nums">
+            {row.original.taskCount > 0 ? row.original.taskCount : "—"}
+          </span>
+        ),
+        header: ({ column }) => <SettingsColumnHeader column={column}>Tasks</SettingsColumnHeader>,
+        id: "taskCount",
+        meta: { className: "w-24" },
+      },
+      {
+        accessorFn: (label) => label.lastAppliedAt ?? "",
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap text-muted-foreground">
+            {formatLastApplied(row.original.lastAppliedAt)}
+          </span>
+        ),
+        header: ({ column }) => (
+          <SettingsColumnHeader column={column}>Last applied</SettingsColumnHeader>
+        ),
+        id: "lastAppliedAt",
+        meta: { className: "w-36" },
+      },
+      {
+        accessorFn: (label) => label.createdAt,
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap text-muted-foreground">
+            {formatCreated(row.original.createdAt)}
+          </span>
+        ),
+        header: ({ column }) => (
+          <SettingsColumnHeader column={column}>Created</SettingsColumnHeader>
+        ),
+        id: "createdAt",
+        meta: { className: "w-28" },
+      },
+    ],
+    [churchId, editingId, updateLabel],
+  );
+
+  const createNewLabel = (name: string) => {
+    setCreating(false);
+    const trimmed = name.trim();
+    if (!churchId || !trimmed) return;
+    void run(() => createLabel({ churchId, name: trimmed }));
   };
 
   return (
-    <Card aria-labelledby="labels-settings-title" role="region">
-      <CardHeader>
-        <CardTitle id="labels-settings-title">Labels</CardTitle>
-        <CardDescription>
-          Labels categorize Tasks across the Church. Every member can create and manage them.
-          Deleting a Label removes it from every Task.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4">
-        <p className="text-sm text-muted-foreground">{labels.length} Labels</p>
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-        {success ? (
-          <Alert>
-            <AlertDescription>{success}</AlertDescription>
-          </Alert>
-        ) : null}
-        <form
-          className="flex flex-col gap-3 sm:flex-row sm:items-end"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const name = newLabelName.trim();
-            if (!name) return;
-            void runLabelMutation(
-              "create",
-              () => createLabel({ churchId, name }),
-              () => {
-                setNewLabelName("");
-                setSuccess(`Created Label ${name}.`);
-              },
-            );
-          }}
-        >
-          <div className="grid gap-2">
-            <Label htmlFor="new-label-name">New Label Name</Label>
-            <Input
-              disabled={pendingAction === "create"}
-              id="new-label-name"
-              onChange={(event) => setNewLabelName(event.currentTarget.value)}
-              value={newLabelName}
-            />
-          </div>
-          <Button disabled={pendingAction === "create" || !newLabelName.trim()} type="submit">
-            {pendingAction === "create" ? "Creating..." : "Create Label"}
-          </Button>
-        </form>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Label</TableHead>
-              <TableHead>Color</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {labels.map((label) => {
-              const draftName = renameDrafts[label.id] ?? label.name;
+    <div className="flex flex-col gap-6">
+      <h1 className="font-semibold text-2xl tracking-tight">Labels</h1>
 
-              return (
-                <TableRow key={label.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn("size-2.5 shrink-0 rounded-full", labelDotClassName(label))}
-                      />
-                      <Label className="sr-only" htmlFor={`rename-label-${label.id}`}>
-                        Rename {label.name}
-                      </Label>
-                      <Input
-                        disabled={pendingAction === `rename-${label.id}`}
-                        id={`rename-label-${label.id}`}
-                        onChange={(event) =>
-                          setRenameDrafts((drafts) => ({
-                            ...drafts,
-                            [label.id]: event.currentTarget.value,
-                          }))
-                        }
-                        value={draftName}
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Label className="sr-only" htmlFor={`recolor-label-${label.id}`}>
-                      Change color of {label.name}
-                    </Label>
-                    <NativeSelect
-                      disabled={pendingAction === `recolor-${label.id}`}
-                      id={`recolor-label-${label.id}`}
-                      onChange={(event) => {
-                        const color = event.currentTarget.value;
-                        if (!isLabelColor(color)) return;
-                        void runLabelMutation(
-                          `recolor-${label.id}`,
-                          () => updateLabel({ churchId, labelId: label.id, color }),
-                          () => setSuccess(`Changed color of ${label.name}.`),
-                        );
-                      }}
-                      value={label.color}
-                    >
-                      {LABEL_COLOR_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </NativeSelect>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <Button
-                        disabled={
-                          pendingAction === `rename-${label.id}` ||
-                          !draftName.trim() ||
-                          draftName.trim() === label.name
-                        }
-                        onClick={() => {
-                          const name = draftName.trim();
-                          void runLabelMutation(
-                            `rename-${label.id}`,
-                            () => updateLabel({ churchId, labelId: label.id, name }),
-                            () => setSuccess(`Renamed Label to ${name}.`),
-                          );
-                        }}
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        Rename Label {label.name}
-                      </Button>
-                      <Button
-                        disabled={pendingAction === `delete-${label.id}`}
-                        onClick={() =>
-                          void runLabelMutation(
-                            `delete-${label.id}`,
-                            () => deleteLabel({ churchId, labelId: label.id }),
-                            () => setSuccess(`Deleted Label ${label.name}.`),
-                          )
-                        }
-                        size="sm"
-                        type="button"
-                        variant="outline"
-                      >
-                        Delete Label {label.name}
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+      <div className="flex items-center justify-between gap-3">
+        <div className="relative w-full max-w-xs">
+          <Search className="-translate-y-1/2 absolute top-1/2 left-2.5 size-4 text-muted-foreground" />
+          <Input
+            className="pl-8"
+            onChange={(event) => setFilter(event.currentTarget.value)}
+            placeholder="Filter by name..."
+            value={filter}
+          />
+        </div>
+        <Button
+          disabled={!churchId || creating}
+          onClick={() => {
+            setError(null);
+            setCreating(true);
+          }}
+          type="button"
+        >
+          <Plus />
+          New label
+        </Button>
+      </div>
+
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {!hasChurch ? (
+        <p className="text-muted-foreground text-sm">No active Church selected.</p>
+      ) : (
+        <SettingsTable<LabelItem>
+          columnsDef={columns}
+          data={labels}
+          getRowId={(label) => label.id}
+          globalFilter={filter}
+          initialSorting={[{ desc: false, id: "name" }]}
+          leadingRow={
+            creating ? (
+              <NewLabelRow onCancel={() => setCreating(false)} onSubmit={createNewLabel} />
+            ) : null
+          }
+          loading={loading}
+          rowActions={(label) => (
+            <LabelRowActions
+              onDelete={() => {
+                if (!churchId) return;
+                void run(() => deleteLabel({ churchId, labelId: label.id }));
+              }}
+              onRename={() => setEditingId(label.id)}
+            />
+          )}
+        />
+      )}
+    </div>
+  );
+}
+
+/** The inline "create a Label" row pinned to the top of the table body. */
+function NewLabelRow({
+  onSubmit,
+  onCancel,
+}: {
+  readonly onSubmit: (name: string) => void;
+  readonly onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const color = name.trim() ? getLabelColorForName(name.trim()) : "blue";
+
+  return (
+    <tr className="bg-muted/40">
+      <td className="h-11 rounded-lg pr-3 pl-3 align-middle" colSpan={5}>
+        <div className="flex items-center gap-3">
+          <span className={cn("size-2.5 shrink-0 rounded-full", labelColorDotClassName(color))} />
+          <LabelNameInput
+            autoFocus
+            defaultValue=""
+            onCancel={onCancel}
+            onSubmit={onSubmit}
+            onValueChange={setName}
+            placeholder="Label name"
+            value={name}
+          />
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+/** A small text field that commits on Enter/blur and cancels on Escape. */
+function LabelNameInput({
+  defaultValue,
+  onSubmit,
+  onCancel,
+  placeholder = "Label name",
+  autoFocus = true,
+  value,
+  onValueChange,
+}: {
+  readonly defaultValue: string;
+  readonly onSubmit: (name: string) => void;
+  readonly onCancel: () => void;
+  readonly placeholder?: string;
+  readonly autoFocus?: boolean;
+  readonly value?: string;
+  readonly onValueChange?: (value: string) => void;
+}) {
+  const [internal, setInternal] = useState(defaultValue);
+  const committed = useRef(false);
+  const current = value ?? internal;
+
+  const setCurrent = (next: string) => {
+    if (onValueChange) onValueChange(next);
+    else setInternal(next);
+  };
+
+  const commit = () => {
+    if (committed.current) return;
+    committed.current = true;
+    const trimmed = current.trim();
+    if (trimmed) onSubmit(trimmed);
+    else onCancel();
+  };
+
+  return (
+    <Input
+      // biome-ignore lint/a11y/noAutofocus: inline edit affordance
+      autoFocus={autoFocus}
+      className="h-8 w-56"
+      onBlur={commit}
+      onChange={(event) => setCurrent(event.currentTarget.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          commit();
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          committed.current = true;
+          onCancel();
+        }
+      }}
+      placeholder={placeholder}
+      value={current}
+    />
+  );
+}
+
+/** The color dot, which opens a popover of selectable swatches. */
+function LabelColorPicker({
+  color,
+  name,
+  onSelect,
+  disabled,
+}: {
+  readonly color: string;
+  readonly name: string;
+  readonly onSelect: (color: LabelColor) => void;
+  readonly disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = isLabelColor(color) ? color : getLabelColorForName(name);
+
+  return (
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger
+        aria-label={`Change color of ${name}`}
+        className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        disabled={disabled}
+        render={<button type="button" />}
+      >
+        <span
+          className={cn("block size-2.5 shrink-0 rounded-full", labelDotClassName({ color, name }))}
+        />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto flex-row gap-1.5 p-1.5">
+        {LABEL_COLORS.map((swatch) => (
+          <button
+            aria-label={swatch}
+            className="flex size-7 items-center justify-center rounded-full transition-colors hover:bg-muted"
+            key={swatch}
+            onClick={() => {
+              onSelect(swatch);
+              setOpen(false);
+            }}
+            type="button"
+          >
+            <span
+              className={cn(
+                "flex size-5 items-center justify-center rounded-full text-white",
+                labelColorDotClassName(swatch),
+              )}
+            >
+              {swatch === selected ? <Check className="size-3.5" /> : null}
+            </span>
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/**
+ * The trailing per-row "..." actions menu. Keyboard shortcuts are scoped to the
+ * open menu (Linear-style): while it is open, focus is trapped in the popup, so
+ * the popup's own keydown handles "E" → rename. Nothing is bound globally.
+ */
+function LabelRowActions({
+  onRename,
+  onDelete,
+}: {
+  readonly onRename: () => void;
+  readonly onDelete: () => void;
+}): ReactNode {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <DropdownMenu onOpenChange={setOpen} open={open}>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label="Open label actions"
+            className="opacity-0 group-hover/row:opacity-100 aria-expanded:opacity-100"
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          />
+        }
+      >
+        <MoreHorizontal />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="min-w-44"
+        onKeyDown={(event) => {
+          if (
+            event.key.toLowerCase() === "e" &&
+            !event.metaKey &&
+            !event.ctrlKey &&
+            !event.altKey
+          ) {
+            event.preventDefault();
+            setOpen(false);
+            onRename();
+          }
+        }}
+        side="bottom"
+      >
+        <DropdownMenuItem className="whitespace-nowrap" onClick={onRename}>
+          <Pencil />
+          Edit label name
+          <DropdownMenuShortcut>
+            <Kbd>E</Kbd>
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onDelete} variant="destructive">
+          <Trash2 />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

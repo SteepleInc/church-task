@@ -26,12 +26,23 @@ export const LabelTableFieldsSchema = Schema.Struct({
   color: LabelColorSchema,
 });
 
+// The client-facing Label shape. Beyond the stored table fields it carries
+// read-only derived stats used by the Labels settings table (see CONTEXT.md
+// "Label"): when the Label was created, how many Tasks currently carry it, and
+// when it was last applied to a Task.
 export const LabelSchema = Schema.Struct({
   id: Schema.String,
   churchId: Schema.String,
   teamId: Schema.Union(Schema.String, Schema.Null),
   name: Schema.String,
   color: LabelColorSchema,
+  // Epoch ms of the Label document's creation (Convex `_creationTime`).
+  createdAt: Schema.Number,
+  // Number of Tasks in the Church that currently carry this Label.
+  taskCount: Schema.Number,
+  // ISO timestamp of the most recent time this Label was added to a Task, or
+  // null if it has never been applied (derived from the Activity log).
+  lastAppliedAt: Schema.Union(Schema.String, Schema.Null),
 });
 
 export type Label = typeof LabelSchema.Type;

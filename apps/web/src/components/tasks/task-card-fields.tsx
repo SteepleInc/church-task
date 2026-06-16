@@ -142,6 +142,11 @@ const LABEL_COLOR_DOT_CLASSES: Record<LabelColor, string> = {
   pink: "bg-pink-500",
 };
 
+/** The Tailwind dot class for a specific Label Color token (used by color pickers). */
+export function labelColorDotClassName(color: LabelColor): string {
+  return LABEL_COLOR_DOT_CLASSES[color];
+}
+
 /** Resolves a Label's colored-dot class, falling back to the name-derived color. */
 export function labelDotClassName(option: {
   readonly name: string;

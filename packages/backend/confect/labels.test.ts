@@ -257,6 +257,21 @@ describe("labels", () => {
         // Duplicate ids collapse on write.
         expect([...task.labelIds].sort()).toEqual([teamLabel.id, churchLabel.id].sort());
 
+        // The Labels settings table reads derived stats: a Label applied to a
+        // Task reports a usage count and a most-recent "last applied" time.
+        const afterApply = yield* authenticated.query(refs.public.labels.listForChurch, {
+          churchId,
+        });
+        if (!afterApply.ok) throw new Error("labels unavailable");
+        const appliedChurchLabel = afterApply.data.labels.find(
+          (label) => label.id === churchLabel.id,
+        )!;
+        expect(appliedChurchLabel.taskCount).toBe(1);
+        expect(appliedChurchLabel.lastAppliedAt).not.toBeNull();
+        const unappliedLabel = afterApply.data.labels.find((label) => label.name === "Admin")!;
+        expect(unappliedLabel.taskCount).toBe(0);
+        expect(unappliedLabel.lastAppliedAt).toBeNull();
+
         // Moving the Task to another Team strips the foreign Team Label but
         // keeps Church-scoped Labels.
         const moved = yield* authenticated.mutation(refs.public.tasks.updateBatch, {
@@ -292,10 +307,16 @@ describe("labels", () => {
           entityId: task.id,
         });
         if (!activities.ok) throw new Error("activities unavailable");
-        const labelActivity = activities.data.activities.find(
-          (activity) => activity.eventType === "task.labels_changed",
+        // Applying Labels at creation and the later Team-move strip both log a
+        // `task.labels_changed` Activity; assert the strip recorded the removed
+        // Team Label name.
+        const stripActivity = activities.data.activities.find(
+          (activity) =>
+            activity.eventType === "task.labels_changed" &&
+            "removedLabelNames" in activity.metadata &&
+            activity.metadata.removedLabelNames.length > 0,
         );
-        expect(labelActivity).toMatchObject({
+        expect(stripActivity).toMatchObject({
           metadata: { removedLabelNames: ["Stage Design"] },
         });
       }).pipe(Effect.provide(TestConfect.layer())),
