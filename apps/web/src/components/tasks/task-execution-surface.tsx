@@ -182,7 +182,7 @@ export function TaskExecutionSurface({
       }
     : undefined;
   const tasksCollection = useTasksCollection({
-    churchId: !cyclesCollection.loading && taskReadArgs !== null ? churchId : null,
+    churchId: taskReadArgs !== null ? churchId : null,
     currentUserId,
     filters: taskFilters,
   });
@@ -201,7 +201,6 @@ export function TaskExecutionSurface({
 
   const tasks = tasksCollection.tasksCollection;
   const isLoading =
-    cyclesCollection.loading ||
     workflows.loading ||
     workflowStatusesCollection.loading ||
     (taskReadArgs !== null && tasksCollection.loading);

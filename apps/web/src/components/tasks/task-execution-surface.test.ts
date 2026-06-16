@@ -184,7 +184,7 @@ describe("Task execution surface", () => {
     });
   });
 
-  test("does not broaden execution reads when no current Cycle is available", () => {
+  test("does not require a current Cycle before reading Tasks", () => {
     expect(
       getTaskExecutionReadArgs({
         churchId: "church-1",
@@ -192,7 +192,11 @@ describe("Task execution surface", () => {
         surface: "my_work",
         cycleId: null,
       }),
-    ).toBeNull();
+    ).toEqual({
+      churchId: "church-1",
+      actorUserId: "user-1",
+      surface: "my_work",
+    });
   });
 
   test("resolves visible Subtask parent context for board cards", () => {
@@ -291,6 +295,17 @@ describe("Task execution surface", () => {
         ordering: "created",
       }),
     ).toEqual({ surface: "my_work", cycleId: "cycle-1" });
+
+    expect(
+      getTaskExecutionFilters({
+        surface: "our_work",
+        cycleId: null,
+        currentUserId: "u-1",
+        tab: "all",
+        showSubtasks: true,
+        ordering: "created",
+      }),
+    ).toEqual({ surface: "our_work" });
   });
 
   test("indexes team members by team id for the assignee picker", () => {

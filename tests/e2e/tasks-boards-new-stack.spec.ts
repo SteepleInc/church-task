@@ -14,7 +14,7 @@ const taskCard = (page: Page, title: string) => page.getByLabel(`Task card ${tit
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 async function chooseCardOption(task: Locator, label: string, optionName: string) {
-  await task.getByLabel(label).click();
+  await task.getByRole("combobox", { name: label }).first().click();
   await task
     .page()
     .getByRole("option", { name: new RegExp(`^${escapeRegExp(optionName)}(?:\\s|$)`) })

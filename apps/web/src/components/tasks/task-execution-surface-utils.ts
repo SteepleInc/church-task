@@ -144,10 +144,6 @@ export function getTaskExecutionReadArgs(args: {
   readonly teamId?: string | null;
   readonly cycleId?: string | null;
 }) {
-  if (!args.cycleId) {
-    return null;
-  }
-
   return {
     churchId: args.churchId,
     actorUserId: args.currentUserId,
@@ -156,7 +152,7 @@ export function getTaskExecutionReadArgs(args: {
         ? { teamId: args.teamId }
         : {}
       : { surface: args.surface }),
-    cycleId: args.cycleId,
+    ...(args.cycleId ? { cycleId: args.cycleId } : {}),
   };
 }
 
@@ -197,7 +193,7 @@ export function getTaskTabFilters(args: {
 export function getTaskExecutionFilters(args: {
   readonly surface: ExecutionSurface;
   readonly teamId?: string | null;
-  readonly cycleId: string;
+  readonly cycleId?: string | null;
   readonly currentUserId: string;
   readonly tab?: TaskViewTab;
   readonly showSubtasks: boolean;
@@ -206,7 +202,7 @@ export function getTaskExecutionFilters(args: {
   return {
     ...getTaskTabFilters(args),
     ...(args.surface === "team_board" && args.teamId ? { teamId: args.teamId } : {}),
-    cycleId: args.cycleId,
+    ...(args.cycleId ? { cycleId: args.cycleId } : {}),
     ...(args.showSubtasks ? {} : { excludeSubtasks: true as const }),
     ...(args.ordering === "due_date" ? { orderBy: "due_date" as const } : {}),
   };
