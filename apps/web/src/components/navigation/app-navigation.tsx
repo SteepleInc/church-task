@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { useTeamMembershipsCollection, useTeamsCollection } from "@/data/teams/teamsData.app";
-import { useIsAdmin } from "@/data/users/adminData.app";
+import { useIsAppAdmin } from "@/data/users/adminData.app";
 import { GlobalSearchToggle } from "@/features/global-search/global-search-toggle";
 import { QuickActionsToggle } from "@/features/quick-actions/quick-actions-toggle";
 import { getMemberTeams } from "@/routes/-dashboard-utils";
@@ -72,7 +72,7 @@ function AppNavigationHeader() {
 
 function AppNavigationBody() {
   const { currentOrgOpt: activeChurch } = useCurrentOrgOpt();
-  const isAppAdministrator = useIsAdmin();
+  const isAppAdministrator = useIsAppAdmin();
   const teams = useTeamsCollection({ churchId: activeChurch?.id ?? null });
   const teamMemberships = useTeamMembershipsCollection({ churchId: activeChurch?.id ?? null });
   const currentUserId = activeChurch?.currentUserId ?? null;

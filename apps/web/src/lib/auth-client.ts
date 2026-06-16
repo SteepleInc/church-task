@@ -1,6 +1,3 @@
-import { env } from "@church-task/env/web";
-import type { clearOrgForOnboarding } from "@church-task/backend-old/authCore";
-import { convexClient, crossDomainClient } from "@convex-dev/better-auth/client/plugins";
 import type { BetterAuthClientPlugin } from "better-auth/client";
 import { adminClient, emailOTPClient, organizationClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
@@ -19,13 +16,18 @@ const completeOnboardingClient = () =>
 
 const clearOrgForOnboardingClient = () =>
   ({
-    $InferServerPlugin: {} as ReturnType<typeof clearOrgForOnboarding>,
     atomListeners: [
       {
         matcher: (path: string) => path === "/clear-org-for-onboarding",
         signal: "$sessionSignal",
       },
     ],
+    getActions: ($fetch) => ({
+      clearOrgForOnboarding: async () =>
+        await $fetch<{ status: boolean }>("/clear-org-for-onboarding", {
+          method: "POST",
+        }),
+    }),
     id: "clear-org-for-onboarding",
     pathMethods: {
       "/clear-org-for-onboarding": "POST",
@@ -33,7 +35,7 @@ const clearOrgForOnboardingClient = () =>
   }) satisfies BetterAuthClientPlugin;
 
 export const authClient = createAuthClient({
-  baseURL: env.VITE_CONVEX_SITE_URL,
+  baseURL: typeof window === "undefined" ? undefined : window.location.origin,
   plugins: [
     emailOTPClient(),
     adminClient(),
@@ -104,7 +106,5 @@ export const authClient = createAuthClient({
         },
       },
     }),
-    convexClient(),
-    crossDomainClient(),
   ],
 });

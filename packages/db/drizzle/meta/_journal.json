@@ -8,6 +8,13 @@
       "when": 1781634982019,
       "tag": "0000_material_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781637789585,
+      "tag": "0001_bright_dazzler",
+      "breakpoints": true
     }
   ]
 }

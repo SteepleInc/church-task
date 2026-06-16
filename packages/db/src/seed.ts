@@ -26,7 +26,16 @@ export type SeedResult = {
   readonly users: readonly SeededUserReference[];
 };
 
-const tableNames = ["verification", "account", "session", "demo_items", "user"] as const;
+const tableNames = [
+  "invitation",
+  "member",
+  "organization",
+  "verification",
+  "account",
+  "session",
+  "demo_items",
+  "user",
+] as const;
 
 export const resetSeededData = async (db: ChurchTaskDb) => {
   await db.execute(sql.raw(`truncate table ${tableNames.map((table) => `"${table}"`).join(", ")}`));

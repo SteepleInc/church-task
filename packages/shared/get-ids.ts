@@ -6,6 +6,10 @@ export const getIdType = (id: string) => getType(id as never);
 
 export const getOrgId = () => getEntityId("org");
 export const getUserId = () => getEntityId("user");
+export const getSessionId = () => getEntityId("session");
+export const getAccountId = () => getEntityId("account");
+export const getVerificationId = () => getEntityId("verification");
+export const getOrgUserId = () => getEntityId("orguser");
 export const getTeamId = () => getEntityId("team");
 export const getTaskId = () => getEntityId("task");
 export const getTemplateId = () => getEntityId("template");

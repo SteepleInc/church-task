@@ -4,7 +4,7 @@ const userActionsSource = await Bun.file(new URL("./userActions.tsx", import.met
 
 describe("user actions", () => {
   test("shows Edit user and Impersonate user to App Administrators", () => {
-    expect(userActionsSource).toContain("useIsAdmin()");
+    expect(userActionsSource).toContain("useIsAppAdmin()");
     expect(userActionsSource).toContain("if (!isAdmin)");
     expect(userActionsSource).toContain('id: "edit-user"');
     expect(userActionsSource).toContain('label: "Edit user"');

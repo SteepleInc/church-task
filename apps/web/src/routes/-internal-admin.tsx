@@ -7,7 +7,7 @@ import { canAccessInternalNavigation } from "@/components/navigation/internal-na
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { useUserOrgsCollection } from "@/data/orgs/orgsData.app";
 import { useTeamsCollection } from "@/data/teams/teamsData.app";
-import { useIsAdmin } from "@/data/users/adminData.app";
+import { useIsAppAdmin } from "@/data/users/adminData.app";
 import { useChurchUsersCollection } from "@/data/users/usersData.app";
 import { authClient } from "@/lib/auth-client";
 
@@ -234,7 +234,7 @@ function AppAdminUsersContent() {
 
 export function InternalAccessGate({ children }: { readonly children: ReactNode }) {
   const session = authClient.useSession();
-  const isAppAdministrator = useIsAdmin();
+  const isAppAdministrator = useIsAppAdmin();
 
   if (session.isPending) {
     return (

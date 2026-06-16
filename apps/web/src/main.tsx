@@ -1,13 +1,10 @@
 import "./telemetry";
 
 import { env } from "@church-task/env/web";
-import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { ConvexQueryCacheProvider } from "convex-helpers/react/cache";
-import { ConvexReactClient } from "convex/react";
+import { ConvexProvider, ConvexReactClient } from "convex/react";
 import ReactDOM from "react-dom/client";
-
-import { authClient } from "@/lib/auth-client";
 
 import { routeTree } from "./routeTree.gen";
 const convex = new ConvexReactClient(env.VITE_CONVEX_URL);
@@ -21,9 +18,9 @@ const router = createRouter({
   context: {},
   Wrap: function WrapComponent({ children }: { children: React.ReactNode }) {
     return (
-      <ConvexBetterAuthProvider client={convex} authClient={authClient}>
+      <ConvexProvider client={convex}>
         <ConvexQueryCacheProvider>{children}</ConvexQueryCacheProvider>
-      </ConvexBetterAuthProvider>
+      </ConvexProvider>
     );
   },
 });

@@ -5,8 +5,10 @@ type SessionUserWithRole = {
   readonly role?: string | null;
 };
 
-export function useIsAdmin() {
+export function useIsAppAdmin() {
   const { data } = authClient.useSession();
 
   return isAppAdministratorSessionUser(data?.user as SessionUserWithRole | null | undefined);
 }
+
+export const useIsAdmin = useIsAppAdmin;

@@ -7,7 +7,7 @@ const entityActionsMenuSource = await Bun.file(
 
 describe("org actions", () => {
   test("shows only Edit org to App Administrators", () => {
-    expect(orgActionsSource).toContain("useIsAdmin()");
+    expect(orgActionsSource).toContain("useIsAppAdmin()");
     expect(orgActionsSource).toContain("if (!isAdmin)");
     expect(orgActionsSource).toContain('id: "edit-org"');
     expect(orgActionsSource).toContain('label: "Edit org"');

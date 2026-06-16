@@ -2,10 +2,10 @@ import { adminNavItems } from "@/components/navigation/nav-shared";
 import { SideBarItem } from "@/components/navigation/sidebar-item";
 import { canAccessInternalNavigation } from "@/components/navigation/internal-navigation";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu } from "@/components/ui/sidebar";
-import { useIsAdmin } from "@/data/users/adminData.app";
+import { useIsAppAdmin } from "@/data/users/adminData.app";
 
 export function AdminNav() {
-  const isAppAdministrator = useIsAdmin();
+  const isAppAdministrator = useIsAppAdmin();
 
   if (!canAccessInternalNavigation(isAppAdministrator)) {
     return null;

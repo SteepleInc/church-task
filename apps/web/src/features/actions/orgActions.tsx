@@ -4,7 +4,7 @@ import { useSetAtom } from "jotai";
 import type { EntityAction, EntityActionsRenderMode } from "@/features/actions/actionTypes";
 import { EntityActionsMenu } from "@/features/actions/entityActionsMenu";
 import { editOrgQuickActionStateAtom } from "@/features/quick-actions/edit-org-quick-action";
-import { useIsAdmin } from "@/data/users/adminData.app";
+import { useIsAppAdmin } from "@/data/users/adminData.app";
 
 type OrgActionsProps = {
   readonly orgId: string;
@@ -20,7 +20,7 @@ export function useOrgActions({
   readonly orgId: string;
   readonly onClose?: () => void;
 }): ReadonlyArray<EntityAction> {
-  const isAdmin = useIsAdmin();
+  const isAdmin = useIsAppAdmin();
   const setEditOrgState = useSetAtom(editOrgQuickActionStateAtom);
 
   if (!isAdmin) {
