@@ -1,6 +1,6 @@
 # App Administrator role via Better Auth admin plugin
 
-App Administration (the cross-Church `/admin` surface that lists every Church and User and supports impersonation) is authorized by an application-level admin role, not by a User's per-Church Membership Role. We adopt Better Auth's `admin()` plugin server-side (`authCore.ts`) and `adminClient()` client-side, add the plugin's `role`/`banned`/`banReason`/`banExpires` fields to the local-install `user` table and `impersonatedBy` to the `session` table, and gate every cross-tenant Convex query (`listAllOrgs`, `listAllUsers`) and impersonation on `user.role === "admin"` server-side.
+App Administration (the cross-Church `/admin` surface that lists every Church and User and supports impersonation) is authorized by an application-level admin role, not by a User's per-Church Membership Role. We use Better Auth's `admin()` plugin server-side and `adminClient()` client-side, include the plugin's `role`/`banned`/`banReason`/`banExpires` fields on the Postgres `user` table and `impersonated_by` on the `session` table, and gate every cross-tenant Zero/server query and impersonation on App Administrator status server-side.
 
 ## Considered Options
 
@@ -9,5 +9,6 @@ App Administration (the cross-Church `/admin` surface that lists every Church an
 
 ## Consequences
 
-- The local-install Better Auth schema is augmented with admin-plugin fields; this is a deliberate edit to auth-component-managed tables.
-- The client `InternalAccessGate` must switch from checking Church Membership Role to checking App Administrator status; existing owners/admins lose access to `/admin` unless granted the app `admin` role.
+- The Better Auth schema includes admin-plugin fields as canonical Postgres/Drizzle columns.
+- Client helpers use App Administrator naming, such as `useIsAppAdmin`, so app-level administration is not confused with Church Membership admin roles.
+- Church owners/admins do not automatically gain `/admin` access unless granted the app `admin` role.

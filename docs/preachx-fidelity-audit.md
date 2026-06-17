@@ -5,6 +5,8 @@ Parent PRD: #74
 
 This audit compares Church Task's copied PreachX surfaces against the canonical local PreachX repository at `/Users/izakfilmalter/Projects/PreachX/preach-x`.
 
+Current-truth note: this audit predates PRD #164's Postgres/Drizzle/Zero migration. Visual and product-language comparisons remain useful, but Convex-era data/auth notes below are historical and are not current implementation guidance.
+
 Verdict summary:
 
 - Complete enough for this audit slice: the required audit report now exists and covers every #97 surface.
@@ -44,7 +46,7 @@ Fidelity verdict: pass for the repaired #91 onboarding scope.
 Intentional differences:
 
 - Church Task has two onboarding steps instead of PreachX's five.
-- PreachX preacher/sermon copy and data have been replaced by Church/Team setup copy and Convex-backed data.
+- PreachX preacher/sermon copy and data have been replaced by Church/Team setup copy and Church Task's current data stack.
 
 ## Auth, Sign-In, And Invitation Accept
 
@@ -82,7 +84,7 @@ Delegated blocker:
 
 Intentional differences:
 
-- Convex Better Auth and active Church switching replace PreachX's auth/data internals.
+- Better Auth, Active Church switching, and Church Task's current data stack replace PreachX's auth/data internals.
 
 ## Org App Shell And Frame
 
@@ -110,7 +112,7 @@ Repairs confirmed:
 
 Intentional differences:
 
-- Church Task auth/onboarding gating uses Convex/current Church state rather than PreachX `useAuthGuard`.
+- Church Task auth/onboarding gating uses Active Church/session state rather than PreachX `useAuthGuard`.
 - Church Task breadcrumbs are local route labels rather than PreachX's breadcrumbs context.
 
 ## Sidebar, Navigation, Org Switcher, And User Menu
@@ -253,7 +255,7 @@ Repairs confirmed:
 
 Intentional difference:
 
-- PreachX gates admin with global `session.user.role === "admin"` and `requireAdmin`; Church Task intentionally gates Admin/Dev through active Church owner/admin role until a global app-admin role exists in the Convex-backed domain model.
+- PreachX gates admin with global `session.user.role === "admin"` and `requireAdmin`; Church Task gates App Administration through the App Administrator role and `useIsAppAdmin`-style helpers, separate from Church Membership admin roles.
 
 Delegated blocker status:
 

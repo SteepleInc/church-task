@@ -2,17 +2,19 @@
 
 This document lists the first high-level PRDs for Church Task. Each entry is intentionally limited to a title and three-sentence description; deeper PRDs and GitHub Projects can expand from these once the roadmap shape is stable.
 
+Current-truth architecture is defined by [PRD #164](https://github.com/SteepleInc/church-task/issues/164) and the ADRs in `docs/adr/`: Postgres/Drizzle is the source-of-truth data layer, Zero backs product data and Collections, Better Auth uses Postgres, TanStack Start owns the web/runtime shell, and Effect owns typed server/CLI/MCP/scheduled work. Earlier PRDs below may preserve historical scope language, but Convex, Confect, Polar billing, and old package references are not implementation guidance for new work.
+
 ## 1. Agent CLI and MCP Foundation
 
 Status: Speced in [GitHub issue #11](https://github.com/SteepleInc/church-task/issues/11), with TDD implementation slices in child issues #12-#20.
 
-Agent CLI and MCP Foundation establishes the reusable agent-facing product interface before the user workflow PRDs depend on it. It uses Effect for CLI/runtime composition, Confect for typed Convex operation contracts, and Better Auth token primitives for bearer, MCP OAuth/OIDC, and durable CLI credential handling instead of custom auth storage. It proves authenticated CLI/MCP access with health, current User, Active Church readiness, and minimal typed smoke-test operations, but does not include full Task, Team, Template, Cycle, Board, or billing workflows.
+Agent CLI and MCP Foundation establishes the reusable agent-facing product interface before the user workflow PRDs depend on it. The implementation now uses Effect for CLI/runtime composition, typed server/domain contracts, Drizzle-backed server operations, and Better Auth token primitives for bearer, MCP OAuth/OIDC, and durable CLI credential handling instead of custom auth storage. It proves authenticated CLI/MCP access with health, current User, Active Church readiness, and minimal typed smoke-test operations, but does not include full Task, Team, Template, Cycle, or Board workflows.
 
-## 2. Testing Foundation for Convex-Backed UI
+## 2. Testing Foundation for Postgres/Zero-Backed UI
 
 Status: Speced in [GitHub issue #21](https://github.com/SteepleInc/church-task/issues/21), with implementation slices in child issues #22-#29.
 
-Testing Foundation for Convex-Backed UI establishes local-first confidence before Church Task moves beyond boilerplate into authenticated Church and Task workflows. It uses Playwright for browser workflow tests against dev servers and isolated Convex state, and Vitest with convex-test, Confect, and Effect for backend public-interface TDD tests. It proves the current auth/dashboard boilerplate and backend behavior without introducing React component tests as a default layer; CI, Polar checkout flows, and future Church/Task domain tests remain out of scope.
+Testing Foundation for Postgres/Zero-Backed UI establishes local-first confidence before Church Task moves beyond boilerplate into authenticated Church and Task workflows. It uses Playwright for browser workflow tests against the TanStack Start app, Testcontainers Postgres, Drizzle migrations/seeds, Better Auth, and Zero where needed; Vitest covers backend public-interface and package tests. It proves auth/dashboard and backend behavior without introducing React component tests as a default layer; production deployment and future Church/Task domain tests remain separate scope.
 
 ## 3. Church Onboarding and Membership
 
@@ -24,7 +26,7 @@ Church Onboarding and Membership lets a new User create their first Church, acce
 
 Status: PRD completed in [GitHub issue #30](https://github.com/SteepleInc/church-task/issues/30).
 
-Core Work Data Model establishes the durable Convex-backed domain model for Tasks, Subtasks, Cycles, Templates, Template Tasks, Scheduling Rules, Key Dates, Teams, Workflows, Workflow Statuses, Source Templates, Cycle Adjustments, Activities, and Church Time Zone before the product builds deeper workflows on top of them. It proves the full Template-to-Cycle-to-Task projection path in the data layer, makes explicit that every Task belongs to a Cycle, and ensures Cycle Adjustments can change a week's work without changing the Source Template. It includes Convex schema, invariants, batch-shaped read/write API boundaries, projection behavior, and MCP/CLI-safe operation foundations, but does not require full end-user UI for every concept yet.
+Core Work Data Model establishes the durable Postgres/Drizzle/Zero-backed domain model for Tasks, Subtasks, Cycles, Templates, Template Tasks, Scheduling Rules, Key Dates, Teams, Workflows, Workflow Statuses, Source Templates, Cycle Adjustments, Activities, and Church Time Zone before the product builds deeper workflows on top of them. It proves the full Template-to-Cycle-to-Task projection path in the data layer, makes explicit that every Task belongs to a Cycle, and ensures Cycle Adjustments can change a week's work without changing the Source Template. It includes Drizzle schema, invariants, typed read/write API boundaries, projection behavior, and MCP/CLI-safe operation foundations, but does not require full end-user UI for every concept yet.
 
 ## 5. Team and Workflow Setup
 
@@ -52,4 +54,4 @@ Saved Views and Boards lets Users create reusable ways of seeing Tasks without c
 
 ## 10. Subscription and Plan Management
 
-Subscription and Plan Management lets Church owners and admins view and manage the Church's subscription through Polar-backed checkout and customer portal flows. It establishes plan status as Church-level account data with a one-week free trial followed by a $7-per-week subscription for product access. It keeps unpaid or lapsed Churches in read-only mode and does not define sales-led billing, custom contracts, or detailed feature packaging yet.
+Subscription and Plan Management is deferred. Billing and payment integration, including the earlier Polar-backed checkout concept, are outside the current Postgres/Zero migration and should not be treated as implemented architecture.

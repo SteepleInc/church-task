@@ -1,6 +1,6 @@
 # Mandatory team ownership and team-scoped task identifiers
 
-Team-less tasks made human-readable task references impossible and forced fallback machinery everywhere (a Church default Workflow, "No Team" board lanes, null branches in every task path). We decided every Task belongs to exactly one Team, and Tasks get Linear-style identifiers — a Team Identifier prefix plus a per-team sequence number (`PRD-48`) — which replace Convex ids as the user-facing reference in URLs and product surfaces. Since there are no production users yet, the schema goes strict from day one (`teamId` non-null, task number required, team identifier required) with no migration, per the ADR 0012 precedent.
+Team-less tasks made human-readable task references impossible and forced fallback machinery everywhere (a Church default Workflow, "No Team" board lanes, null branches in every task path). We decided every Task belongs to exactly one Team, and Tasks get Linear-style identifiers - a Team Identifier prefix plus a per-team sequence number (`PRD-48`) - which replace internal TypeIDs as the user-facing reference in URLs and product surfaces. Since there were no production users when this decision landed, the schema goes strict from day one (`team_id` non-null, task number required, team identifier required) with no migration, per the ADR 0012 precedent.
 
 The supporting invariants:
 

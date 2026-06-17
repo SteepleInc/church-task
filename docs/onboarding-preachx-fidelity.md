@@ -32,7 +32,7 @@ Repairs confirmed:
 
 Intentional differences:
 
-- PreachX has five onboarding steps for church organizations. Church Task intentionally has three: Church Profile, Initial Teams, and Finished (the Finished step is the future landing spot for billing).
+- PreachX has five onboarding steps for church organizations. Church Task intentionally has three: Church Profile, Initial Teams, and Finished; billing is deferred and is not implied by the Finished step.
 - Church Task adopts PreachX's persist-early data flow: the Church is created on Church Profile submit, the Initial Teams step is a live editor over persisted Teams, and the step is derived from URL plus Church state (`resolveOnboardingStep`). See `docs/adr/0008-persist-early-onboarding-with-derived-steps.md`.
 - PreachX copy mentions sermon royalty and preacher setup. Church Task copy uses Church, Teams, and work setup language.
 - The onboarding shell now renders PreachX's desktop theme/user controls (`ModeToggle` + `UserMenu`) floating in the top-right of the right panel, matching PreachX exactly so the user avatar and theme toggle are reachable on desktop.

@@ -1,15 +1,16 @@
 # church-task
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Router, Convex, and more.
+Church Task is a Bun + Turborepo TypeScript monorepo for church work management. The current architecture uses TanStack Start, Postgres, Drizzle, Zero, Better Auth, Effect, shared UI primitives, and shared config/env packages.
 
 ## Features
 
 - **TypeScript** - For type safety and improved developer experience
-- **TanStack Router** - File-based routing with full type safety
+- **TanStack Start** - React app/runtime shell with file-based routing
 - **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **Convex** - Reactive backend-as-a-service platform
-- **Authentication** - Better-Auth
+- **Postgres + Drizzle** - Source-of-truth schema, migrations, seed/reset tooling, and server-side database access
+- **Zero** - Synced product data, client queries, mutators, and list-query helpers
+- **Better Auth** - Postgres-backed authentication, sessions, organization context, and admin helpers
+- **Effect** - Typed server/API, CLI, MCP, and scheduled-work composition
 - **Oxlint** - Oxlint + Oxfmt (linting & formatting)
 - **Turborepo** - Optimized monorepo build system
 
@@ -21,17 +22,15 @@ First, install the dependencies:
 bun install
 ```
 
-## Convex Setup
+## Local Setup
 
-This project uses Convex as a backend. You'll need to set up Convex before running the app:
+Prepare the local server/database stack:
 
 ```bash
 bun run dev:setup
 ```
 
-Follow the prompts to create a new Convex project and connect it to your application.
-
-Copy environment variables from `packages/backend/.env.local` to `apps/*/.env`.
+`bun run dev:setup` is served by `@church-task/server` and should prepare the local Drizzle/Postgres-backed development state for the current stack.
 
 Then, run the development server:
 
@@ -40,13 +39,12 @@ bun run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser to see the web application.
-Your app will connect to the Convex cloud backend automatically.
 
 ## Agent Platform Setup
 
 The CLI and MCP smoke-test path for agents is documented in `docs/agent-platform-setup.md`.
 
-Start with the public CLI health check after Convex is configured:
+Start with the public CLI health check after the local server stack is running:
 
 ```bash
 bun packages/cli/src/bin.ts health
@@ -54,43 +52,35 @@ bun packages/cli/src/bin.ts health
 
 ## UI Customization
 
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
+React web apps in this stack share UI primitives through `apps/web/src/components` and shared packages where appropriate.
 
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
-
-```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
-```
-
-Import shared components like this:
-
-```tsx
-import { Button } from "@church-task/ui/components/button";
-```
-
-### Add app-specific blocks
-
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
+- Change design tokens and global styles in `apps/web/src/styles.css`.
+- Update web components in `apps/web/src/components/*`.
+- Keep reusable cross-package UI or utility additions aligned with existing package exports.
 
 ## Git Hooks and Formatting
 
 - Format and lint fix: `bun run check`
+- Full local verification including typecheck and E2E: `bun run check:full`
 
 ## Project Structure
 
 ```
 church-task/
 ├── apps/
-│   ├── web/         # Frontend application (React + TanStack Router)
+│   └── web/              # TanStack Start web app
+├── backend/
+│   └── server/           # Effect API/server runtime
 ├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── backend/     # Convex backend functions and schema
+│   ├── auth/             # Better Auth configuration and helpers
+│   ├── cli/              # Agent/CLI entrypoints
+│   ├── config/           # Shared TypeScript/tooling config
+│   ├── db/               # Drizzle schema, migrations, seeds, and DB helpers
+│   ├── domain/           # API contracts, tagged errors, pure domain logic
+│   ├── env/              # Environment handling
+│   ├── shared/           # Cross-cutting helpers such as TypeID factories
+│   ├── test-harness/     # Testcontainers, seed, and E2E harness helpers
+│   └── zero/             # Zero schema, queries, mutators, and list helpers
 ```
 
 ## Available Scripts
@@ -98,6 +88,9 @@ church-task/
 - `bun run dev`: Start all applications in development mode
 - `bun run build`: Build all applications
 - `bun run dev:web`: Start only the web application
-- `bun run dev:setup`: Setup and configure your Convex project
+- `bun run dev:server`: Start the Effect server package
+- `bun run dev:setup`: Prepare local development database/server state
 - `bun run check-types`: Check TypeScript types across all apps
 - `bun run check`: Run Oxlint and Oxfmt
+- `bun run check:full`: Run formatting/linting, typecheck, and Playwright E2E
+- `bun run test:e2e`: Run the Playwright E2E suite against the local stack

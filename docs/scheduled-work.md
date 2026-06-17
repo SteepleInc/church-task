@@ -4,7 +4,7 @@ Scheduled/background work runs in the Effect/Drizzle server package, not from br
 
 ## Cycle Maintenance
 
-The old Convex cron was `Sunday Cycle maintenance` on `0 8 * * 0`. The new equivalent entrypoint is:
+The migrated equivalent of the old `Sunday Cycle maintenance` cron (`0 8 * * 0`) is:
 
 ```sh
 DATABASE_URL=postgres://... bun run scheduled:cycle-maintenance
@@ -19,8 +19,8 @@ It calls `runScheduledCycleMaintenance` from `@church-task/server`, which:
 
 Production hosting for the scheduler is still a deployment-topology decision. Local/dev invocation is the command above, and tests cover the job through a real Postgres harness.
 
-## Convex Scheduled/Background Inventory
+## Historical Scheduled/Background Inventory
 
-- `packages/backend-old/convex/crons.ts`: `Sunday Cycle maintenance` (`0 8 * * 0`) called `internal.cycleMaintenance.internalRunForAllChurches`. This is ported to `runScheduledCycleMaintenance` in `@church-task/server`.
-- `packages/backend-old/convex/polar.ts`: `syncProducts` was starter Polar/billing background work. Billing is out of scope for the migration and this action is obsolete rather than ported.
-- Other `internalMutation` files under `packages/backend-old/convex/` are invoked by product, onboarding, or agent operations rather than registered background schedules. Those paths are handled by the feature-specific migration issues.
+- Old-stack `Sunday Cycle maintenance` called `internal.cycleMaintenance.internalRunForAllChurches`. This is ported to `runScheduledCycleMaintenance` in `@church-task/server`.
+- Old starter Polar/billing background work was obsolete rather than ported because billing is outside the current architecture.
+- Other old internal mutations were invoked by product, onboarding, or agent operations rather than registered background schedules. Those paths were handled by the feature-specific migration issues.

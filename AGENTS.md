@@ -2,7 +2,7 @@
 
 ## Repo Overview
 
-`church-task` is a private Bun + Turborepo TypeScript monorepo. It is migrating from a Convex/Confect backend to a PreachX-style architecture with TanStack Start, Postgres, Drizzle, Zero, Better Auth, Effect, shared UI primitives, and shared config/env packages.
+`church-task` is a private Bun + Turborepo TypeScript monorepo using a PreachX-style architecture with TanStack Start, Postgres, Drizzle, Zero, Better Auth, Effect, shared UI primitives, and shared config/env packages.
 
 Primary commands from the repo root:
 
@@ -14,10 +14,9 @@ The package manager is Bun (`bun@1.3.13`). Prefer Bun commands for this repo unl
 
 ## Project Structure
 
-- `apps/web` is the frontend app. It is being migrated in place from Vite + TanStack Router to TanStack Start while preserving the existing UI.
+- `apps/web` is the TanStack Start frontend app, preserving the existing Church Task UI.
 - `backend/server` is the target Effect API/server package imported by the web app, following the PreachX pattern.
 - `packages/db`, `packages/auth`, and `packages/zero` are the target Postgres/Better Auth/Zero packages.
-- `packages/backend-old` and `packages/domain-old`, once created, are temporary read-only references for the old Convex/Confect implementation.
 - `packages/config` contains shared TypeScript/tooling config.
 - `packages/env` contains shared environment-variable handling.
 

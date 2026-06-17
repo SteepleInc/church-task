@@ -1,6 +1,6 @@
 # Fractional string keys for Board Order
 
-Tasks need a persisted manual ordering within Board Columns (Board Order), and Convex makes per-write cost matter: a drag should touch one document, not reindex a column. We store a required `boardOrder` string on every Task, generated with the `fractional-indexing` package (`generateKeyBetween` / `generateNKeysBetween`); keys are assigned at creation in the centralized `createTasks` helper (appended to the end of the destination column) and rewritten on drag to slot between the destination neighbors. Since there are no production users yet, the field is required from day one with no nullable fallback or migration.
+Tasks need a persisted manual ordering within Board Columns (Board Order), and drag operations should update only the moved Task rather than reindexing a whole column. We store a required `board_order` string on every Task, generated with the `fractional-indexing` package (`generateKeyBetween` / `generateNKeysBetween`); keys are assigned at creation in the centralized task creation path (appended to the end of the destination column) and rewritten on drag to slot between the destination neighbors. Since there were no production users when the field was introduced, the field is required from day one with no nullable fallback or migration.
 
 ## Considered Options
 
@@ -10,5 +10,5 @@ Tasks need a persisted manual ordering within Board Columns (Board Order), and C
 
 ## Consequences
 
-- Every task-creation path must flow through `createTasks` (or otherwise assign a key) — `boardOrder` is required by the schema.
-- Ordering is a plain string comparison scoped within a column; columns partition by `workflowStatusId`, so one field serves all Boards.
+- Every task-creation path must assign a key because `board_order` is required by the schema.
+- Ordering is a plain string comparison scoped within a column; columns partition by `workflow_status_id`, so one field serves all Boards.

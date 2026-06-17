@@ -156,7 +156,7 @@ Run the feedback loops that cover this setup path:
 
 ```bash
 bun run test:cli
-bun run test:backend
+bun --filter @church-task/server test
 bun run check-types
 ```
 

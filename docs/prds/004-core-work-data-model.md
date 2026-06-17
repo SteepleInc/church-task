@@ -1,12 +1,14 @@
 # Core Work Data Model
 
+> Historical PRD note: this PRD predated the Postgres/Drizzle/Zero migration in PRD #164. Keep its Church Task domain decisions, invariants, and workflow language, but implement persistence and operations through the current Postgres/Drizzle/Zero/Better Auth/Effect architecture. Convex and Confect references below are historical context, not current implementation guidance.
+
 ## Problem Statement
 
 Church Task has Church onboarding and agent-facing foundations, but it does not yet have the durable work model that the rest of the product can safely build on. Without a precise model for Cycles, Tasks, Templates, Scheduling Rules, Key Dates, Workflows, Activities, and Team membership, later UI and agent workflows would each invent their own semantics for recurring work, unfinished rollover, cancellation, and week-specific changes. Church leaders need the product to treat church weeks, recurring preparation, team workflows, and audit history consistently before deeper task execution, weekly planning, template authoring, and saved boards are built.
 
 ## Solution
 
-Build the Convex-backed, Confect-typed Core Work Data Model and prove it with tests. The solution establishes Church Time Zone, Monday-to-Sunday Cycles, rolling Cycle maintenance, Task rollover, Activity history, Better Auth Team integration, Workflows and Workflow Statuses, Template projection, sparse Cycle Adjustments, and Key Date scheduling. This PRD is a backend/data-model PRD: it includes schema, invariants, internal cron behavior, batch-shaped operation contracts, and enough smoke-test operations to prove the model, but it does not include polished end-user UI for managing every concept.
+Build the Postgres/Drizzle/Zero-backed Core Work Data Model and prove it with tests. The solution establishes Church Time Zone, Monday-to-Sunday Cycles, rolling Cycle maintenance, Task rollover, Activity history, Better Auth Team integration, Workflows and Workflow Statuses, Template projection, sparse Cycle Adjustments, and Key Date scheduling. This PRD is a backend/data-model PRD: it includes schema, invariants, scheduled-work behavior, batch-shaped operation contracts, and enough smoke-test operations to prove the model, but it does not include polished end-user UI for managing every concept.
 
 ## User Stories
 
@@ -42,7 +44,7 @@ Build the Convex-backed, Confect-typed Core Work Data Model and prove it with te
 30. As a Church leader, I want Better Auth Teams to be the Team membership substrate, so that Church Task does not duplicate membership infrastructure unnecessarily.
 31. As a Church leader, I want Team product fields such as archive state, ordering, and default Workflow to live on the Better Auth Team model, so that Team settings are reactive and not shadowed elsewhere.
 32. As a Church leader, I want Better Auth Team membership changes to create product Activity where practical, so that Team history appears in Church Task.
-33. As a Church leader, I want Church Task domain updates to be reactive Convex/Confect operations, so that product settings do not need to go through non-reactive Better Auth APIs when no hard auth mutation is required.
+33. As a Church leader, I want Church Task domain updates to use Zero mutators or typed Drizzle-backed server operations, so that product settings do not need to go through non-reactive Better Auth APIs when no hard auth mutation is required.
 34. As a Church leader, I want Activities for important changes, so that I can see what happened to Tasks, Templates, Cycles, Teams, and Workflows.
 35. As a Church leader, I want Activity history to be visible wherever I can see the underlying entity, so that history follows permissions.
 36. As a Church leader, I want Activities to support targeted restore for cancellation, so that reopening can return work to its prior status without cluttering Task rows with extra fields.
@@ -68,7 +70,7 @@ Build the Convex-backed, Confect-typed Core Work Data Model and prove it with te
 56. As a Church leader, I want starter Key Dates to become fully Church-owned records, so that I can rename, edit, archive, or delete them for my context.
 57. As a Church leader, I want Key Date Occurrences for irregular events like Summer Fest, so that reusable planning can anchor to known dates without pretending the event is predictable.
 58. As a Church leader, I want Templates to anchor to a Key Date definition and resolve through occurrences, so that one planning Template can work across years.
-59. As a developer, I want batch-shaped Confect operation contracts, so that web, CLI, MCP, and tests use the same typed boundaries.
+59. As a developer, I want batch-shaped typed operation contracts, so that web, CLI, MCP, and tests use the same typed boundaries.
 60. As a developer, I want the Core Work Data Model proven with tests before UI PRDs build on it, so that later product work rests on stable invariants.
 
 ## Implementation Decisions
@@ -99,14 +101,14 @@ Build the Convex-backed, Confect-typed Core Work Data Model and prove it with te
 - Do not rely on Better Auth Teams for product workflow semantics, task visibility semantics, or team-specific roles.
 - Extend the Better Auth Team schema with Church Task product fields such as `archivedAt`, `sortOrder`, `defaultWorkflowId`, and any minimal descriptive field needed soon.
 - Keep Better Auth as the authority for auth-sensitive operations: create Church, accept/reject/cancel invitations, add/remove Church Members, update Church Member Role, create Team identity, add/remove Team Members, and invitation-to-Team behavior.
-- Use Church Task Confect/Convex domain operations for reactive product updates such as Team archive, Team ordering, Team default Workflow, Workflow changes, Task changes, Template changes, Key Date changes, and Activity writes.
+- Use Church Task Zero mutators and typed Drizzle-backed domain operations for product updates such as Team archive, Team ordering, Team default Workflow, Workflow changes, Task changes, Template changes, Key Date changes, and Activity writes.
 - Allow direct domain updates to explicitly approved Better Auth additional fields and display/product fields, but do not directly patch membership rows, roles, invitations, sessions, credentials, or auth plugin internal invariants.
 - Use Better Auth `organizationHooks` to emit best-effort Activities for Better Auth-owned lifecycle changes such as organization, member, invitation, team, and team-member changes.
 - Better Auth hook Activity failures should be logged/observable but should not intentionally fail user-facing auth/team operations.
 - Add a Church-scoped `activities` table consistent with ADR 0005.
 - Activities are audit history, not event sourcing. Current state lives on domain tables and should not require replaying Activities.
 - Specific Activity types may store structured before/after metadata for targeted restore flows, such as reopening a canceled Task to its previous Workflow Status.
-- Define an Activity registry in the Confect/domain layer using Effect Schema or Confect-compatible schemas.
+- Define an Activity registry in the domain layer using Effect-compatible schemas where useful.
 - Activity event definitions own their metadata schemas and construction helpers.
 - Avoid ad hoc direct Activity inserts outside the Activity module/helpers.
 - Activity records include Church scope, entity type, entity id, event type, actor type, optional actor id, occurred-at timestamp, optional Cycle scope, and typed metadata.
@@ -142,7 +144,7 @@ Build the Convex-backed, Confect-typed Core Work Data Model and prove it with te
 - Field absence in Cycle Adjustment overrides means inherit from the Template Task.
 - Field presence with `null` means intentionally override to empty/null.
 - Skipping projected work for a Cycle is represented by a Cycle Adjustment lifecycle flag.
-- Centralize Template Task plus Cycle Adjustment merge logic in one projection module using Effect Schema/Confect types.
+- Centralize Template Task plus Cycle Adjustment merge logic in one projection module using Effect-compatible types.
 - The merge module validates base Template Task fields, validates sparse overrides, distinguishes absent override from explicit null, and returns the effective Task shape.
 - Rolled-over projected Tasks keep Source Template traceability but stop syncing from Template changes in the destination Cycle.
 - Hand-added future Tasks are normal Tasks immediately. They have no Source Template and are not synchronized from Templates.
@@ -158,7 +160,7 @@ Build the Convex-backed, Confect-typed Core Work Data Model and prove it with te
 - Owners/admins can manage Church Time Zone, Teams, Workflows, Templates, Key Dates, and scheduling defaults.
 - Members can read visible work needed for execution; mature day-to-day Task mutation permissions are finalized by later Task Execution PRDs.
 - System cron/internal operations can materialize Cycles, roll over Tasks, and write Activities without user auth.
-- Build batch-shaped Confect operation contracts for the model and smoke-test operations needed to prove it.
+- Build batch-shaped typed operation contracts for the model and smoke-test operations needed to prove it.
 - Keep web, CLI, MCP, and tests aligned on the same typed operation boundaries.
 
 ## Testing Decisions
@@ -174,8 +176,8 @@ Build the Convex-backed, Confect-typed Core Work Data Model and prove it with te
 - Cycle Adjustment merge tests should cover sparse override semantics, explicit null overrides, skipped occurrences, and future Template edits syncing only unadjusted fields.
 - Future sync tests should prove past/current Tasks are not changed by Template edits while buffer/future unadjusted projected Tasks are updated.
 - Key Date tests should cover starter copy on Church creation, fixed/computed/manual occurrence resolution, irregular known-occurrence behavior, and Template anchors to Key Date definitions.
-- Operation contract tests should use Confect boundaries where practical, with batch-shaped inputs/outputs and MCP/CLI-safe error behavior.
-- Prior art includes the existing Confect agent operation tests, Convex-backed dashboard tests, convex-test patterns from the Testing Foundation PRD, and the ADRs for local date/UTC instant modeling and domain Activity logging.
+- Operation contract tests should use typed server/domain boundaries where practical, with batch-shaped inputs/outputs and MCP/CLI-safe error behavior.
+- Prior art includes the current agent operation tests, Drizzle-backed app tests, Testcontainers patterns from the migration, and the ADRs for local date/UTC instant modeling and domain Activity logging.
 
 ## Out of Scope
 
