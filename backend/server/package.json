@@ -18,10 +18,9 @@
     "@church-task/domain": "workspace:*",
     "@church-task/shared": "workspace:*",
     "@church-task/zero": "workspace:*",
-    "@effect/platform": "catalog:",
     "@rocicorp/zero": "catalog:",
-    "drizzle-orm": "catalog:",
     "dotenv": "catalog:",
+    "drizzle-orm": "catalog:",
     "effect": "catalog:"
   },
   "devDependencies": {

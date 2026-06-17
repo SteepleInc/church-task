@@ -28,12 +28,12 @@ export const DetailsPaneUser = Schema.Struct({
 });
 export type DetailsPaneUser = typeof DetailsPaneUser.Type;
 
-export const DetailsPaneUnion = Schema.Union(
+export const DetailsPaneUnion = Schema.Union([
   DetailsPaneTask,
   DetailsPaneTeam,
   DetailsPaneOrg,
   DetailsPaneUser,
-);
+]);
 export type DetailsPaneUnion = typeof DetailsPaneUnion.Type;
 
 export const DetailsPaneParams = Schema.Array(DetailsPaneUnion);

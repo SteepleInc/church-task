@@ -1,20 +1,20 @@
 import type { ValidationError } from "@tanstack/react-form";
-import { Array, pipe, Schema } from "effect";
+import { Array, pipe } from "effect";
 
-const ErrorMessageSchema = Schema.Union(
-  Schema.transform(Schema.Struct({ message: Schema.String }), Schema.String, {
-    decode: (obj) => obj.message,
-    encode: (str) => ({ message: str }),
-    strict: true,
-  }),
-  Schema.String,
-);
+const getErrorMessage = (error: ValidationError) => {
+  if (typeof error === "string") return error;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = error.message;
+    return typeof message === "string" ? message : undefined;
+  }
+  return undefined;
+};
 
 const extractErrorMessages = (errors: Array<ValidationError>) =>
   pipe(
     errors,
-    Array.map((error) => Schema.decodeUnknownOption(ErrorMessageSchema)(error)),
-    Array.getSomes,
+    Array.map(getErrorMessage),
+    Array.filter((message): message is string => message !== undefined),
     Array.join(", "),
   );
 

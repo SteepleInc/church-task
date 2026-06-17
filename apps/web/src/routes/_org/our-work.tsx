@@ -5,7 +5,7 @@ import { ChurchWorkSearchSchema } from "@/components/tasks/task-view-options";
 import { DashboardPage } from "@/routes/-dashboard";
 
 export const Route = createFileRoute("/_org/our-work")({
-  validateSearch: Schema.standardSchemaV1(ChurchWorkSearchSchema),
+  validateSearch: Schema.toStandardSchemaV1(ChurchWorkSearchSchema),
   component: RouteComponent,
 });
 

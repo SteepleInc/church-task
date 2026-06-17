@@ -37,10 +37,7 @@ const getDetailsPaneWidth = (entityType: string): string =>
 export function DetailsPane({ className }: { readonly className?: string }) {
   const [detailsPaneState] = useDetailsPaneState();
   const closeDetailsPane = useCloseDetailsPane();
-  const hasDetailsPane = useMemo(
-    () => pipe(detailsPaneState, Array.isNonEmptyReadonlyArray),
-    [detailsPaneState],
-  );
+  const hasDetailsPane = useMemo(() => detailsPaneState.length > 0, [detailsPaneState]);
 
   const width = pipe(
     detailsPaneState,

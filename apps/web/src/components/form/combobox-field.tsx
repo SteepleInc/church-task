@@ -37,7 +37,7 @@ export function ComboboxField({
   const field = useFieldContext<Array<string>>();
   const value = pipe(
     field.state.value,
-    Option.fromNullable,
+    Option.fromNullishOr,
     Option.getOrElse((): Array<string> => []),
   );
   const { processedError } = getFieldErrors(field.state.meta.errors);

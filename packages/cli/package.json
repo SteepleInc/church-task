@@ -16,8 +16,8 @@
   },
   "devDependencies": {
     "@church-task/config": "workspace:*",
-    "@types/node": "^24.3.0",
+    "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vitest": "3.2.4"
+    "vitest": "catalog:"
   }
 }

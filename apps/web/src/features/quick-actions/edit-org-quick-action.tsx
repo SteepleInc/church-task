@@ -70,10 +70,10 @@ function getEditOrgDefaultValues(org: OrgCollectionItem) {
 }
 
 const EditOrgSchema = Schema.Struct({
-  name: Schema.String.pipe(Schema.minLength(1, { message: () => "Name is required." })),
+  name: Schema.String.pipe(Schema.check(Schema.isMinLength(1, { message: "Name is required." }))),
   slug: Schema.String,
   churchTimeZone: Schema.String.pipe(
-    Schema.minLength(1, { message: () => "Church Time Zone is required." }),
+    Schema.check(Schema.isMinLength(1, { message: "Church Time Zone is required." })),
   ),
   street: Schema.String,
   city: Schema.String,
@@ -150,7 +150,7 @@ function EditOrgForm({
       modeAfterSubmission: "blur",
     }),
     validators: {
-      onSubmit: Schema.standardSchemaV1(EditOrgSchema),
+      onSubmit: Schema.toStandardSchemaV1(EditOrgSchema),
     },
     onSubmit: async ({ value }) => {
       setEditError(null);

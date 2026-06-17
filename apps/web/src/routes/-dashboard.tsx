@@ -1660,10 +1660,10 @@ type InvitationRole = "member" | "admin";
 
 const ChurchNameSchema = Schema.Struct({
   name: Schema.String.pipe(
-    Schema.minLength(2, { message: () => "Church name must be at least 2 characters." }),
+    Schema.check(Schema.isMinLength(2, { message: "Church name must be at least 2 characters." })),
   ),
   churchTimeZone: Schema.String.pipe(
-    Schema.minLength(1, { message: () => "Church Time Zone is required." }),
+    Schema.check(Schema.isMinLength(1, { message: "Church Time Zone is required." })),
   ),
 });
 
@@ -1921,7 +1921,7 @@ function ChurchOnboardingGate({ activePanel }: { activePanel: ActiveDashboardPan
       modeAfterSubmission: "blur",
     }),
     validators: {
-      onSubmit: Schema.standardSchemaV1(ChurchNameSchema),
+      onSubmit: Schema.toStandardSchemaV1(ChurchNameSchema),
     },
     onSubmit: async ({ value }) => {
       setError(null);

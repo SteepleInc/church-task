@@ -34,10 +34,10 @@ export type InviteMemberDialogSource = "settings" | "quick-actions";
 export const inviteMemberDialogSourceAtom = atom<InviteMemberDialogSource | null>(null);
 
 const InviteMemberSchema = Schema.Struct({
-  emails: Schema.Array(Schema.String.pipe(Schema.minLength(3))).pipe(
-    Schema.minItems(1, { message: () => "Enter at least one email address." }),
+  emails: Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(3)))).pipe(
+    Schema.check(Schema.isMinLength(1, { message: "Enter at least one email address." })),
   ),
-  role: Schema.Literal("member", "admin"),
+  role: Schema.Literals(["member", "admin"]),
 });
 
 type InviteMemberButtonProps = Omit<ComponentPropsWithoutRef<typeof Button>, "onClick">;
@@ -115,7 +115,7 @@ function InviteMemberForm({
       modeAfterSubmission: "blur",
     }),
     validators: {
-      onSubmit: Schema.standardSchemaV1(InviteMemberSchema),
+      onSubmit: Schema.toStandardSchemaV1(InviteMemberSchema),
     },
     onSubmit: async ({ value, formApi }) => {
       setInviteError(null);

@@ -52,39 +52,40 @@ import {
   workflows,
 } from "@church-task/db/schema";
 import { requireActiveChurchAccess, requireSignedInSession } from "./session-context";
+import { toZeroSchema } from "./effect-schema";
 
 import type { OptionalZeroSessionContext } from "./session-context";
 import type { Schema as ZeroSchema } from "./zero-schema.gen";
 
-const CreateDemoItemArgs = Schema.standardSchemaV1(Schema.Struct({ name: Schema.String }));
-const CreateTeamArgs = Schema.standardSchemaV1(
+const CreateDemoItemArgs = toZeroSchema(Schema.Struct({ name: Schema.String }));
+const CreateTeamArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, name: Schema.String }),
 );
-const RenameTeamArgs = Schema.standardSchemaV1(
+const RenameTeamArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, name: Schema.String, team_id: Schema.String }),
 );
-const SetTeamIdentifierArgs = Schema.standardSchemaV1(
+const SetTeamIdentifierArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, identifier: Schema.String, team_id: Schema.String }),
 );
-const DeleteTeamArgs = Schema.standardSchemaV1(
+const DeleteTeamArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, team_id: Schema.String }),
 );
-const ReorderTeamsArgs = Schema.standardSchemaV1(
+const ReorderTeamsArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, team_ids: Schema.Array(Schema.String) }),
 );
-const TeamMemberArgs = Schema.standardSchemaV1(
+const TeamMemberArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, team_id: Schema.String, user_id: Schema.String }),
 );
-const CreateLabelArgs = Schema.standardSchemaV1(
+const CreateLabelArgs = toZeroSchema(
   Schema.Struct({
     church_id: Schema.String,
     color: Schema.optional(Schema.String),
     label_id: Schema.optional(Schema.String),
     name: Schema.String,
-    team_id: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+    team_id: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
   }),
 );
-const UpdateLabelArgs = Schema.standardSchemaV1(
+const UpdateLabelArgs = toZeroSchema(
   Schema.Struct({
     church_id: Schema.String,
     color: Schema.optional(Schema.String),
@@ -92,19 +93,19 @@ const UpdateLabelArgs = Schema.standardSchemaV1(
     name: Schema.optional(Schema.String),
   }),
 );
-const DeleteLabelArgs = Schema.standardSchemaV1(
+const DeleteLabelArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, label_id: Schema.String }),
 );
-const RenameWorkflowArgs = Schema.standardSchemaV1(
+const RenameWorkflowArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, name: Schema.String, workflow_id: Schema.String }),
 );
-const ReorderWorkflowsArgs = Schema.standardSchemaV1(
+const ReorderWorkflowsArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, workflow_ids: Schema.Array(Schema.String) }),
 );
-const ArchiveWorkflowArgs = Schema.standardSchemaV1(
+const ArchiveWorkflowArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, workflow_id: Schema.String }),
 );
-const AddWorkflowStatusArgs = Schema.standardSchemaV1(
+const AddWorkflowStatusArgs = toZeroSchema(
   Schema.Struct({
     church_id: Schema.String,
     status: Schema.Struct({
@@ -116,83 +117,83 @@ const AddWorkflowStatusArgs = Schema.standardSchemaV1(
     workflow_id: Schema.String,
   }),
 );
-const RenameWorkflowStatusArgs = Schema.standardSchemaV1(
+const RenameWorkflowStatusArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, name: Schema.String, status_id: Schema.String }),
 );
-const ReorderWorkflowStatusesArgs = Schema.standardSchemaV1(
+const ReorderWorkflowStatusesArgs = toZeroSchema(
   Schema.Struct({
     church_id: Schema.String,
     status_ids: Schema.Array(Schema.String),
     workflow_id: Schema.String,
   }),
 );
-const ArchiveWorkflowStatusArgs = Schema.standardSchemaV1(
+const ArchiveWorkflowStatusArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, status_id: Schema.String }),
 );
-const TaskEstimateArg = Schema.Union(
+const TaskEstimateArg = Schema.Union([
   Schema.Literal("xs"),
   Schema.Literal("s"),
   Schema.Literal("m"),
   Schema.Literal("l"),
   Schema.Literal("xl"),
   Schema.Null,
-);
+]);
 const TaskFieldsArg = Schema.Struct({
-  assigned_user_id: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+  assigned_user_id: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
   board_order: Schema.optional(Schema.String),
-  due_date: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+  due_date: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
   estimate: Schema.optional(TaskEstimateArg),
   label_ids: Schema.optional(Schema.Array(Schema.String)),
-  parent_task_id: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+  parent_task_id: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
   team_id: Schema.optional(Schema.String),
   title: Schema.optional(Schema.String),
   workflow_status_id: Schema.optional(Schema.String),
 });
-const CreateTaskArgs = Schema.standardSchemaV1(
+const CreateTaskArgs = toZeroSchema(
   Schema.Struct({
-    assigned_user_id: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+    assigned_user_id: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
     church_id: Schema.String,
-    description: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
-    due_date: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+    description: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
+    due_date: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
     estimate: Schema.optional(TaskEstimateArg),
     label_ids: Schema.optional(Schema.Array(Schema.String)),
-    parent_task_id: Schema.optional(Schema.Union(Schema.String, Schema.Null)),
+    parent_task_id: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
     team_id: Schema.String,
     title: Schema.String,
     workflow_status_id: Schema.String,
   }),
 );
-const UpdateTaskArgs = Schema.standardSchemaV1(
+const UpdateTaskArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, fields: TaskFieldsArg, task_id: Schema.String }),
 );
-const UpdateTasksBatchArgs = Schema.standardSchemaV1(
+const UpdateTasksBatchArgs = toZeroSchema(
   Schema.Struct({
     church_id: Schema.String,
     updates: Schema.Array(Schema.Struct({ fields: TaskFieldsArg, task_id: Schema.String })),
   }),
 );
-const TaskTransitionArgs = Schema.standardSchemaV1(
+const TaskTransitionArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, task_id: Schema.String }),
 );
-const KeyDateScheduleArg = Schema.Union(
+const KeyDateScheduleArg = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("fixedYearly"), month: Schema.Number, day: Schema.Number }),
   Schema.Struct({
     kind: Schema.Literal("computedYearly"),
-    rule: Schema.Union(
+    rule: Schema.Union([
       Schema.Literal("easter"),
       Schema.Literal("palm_sunday"),
       Schema.Literal("pentecost"),
       Schema.Literal("mothers_day"),
       Schema.Literal("fathers_day"),
-    ),
+    ]),
   }),
   Schema.Struct({ kind: Schema.Literal("manualOccurrences") }),
   Schema.Struct({ kind: Schema.Literal("oneTime") }),
-);
-const SchedulingRuleArg = Schema.Union(
+]);
+const SchedulingRuleArg = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("fixedDate"), localDate: Schema.String }),
   Schema.Struct({
-    edge: Schema.Union(Schema.Literal("start"), Schema.Literal("end")),
+    edge: Schema.Union([Schema.Literal("start"), Schema.Literal("end")]),
     focusWindowId: Schema.String,
     kind: Schema.Literal("relativeToFocusWindow"),
     offsetDays: Schema.Number,
@@ -214,16 +215,16 @@ const SchedulingRuleArg = Schema.Union(
     kind: Schema.Literal("cycleOffset"),
     offsetCycles: Schema.Number,
   }),
-);
-const CycleAdjustmentOverrideArg = Schema.Union(
+]);
+const CycleAdjustmentOverrideArg = Schema.Union([
   Schema.Struct({ field: Schema.Literal("title"), value: Schema.String }),
   Schema.Struct({ field: Schema.Literal("dueDate"), value: Schema.String }),
   Schema.Struct({
     field: Schema.Literal("parentTemplateTaskId"),
-    value: Schema.Union(Schema.String, Schema.Null),
+    value: Schema.Union([Schema.String, Schema.Null]),
   }),
-);
-const UpsertCycleArgs = Schema.standardSchemaV1(
+]);
+const UpsertCycleArgs = toZeroSchema(
   Schema.Struct({
     church_id: Schema.String,
     church_time_zone: Schema.String,
@@ -233,7 +234,7 @@ const UpsertCycleArgs = Schema.standardSchemaV1(
     starts_at: Schema.String,
   }),
 );
-const CreateKeyDateArgs = Schema.standardSchemaV1(
+const CreateKeyDateArgs = toZeroSchema(
   Schema.Struct({
     church_id: Schema.String,
     key: Schema.String,
@@ -241,23 +242,23 @@ const CreateKeyDateArgs = Schema.standardSchemaV1(
     schedule: KeyDateScheduleArg,
   }),
 );
-const CreateKeyDateOccurrenceArgs = Schema.standardSchemaV1(
+const CreateKeyDateOccurrenceArgs = toZeroSchema(
   Schema.Struct({
     church_id: Schema.String,
     key_date_id: Schema.String,
-    label: Schema.Union(Schema.String, Schema.Null),
+    label: Schema.Union([Schema.String, Schema.Null]),
     local_date: Schema.String,
   }),
 );
-const CreateTemplateArgs = Schema.standardSchemaV1(
+const CreateTemplateArgs = toZeroSchema(
   Schema.Struct({
     church_id: Schema.String,
     focus_windows: Schema.Array(
       Schema.Struct({
-        anchor_date: Schema.Union(Schema.String, Schema.Null),
-        end_date: Schema.Union(Schema.String, Schema.Null),
+        anchor_date: Schema.Union([Schema.String, Schema.Null]),
+        end_date: Schema.Union([Schema.String, Schema.Null]),
         key: Schema.String,
-        key_date_id: Schema.Union(Schema.String, Schema.Null),
+        key_date_id: Schema.Union([Schema.String, Schema.Null]),
         name: Schema.String,
         start_date: Schema.String,
         type: Schema.String,
@@ -269,9 +270,9 @@ const CreateTemplateArgs = Schema.standardSchemaV1(
     template_tasks: Schema.Array(
       Schema.Struct({
         key: Schema.String,
-        parent_template_task_key: Schema.Union(Schema.String, Schema.Null),
+        parent_template_task_key: Schema.Union([Schema.String, Schema.Null]),
         scheduling_rule: SchedulingRuleArg,
-        template_team_key: Schema.Union(Schema.String, Schema.Null),
+        template_team_key: Schema.Union([Schema.String, Schema.Null]),
         title: Schema.String,
       }),
     ),
@@ -280,12 +281,12 @@ const CreateTemplateArgs = Schema.standardSchemaV1(
     ),
   }),
 );
-const SetCycleAdjustmentsArgs = Schema.standardSchemaV1(
+const SetCycleAdjustmentsArgs = toZeroSchema(
   Schema.Struct({
     adjustments: Schema.Array(
       Schema.Struct({
         cycle_id: Schema.String,
-        lifecycle: Schema.Union(Schema.Literal("active"), Schema.Literal("skipped")),
+        lifecycle: Schema.Union([Schema.Literal("active"), Schema.Literal("skipped")]),
         overrides: Schema.Array(CycleAdjustmentOverrideArg),
         template_task_id: Schema.String,
       }),
@@ -293,7 +294,7 @@ const SetCycleAdjustmentsArgs = Schema.standardSchemaV1(
     church_id: Schema.String,
   }),
 );
-const ProjectTemplateCycleArgs = Schema.standardSchemaV1(
+const ProjectTemplateCycleArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, cycle_id: Schema.String, template_id: Schema.String }),
 );
 

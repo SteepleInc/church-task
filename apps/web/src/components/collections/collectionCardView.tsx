@@ -3,7 +3,7 @@
 import { noOp, nullOp } from "@church-task/shared/noOps";
 import type { Row, Table } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Array, Boolean, Option, pipe } from "effect";
+import { Array, Boolean, Option, Result, pipe } from "effect";
 import type { ComponentRef, ElementType, ReactElement, ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
@@ -43,12 +43,12 @@ const getRowSize = (params: {
 
   return pipe(
     fixedRowSize,
-    Option.fromNullable,
+    Option.fromNullishOr,
     Option.match({
       onNone: () =>
         pipe(
           width,
-          Option.fromNullable,
+          Option.fromNullishOr,
           Option.match({
             onNone: () => {
               if (isXlScreen) {
@@ -191,29 +191,27 @@ export const CollectionCardView = <TData, E extends ElementType>(
             onNonEmpty: (x) =>
               pipe(
                 x,
-                Array.filterMap((virtualRow) =>
-                  pipe(
-                    rowChunks,
-                    Array.get(virtualRow.index),
-                    Option.map((y) => (
-                      <div
-                        className="absolute right-0 left-0 grid w-full gap-3 px-4"
-                        data-index={virtualRow.index}
-                        key={virtualRow.key}
-                        ref={rowVirtualizer.measureElement}
-                        style={{
-                          gridTemplateColumns: `repeat(${computedRowSize}, minmax(0, 1fr))`,
-                          transform: `translateY(${virtualRow.start}px)`,
-                        }}
-                      >
-                        {pipe(
-                          y,
-                          Array.map((z) => <CollectionCard key={z.id} row={z} />),
-                        )}
-                      </div>
-                    )),
-                  ),
-                ),
+                Array.filterMap((virtualRow) => {
+                  const rowChunk = rowChunks[virtualRow.index];
+                  if (!rowChunk) return Result.failVoid;
+                  return Result.succeed(
+                    <div
+                      className="absolute right-0 left-0 grid w-full gap-3 px-4"
+                      data-index={virtualRow.index}
+                      key={virtualRow.key}
+                      ref={rowVirtualizer.measureElement}
+                      style={{
+                        gridTemplateColumns: `repeat(${computedRowSize}, minmax(0, 1fr))`,
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                    >
+                      {pipe(
+                        rowChunk,
+                        Array.map((z) => <CollectionCard key={z.id} row={z} />),
+                      )}
+                    </div>,
+                  );
+                }),
               ),
           }),
         )}

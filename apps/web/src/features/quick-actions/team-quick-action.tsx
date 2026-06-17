@@ -37,7 +37,7 @@ export type TeamQuickActionState =
 export const teamQuickActionStateAtom = atom<TeamQuickActionState | null>(null);
 
 const TeamNameSchema = Schema.String.pipe(
-  Schema.minLength(1, { message: () => "Team name is required." }),
+  Schema.check(Schema.isMinLength(1, { message: "Team name is required." })),
 );
 
 const CreateTeamFormSchema = Schema.Struct({
@@ -50,9 +50,11 @@ const CreateTeamFormSchema = Schema.Struct({
 const EditTeamFormSchema = Schema.Struct({
   name: TeamNameSchema,
   identifier: Schema.String.pipe(
-    Schema.filter((value) => isValidTeamIdentifier(normalizeTeamIdentifier(value)), {
-      message: () => `Team Identifier must be 1-${TEAM_IDENTIFIER_MAX_LENGTH} letters or numbers.`,
-    }),
+    Schema.check(
+      Schema.makeFilter((value) => isValidTeamIdentifier(normalizeTeamIdentifier(value)), {
+        message: `Team Identifier must be 1-${TEAM_IDENTIFIER_MAX_LENGTH} letters or numbers.`,
+      }),
+    ),
   ),
 });
 
@@ -128,7 +130,7 @@ function TeamForm(props: {
       modeAfterSubmission: "blur",
     }),
     validators: {
-      onSubmit: Schema.standardSchemaV1(isEdit ? EditTeamFormSchema : CreateTeamFormSchema),
+      onSubmit: Schema.toStandardSchemaV1(isEdit ? EditTeamFormSchema : CreateTeamFormSchema),
     },
     onSubmit: async ({ value }) => {
       setFormError(null);

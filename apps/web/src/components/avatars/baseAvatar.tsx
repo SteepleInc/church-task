@@ -27,7 +27,7 @@ type BaseAvatarSkeletonProps = {
 const getAvatarClassName = (_tag?: string) =>
   pipe(
     _tag,
-    Option.fromNullable,
+    Option.fromNullishOr,
     Option.match({
       onNone: () => "",
       onSome: (x) =>
@@ -76,20 +76,20 @@ export const BaseAvatar: FC<BaseAvatarProps> = (props) => {
     >
       {pipe(
         avatar,
-        Option.fromNullable,
+        Option.fromNullishOr,
         Option.filter(String.isNonEmpty),
         Option.match({
           onNone: () => (
             <AvatarFallback className={innerComponentClassName}>
               {pipe(
                 name,
-                Option.fromNullable,
+                Option.fromNullishOr,
                 Option.match({
                   onNone: () => "",
                   onSome: (x) =>
                     pipe(
                       _tag,
-                      Option.fromNullable,
+                      Option.fromNullishOr,
                       Option.match({
                         onNone: () => getAvatarInitials(x),
                         onSome: (y) => getAvatarInitials(x, y),

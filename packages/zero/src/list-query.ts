@@ -2,14 +2,14 @@ import { Schema } from "effect";
 
 const TextFilterSchema = Schema.Struct({
   column_id: Schema.String,
-  operator: Schema.Literal("contains", "does not contain"),
+  operator: Schema.Literals(["contains", "does not contain"]),
   type: Schema.Literal("text"),
   values: Schema.Array(Schema.String),
 });
 
 const NumberFilterSchema = Schema.Struct({
   column_id: Schema.String,
-  operator: Schema.Literal(
+  operator: Schema.Literals([
     "is",
     "is not",
     "is less than",
@@ -18,14 +18,14 @@ const NumberFilterSchema = Schema.Struct({
     "is less than or equal to",
     "is between",
     "is not between",
-  ),
+  ]),
   type: Schema.Literal("number"),
   values: Schema.Array(Schema.Number),
 });
 
 const DateFilterSchema = Schema.Struct({
   column_id: Schema.String,
-  operator: Schema.Literal(
+  operator: Schema.Literals([
     "is",
     "is not",
     "is before",
@@ -34,28 +34,28 @@ const DateFilterSchema = Schema.Struct({
     "is on or before",
     "is between",
     "is not between",
-  ),
+  ]),
   type: Schema.Literal("date"),
   values: Schema.Array(Schema.Number),
 });
 
 const OptionFilterSchema = Schema.Struct({
   column_id: Schema.String,
-  operator: Schema.Literal("is", "is not", "is any of", "is none of"),
+  operator: Schema.Literals(["is", "is not", "is any of", "is none of"]),
   type: Schema.Literal("option"),
   values: Schema.Array(Schema.String),
 });
 
 const MultiOptionFilterSchema = Schema.Struct({
   column_id: Schema.String,
-  operator: Schema.Literal(
+  operator: Schema.Literals([
     "include",
     "exclude",
     "include any of",
     "include all of",
     "exclude if any of",
     "exclude if all",
-  ),
+  ]),
   type: Schema.Literal("multiOption"),
   values: Schema.Array(Schema.String),
 });
@@ -64,19 +64,19 @@ export const ListArgsEffectSchema = Schema.Struct({
   exclude_ids: Schema.optional(Schema.Array(Schema.String)),
   filters: Schema.optional(
     Schema.Array(
-      Schema.Union(
+      Schema.Union([
         TextFilterSchema,
         NumberFilterSchema,
         DateFilterSchema,
         OptionFilterSchema,
         MultiOptionFilterSchema,
-      ),
+      ]),
     ),
   ),
   limit: Schema.optional(Schema.Number),
   offset: Schema.optional(Schema.Number),
   order_by: Schema.optional(Schema.String),
-  order_direction: Schema.optional(Schema.Literal("asc", "desc")),
+  order_direction: Schema.optional(Schema.Literals(["asc", "desc"])),
   selected_ids: Schema.optional(Schema.Array(Schema.String)),
 });
 

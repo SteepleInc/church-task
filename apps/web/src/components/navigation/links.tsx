@@ -17,7 +17,7 @@ export const EntityName: FC<EntityNameProps> = (props) => {
 
   return pipe(
     name,
-    Option.fromNullable,
+    Option.fromNullishOr,
     Option.match({
       onNone: () => <span className="text-muted-foreground italic">No Name</span>,
       onSome: (y) => y,

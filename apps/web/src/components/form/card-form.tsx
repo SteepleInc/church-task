@@ -38,7 +38,7 @@ export function CardForm({
           <div className={cn(formColumnClassName, "max-w-sm")}>{Primary}</div>
           {pipe(
             Secondary,
-            Option.fromNullable,
+            Option.fromNullishOr,
             Option.match({
               onNone: () => null,
               onSome: (content) => (
@@ -53,7 +53,7 @@ export function CardForm({
 
         {pipe(
           Actions,
-          Option.fromNullable,
+          Option.fromNullishOr,
           Option.match({
             onNone: () => null,
             onSome: (actions) => (

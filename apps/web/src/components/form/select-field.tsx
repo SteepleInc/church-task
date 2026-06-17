@@ -76,7 +76,7 @@ export function SelectField({
           id={field.name}
           data-has-value={pipe(
             field.state.value,
-            Option.fromNullable,
+            Option.fromNullishOr,
             Option.match({
               onNone: () => false,
               onSome: String.isNonEmpty,

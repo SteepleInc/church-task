@@ -9,7 +9,7 @@ const getAvatarInitials = (name?: string | null, fallback = "") =>
   initials(
     pipe(
       name,
-      Option.fromNullable,
+      Option.fromNullishOr,
       Option.getOrElse(() => fallback),
       (x) =>
         pipe(

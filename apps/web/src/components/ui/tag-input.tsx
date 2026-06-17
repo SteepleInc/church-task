@@ -1,4 +1,4 @@
-import { Array as EffectArray, Option, pipe, String as EffectString } from "effect";
+import { Array as EffectArray, Option, Result, pipe, String as EffectString } from "effect";
 import { XIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 import { useEffect, useState } from "react";
@@ -51,11 +51,12 @@ function TagInput({
 
             return pipe(
               tagValidator,
-              Option.fromNullable,
+              Option.fromNullishOr,
               Option.match({
                 onNone: () => pipe(trimmedItem, Option.some),
                 onSome: (validator) => parseTagOpt({ tag: trimmedItem, tagValidator: validator }),
               }),
+              Result.fromOption(() => undefined),
             );
           }),
         ),
@@ -73,7 +74,7 @@ function TagInput({
 
     pipe(
       tagValidator,
-      Option.fromNullable,
+      Option.fromNullishOr,
       Option.match({
         onNone: () => {
           const newDataPoints = new Set([...value, pendingDataPoint]);

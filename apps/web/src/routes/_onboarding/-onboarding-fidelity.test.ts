@@ -43,7 +43,7 @@ describe("onboarding PreachX fidelity guards", () => {
   });
 
   test("keeps onboarding step navigation URL-addressed like PreachX", () => {
-    expect(onboardingSource).toContain("validateSearch: Schema.standardSchemaV1");
+    expect(onboardingSource).toContain("validateSearch: Schema.toStandardSchemaV1");
     expect(onboardingSource).toContain("const search = Route.useSearch();");
     expect(onboardingSource).toContain("search: { step: newStep }");
     expect(onboardingSource).not.toContain(

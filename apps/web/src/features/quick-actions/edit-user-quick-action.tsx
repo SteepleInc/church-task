@@ -27,10 +27,12 @@ type EditUserQuickActionState = {
 export const editUserQuickActionStateAtom = atom<EditUserQuickActionState | null>(null);
 
 const EditUserSchema = Schema.Struct({
-  name: Schema.String.pipe(Schema.minLength(1, { message: () => "Name is required." })),
+  name: Schema.String.pipe(Schema.check(Schema.isMinLength(1, { message: "Name is required." }))),
   email: Schema.String.pipe(
-    Schema.minLength(1, { message: () => "Email is required." }),
-    Schema.pattern(/^[^@\s]+@[^@\s]+\.[^@\s]+$/, { message: () => "Email must be valid." }),
+    Schema.check(Schema.isMinLength(1, { message: "Email is required." })),
+    Schema.check(
+      Schema.isPattern(/^[^@\s]+@[^@\s]+\.[^@\s]+$/, { message: "Email must be valid." }),
+    ),
   ),
 });
 
@@ -104,7 +106,7 @@ function EditUserForm({
       modeAfterSubmission: "blur",
     }),
     validators: {
-      onSubmit: Schema.standardSchemaV1(EditUserSchema),
+      onSubmit: Schema.toStandardSchemaV1(EditUserSchema),
     },
     onSubmit: async ({ value }) => {
       setEditError(null);

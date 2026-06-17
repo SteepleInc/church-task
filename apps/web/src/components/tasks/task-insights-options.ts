@@ -17,24 +17,24 @@ export const InsightsMeasureSchema = Schema.Literal("task_count");
 export type InsightsMeasure = typeof InsightsMeasureSchema.Type;
 
 // Slice and Segment draw from the same five Task dimensions the Board groups by.
-export const InsightsDimensionSchema = Schema.Literal(
+export const InsightsDimensionSchema = Schema.Literals([
   "workflow_status",
   "task_state",
   "assignee",
   "team",
   "estimate",
-);
+]);
 export type InsightsDimension = typeof InsightsDimensionSchema.Type;
 
 // Segment is optional; "none" gives plain (un-stacked) bars.
-export const InsightsSegmentSchema = Schema.Literal(
+export const InsightsSegmentSchema = Schema.Literals([
   "none",
   "workflow_status",
   "task_state",
   "assignee",
   "team",
   "estimate",
-);
+]);
 export type InsightsSegment = typeof InsightsSegmentSchema.Type;
 
 export const InsightsStateSchema = Schema.Struct({

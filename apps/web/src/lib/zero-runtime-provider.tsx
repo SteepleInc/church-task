@@ -47,7 +47,7 @@ export function ZeroRuntimeProvider(props: { readonly children: React.ReactNode 
         };
   const userIdProps = pipe(
     userId,
-    Option.fromNullable,
+    Option.fromNullishOr,
     Option.match({
       onNone: () => ({}),
       onSome: (id) => ({ userID: id }),

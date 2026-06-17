@@ -32,7 +32,6 @@ Current contents:
 - `.reference/devcontainer-templates` is the Rocicorp devcontainer templates source. Use it when checking Rocicorp development container setup patterns.
 - `.reference/devcontainer-features` is the Rocicorp devcontainer features source. Use it when checking reusable devcontainer feature implementations.
 - `.reference/effect-smol` is the Effect v4/effect-smol source. Use it when checking new Effect APIs and migration patterns.
-- `.reference/effect` is the old Effect TypeScript library source. Use it only when checking legacy Effect v3 patterns during migration.
 - `.reference/better-auth` is the Better Auth source. Use it when checking auth APIs, plugin patterns, adapters, tests, and runtime constraints.
 - `.reference/router` is the TanStack Router source. Use it when checking routing APIs, file-route conventions, router internals, and examples.
 - `.reference/circle` is a Linear-inspired project management UI by ln-dev7, built with Next.js, TypeScript, shadcn/ui, and Tailwind CSS. Use it as a UI/UX and component-structure reference for issue/project/team tracking interfaces.

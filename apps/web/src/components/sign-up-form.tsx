@@ -10,15 +10,17 @@ import { authClient } from "@/lib/auth-client";
 
 const SignUpSchema = Schema.Struct({
   name: Schema.String.pipe(
-    Schema.minLength(2, { message: () => "Name must be at least 2 characters" }),
+    Schema.check(Schema.isMinLength(2, { message: "Name must be at least 2 characters" })),
   ),
   email: Schema.String.pipe(
-    Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, {
-      message: () => "Invalid email address",
-    }),
+    Schema.check(
+      Schema.isPattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, {
+        message: "Invalid email address",
+      }),
+    ),
   ),
   password: Schema.String.pipe(
-    Schema.minLength(8, { message: () => "Password must be at least 8 characters" }),
+    Schema.check(Schema.isMinLength(8, { message: "Password must be at least 8 characters" })),
   ),
 });
 
@@ -58,7 +60,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
       );
     },
     validators: {
-      onSubmit: Schema.standardSchemaV1(SignUpSchema),
+      onSubmit: Schema.toStandardSchemaV1(SignUpSchema),
     },
   });
 

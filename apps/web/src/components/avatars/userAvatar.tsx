@@ -35,7 +35,7 @@ export const UserAvatar: FC<UserAvatarProps> = (props) => {
     <Avatar {...domProps} className={className} style={{ height: size, width: size }}>
       {pipe(
         avatar,
-        Option.fromNullable,
+        Option.fromNullishOr,
         Option.filter(String.isNonEmpty),
         Option.match({
           onNone: () => (

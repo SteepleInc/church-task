@@ -42,7 +42,7 @@ export function TextareaField({
         onChange={(event) => field.handleChange(event.target.value)}
         value={pipe(
           field.state.value,
-          Option.fromNullable,
+          Option.fromNullishOr,
           Option.getOrElse(() => ""),
         )}
         {...domProps}

@@ -100,15 +100,14 @@ class UnknownCommandError extends Data.TaggedError("UnknownCommandError")<{
   readonly command: string | undefined;
 }> {}
 
-export class BackendClient extends Context.Tag("@church-task/cli/BackendClient")<
-  BackendClient,
-  BackendClientService
->() {}
+export class BackendClient extends Context.Service<BackendClient, BackendClientService>()(
+  "@church-task/cli/BackendClient",
+) {}
 
-export class CredentialStorage extends Context.Tag("@church-task/cli/CredentialStorage")<
+export class CredentialStorage extends Context.Service<
   CredentialStorage,
   CredentialStorageService
->() {}
+>()("@church-task/cli/CredentialStorage") {}
 
 const readBackendUrl = (env: CliEnv) =>
   Effect.sync(() => env.CHURCH_TASK_API_URL?.trim() ?? env.CHURCH_TASK_SITE_URL?.trim()).pipe(
@@ -618,10 +617,9 @@ const runLogout = Effect.gen(function* () {
   });
 });
 
-class CurrentEnvToken extends Context.Tag("@church-task/cli/CurrentEnvToken")<
-  CurrentEnvToken,
-  string | null
->() {}
+class CurrentEnvToken extends Context.Service<CurrentEnvToken, string | null>()(
+  "@church-task/cli/CurrentEnvToken",
+) {}
 
 const runLogin = (args: ReadonlyArray<string>, env: CliEnv) =>
   Effect.gen(function* () {
@@ -807,7 +805,7 @@ export const runCli = (
 
     try {
       const result = await Effect.runPromise(
-        program.pipe(Effect.catchAll((error) => Effect.succeed(formatError(error)))),
+        program.pipe(Effect.catch((error) => Effect.succeed(formatError(error)))),
       );
       const outcome = result.exitCode === 0 ? "success" : "failure";
       cliCommandCounter.add(1, { command, outcome });

@@ -4,7 +4,7 @@ export const ChurchProfileStep = Schema.TaggedStruct("churchProfile", {});
 export const InitialTeamsStep = Schema.TaggedStruct("initialTeams", {});
 export const FinishedStep = Schema.TaggedStruct("finished", {});
 
-export const OnboardingStep = Schema.Union(ChurchProfileStep, InitialTeamsStep, FinishedStep);
+export const OnboardingStep = Schema.Union([ChurchProfileStep, InitialTeamsStep, FinishedStep]);
 export type OnboardingStep = typeof OnboardingStep.Type;
 
 export const onboardingStepLookup: Record<OnboardingStep["_tag"], number> = {

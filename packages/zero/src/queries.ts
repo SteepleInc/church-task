@@ -1,6 +1,7 @@
 import { defineQueries, defineQueryWithType } from "@rocicorp/zero";
 import { Schema } from "effect";
 
+import { toZeroSchema } from "./effect-schema";
 import { parseTaskIdentifier } from "@church-task/domain";
 
 import {
@@ -16,13 +17,13 @@ import { zql } from "./zero-schema.gen";
 import type { OptionalZeroSessionContext } from "./session-context";
 import type { Schema as ZeroSchema } from "./zero-schema.gen";
 
-const DemoItemByIdArgs = Schema.standardSchemaV1(Schema.Struct({ id: Schema.String }));
-const ChurchScopedArgs = Schema.standardSchemaV1(Schema.Struct({ church_id: Schema.String }));
-const AdminListArgs = Schema.standardSchemaV1(Schema.Struct({ list_args: ListArgsEffectSchema }));
-const ActivityForEntityArgs = Schema.standardSchemaV1(
+const DemoItemByIdArgs = toZeroSchema(Schema.Struct({ id: Schema.String }));
+const ChurchScopedArgs = toZeroSchema(Schema.Struct({ church_id: Schema.String }));
+const AdminListArgs = toZeroSchema(Schema.Struct({ list_args: ListArgsEffectSchema }));
+const ActivityForEntityArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, entity_id: Schema.String, entity_type: Schema.String }),
 );
-const TaskByIdentifierArgs = Schema.standardSchemaV1(
+const TaskByIdentifierArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, identifier: Schema.String }),
 );
 

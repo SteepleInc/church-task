@@ -8,7 +8,7 @@ import { FilterKeys } from "@/shared/global-state";
 import { lenientSearchField } from "@/shared/lenient-search";
 
 export const DashboardSearchSchema = Schema.Struct({
-  taskState: lenientSearchField(Schema.Literal("todo", "in_progress", "done", "canceled")),
+  taskState: lenientSearchField(Schema.Literals(["todo", "in_progress", "done", "canceled"])),
   workflowStatusId: lenientSearchField(Schema.NonEmptyString),
   "details-pane": lenientSearchField(DetailsPaneParams),
   [FilterKeys.Orgs]: lenientSearchField(FilterStateValueSchema),
@@ -23,7 +23,7 @@ export const DashboardSearchSchema = Schema.Struct({
 export type DashboardPanelSearch = typeof DashboardSearchSchema.Type;
 export type DashboardSearch = DashboardPanelSearch & TaskViewSearch;
 
-export const validateDashboardSearch = Schema.standardSchemaV1(DashboardSearchSchema);
+export const validateDashboardSearch = Schema.toStandardSchemaV1(DashboardSearchSchema);
 
 export const decodeDashboardSearch = Schema.decodeUnknownSync(DashboardSearchSchema);
 

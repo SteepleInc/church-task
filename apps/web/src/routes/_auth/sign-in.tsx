@@ -9,7 +9,7 @@ const signInSearchSchema = Schema.Struct({
 
 export const Route = createFileRoute("/_auth/sign-in")({
   component: SignInRoute,
-  validateSearch: Schema.standardSchemaV1(signInSearchSchema),
+  validateSearch: Schema.toStandardSchemaV1(signInSearchSchema),
 });
 
 function SignInRoute() {

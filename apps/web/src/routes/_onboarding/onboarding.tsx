@@ -41,7 +41,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_onboarding/onboarding")({
   component: OnboardingRoute,
-  validateSearch: Schema.standardSchemaV1(
+  validateSearch: Schema.toStandardSchemaV1(
     Schema.Struct({
       step: Schema.optional(OnboardingStep),
     }),
@@ -51,7 +51,7 @@ export const Route = createFileRoute("/_onboarding/onboarding")({
 const ChurchProfileSchema = Schema.Struct({
   city: Schema.String,
   countryCode: Schema.String,
-  location: Schema.Union(
+  location: Schema.Union([
     Schema.Null,
     Schema.Struct({
       city: Schema.optional(Schema.String),
@@ -64,15 +64,17 @@ const ChurchProfileSchema = Schema.Struct({
       url: Schema.optional(Schema.String),
       zip: Schema.optional(Schema.String),
     }),
+  ]),
+  name: Schema.String.pipe(
+    Schema.check(Schema.isMinLength(2, { message: "Church name is required." })),
   ),
-  name: Schema.String.pipe(Schema.minLength(2, { message: () => "Church name is required." })),
   size: Schema.String,
   state: Schema.String,
   street: Schema.String,
   url: Schema.String,
   zip: Schema.String,
   churchTimeZone: Schema.String.pipe(
-    Schema.minLength(1, { message: () => "Church Time Zone is required." }),
+    Schema.check(Schema.isMinLength(1, { message: "Church Time Zone is required." })),
   ),
 });
 
@@ -219,7 +221,7 @@ function ChurchProfileStepCard() {
       modeAfterSubmission: "blur",
     }),
     validators: {
-      onSubmit: Schema.standardSchemaV1(ChurchProfileSchema),
+      onSubmit: Schema.toStandardSchemaV1(ChurchProfileSchema),
     },
     onSubmit: ({ value }) => createChurch(value),
   });

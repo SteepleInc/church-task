@@ -29,7 +29,7 @@ export function FormErrorDisplay({ form }: FormErrorDisplayProps) {
     <form.Subscribe selector={(state) => state.errorMap}>
       {(errorMap: ErrorMap) =>
         pipe(
-          Option.fromNullable(errorMap.onSubmit),
+          Option.fromNullishOr(errorMap.onSubmit),
           Option.flatMap((error) => {
             if (typeof error === "object" && error !== null && "form" in error) {
               const formError = error.form;

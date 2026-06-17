@@ -54,7 +54,7 @@ export const CollectionToolbar = <TData,>(props: CollectionToolbarProps<TData>):
 
           {pipe(
             Actions,
-            Option.fromNullable,
+            Option.fromNullishOr,
             Option.match({
               onNone: nullOp,
               onSome: (x) => <div className="ml-2 flex flex-row items-center gap-2">{x}</div>,

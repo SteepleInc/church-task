@@ -2,7 +2,7 @@
 "use client";
 
 import type { ColumnDef, ColumnPinningState, SortingState } from "@tanstack/react-table";
-import { Array, Option, pipe } from "effect";
+import { Option, pipe } from "effect";
 import { useAtom } from "jotai";
 import { type ReactNode, useCallback, useMemo } from "react";
 
@@ -78,7 +78,7 @@ export const Collection = <TData,>(props: CollectionProps<TData>): ReactNode => 
     () =>
       pipe(
         rowActions,
-        Option.fromNullable,
+        Option.fromNullishOr,
         Option.match({
           onNone: () => columnsDef,
           onSome: (renderActions) => [...columnsDef, createRowActionsColumn(renderActions)],
@@ -92,7 +92,7 @@ export const Collection = <TData,>(props: CollectionProps<TData>): ReactNode => 
     (): ColumnPinningState =>
       pipe(
         rowActions,
-        Option.fromNullable,
+        Option.fromNullishOr,
         Option.match({
           onNone: () => columnPinning ?? {},
           onSome: () => ({
@@ -139,7 +139,7 @@ export const Collection = <TData,>(props: CollectionProps<TData>): ReactNode => 
   const urlFilters = useFiltersValue(filterKey);
 
   // Check if there are any active filters (search or otherwise)
-  const hasActiveFilters = pipe(urlFilters, Array.isNonEmptyReadonlyArray);
+  const hasActiveFilters = urlFilters.length > 0;
 
   // Determine which content to show when data is empty
   const getEmptyContent = (): ReactNode | null => {
@@ -220,7 +220,7 @@ function CollectionSkeleton() {
   return (
     <div aria-busy="true" className="flex flex-col gap-2 md:mr-4">
       <Divider variant="page" />
-      {Array.makeBy(6, (index) => (
+      {Array.from({ length: 6 }, (_, index) => (
         <div className="flex items-center gap-3 rounded-lg border px-4 py-3" key={index}>
           <Skeleton className="size-8 rounded-full" />
           <div className="flex flex-1 flex-col gap-1.5">

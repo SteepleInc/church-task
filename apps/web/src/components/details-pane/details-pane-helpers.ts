@@ -16,7 +16,7 @@ import {
 export function parseDetailsPaneState(search: { readonly "details-pane"?: unknown }) {
   return pipe(
     search["details-pane"],
-    Option.fromNullable,
+    Option.fromNullishOr,
     Option.flatMap(Schema.decodeUnknownOption(DetailsPaneParamsSchema)),
     Option.getOrElse((): DetailsPaneParams => []),
   );
@@ -42,10 +42,9 @@ export function getChangedDetailsPaneId(
     return detailsPaneState;
   }
 
-  return pipe(
-    detailsPaneState,
-    Array.modify(detailsPaneState.length - 1, () => ({ ...lastEntry, id }) as DetailsPaneUnion),
-  ) as DetailsPaneParams;
+  return detailsPaneState.map((entry, index) =>
+    index === detailsPaneState.length - 1 ? ({ ...lastEntry, id } as DetailsPaneUnion) : entry,
+  );
 }
 
 export function useDetailsPaneState() {
@@ -97,10 +96,9 @@ export function useChangeDetailsPaneId() {
             to: ".",
           }),
           onSome: (updatedEntry) => {
-            const updatedState = pipe(
-              detailsPaneState,
-              Array.modify(detailsPaneState.length - 1, () => updatedEntry),
-            ) as DetailsPaneParams;
+            const updatedState = detailsPaneState.map((entry, index) =>
+              index === detailsPaneState.length - 1 ? updatedEntry : entry,
+            );
 
             return {
               forceNav: () => setDetailsPaneState(updatedState),

@@ -94,7 +94,7 @@ function memberDisplayName(member: MemberItem): string {
 }
 
 const NameSchema = Schema.Struct({
-  name: Schema.String.pipe(Schema.minLength(1, { message: () => "Name is required." })),
+  name: Schema.String.pipe(Schema.check(Schema.isMinLength(1, { message: "Name is required." }))),
 });
 
 function UpdateMemberNameBody({
@@ -109,7 +109,7 @@ function UpdateMemberNameBody({
   const form = useAppForm({
     defaultValues: { name: state.member.name ?? "" },
     validationLogic: revalidateLogic({ mode: "submit", modeAfterSubmission: "blur" }),
-    validators: { onSubmit: Schema.standardSchemaV1(NameSchema) },
+    validators: { onSubmit: Schema.toStandardSchemaV1(NameSchema) },
     onSubmit: async ({ value }) => {
       setError(null);
       try {
@@ -179,7 +179,9 @@ function UpdateMemberNameBody({
 }
 
 const UsernameSchema = Schema.Struct({
-  username: Schema.String.pipe(Schema.minLength(1, { message: () => "Username is required." })),
+  username: Schema.String.pipe(
+    Schema.check(Schema.isMinLength(1, { message: "Username is required." })),
+  ),
 });
 
 function UpdateMemberUsernameBody({
@@ -194,7 +196,7 @@ function UpdateMemberUsernameBody({
   const form = useAppForm({
     defaultValues: { username: state.member.username ?? "" },
     validationLogic: revalidateLogic({ mode: "submit", modeAfterSubmission: "blur" }),
-    validators: { onSubmit: Schema.standardSchemaV1(UsernameSchema) },
+    validators: { onSubmit: Schema.toStandardSchemaV1(UsernameSchema) },
     onSubmit: async ({ value }) => {
       setError(null);
       try {
@@ -265,8 +267,10 @@ function UpdateMemberUsernameBody({
 
 const EmailSchema = Schema.Struct({
   email: Schema.String.pipe(
-    Schema.minLength(1, { message: () => "Email is required." }),
-    Schema.pattern(/^[^@\s]+@[^@\s]+\.[^@\s]+$/, { message: () => "Email must be valid." }),
+    Schema.check(Schema.isMinLength(1, { message: "Email is required." })),
+    Schema.check(
+      Schema.isPattern(/^[^@\s]+@[^@\s]+\.[^@\s]+$/, { message: "Email must be valid." }),
+    ),
   ),
 });
 
@@ -282,7 +286,7 @@ function UpdateMemberEmailBody({
   const form = useAppForm({
     defaultValues: { email: state.member.email ?? "" },
     validationLogic: revalidateLogic({ mode: "submit", modeAfterSubmission: "blur" }),
-    validators: { onSubmit: Schema.standardSchemaV1(EmailSchema) },
+    validators: { onSubmit: Schema.toStandardSchemaV1(EmailSchema) },
     onSubmit: async ({ value }) => {
       setError(null);
       try {

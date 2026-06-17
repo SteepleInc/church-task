@@ -8,23 +8,22 @@ const ZERO_PATH_REGEX = /^\/zero/;
 export default defineConfig(({ mode }) => {
   const envDir = "../..";
   const env = { ...loadEnv(mode, envDir, ""), ...process.env };
+  const proxy = env.VITE_ZERO_CACHE_URL
+    ? {
+        "/zero": {
+          changeOrigin: true,
+          rewrite: (path: string) => path.replace(ZERO_PATH_REGEX, ""),
+          target: env.VITE_ZERO_CACHE_URL,
+          ws: true,
+        },
+      }
+    : undefined;
 
   return {
     envDir,
     server: {
       port: Number(env.VITE_PORT ?? 2001),
-      proxy: {
-        ...(env.VITE_ZERO_CACHE_URL
-          ? {
-              "/zero": {
-                changeOrigin: true,
-                rewrite: (path: string) => path.replace(ZERO_PATH_REGEX, ""),
-                target: env.VITE_ZERO_CACHE_URL,
-                ws: true,
-              },
-            }
-          : {}),
-      },
+      proxy,
     },
     resolve: {
       tsconfigPaths: true,

@@ -50,6 +50,10 @@ export const createTracerApi = (databaseUrl: string) => {
   const otpStore = createLocalOtpStore();
   const authRuntime = createAuth(databaseUrl, otpStore);
   const zeroDb = zeroDrizzle(schema, db);
+  const getQuery = (name: string) =>
+    mustGetQuery(queries, name) as { fn: (input: unknown) => unknown };
+  const getMutator = (name: string) =>
+    mustGetMutator(mutators, name) as { fn: (input: unknown) => Promise<unknown> };
 
   const handleHealth = () =>
     Effect.succeed(
@@ -65,7 +69,7 @@ export const createTracerApi = (databaseUrl: string) => {
       try: async () => {
         const context = await getSessionContext(authRuntime.auth, request);
         const body = (await request.json()) as { name?: string };
-        const mutator = mustGetMutator(mutators, "demo_items.create");
+        const mutator = getMutator("demo_items.create");
 
         await zeroDb.transaction(async (tx) => {
           await mutator.fn({
@@ -92,8 +96,8 @@ export const createTracerApi = (databaseUrl: string) => {
         const ctx = await getSessionContext(authRuntime.auth, request);
 
         return handleQueryRequest(
-          (name, args) =>
-            mustGetQuery(queries, name).fn({
+          (name, args): any =>
+            getQuery(name).fn({
               args,
               ctx,
             }),
@@ -111,7 +115,7 @@ export const createTracerApi = (databaseUrl: string) => {
           zeroDb,
           (transact) =>
             transact(async (tx, name, args) => {
-              await mustGetMutator(mutators, name).fn({
+              await getMutator(name).fn({
                 args,
                 ctx: await getSessionContext(authRuntime.auth, request),
                 tx,

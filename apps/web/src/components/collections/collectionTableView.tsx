@@ -5,7 +5,7 @@ import { noOp, nullOp } from "@church-task/shared/noOps";
 import type { Column, Row, Table } from "@tanstack/react-table";
 import { flexRender } from "@tanstack/react-table";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
-import { Array, Boolean, Option, pipe, Record } from "effect";
+import { Array, Boolean, Option, Result, pipe, Record } from "effect";
 import type { ComponentProps, CSSProperties, ReactNode } from "react";
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 
@@ -274,20 +274,18 @@ export const CollectionTableView = <TData,>(props: CollectionTableViewProps<TDat
             onNonEmpty: (x) =>
               pipe(
                 x,
-                Array.filterMap((virtualRow) =>
-                  pipe(
-                    rows,
-                    Array.get(virtualRow.index),
-                    Option.map((y) => (
-                      <Row
-                        key={y.id}
-                        ref={rowVirtualizer.measureElement}
-                        row={y}
-                        virtualRow={virtualRow}
-                      />
-                    )),
-                  ),
-                ),
+                Array.filterMap((virtualRow) => {
+                  const row = rows[virtualRow.index];
+                  if (!row) return Result.failVoid;
+                  return Result.succeed(
+                    <Row
+                      key={row.id}
+                      ref={rowVirtualizer.measureElement}
+                      row={row}
+                      virtualRow={virtualRow}
+                    />,
+                  );
+                }),
               ),
           }),
         )}

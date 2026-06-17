@@ -10,7 +10,9 @@ import { ArrowRight } from "lucide-react";
 import { useEffect } from "react";
 
 const OTPSchema = Schema.Struct({
-  otp: Schema.String.pipe(Schema.minLength(6, { message: () => "Enter the 6-digit code" })),
+  otp: Schema.String.pipe(
+    Schema.check(Schema.isMinLength(6, { message: "Enter the 6-digit code" })),
+  ),
 });
 
 type OtpFormProps = {
@@ -37,7 +39,7 @@ export function OtpForm({
       modeAfterSubmission: "blur",
     }),
     validators: {
-      onDynamic: Schema.standardSchemaV1(OTPSchema),
+      onDynamic: Schema.toStandardSchemaV1(OTPSchema),
       onSubmitAsync: async ({ value }) => {
         const result = await authClient.signIn.emailOtp({
           email,

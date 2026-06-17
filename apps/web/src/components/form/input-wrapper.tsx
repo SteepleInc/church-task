@@ -37,7 +37,7 @@ export function InputWrapper({
       {children}
       {pipe(
         processedError,
-        Option.fromNullable,
+        Option.fromNullishOr,
         Option.filter(EffectString.isNonEmpty),
         Option.match({
           onNone: () => null,
@@ -67,7 +67,7 @@ export function InputLabel({
 }: InputLabelProps) {
   return pipe(
     label,
-    Option.fromNullable,
+    Option.fromNullishOr,
     Option.filter((value) => value !== ""),
     Option.match({
       onNone: () => null,

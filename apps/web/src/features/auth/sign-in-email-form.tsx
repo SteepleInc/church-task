@@ -11,9 +11,11 @@ import { useEffect, useRef } from "react";
 
 const SignInSchema = Schema.Struct({
   email: Schema.String.pipe(
-    Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, {
-      message: () => "Invalid email address",
-    }),
+    Schema.check(
+      Schema.isPattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, {
+        message: "Invalid email address",
+      }),
+    ),
   ),
 });
 
@@ -47,7 +49,7 @@ export function SignInEmailForm({ defaultEmail = "", autoSubmit = false }: SignI
       setSignInState(SignInState.otp({ email: value.email }));
     },
     validators: {
-      onSubmit: Schema.standardSchemaV1(SignInSchema),
+      onSubmit: Schema.toStandardSchemaV1(SignInSchema),
     },
   });
 

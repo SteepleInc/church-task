@@ -58,7 +58,7 @@ export const getSubmitButtonText = (
     Match.tag("edit", (value) =>
       pipe(
         value.clone,
-        Option.fromNullable,
+        Option.fromNullishOr,
         Option.getOrElse(() => false),
         Boolean.match({
           onFalse: () => "Update",

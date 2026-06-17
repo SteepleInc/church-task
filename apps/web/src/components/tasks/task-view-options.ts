@@ -10,22 +10,22 @@ import { lenientSearchField } from "@/shared/lenient-search";
  * View's default". View Tabs travel separately under the `tab` key.
  */
 
-export const TaskViewModeSchema = Schema.Literal("list", "board");
+export const TaskViewModeSchema = Schema.Literals(["list", "board"]);
 export type TaskViewMode = typeof TaskViewModeSchema.Type;
 
-export const TaskViewGroupingSchema = Schema.Literal(
+export const TaskViewGroupingSchema = Schema.Literals([
   "workflow_status",
   "task_state",
   "assignee",
   "team",
   "estimate",
-);
+]);
 export type TaskViewGrouping = typeof TaskViewGroupingSchema.Type;
 
-export const TaskViewOrderingSchema = Schema.Literal("created", "due_date");
+export const TaskViewOrderingSchema = Schema.Literals(["created", "due_date"]);
 export type TaskViewOrdering = typeof TaskViewOrderingSchema.Type;
 
-export const TaskDisplayPropertySchema = Schema.Literal(
+export const TaskDisplayPropertySchema = Schema.Literals([
   "status",
   "id",
   "assignee",
@@ -36,7 +36,7 @@ export const TaskDisplayPropertySchema = Schema.Literal(
   "priority",
   "estimate",
   "labels",
-);
+]);
 export type TaskDisplayProperty = typeof TaskDisplayPropertySchema.Type;
 
 export const TaskViewOptionsSchema = Schema.Struct({
@@ -129,10 +129,10 @@ export function toTaskViewSearchValue(view: ResolvedTaskViewOptions): TaskViewOp
 
 // --- View Tabs ---------------------------------------------------------------
 
-export const MyWorkViewTabSchema = Schema.Literal("assigned", "created");
+export const MyWorkViewTabSchema = Schema.Literals(["assigned", "created"]);
 export type MyWorkViewTab = typeof MyWorkViewTabSchema.Type;
 
-export const ChurchWorkViewTabSchema = Schema.Literal("all", "active", "done");
+export const ChurchWorkViewTabSchema = Schema.Literals(["all", "active", "done"]);
 export type ChurchWorkViewTab = typeof ChurchWorkViewTabSchema.Type;
 
 export type TaskViewTab = MyWorkViewTab | ChurchWorkViewTab;

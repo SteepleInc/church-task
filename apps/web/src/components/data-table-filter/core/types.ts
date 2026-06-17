@@ -1,8 +1,8 @@
 import type { ComponentType } from "react";
 import { Schema } from "effect";
 
-export const TextFilterOperatorSchema = Schema.Literal("contains", "does not contain");
-export const NumberFilterOperatorSchema = Schema.Literal(
+export const TextFilterOperatorSchema = Schema.Literals(["contains", "does not contain"]);
+export const NumberFilterOperatorSchema = Schema.Literals([
   "is",
   "is not",
   "is less than",
@@ -11,8 +11,8 @@ export const NumberFilterOperatorSchema = Schema.Literal(
   "is less than or equal to",
   "is between",
   "is not between",
-);
-export const DateFilterOperatorSchema = Schema.Literal(
+]);
+export const DateFilterOperatorSchema = Schema.Literals([
   "is",
   "is not",
   "is before",
@@ -21,16 +21,21 @@ export const DateFilterOperatorSchema = Schema.Literal(
   "is on or before",
   "is between",
   "is not between",
-);
-export const OptionFilterOperatorSchema = Schema.Literal("is", "is not", "is any of", "is none of");
-export const MultiOptionFilterOperatorSchema = Schema.Literal(
+]);
+export const OptionFilterOperatorSchema = Schema.Literals([
+  "is",
+  "is not",
+  "is any of",
+  "is none of",
+]);
+export const MultiOptionFilterOperatorSchema = Schema.Literals([
   "include",
   "exclude",
   "include any of",
   "include all of",
   "exclude if any of",
   "exclude if all",
-);
+]);
 
 export type TextFilterOperator = typeof TextFilterOperatorSchema.Type;
 export type NumberFilterOperator = typeof NumberFilterOperatorSchema.Type;
@@ -43,7 +48,7 @@ export type MultiOptionFilterOperator = typeof MultiOptionFilterOperatorSchema.T
  * filter can only carry operators and value types that are legal for its
  * column kind. Date values are epoch-millisecond timestamps.
  */
-export const FilterItemSchema = Schema.Union(
+export const FilterItemSchema = Schema.Union([
   Schema.Struct({
     columnId: Schema.String,
     operator: TextFilterOperatorSchema,
@@ -74,7 +79,7 @@ export const FilterItemSchema = Schema.Union(
     type: Schema.Literal("multiOption"),
     values: Schema.Array(Schema.String),
   }),
-);
+]);
 export type FilterItem = typeof FilterItemSchema.Type;
 
 export const FiltersStateSchema = Schema.Array(FilterItemSchema);

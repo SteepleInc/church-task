@@ -78,7 +78,9 @@ const createTaskCreateMoreAtom = atomWithStorage<boolean>(
 );
 
 const CreateTaskSchema = Schema.Struct({
-  title: Schema.String.pipe(Schema.minLength(1, { message: () => "Enter a Task title." })),
+  title: Schema.String.pipe(
+    Schema.check(Schema.isMinLength(1, { message: "Enter a Task title." })),
+  ),
   description: Schema.String,
   assignedUserId: Schema.NullOr(Schema.String),
   workflowStatusId: Schema.String,
@@ -86,8 +88,8 @@ const CreateTaskSchema = Schema.Struct({
   dueDate: Schema.NullOr(Schema.String),
   // Priority and labels are UI-only (no backend persistence yet); estimate is
   // persisted ("no_estimate" maps to null at the create call).
-  priority: Schema.Literal("no_priority", "urgent", "high", "medium", "low"),
-  estimate: Schema.Literal("no_estimate", "xs", "s", "m", "l", "xl"),
+  priority: Schema.Literals(["no_priority", "urgent", "high", "medium", "low"]),
+  estimate: Schema.Literals(["no_estimate", "xs", "s", "m", "l", "xl"]),
   // Label ids; persisted on the created Task.
   labels: Schema.Array(Schema.String),
 });
@@ -219,7 +221,7 @@ export function CreateTaskQuickAction() {
       modeAfterSubmission: "blur",
     }),
     validators: {
-      onSubmit: Schema.standardSchemaV1(CreateTaskSchema),
+      onSubmit: Schema.toStandardSchemaV1(CreateTaskSchema),
     },
     onSubmit: async ({ value, formApi }) => {
       if (!activeChurch || !currentUserId || !churchId) return;

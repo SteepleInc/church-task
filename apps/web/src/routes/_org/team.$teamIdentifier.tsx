@@ -5,7 +5,7 @@ import { ChurchWorkSearchSchema } from "@/components/tasks/task-view-options";
 import { DashboardPage } from "@/routes/-dashboard";
 
 export const Route = createFileRoute("/_org/team/$teamIdentifier")({
-  validateSearch: Schema.standardSchemaV1(ChurchWorkSearchSchema),
+  validateSearch: Schema.toStandardSchemaV1(ChurchWorkSearchSchema),
   search: {
     // View Tabs and View Options survive switching between Teams, but are not
     // carried across to the other task surfaces (see -dashboard-utils).

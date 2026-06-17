@@ -1,5 +1,5 @@
 import { revalidateLogic } from "@tanstack/react-form";
-import { Schema } from "effect";
+import { Schema, SchemaGetter } from "effect";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -34,11 +34,11 @@ function canUpdateChurchSettings(role: string | string[]) {
 
 const ProfileSettingsSchema = Schema.Struct({
   name: Schema.String.pipe(
-    Schema.transform(Schema.String, {
-      decode: normalizeProfileName,
-      encode: (value) => value,
+    Schema.decode({
+      decode: SchemaGetter.transform(normalizeProfileName),
+      encode: SchemaGetter.transform((value) => value),
     }),
-    Schema.minLength(1, { message: () => "Name is required." }),
+    Schema.check(Schema.isMinLength(1, { message: "Name is required." })),
   ),
 });
 
@@ -70,11 +70,13 @@ const supportedChurchTimeZones = [
 
 const ChurchProfileSettingsSchema = Schema.Struct({
   churchTimeZone: Schema.String.pipe(
-    Schema.minLength(1, { message: () => "Church Time Zone is required." }),
+    Schema.check(Schema.isMinLength(1, { message: "Church Time Zone is required." })),
   ),
   city: Schema.String,
   countryCode: Schema.String,
-  name: Schema.String.pipe(Schema.minLength(2, { message: () => "Church name is required." })),
+  name: Schema.String.pipe(
+    Schema.check(Schema.isMinLength(2, { message: "Church name is required." })),
+  ),
   size: Schema.String,
   state: Schema.String,
   street: Schema.String,
@@ -151,7 +153,7 @@ function SettingsProfileForm({
       modeAfterSubmission: "blur",
     }),
     validators: {
-      onSubmit: Schema.standardSchemaV1(ProfileSettingsSchema),
+      onSubmit: Schema.toStandardSchemaV1(ProfileSettingsSchema),
     },
     onSubmit: async ({ value, formApi }) => {
       const name = normalizeProfileName(value.name);
@@ -293,7 +295,7 @@ function SettingsChurchForm({
       modeAfterSubmission: "blur",
     }),
     validators: {
-      onSubmit: Schema.standardSchemaV1(ChurchProfileSettingsSchema),
+      onSubmit: Schema.toStandardSchemaV1(ChurchProfileSettingsSchema),
     },
     onSubmit: async ({ value, formApi }) => {
       setChurchError(null);
