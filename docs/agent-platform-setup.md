@@ -5,7 +5,7 @@ This guide verifies the local CLI and MCP setup path for [PRD #11: Agent CLI and
 ## Prerequisites
 
 - Install dependencies with `bun install`.
-- Start the new server stack with `bun run dev:server` or the E2E harness for integration tests.
+- Start the TanStack Start web app with `bun run dev:web`; all HTTP API routes are served from the web origin.
 - Use Bun commands from the repo root.
 
 ## Environment

@@ -9,9 +9,6 @@
   "scripts": {
     "check-types": "tsc --noEmit",
     "test": "vitest run",
-    "dev": "bun --watch src/dev-http-server.ts",
-    "health-check": "./health-check.sh 30",
-    "dev:e2e": "bun --watch src/index.ts",
     "dev:setup": "bun src/index.ts",
     "scheduled:cycle-maintenance": "bun src/run-scheduled-work.ts"
   },

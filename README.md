@@ -88,7 +88,6 @@ church-task/
 - `bun run dev`: Start all applications in development mode
 - `bun run build`: Build all applications
 - `bun run dev:web`: Start only the web application
-- `bun run dev:server`: Start the Effect server package
 - `bun run dev:setup`: Prepare local development database/server state
 - `bun run check-types`: Check TypeScript types across all apps
 - `bun run check`: Run Oxlint and Oxfmt

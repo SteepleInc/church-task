@@ -15,6 +15,7 @@ import { Route as OnboardingRouteRouteImport } from './routes/_onboarding/route'
 import { Route as MarketingRouteRouteImport } from './routes/_marketing/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as MarketingIndexRouteImport } from './routes/_marketing/index'
+import { Route as ApiSplatRouteImport } from './routes/api/$'
 import { Route as SettingsSettingsRouteImport } from './routes/_settings/settings'
 import { Route as OrgOurWorkRouteImport } from './routes/_org/our-work'
 import { Route as OrgMyWorkRouteImport } from './routes/_org/my-work'
@@ -22,6 +23,7 @@ import { Route as OrgAdminRouteImport } from './routes/_org/admin'
 import { Route as OnboardingOnboardingRouteImport } from './routes/_onboarding/onboarding'
 import { Route as MarketingLibraryRouteImport } from './routes/_marketing/library'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as OrgTeamTeamIdentifierRouteImport } from './routes/_org/team.$teamIdentifier'
 import { Route as OrgDevSessionRouteImport } from './routes/_org/dev.session'
 import { Route as OrgDevDataRouteImport } from './routes/_org/dev.data'
@@ -62,6 +64,11 @@ const MarketingIndexRoute = MarketingIndexRouteImport.update({
   path: '/',
   getParentRoute: () => MarketingRouteRoute,
 } as any)
+const ApiSplatRoute = ApiSplatRouteImport.update({
+  id: '/api/$',
+  path: '/api/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsSettingsRoute = SettingsSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -96,6 +103,11 @@ const AuthSignInRoute = AuthSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
   getParentRoute: () => AuthRouteRoute,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const OrgTeamTeamIdentifierRoute = OrgTeamTeamIdentifierRouteImport.update({
   id: '/team/$teamIdentifier',
@@ -185,12 +197,14 @@ export interface FileRoutesByFullPath {
   '/my-work': typeof OrgMyWorkRoute
   '/our-work': typeof OrgOurWorkRoute
   '/settings': typeof SettingsSettingsRouteWithChildren
+  '/api/$': typeof ApiSplatRoute
   '/accept-invitation/$id': typeof AuthAcceptInvitationIdRoute
   '/admin/orgs': typeof OrgAdminOrgsRoute
   '/admin/users': typeof OrgAdminUsersRoute
   '/dev/data': typeof OrgDevDataRoute
   '/dev/session': typeof OrgDevSessionRoute
   '/team/$teamIdentifier': typeof OrgTeamTeamIdentifierRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/settings/account/profile': typeof SettingsSettingsAccountProfileRoute
   '/settings/teams/$teamId': typeof SettingsSettingsTeamsTeamIdRouteWithChildren
   '/settings/workspace/general': typeof SettingsSettingsWorkspaceGeneralRoute
@@ -209,12 +223,14 @@ export interface FileRoutesByTo {
   '/my-work': typeof OrgMyWorkRoute
   '/our-work': typeof OrgOurWorkRoute
   '/settings': typeof SettingsSettingsRouteWithChildren
+  '/api/$': typeof ApiSplatRoute
   '/accept-invitation/$id': typeof AuthAcceptInvitationIdRoute
   '/admin/orgs': typeof OrgAdminOrgsRoute
   '/admin/users': typeof OrgAdminUsersRoute
   '/dev/data': typeof OrgDevDataRoute
   '/dev/session': typeof OrgDevSessionRoute
   '/team/$teamIdentifier': typeof OrgTeamTeamIdentifierRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/settings/account/profile': typeof SettingsSettingsAccountProfileRoute
   '/settings/workspace/general': typeof SettingsSettingsWorkspaceGeneralRoute
   '/settings/workspace/labels': typeof SettingsSettingsWorkspaceLabelsRoute
@@ -237,6 +253,7 @@ export interface FileRoutesById {
   '/_org/my-work': typeof OrgMyWorkRoute
   '/_org/our-work': typeof OrgOurWorkRoute
   '/_settings/settings': typeof SettingsSettingsRouteWithChildren
+  '/api/$': typeof ApiSplatRoute
   '/_marketing/': typeof MarketingIndexRoute
   '/_auth/accept-invitation/$id': typeof AuthAcceptInvitationIdRoute
   '/_org/admin/orgs': typeof OrgAdminOrgsRoute
@@ -244,6 +261,7 @@ export interface FileRoutesById {
   '/_org/dev/data': typeof OrgDevDataRoute
   '/_org/dev/session': typeof OrgDevSessionRoute
   '/_org/team/$teamIdentifier': typeof OrgTeamTeamIdentifierRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/_settings/settings/account/profile': typeof SettingsSettingsAccountProfileRoute
   '/_settings/settings/teams/$teamId': typeof SettingsSettingsTeamsTeamIdRouteWithChildren
   '/_settings/settings/workspace/general': typeof SettingsSettingsWorkspaceGeneralRoute
@@ -264,12 +282,14 @@ export interface FileRouteTypes {
     | '/my-work'
     | '/our-work'
     | '/settings'
+    | '/api/$'
     | '/accept-invitation/$id'
     | '/admin/orgs'
     | '/admin/users'
     | '/dev/data'
     | '/dev/session'
     | '/team/$teamIdentifier'
+    | '/api/auth/$'
     | '/settings/account/profile'
     | '/settings/teams/$teamId'
     | '/settings/workspace/general'
@@ -288,12 +308,14 @@ export interface FileRouteTypes {
     | '/my-work'
     | '/our-work'
     | '/settings'
+    | '/api/$'
     | '/accept-invitation/$id'
     | '/admin/orgs'
     | '/admin/users'
     | '/dev/data'
     | '/dev/session'
     | '/team/$teamIdentifier'
+    | '/api/auth/$'
     | '/settings/account/profile'
     | '/settings/workspace/general'
     | '/settings/workspace/labels'
@@ -315,6 +337,7 @@ export interface FileRouteTypes {
     | '/_org/my-work'
     | '/_org/our-work'
     | '/_settings/settings'
+    | '/api/$'
     | '/_marketing/'
     | '/_auth/accept-invitation/$id'
     | '/_org/admin/orgs'
@@ -322,6 +345,7 @@ export interface FileRouteTypes {
     | '/_org/dev/data'
     | '/_org/dev/session'
     | '/_org/team/$teamIdentifier'
+    | '/api/auth/$'
     | '/_settings/settings/account/profile'
     | '/_settings/settings/teams/$teamId'
     | '/_settings/settings/workspace/general'
@@ -338,6 +362,8 @@ export interface RootRouteChildren {
   OnboardingRouteRoute: typeof OnboardingRouteRouteWithChildren
   OrgRouteRoute: typeof OrgRouteRouteWithChildren
   SettingsRouteRoute: typeof SettingsRouteRouteWithChildren
+  ApiSplatRoute: typeof ApiSplatRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -383,6 +409,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof MarketingIndexRouteImport
       parentRoute: typeof MarketingRouteRoute
+    }
+    '/api/$': {
+      id: '/api/$'
+      path: '/api/$'
+      fullPath: '/api/$'
+      preLoaderRoute: typeof ApiSplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_settings/settings': {
       id: '/_settings/settings'
@@ -432,6 +465,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/sign-in'
       preLoaderRoute: typeof AuthSignInRouteImport
       parentRoute: typeof AuthRouteRoute
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_org/team/$teamIdentifier': {
       id: '/_org/team/$teamIdentifier'
@@ -669,7 +709,18 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRouteRoute: OnboardingRouteRouteWithChildren,
   OrgRouteRoute: OrgRouteRouteWithChildren,
   SettingsRouteRoute: SettingsRouteRouteWithChildren,
+  ApiSplatRoute: ApiSplatRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

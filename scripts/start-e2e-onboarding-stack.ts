@@ -1,16 +1,12 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { createServer } from "node:http";
 import { resolve } from "node:path";
 
-import { createTracerApi } from "@church-task/server";
 import type { SeedProfile } from "@church-task/db";
 import { startPostgresHarness, startZeroCacheHarness } from "@church-task/test-harness";
 
 const rootDir = resolve(import.meta.dirname, "..");
 const webDir = resolve(rootDir, "apps/web");
-const apiPort = Number(process.env.E2E_API_PORT ?? 2103);
 const webPort = Number(process.env.E2E_WEB_PORT ?? 2101);
-const apiUrl = `http://127.0.0.1:${apiPort}`;
 const webUrl = `http://127.0.0.1:${webPort}`;
 const seedProfiles = new Set<SeedProfile>(["empty", "app", "admin"]);
 
@@ -72,36 +68,15 @@ const postgres = await startPostgresHarness({ seedProfile });
 process.env.E2E_SITE_URL = webUrl;
 process.env.BETTER_AUTH_URL = webUrl;
 process.env.SITE_URL = webUrl;
-const api = createTracerApi(postgres.connectionString);
-const apiServer = createServer(async (incoming, outgoing) => {
-  const chunks: Array<Buffer> = [];
-  for await (const chunk of incoming) {
-    chunks.push(Buffer.from(chunk));
-  }
-
-  const request = new Request(`${apiUrl}${incoming.url ?? "/"}`, {
-    body: chunks.length > 0 ? Buffer.concat(chunks) : undefined,
-    headers: incoming.headers as ConstructorParameters<typeof Headers>[0],
-    method: incoming.method,
-  });
-  const response = await api.fetch(request);
-
-  outgoing.writeHead(response.status, Object.fromEntries(response.headers.entries()));
-  outgoing.end(Buffer.from(await response.arrayBuffer()));
-});
-await new Promise<void>((resolveListen) =>
-  apiServer.listen(apiPort, "127.0.0.1", () => resolveListen()),
-);
 console.info("Starting onboarding E2E Zero cache");
 const zero = await startZeroCacheHarness({
-  apiBaseUrl: apiUrl,
+  apiBaseUrl: webUrl,
   appId: "onboarding_e2e",
   databaseUrl: postgres.connectionString,
 });
 
 const webEnv = {
   ...process.env,
-  CHURCH_TASK_E2E_API_URL: apiUrl,
   DATABASE_URL: postgres.connectionString,
   E2E_SITE_URL: webUrl,
   NODE_ENV: "development",
@@ -115,7 +90,6 @@ console.info(`Starting onboarding E2E web app at ${webUrl}`);
 runChild("bun", ["run", "dev", "--", "--mode", "e2e", "--host", "127.0.0.1"], webDir, webEnv);
 await waitForHttpOk(webUrl, 120_000);
 console.info("Onboarding E2E stack ready");
-console.info(`- API: ${apiUrl}`);
 console.info(`- Web/API: ${webUrl}`);
 console.info(`- Zero: ${zero.url}`);
 

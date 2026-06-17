@@ -33,23 +33,13 @@
       "dependsOn": ["@church-task/infra-db#health-check", "@church-task/zero#health-check"],
       "persistent": true
     },
-    "@church-task/server#dev": {
+    "@church-task/zero#infra": {
       "cache": false,
       "dependsOn": ["@church-task/infra-db#health-check"],
       "persistent": true
     },
-    "@church-task/server#health-check": {
-      "cache": false,
-      "dependsOn": ["@church-task/infra-db#health-check"]
-    },
-    "@church-task/zero#infra": {
-      "cache": false,
-      "dependsOn": ["@church-task/infra-db#health-check", "@church-task/server#health-check"],
-      "persistent": true
-    },
     "@church-task/zero#health-check": {
-      "cache": false,
-      "dependsOn": ["@church-task/server#health-check"]
+      "cache": false
     },
     "dev": {
       "cache": false,

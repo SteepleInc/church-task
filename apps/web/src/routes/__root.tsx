@@ -1,16 +1,16 @@
 import { Toaster } from "@/components/ui/sonner";
-import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import type { ReactNode } from "react";
 
 import { HeightWrapper } from "@/components/height-wrapper";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ZeroRuntimeProvider } from "@/lib/zero-runtime-provider";
 
 import "../index.css";
 
-export interface RouterAppContext {}
-
-export const Route = createRootRouteWithContext<RouterAppContext>()({
+export const Route = createRootRoute({
   component: RootComponent,
   head: () => ({
     meta: [
@@ -40,8 +40,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 
 function RootComponent() {
   return (
-    <>
-      <HeadContent />
+    <RootDocument>
       <ThemeProvider
         attribute="class"
         defaultTheme="dark"
@@ -56,6 +55,20 @@ function RootComponent() {
         </TooltipProvider>
       </ThemeProvider>
       <TanStackRouterDevtools position="bottom-right" />
-    </>
+    </RootDocument>
+  );
+}
+
+function RootDocument({ children }: { readonly children: ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        <ZeroRuntimeProvider>{children}</ZeroRuntimeProvider>
+        <Scripts />
+      </body>
+    </html>
   );
 }

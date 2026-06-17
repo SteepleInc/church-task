@@ -9,9 +9,6 @@ export const getConvexSiteUrl = () => {
 };
 
 export const getE2eApiUrl = () => {
-  const explicitApiUrl = process.env.CHURCH_TASK_E2E_API_URL;
-  if (explicitApiUrl) return explicitApiUrl;
-
   const siteUrl = process.env.VITE_CONVEX_SITE_URL ?? process.env.CONVEX_SITE_URL;
   if (siteUrl) return siteUrl;
 
@@ -22,7 +19,7 @@ export const getE2eApiUrl = () => {
   }
 
   throw new Error(
-    "CHURCH_TASK_E2E_API_URL, VITE_CONVEX_SITE_URL, CONVEX_SITE_URL, or DATABASE_URL must be set for e2e OTP tests.",
+    "VITE_CONVEX_SITE_URL, CONVEX_SITE_URL, or DATABASE_URL must be set for e2e OTP tests.",
   );
 };
 
