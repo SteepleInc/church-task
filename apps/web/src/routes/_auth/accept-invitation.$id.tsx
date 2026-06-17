@@ -44,6 +44,7 @@ function InvitationPage() {
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [acceptedOrgId, setAcceptedOrgId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const didAcceptInvitation = useRef(false);
   const didSwitchOrg = useRef(false);
 
   useEffect(() => {
@@ -59,6 +60,8 @@ function InvitationPage() {
       });
 
       if (fetchError) {
+        if (didAcceptInvitation.current) return;
+
         if (fetchError.code === "NOT_AUTHENTICATED") {
           await navigate({ search: { "invitation-id": id }, to: "/sign-in" });
           return;
@@ -109,8 +112,10 @@ function InvitationPage() {
       return;
     }
 
+    didAcceptInvitation.current = true;
     setInvitationStatus("accepted");
     setAcceptedOrgId(organizationId);
+    await navigate({ to: "/my-work" });
   };
 
   const handleReject = async () => {

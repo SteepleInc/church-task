@@ -39,7 +39,7 @@ async function signOut(page: Page) {
   });
 }
 
-test("accepts an invitation through OTP sign-in and lands in the invited Church", async ({
+test("accepts an invitation through OTP sign-in and shows shared member visibility", async ({
   page,
 }, testInfo) => {
   const ownerEmail = `invite-owner-${Date.now()}-${testInfo.workerIndex}@example.com`;
@@ -64,4 +64,16 @@ test("accepts an invitation through OTP sign-in and lands in the invited Church"
 
   await expect(page).toHaveURL(/\/my-work$/, { timeout: 20_000 });
   await expect(page.getByRole("button", { name: new RegExp(churchName) })).toBeVisible();
+
+  await page.goto("/settings/workspace/members");
+  const inviteeMembersTable = page.getByRole("table").first();
+  await expect(inviteeMembersTable.getByText(inviteeEmail)).toBeVisible({ timeout: 20_000 });
+  await expect(inviteeMembersTable.getByText(ownerEmail)).toBeVisible({ timeout: 20_000 });
+
+  await signOut(page);
+  await signInWithOtp(page, ownerEmail);
+  await page.goto("/settings/workspace/members");
+  const ownerMembersTable = page.getByRole("table").first();
+  await expect(ownerMembersTable.getByText(ownerEmail)).toBeVisible({ timeout: 20_000 });
+  await expect(ownerMembersTable.getByText(inviteeEmail)).toBeVisible({ timeout: 20_000 });
 });
