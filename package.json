@@ -47,7 +47,7 @@
     "dev": "turbo run infra dev --continue",
     "build": "turbo build",
     "check-types": "turbo check-types",
-    "dev:web": "turbo -F web dev",
+    "dev:web": "turbo -F @church-task/web dev",
     "dev:setup": "turbo -F @church-task/server dev:setup",
     "db:migrate": "turbo -F @church-task/db db:migrate",
     "scheduled:cycle-maintenance": "turbo -F @church-task/server scheduled:cycle-maintenance",
