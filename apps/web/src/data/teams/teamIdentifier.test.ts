@@ -6,7 +6,7 @@ import {
   isValidTeamIdentifier,
   normalizeTeamIdentifier,
   TEAM_IDENTIFIER_MAX_LENGTH,
-} from "@church-task/domain-old/Team";
+} from "@church-task/domain";
 
 describe("deriveTeamIdentifierBase", () => {
   test("takes the first three alphanumeric characters, uppercased", () => {

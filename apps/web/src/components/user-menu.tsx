@@ -1,10 +1,8 @@
-import refs from "@church-task/backend-old/confect/_generated/refs";
 import { LogOutIcon } from "lucide-react";
 import { type ComponentProps, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/avatars/userAvatar";
-import { QueryResult, useQuery } from "@/data/query-hooks";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,8 +21,8 @@ type UserMenuProps = ComponentProps<typeof Button> & {
 
 export default function UserMenu({ avatarSize = 24, className, ...buttonProps }: UserMenuProps) {
   const navigate = useNavigate();
-  const user = useQuery(refs.public.auth.getCurrentUser);
-  const currentUser = QueryResult.isSuccess(user) ? user.value : null;
+  const session = authClient.useSession();
+  const currentUser = session.data?.user ?? null;
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const signOut = async () => {
@@ -54,7 +52,7 @@ export default function UserMenu({ avatarSize = 24, className, ...buttonProps }:
           avatar={currentUser?.image ?? null}
           name={currentUser?.name ?? null}
           size={avatarSize}
-          userId={currentUser?._id ?? "user"}
+          userId={currentUser?.id ?? "user"}
         />
         <span className="sr-only">User menu</span>
       </DropdownMenuTrigger>

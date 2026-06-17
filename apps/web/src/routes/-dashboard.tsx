@@ -1,4 +1,3 @@
-import refs from "@church-task/backend-old/confect/_generated/refs";
 import { MainContainer, PageContainer, PageWrapper } from "@/components/pageComponents";
 import { useAppForm } from "@/components/form/ts-form";
 import { Button } from "@/components/ui/button";
@@ -40,8 +39,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { QueryResult, useQuery as useConfectQuery } from "@/data/query-hooks";
-import { normalizeTeamIdentifier } from "@church-task/domain-old/Team";
+import { normalizeTeamIdentifier } from "@church-task/domain";
 import { revalidateLogic } from "@tanstack/react-form";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Schema } from "effect";
@@ -114,7 +112,6 @@ export type ActiveDashboardPanel =
 function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboardPanel }) {
   const search = useSearch({ strict: false }) as DashboardSearch;
   const navigate = useNavigate();
-  const privateData = useConfectQuery(refs.public.privateData.get);
   const { currentOrgOpt: activeChurch } = useCurrentOrgOpt();
   const setActivePanel = (panel: ActiveDashboardPanel) => {
     const routeSearch = getDashboardSearchForPanel(search);
@@ -294,13 +291,9 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
           <section className="grid gap-4 rounded-xl border bg-background p-4 shadow-xs">
             <div className="grid gap-1">
               <h2 className="text-base font-semibold">Church Home</h2>
-              {QueryResult.isSuccess(privateData) ? (
-                <p className="text-sm text-muted-foreground">
-                  privateData: {privateData.value.message}
-                </p>
-              ) : (
-                <Skeleton className="h-4 w-48" />
-              )}
+              <p className="text-sm text-muted-foreground">
+                Choose or create a Church to start organizing shared work.
+              </p>
             </div>
           </section>
           <ActiveChurchInvitationPrompt />

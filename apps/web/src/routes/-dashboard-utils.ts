@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { normalizeTeamIdentifier } from "@church-task/domain-old/Team";
+import { normalizeTeamIdentifier } from "@church-task/domain";
 
 import { FilterStateValueSchema } from "@/components/data-table-filter/core/types";
 import { DetailsPaneParams } from "@/components/details-pane/details-pane-types";

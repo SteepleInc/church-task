@@ -1,10 +1,7 @@
 import { nullOp } from "@church-task/shared/noOps";
-import { api } from "@church-task/backend-old/convex/_generated/api";
-import { useMutation } from "convex/react";
 import type { ReactNode } from "react";
 
 import { recordFromCollection } from "@/data/convex-query-adapter";
-import { recordOptimisticUpdate } from "@/data/optimistic-collection";
 import { useUserOrgsCollection, type OrgCollectionItem } from "@/data/orgs/orgsData.app";
 import { authClient } from "@/lib/auth-client";
 
@@ -84,15 +81,24 @@ export function useCurrentOrgOpt() {
 }
 
 export function useUpdateChurchTimeZoneMutation() {
-  return useMutation(api.churchSettings.updateTimeZone).withOptimisticUpdate(
-    recordOptimisticUpdate({
-      query: api.dashboard.getActiveOrganization,
-      patch: (
-        org: CurrentOrg,
-        args: { readonly churchId: string; readonly churchTimeZone: string },
-      ) => (org.id === args.churchId ? { ...org, churchTimeZone: args.churchTimeZone } : org),
-    }),
-  );
+  return async (params: { readonly churchId: string; readonly churchTimeZone: string }) => {
+    const result = await authClient.organization.update({
+      data: { churchTimeZone: params.churchTimeZone },
+      organizationId: params.churchId,
+    });
+
+    if (result.error) {
+      return {
+        error: { message: result.error.message ?? "Could not update Church Time Zone." },
+        ok: false,
+      } as const;
+    }
+
+    return {
+      data: { church: { churchTimeZone: params.churchTimeZone } },
+      ok: true,
+    } as const;
+  };
 }
 
 export function CurrentOrgWrapper(props: { readonly children: (org: CurrentOrg) => ReactNode }) {

@@ -62,7 +62,16 @@ export const getLabelColorForName = (name: string): TeamColor => getTeamColorFor
 export const isLabelColor = (value: unknown): value is LabelColor =>
   typeof value === "string" && (LABEL_COLORS as readonly string[]).includes(value);
 
+export const isTeamColor = (value: unknown): value is TeamColor =>
+  typeof value === "string" && (TEAM_COLORS as readonly string[]).includes(value);
+
 export const normalizeTeamIdentifier = (value: string): string => value.trim().toUpperCase();
+
+export const isValidTeamIdentifier = (value: string): boolean => {
+  return (
+    value.length > 0 && value.length <= TEAM_IDENTIFIER_MAX_LENGTH && /^[A-Z0-9]+$/.test(value)
+  );
+};
 
 export const deriveTeamIdentifierBase = (name: string): string => {
   const letters = name.toUpperCase().replace(/[^A-Z0-9]/g, "");

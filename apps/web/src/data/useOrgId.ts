@@ -1,8 +1,7 @@
-import { api } from "@church-task/backend-old/convex/_generated/api";
-import { useConvexQuery as useQuery } from "@/data/query-hooks";
+import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 
 export function useOrgId() {
-  const activeOrg = useQuery(api.dashboard.getActiveOrganization);
+  const { currentOrgOpt: activeOrg } = useCurrentOrgOpt();
 
   return activeOrg?.id ?? "";
 }

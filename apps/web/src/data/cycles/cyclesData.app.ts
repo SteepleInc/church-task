@@ -1,29 +1,35 @@
-import { api } from "@church-task/backend-old/convex/_generated/api";
-import type { Cycle } from "@church-task/domain-old";
-import { useConvexQuery as useQuery } from "@/data/query-hooks";
+import { queries, type Cycle } from "@church-task/zero";
+import { useQuery } from "@rocicorp/zero/react";
 
-import { collectionFromQueryResult } from "@/data/convex-query-adapter";
+export type CycleCollectionItem = {
+  readonly id: string;
+  readonly startDate: string;
+  readonly endDate: string;
+  readonly startsAt: number;
+  readonly endsAt: number;
+};
 
-export type CycleCollectionItem = Pick<
-  Cycle,
-  "id" | "startDate" | "endDate" | "startsAt" | "endsAt"
->;
+const mapCycle = (cycle: Cycle): CycleCollectionItem => ({
+  endDate: cycle.end_date,
+  endsAt: cycle.ends_at,
+  id: cycle.id,
+  startDate: cycle.start_date,
+  startsAt: cycle.starts_at,
+});
 
 export function useCyclesCollection(params: {
   readonly churchId: string | null;
   readonly currentUserId: string | null;
 }) {
-  const result = useQuery(
-    api.tasks.mcpListCycles,
-    params.churchId && params.currentUserId
-      ? { churchId: params.churchId, actorUserId: params.currentUserId }
-      : "skip",
+  const [rows] = useQuery(
+    queries.cycles.by_church({ church_id: params.churchId ?? "__no_church__" }),
   );
-  const state = collectionFromQueryResult(result?.ok ? result.cycles : undefined);
+  const collection =
+    params.churchId === null || params.currentUserId === null ? [] : rows.map(mapCycle);
 
   return {
-    loading: params.churchId !== null && params.currentUserId !== null && state.loading,
-    collection: state.collection,
-    cyclesCollection: state.collection,
+    loading: false,
+    collection,
+    cyclesCollection: collection,
   };
 }
