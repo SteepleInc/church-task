@@ -11,7 +11,8 @@
     "test": "vitest run",
     "dev": "bun --watch src/index.ts",
     "dev:e2e": "bun --watch src/index.ts",
-    "dev:setup": "bun src/index.ts"
+    "dev:setup": "bun src/index.ts",
+    "scheduled:cycle-maintenance": "bun src/run-scheduled-work.ts"
   },
   "dependencies": {
     "@church-task/auth": "workspace:*",

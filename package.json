@@ -56,6 +56,7 @@
     "dev:server": "turbo -F @church-task/server dev",
     "dev:server:e2e": "turbo -F @church-task/server dev:e2e",
     "dev:setup": "turbo -F @church-task/server dev:setup",
+    "scheduled:cycle-maintenance": "turbo -F @church-task/server scheduled:cycle-maintenance",
     "convex:wipe": "bun --env-file=.env scripts/wipe-convex-db.ts",
     "test:backend": "turbo -F @church-task/backend-old test:backend",
     "test:cli": "turbo -F @church-task/cli test:cli",
