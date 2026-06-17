@@ -1,0 +1,62 @@
+# Production Deployment Topology
+
+Issue: [#184](https://github.com/SteepleInc/church-task/issues/184)
+
+## Status
+
+Human decision pending. The local architecture has been proven by #166, so the remaining work is choosing production providers and turning this brief into concrete infrastructure tasks.
+
+## Recommendation To Approve
+
+Use this topology unless a human chooses a different operational tradeoff:
+
+- **Postgres:** managed Postgres with logical replication support, provisioned in the same region as the app and `zero-cache` where possible.
+- **Zero:** a dedicated long-running `zero-cache` service, not a serverless function. It must be able to keep a local SQLite replica file and maintain connections to Postgres plus the app's Zero query/mutate endpoints.
+- **TanStack Start:** a Node/Bun-compatible server host for the web app and Effect API route. Prefer hosting it close to `zero-cache` and Postgres rather than splitting the first production launch across edge/serverless infrastructure.
+
+The lowest-complexity first production shape is:
+
+- Managed Postgres provider: **Neon or Supabase**, selected by the human owner based on account preference, backups, connection limits, and logical replication configuration.
+- `zero-cache`: **Fly.io or Railway long-running service** with persistent storage for the replica file and private networking to the app if available.
+- TanStack Start app: **the same long-running platform as `zero-cache` for launch** so `/zero`, `/api/zero/query`, `/api/zero/mutate`, and Better Auth callback URLs can be wired without a cross-platform edge/proxy layer.
+
+Do not choose Vercel/serverless for the first production launch unless the implementation issue also includes a production `/zero` reverse proxy plan and validates that Better Auth, Zero header/cookie forwarding, and TanStack Start server behavior all work there.
+
+## Required Production Contracts
+
+- Postgres must expose a direct connection string usable by Drizzle migrations, Better Auth, Effect services, and `zero-cache`.
+- Postgres must support logical replication for Zero.
+- `zero-cache` must run as a persistent process with configured `ZERO_UPSTREAM_DB`, `ZERO_CVR_DB`, `ZERO_CHANGE_DB`, `ZERO_QUERY_URL`, and `ZERO_MUTATE_URL`.
+- Browser clients should use a stable public Zero URL, preferably same-origin via `/zero` to avoid extra CORS and cookie-forwarding risk.
+- The app server must expose the Zero query and mutate endpoints with Better Auth session context.
+- Scheduled work must run through the Effect/Drizzle command path documented in `docs/scheduled-work.md`, either as a platform scheduled job or a separately triggered worker.
+
+## Environment Variables And Secrets
+
+Production infrastructure issues should account for at least:
+
+- `DATABASE_URL` for Drizzle, Better Auth, server operations, scheduled work, and migrations.
+- `BETTER_AUTH_SECRET` generated per environment.
+- `SITE_URL` and `BETTER_AUTH_URL`/equivalent auth base URL for production callbacks and session cookies.
+- `CORS_ORIGIN` if the public app origin and API origin differ.
+- `VITE_ZERO_CACHE_URL`, using `/zero` if the production app proxies same-origin traffic to `zero-cache`.
+- `ZERO_UPSTREAM_DB`, `ZERO_CVR_DB`, `ZERO_CHANGE_DB`, `ZERO_QUERY_URL`, `ZERO_MUTATE_URL`, `ZERO_APP_ID`, `ZERO_ADMIN_PASSWORD`, and sizing knobs such as `ZERO_UPSTREAM_MAX_CONNS` and `ZERO_NUM_SYNC_WORKERS`.
+- Email and integration secrets already modeled in env handling, such as `RESEND_API_KEY`, `CHURCH_INVITATION_EMAIL_FROM`, and `GOOGLE_PLACES_API_KEY` when those features are enabled in production.
+
+## Migration And Runbook Implications
+
+- Drizzle migrations must run before deploying app code that expects new schema.
+- Zero generated schema must be committed before deployment and must match the deployed Drizzle schema.
+- Production database resets are not part of normal operations. Local reset behavior that deletes the Zero replica does not apply to production.
+- If schema changes require a `zero-cache` restart, document that restart in the migration runbook for the release.
+- Backups, point-in-time recovery, database branch/preview behavior, and restore drills belong to the Postgres provider decision.
+- The first production runbook should include deploy order: migrate database, deploy app server, deploy/restart `zero-cache`, smoke test auth, Zero query, Zero mutator, and scheduled-work command.
+
+## Follow-Up Issues To Create After Human Selection
+
+- Provision production Postgres and document backup/restore settings.
+- Add production deployment manifests for the TanStack Start app.
+- Add production deployment manifests for `zero-cache`.
+- Add a production `/zero` routing/proxy implementation if the app and `zero-cache` are not exposed from the same origin.
+- Add migration/deploy runbook documentation with exact commands for the chosen provider.
+- Add a production smoke checklist for Better Auth sign-in, onboarding, a Zero-backed read, a Zero-backed write, and scheduled cycle maintenance.
