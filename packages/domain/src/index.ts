@@ -15,7 +15,14 @@ export const LABEL_COLORS = TEAM_COLORS;
 
 export type LabelColor = (typeof LABEL_COLORS)[number];
 
-export const STARTER_TEAM_NAMES = ["Leadership", "Worship", "Kids & Youth"] as const;
+export const STARTER_TEAM_NAMES = [
+  "Worship",
+  "Production",
+  "Kids",
+  "Experience",
+  "Facilities",
+  "Social Media",
+] as const;
 
 export const STARTER_LABELS = [
   "Worship",

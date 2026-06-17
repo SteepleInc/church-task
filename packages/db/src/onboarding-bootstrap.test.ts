@@ -38,7 +38,14 @@ describe("onboarding product bootstrap", () => {
       const labelRows = await db.select().from(labels).where(eq(labels.church_id, churchId));
 
       expect(teamRows.map((team) => team.name)).toEqual([...STARTER_TEAM_NAMES]);
-      expect(teamRows.map((team) => team.identifier)).toEqual(["LEA", "WOR", "KID"]);
+      expect(teamRows.map((team) => team.identifier)).toEqual([
+        "WOR",
+        "PRO",
+        "KID",
+        "EXP",
+        "FAC",
+        "SOC",
+      ]);
       expect(teamRows.every((team) => getIdType(team.id) === "team")).toBe(true);
       expect(membershipRows).toHaveLength(STARTER_TEAM_NAMES.length);
       expect(membershipRows.every((membership) => membership.user_id === userId)).toBe(true);

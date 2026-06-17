@@ -54,7 +54,7 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
 
   await page.locator('[data-sidebar="sidebar"]').getByRole("link", { name: "Our Work" }).click();
   await expect(page).toHaveURL(/\/our-work$/);
-  await createTask(page, sharedTaskTitle, { team: "Leadership" });
+  await createTask(page, sharedTaskTitle, { team: "Worship" });
   await expect(taskCard(page, sharedTaskTitle)).toBeVisible({ timeout: 20_000 });
   await expect(taskCard(page, sharedTaskTitle)).toContainText(/[A-Z0-9]+-\d+/);
 

@@ -49,7 +49,7 @@ test("manages Labels and applies them to Tasks on the local Postgres and Zero st
 
   await page.goto("/our-work");
   await expect(page).toHaveURL(/\/our-work$/);
-  await createTask(page, taskTitle, { team: "Leadership" });
+  await createTask(page, taskTitle, { team: "Worship" });
 
   const taskCard = page.getByLabel(`Task card ${taskTitle}`);
   await expect(taskCard).toBeVisible({ timeout: 20_000 });
