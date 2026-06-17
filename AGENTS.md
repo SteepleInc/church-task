@@ -29,6 +29,9 @@ Current contents:
 
 - `.reference/drizzle` is the Drizzle source. Use it when checking Drizzle beta APIs and the Effect integration.
 - `.reference/zero` is the Zero source/docs/examples. Use it when checking Zero, drizzle-zero, sync, mutators, and query patterns.
+- `.reference/zero-docs` is the Rocicorp Zero documentation source. Use it when checking current Zero docs, guides, and deployment patterns.
+- `.reference/devcontainer-templates` is the Rocicorp devcontainer templates source. Use it when checking Rocicorp development container setup patterns.
+- `.reference/devcontainer-features` is the Rocicorp devcontainer features source. Use it when checking reusable devcontainer feature implementations.
 - `.reference/effect-smol` is the Effect v4/effect-smol source. Use it when checking new Effect APIs and migration patterns.
 - `.reference/effect` is the old Effect TypeScript library source. Use it only when checking legacy Effect v3 patterns during migration.
 - `.reference/better-auth` is the Better Auth source. Use it when checking auth APIs, plugin patterns, adapters, tests, and runtime constraints.
