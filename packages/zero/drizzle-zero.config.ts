@@ -4,6 +4,7 @@ import { drizzleZeroConfig } from "drizzle-zero";
 export default drizzleZeroConfig(drizzleSchema, {
   casing: "snake_case",
   tables: {
+    activities: true,
     demo_items: {
       _tag: true,
       created_at: true,

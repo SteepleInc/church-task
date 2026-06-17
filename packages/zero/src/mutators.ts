@@ -12,6 +12,7 @@ import {
   TEAM_IDENTIFIER_MAX_LENGTH,
 } from "@church-task/domain";
 import {
+  getActivityId,
   getCycleAdjustmentId,
   getCycleId,
   getDemoItemId,
@@ -33,6 +34,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { Schema } from "effect";
 
 import {
+  activities,
   cycle_adjustments,
   cycles,
   demo_items,
@@ -486,6 +488,40 @@ const parseJson = <Value>(value: string, fallback: Value): Value => {
   }
 };
 
+const writeActivity = async (
+  db: any,
+  args: {
+    readonly actor_id: string;
+    readonly church_id: string;
+    readonly cycle_id?: string | null;
+    readonly entity_id: string;
+    readonly entity_type: string;
+    readonly event_type: string;
+    readonly metadata?: unknown;
+    readonly occurred_at?: Date;
+  },
+) => {
+  const occurredAt = args.occurred_at ?? new Date();
+
+  await db.insert(activities).values({
+    _tag: "activity",
+    actor_id: args.actor_id,
+    actor_type: "user",
+    church_id: args.church_id,
+    created_at: occurredAt,
+    created_by: args.actor_id,
+    cycle_id: args.cycle_id ?? null,
+    entity_id: args.entity_id,
+    entity_type: args.entity_type,
+    event_type: args.event_type,
+    id: getActivityId(),
+    metadata: stringifyJson(args.metadata ?? {}),
+    occurred_at: occurredAt,
+    updated_at: occurredAt,
+    updated_by: args.actor_id,
+  });
+};
+
 const requireTemplateManager = (ctx: OptionalZeroSessionContext, church_id: string) =>
   requireTeamManager(ctx, church_id);
 
@@ -928,6 +964,26 @@ export const mutators = defineMutators({
           workflow_id: workflowId,
         })),
       );
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: teamId,
+        entity_type: "team",
+        event_type: "team.created",
+        metadata: { name: args.name },
+        occurred_at: now,
+      });
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: workflowId,
+        entity_type: "workflow",
+        event_type: "workflow.created",
+        metadata: { name: `${args.name} Workflow`, team_id: teamId },
+        occurred_at: now,
+      });
     }),
     rename: defineChurchTaskMutator(RenameTeamArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
@@ -954,6 +1010,15 @@ export const mutators = defineMutators({
             isNull(teams.deleted_at),
           ),
         );
+
+      await writeActivity(serverTx.dbTransaction.wrappedTransaction, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: args.team_id,
+        entity_type: "team",
+        event_type: "team.renamed",
+        metadata: { name },
+      });
     }),
     set_identifier: defineChurchTaskMutator(SetTeamIdentifierArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
@@ -1027,6 +1092,15 @@ export const mutators = defineMutators({
             isNull(teams.deleted_at),
           ),
         );
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: args.team_id,
+        entity_type: "team",
+        event_type: "team.identifier_changed",
+        metadata: { identifier, previous_identifier: previousIdentifier },
+      });
     }),
     delete: defineChurchTaskMutator(DeleteTeamArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
@@ -1102,6 +1176,14 @@ export const mutators = defineMutators({
             eq(team_memberships.team_id, args.team_id),
           ),
         );
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: args.team_id,
+        entity_type: "team",
+        event_type: "team.deleted",
+      });
     }),
     reorder: defineChurchTaskMutator(ReorderTeamsArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
@@ -1128,6 +1210,19 @@ export const mutators = defineMutators({
                 isNull(teams.deleted_at),
               ),
             ),
+        ),
+      );
+
+      await Promise.all(
+        args.team_ids.map((team_id, sort_order) =>
+          writeActivity(serverTx.dbTransaction.wrappedTransaction, {
+            actor_id: session.user_id,
+            church_id: args.church_id,
+            entity_id: team_id,
+            entity_type: "team",
+            event_type: "team.reordered",
+            metadata: { sort_order },
+          }),
         ),
       );
     }),
@@ -1171,13 +1266,22 @@ export const mutators = defineMutators({
         updated_by: session.user_id,
         user_id: args.user_id,
       });
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: args.team_id,
+        entity_type: "team",
+        event_type: "team.member.added",
+        metadata: { member_user_id: args.user_id },
+      });
     }),
     remove_member: defineChurchTaskMutator(TeamMemberArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
         return;
       }
 
-      requireTeamManager(ctx, args.church_id);
+      const session = requireTeamManager(ctx, args.church_id);
       const serverTx = tx as typeof tx & {
         readonly dbTransaction: {
           readonly wrappedTransaction: { readonly delete: (table: unknown) => any };
@@ -1193,6 +1297,15 @@ export const mutators = defineMutators({
             eq(team_memberships.user_id, args.user_id),
           ),
         );
+
+      await writeActivity(serverTx.dbTransaction.wrappedTransaction, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: args.team_id,
+        entity_type: "team",
+        event_type: "team.member.removed",
+        metadata: { member_user_id: args.user_id },
+      });
     }),
   },
   labels: {
@@ -1236,6 +1349,16 @@ export const mutators = defineMutators({
         updated_at: now,
         updated_by: session.user_id,
       });
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: labelId,
+        entity_type: "label",
+        event_type: "label.created",
+        metadata: { name, team_id: teamId },
+        occurred_at: now,
+      });
     }),
     update: defineChurchTaskMutator(UpdateLabelArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
@@ -1268,12 +1391,21 @@ export const mutators = defineMutators({
         .update(labels)
         .set(patch)
         .where(and(eq(labels.id, args.label_id), eq(labels.church_id, args.church_id)));
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: args.label_id,
+        entity_type: "label",
+        event_type: "label.updated",
+        metadata: { updated_fields: Object.keys(patch).filter((key) => !key.endsWith("_at")) },
+      });
     }),
     delete: defineChurchTaskMutator(DeleteLabelArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
-      requireTeamManager(ctx, args.church_id);
+      const session = requireTeamManager(ctx, args.church_id);
       const existingLabels = await getChurchLabels(db, args.church_id);
       if (!existingLabels.some((label) => label.id === args.label_id)) {
         throw new Error("Label not found.");
@@ -1301,6 +1433,14 @@ export const mutators = defineMutators({
       await db
         .delete(labels)
         .where(and(eq(labels.id, args.label_id), eq(labels.church_id, args.church_id)));
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: args.label_id,
+        entity_type: "label",
+        event_type: "label.deleted",
+      });
     }),
   },
   cycles: {
@@ -1337,6 +1477,7 @@ export const mutators = defineMutators({
         return;
       }
 
+      const cycleId = getCycleId();
       await db.insert(cycles).values({
         _tag: "cycle",
         church_id: args.church_id,
@@ -1345,11 +1486,25 @@ export const mutators = defineMutators({
         created_by: session.user_id,
         end_date: args.end_date,
         ends_at: parseIsoInstant(args.ends_at),
-        id: getCycleId(),
+        id: cycleId,
         start_date: args.start_date,
         starts_at: parseIsoInstant(args.starts_at),
         updated_at: now,
         updated_by: session.user_id,
+      });
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: cycleId,
+        entity_type: "cycle",
+        event_type: "cycle.created",
+        metadata: {
+          church_time_zone: args.church_time_zone,
+          end_date: args.end_date,
+          start_date: args.start_date,
+        },
+        occurred_at: now,
       });
     }),
   },
@@ -1425,6 +1580,16 @@ export const mutators = defineMutators({
         recurrence: args.recurrence,
         updated_at: now,
         updated_by: session.user_id,
+      });
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: templateId,
+        entity_type: "template",
+        event_type: "template.created",
+        metadata: { key: args.key, name: args.name, recurrence: args.recurrence },
+        occurred_at: now,
       });
 
       await db.insert(template_teams).values(
@@ -1643,6 +1808,24 @@ export const mutators = defineMutators({
       });
 
       if (projection.inserts.length > 0) await db.insert(tasks).values(projection.inserts);
+      await Promise.all(
+        projection.inserts.map((task) =>
+          writeActivity(db, {
+            actor_id: session.user_id,
+            church_id: args.church_id,
+            cycle_id: args.cycle_id,
+            entity_id: task.id,
+            entity_type: "task",
+            event_type: "task.template_synced",
+            metadata: {
+              source_template_cycle_id: args.cycle_id,
+              template_id: args.template_id,
+              template_task_id: task.source_template_task_id,
+            },
+            occurred_at: task.created_at,
+          }),
+        ),
+      );
       for (const [team_id, next_task_number] of projection.nextNumberByTeamId.entries()) {
         await db
           .update(teams)
@@ -1822,6 +2005,16 @@ export const mutators = defineMutators({
           updated_by: session.user_id,
         })
         .where(eq(teams.id, team.id));
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: taskId,
+        entity_type: "task",
+        event_type: "task.created",
+        metadata: { parent_task_id: args.parent_task_id ?? null, team_id: team.id },
+        occurred_at: now,
+      });
     }),
     update: defineChurchTaskMutator(UpdateTaskArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
@@ -1845,6 +2038,20 @@ export const mutators = defineMutators({
             isNull(tasks.deleted_at),
           ),
         );
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        cycle_id: (patch.cycle_id as string | null | undefined) ?? null,
+        entity_id: args.task_id,
+        entity_type: "task",
+        event_type: "task.updated",
+        metadata: {
+          updated_fields: Object.keys(patch).filter(
+            (key) => !["updated_at", "updated_by"].includes(key),
+          ),
+        },
+      });
     }),
     update_batch: defineChurchTaskMutator(UpdateTasksBatchArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
@@ -1868,6 +2075,20 @@ export const mutators = defineMutators({
               isNull(tasks.deleted_at),
             ),
           );
+
+        await writeActivity(db, {
+          actor_id: session.user_id,
+          church_id: args.church_id,
+          cycle_id: (patch.cycle_id as string | null | undefined) ?? null,
+          entity_id: update.task_id,
+          entity_type: "task",
+          event_type: "task.updated",
+          metadata: {
+            updated_fields: Object.keys(patch).filter(
+              (key) => !["updated_at", "updated_by"].includes(key),
+            ),
+          },
+        });
       }
     }),
     complete: defineChurchTaskMutator(TaskTransitionArgs, async ({ args, ctx, tx }) => {
@@ -1900,12 +2121,28 @@ export const mutators = defineMutators({
           workflow_status_id: status.id,
         })
         .where(eq(tasks.id, args.task_id));
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: args.task_id,
+        entity_type: "task",
+        event_type: "task.completed",
+        metadata: {
+          previous_task_state: task.task_state,
+          previous_workflow_status_id: task.workflow_status_id,
+          workflow_status_id: status.id,
+        },
+        occurred_at: now,
+      });
     }),
     cancel: defineChurchTaskMutator(TaskTransitionArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
       const session = requireActiveChurchAccess(ctx, args.church_id);
+      const task = await getTaskWithTeamIdentifier(db, args.task_id, args.church_id);
+      if (!task) throw new Error("Task not found.");
       const now = new Date();
       await db
         .update(tasks)
@@ -1922,6 +2159,19 @@ export const mutators = defineMutators({
             isNull(tasks.deleted_at),
           ),
         );
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: args.task_id,
+        entity_type: "task",
+        event_type: "task.canceled",
+        metadata: {
+          previous_task_state: task.task_state,
+          previous_workflow_status_id: task.workflow_status_id,
+        },
+        occurred_at: now,
+      });
     }),
     reopen: defineChurchTaskMutator(TaskTransitionArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
@@ -1953,6 +2203,19 @@ export const mutators = defineMutators({
           workflow_status_id: status.id,
         })
         .where(eq(tasks.id, args.task_id));
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: args.task_id,
+        entity_type: "task",
+        event_type: "task.reopened",
+        metadata: {
+          restored_task_state: "todo",
+          restored_workflow_status_id: status.id,
+        },
+        occurred_at: now,
+      });
     }),
   },
   workflows: {
@@ -1981,6 +2244,15 @@ export const mutators = defineMutators({
             isNull(workflows.deleted_at),
           ),
         );
+
+      await writeActivity(serverTx.dbTransaction.wrappedTransaction, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: args.workflow_id,
+        entity_type: "workflow",
+        event_type: "workflow.renamed",
+        metadata: { name },
+      });
     }),
     reorder: defineChurchTaskMutator(ReorderWorkflowsArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
@@ -2029,6 +2301,19 @@ export const mutators = defineMutators({
               ),
             );
         }),
+      );
+
+      await Promise.all(
+        args.workflow_ids.map((workflow_id, sort_order) =>
+          writeActivity(db, {
+            actor_id: session.user_id,
+            church_id: args.church_id,
+            entity_id: workflow_id,
+            entity_type: "workflow",
+            event_type: "workflow.reordered",
+            metadata: { sort_order },
+          }),
+        ),
       );
     }),
     archive: defineChurchTaskMutator(ArchiveWorkflowArgs, async ({ args, ctx, tx }) => {
@@ -2092,12 +2377,13 @@ export const mutators = defineMutators({
         throw new Error("Workflow was not found in the active Church.");
       }
 
+      const statusId = getWorkflowStatusId();
       await db.insert(workflow_statuses).values({
         _tag: "workflowstatus",
         church_id: args.church_id,
         created_at: now,
         created_by: session.user_id,
-        id: getWorkflowStatusId(),
+        id: statusId,
         key,
         name,
         sort_order: args.status.sort_order,
@@ -2105,6 +2391,16 @@ export const mutators = defineMutators({
         updated_at: now,
         updated_by: session.user_id,
         workflow_id: args.workflow_id,
+      });
+
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: statusId,
+        entity_type: "workflow_status",
+        event_type: "workflow.status.created",
+        metadata: { name, task_state: args.status.task_state, workflow_id: args.workflow_id },
+        occurred_at: now,
       });
     }),
     rename_status: defineChurchTaskMutator(RenameWorkflowStatusArgs, async ({ args, ctx, tx }) => {
@@ -2132,6 +2428,15 @@ export const mutators = defineMutators({
             isNull(workflow_statuses.deleted_at),
           ),
         );
+
+      await writeActivity(serverTx.dbTransaction.wrappedTransaction, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        entity_id: args.status_id,
+        entity_type: "workflow_status",
+        event_type: "workflow.status.renamed",
+        metadata: { name },
+      });
     }),
     reorder_statuses: defineChurchTaskMutator(
       ReorderWorkflowStatusesArgs,
@@ -2161,6 +2466,19 @@ export const mutators = defineMutators({
                   isNull(workflow_statuses.deleted_at),
                 ),
               ),
+          ),
+        );
+
+        await Promise.all(
+          args.status_ids.map((status_id, sort_order) =>
+            writeActivity(serverTx.dbTransaction.wrappedTransaction, {
+              actor_id: session.user_id,
+              church_id: args.church_id,
+              entity_id: status_id,
+              entity_type: "workflow_status",
+              event_type: "workflow.status.reordered",
+              metadata: { sort_order, workflow_id: args.workflow_id },
+            }),
           ),
         );
       },
@@ -2195,6 +2513,14 @@ export const mutators = defineMutators({
               isNull(workflow_statuses.deleted_at),
             ),
           );
+
+        await writeActivity(serverTx.dbTransaction.wrappedTransaction, {
+          actor_id: session.user_id,
+          church_id: args.church_id,
+          entity_id: args.status_id,
+          entity_type: "workflow_status",
+          event_type: "workflow.status.archived",
+        });
       },
     ),
   },

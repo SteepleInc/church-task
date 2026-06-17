@@ -26,3 +26,4 @@ export const getWorkflowId = () => getEntityId("workflow");
 export const getWorkflowStatusId = () => getEntityId("workflowstatus");
 export const getChurchInvitationId = () => getEntityId("churchinvitation");
 export const getDemoItemId = () => getEntityId("demoitem");
+export const getActivityId = () => getEntityId("activity");

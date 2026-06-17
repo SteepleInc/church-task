@@ -1,7 +1,5 @@
-import { api } from "@church-task/backend-old/convex/_generated/api";
-import { useConvexQuery as useQuery } from "@/data/query-hooks";
-
-import { successfulResponseCollection } from "@/data/convex-query-adapter";
+import { queries, type Activity } from "@church-task/zero";
+import { useQuery } from "@rocicorp/zero/react";
 
 export type ActivityEntityType =
   | "task"
@@ -9,42 +7,27 @@ export type ActivityEntityType =
   | "cycle"
   | "team"
   | "workflow"
-  | "keyDate"
+  | "key_date"
   | "church";
 
-export type ActivityCollectionItem = {
-  readonly id: string;
-  readonly churchId: string;
-  readonly entityType: ActivityEntityType;
-  readonly entityId: string;
-  readonly eventType: string;
-  readonly actorType: string;
-  readonly actorId: string | null;
-  readonly occurredAt: string;
-  readonly cycleId: string | null;
-  readonly metadata: unknown;
-};
+export type ActivityCollectionItem = Activity;
 
 export function useActivitiesForEntityCollection(params: {
   readonly churchId: string | null;
   readonly entityType: ActivityEntityType;
   readonly entityId: string | null;
 }) {
-  const result = useQuery(
-    api.activities.listForEntity,
-    params.churchId && params.entityId
-      ? {
-          churchId: params.churchId,
-          entityType: params.entityType,
-          entityId: params.entityId,
-        }
-      : "skip",
+  const [rows, result] = useQuery(
+    queries.activities.by_entity({
+      church_id: params.churchId ?? "__no_church__",
+      entity_id: params.entityId ?? "__no_entity__",
+      entity_type: params.entityType,
+    }),
   );
-  const state = successfulResponseCollection(result, (response) => response.data.activities);
 
   return {
-    loading: params.churchId !== null && params.entityId !== null && state.loading,
-    collection: state.collection as readonly ActivityCollectionItem[],
-    activitiesCollection: state.collection as readonly ActivityCollectionItem[],
+    loading: params.churchId !== null && params.entityId !== null && result.type !== "complete",
+    collection: rows as readonly ActivityCollectionItem[],
+    activitiesCollection: rows as readonly ActivityCollectionItem[],
   };
 }

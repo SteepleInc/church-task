@@ -4,6 +4,7 @@ import { mustGetMutator } from "@rocicorp/zero";
 import { describe, expect, test } from "vitest";
 
 import {
+  activities,
   labels,
   tasks,
   team_memberships,
@@ -93,6 +94,7 @@ describe("Zero Team mutators", () => {
     const tx = {
       dbTransaction: {
         wrappedTransaction: {
+          insert: () => ({ values: async () => {} }),
           update: (table: unknown) => ({
             set: (set: unknown) => ({
               where: async (where: unknown) => {
@@ -174,6 +176,7 @@ describe("Zero Workflow mutators", () => {
     const tx = {
       dbTransaction: {
         wrappedTransaction: {
+          insert: () => ({ values: async () => {} }),
           update: (table: unknown) => ({
             set: (set: unknown) => ({
               where: async () => {
@@ -209,6 +212,7 @@ describe("Zero Workflow mutators", () => {
     const tx = {
       dbTransaction: {
         wrappedTransaction: {
+          insert: () => ({ values: async () => {} }),
           select: () => ({
             from: () => ({
               where: async () => [
@@ -493,14 +497,29 @@ describe("Zero Task mutators", () => {
     const teamUpdate = updateCalls.find((call) => call.table === teams)?.set as {
       readonly next_task_number: number;
     };
+    const activityInsert = insertCalls.find((call) => call.table === activities)?.values as {
+      readonly actor_id: string;
+      readonly entity_id: string;
+      readonly entity_type: string;
+      readonly event_type: string;
+      readonly metadata: string;
+    };
 
     expect(getIdType(taskInsert.id)).toBe("task");
+    expect(getIdType(activityInsert.entity_id)).toBe("task");
     expect(taskInsert).toMatchObject({
       board_order: "a4",
       number: 7,
       task_state: "todo",
       title: "Prepare stage cues",
     });
+    expect(activityInsert).toMatchObject({
+      actor_id: "user_test",
+      entity_id: taskInsert.id,
+      entity_type: "task",
+      event_type: "task.created",
+    });
+    expect(JSON.parse(activityInsert.metadata)).toMatchObject({ team_id: "team_production" });
     expect(teamUpdate.next_task_number).toBe(8);
     expect(formatTaskIdentifier("PRO", taskInsert.number)).toBe("PRO-7");
   });

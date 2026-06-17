@@ -447,6 +447,28 @@ export const cycle_adjustments = pgTable(
   ],
 );
 
+export const activities = pgTable(
+  "activities",
+  {
+    id: text("id").primaryKey(),
+    ...baseEntityFields,
+    church_id: text("church_id").notNull(),
+    entity_type: text("entity_type").notNull(),
+    entity_id: text("entity_id").notNull(),
+    event_type: text("event_type").notNull(),
+    actor_type: text("actor_type").notNull(),
+    actor_id: text("actor_id"),
+    occurred_at: utcTimestamp("occurred_at").notNull(),
+    cycle_id: text("cycle_id"),
+    metadata: text("metadata").notNull().default("{}"),
+  },
+  (table) => [
+    index("activities_church_id_idx").on(table.church_id),
+    index("activities_entity_idx").on(table.church_id, table.entity_type, table.entity_id),
+    index("activities_occurred_at_idx").on(table.occurred_at),
+  ],
+);
+
 export const member = pgTable(
   "member",
   {
@@ -493,6 +515,7 @@ export const invitation = pgTable(
 
 export const schema = {
   account,
+  activities,
   cycle_adjustments,
   cycles,
   demo_items,
@@ -515,6 +538,9 @@ export const schema = {
   workflow_statuses,
   workflows,
 };
+
+export type Activity = typeof activities.$inferSelect;
+export type NewActivity = typeof activities.$inferInsert;
 
 export type DemoItem = typeof demo_items.$inferSelect;
 export type NewDemoItem = typeof demo_items.$inferInsert;

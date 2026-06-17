@@ -19,6 +19,9 @@ import type { Schema as ZeroSchema } from "./zero-schema.gen";
 const DemoItemByIdArgs = Schema.standardSchemaV1(Schema.Struct({ id: Schema.String }));
 const ChurchScopedArgs = Schema.standardSchemaV1(Schema.Struct({ church_id: Schema.String }));
 const AdminListArgs = Schema.standardSchemaV1(Schema.Struct({ list_args: ListArgsEffectSchema }));
+const ActivityForEntityArgs = Schema.standardSchemaV1(
+  Schema.Struct({ church_id: Schema.String, entity_id: Schema.String, entity_type: Schema.String }),
+);
 const TaskByIdentifierArgs = Schema.standardSchemaV1(
   Schema.Struct({ church_id: Schema.String, identifier: Schema.String }),
 );
@@ -95,6 +98,22 @@ export const queries = defineQueries({
       requireAppAdminSession(ctx);
 
       return zql.member.orderBy("createdAt", "desc");
+    }),
+  },
+  activities: {
+    by_entity: defineChurchTaskQuery(ActivityForEntityArgs, ({ args, ctx }) => {
+      if (!hasActiveChurchAccess(ctx, args.church_id)) {
+        if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
+
+        return zql.activities.where("id", "__unauthorized__").where("deleted_at", "IS", null);
+      }
+
+      return zql.activities
+        .where("church_id", args.church_id)
+        .where("entity_type", args.entity_type)
+        .where("entity_id", args.entity_id)
+        .where("deleted_at", "IS", null)
+        .orderBy("occurred_at", "desc");
     }),
   },
   teams_admin: {
