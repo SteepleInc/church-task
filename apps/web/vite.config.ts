@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
@@ -6,7 +8,7 @@ import { defineConfig, loadEnv } from "vite";
 const ZERO_PATH_REGEX = /^\/zero/;
 
 export default defineConfig(({ mode }) => {
-  const envDir = "../..";
+  const envDir = path.resolve(__dirname, "../..");
   const env = { ...loadEnv(mode, envDir, ""), ...process.env };
   const proxy = env.VITE_ZERO_CACHE_URL
     ? {
