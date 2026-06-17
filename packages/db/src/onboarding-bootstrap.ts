@@ -33,70 +33,79 @@ export const bootstrapChurchOnboarding = async (
     .where(and(eq(teams.church_id, args.church_id), isNull(teams.deleted_at)));
   const takenIdentifiers = existingTeams.map((team) => team.identifier);
 
-  for (const [index, name] of STARTER_TEAM_NAMES.entries()) {
-    const identifier = generateTeamIdentifier(name, takenIdentifiers);
-    takenIdentifiers.push(identifier);
+  if (existingTeams.length === 0) {
+    for (const [index, name] of STARTER_TEAM_NAMES.entries()) {
+      const identifier = generateTeamIdentifier(name, takenIdentifiers);
+      takenIdentifiers.push(identifier);
 
-    const now = new Date();
-    const teamId = getTeamId();
-    const workflowId = getWorkflowId();
+      const now = new Date();
+      const teamId = getTeamId();
+      const workflowId = getWorkflowId();
 
-    await db.insert(teams).values({
-      _tag: "team",
-      church_id: args.church_id,
-      color: getTeamColorForName(name),
-      created_at: now,
-      created_by: args.user_id,
-      id: teamId,
-      identifier,
-      name,
-      previous_identifiers: "[]",
-      sort_order: index,
-      updated_at: now,
-      updated_by: args.user_id,
-    });
+      await db.insert(teams).values({
+        _tag: "team",
+        church_id: args.church_id,
+        color: getTeamColorForName(name),
+        created_at: now,
+        created_by: args.user_id,
+        id: teamId,
+        identifier,
+        name,
+        previous_identifiers: "[]",
+        sort_order: index,
+        updated_at: now,
+        updated_by: args.user_id,
+      });
 
-    await db.insert(team_memberships).values({
-      _tag: "teammembership",
-      church_id: args.church_id,
-      created_at: now,
-      created_by: args.user_id,
-      id: getTeamMembershipId(),
-      team_id: teamId,
-      updated_at: now,
-      updated_by: args.user_id,
-      user_id: args.user_id,
-    });
-
-    await db.insert(workflows).values({
-      _tag: "workflow",
-      church_id: args.church_id,
-      created_at: now,
-      created_by: args.user_id,
-      id: workflowId,
-      name: `${name} Workflow`,
-      team_id: teamId,
-      updated_at: now,
-      updated_by: args.user_id,
-    });
-
-    await db.insert(workflow_statuses).values(
-      DEFAULT_WORKFLOW_STATUSES.map((status) => ({
-        _tag: "workflowstatus",
+      await db.insert(team_memberships).values({
+        _tag: "teammembership",
         church_id: args.church_id,
         created_at: now,
         created_by: args.user_id,
-        id: getWorkflowStatusId(),
-        key: status.key,
-        name: status.name,
-        sort_order: status.sort_order,
-        task_state: status.task_state,
+        id: getTeamMembershipId(),
+        team_id: teamId,
         updated_at: now,
         updated_by: args.user_id,
-        workflow_id: workflowId,
-      })),
-    );
+        user_id: args.user_id,
+      });
+
+      await db.insert(workflows).values({
+        _tag: "workflow",
+        church_id: args.church_id,
+        created_at: now,
+        created_by: args.user_id,
+        id: workflowId,
+        name: `${name} Workflow`,
+        team_id: teamId,
+        updated_at: now,
+        updated_by: args.user_id,
+      });
+
+      await db.insert(workflow_statuses).values(
+        DEFAULT_WORKFLOW_STATUSES.map((status) => ({
+          _tag: "workflowstatus",
+          church_id: args.church_id,
+          created_at: now,
+          created_by: args.user_id,
+          id: getWorkflowStatusId(),
+          key: status.key,
+          name: status.name,
+          sort_order: status.sort_order,
+          task_state: status.task_state,
+          updated_at: now,
+          updated_by: args.user_id,
+          workflow_id: workflowId,
+        })),
+      );
+    }
   }
+
+  const existingLabels = await db
+    .select({ id: labels.id })
+    .from(labels)
+    .where(and(eq(labels.church_id, args.church_id), isNull(labels.deleted_at)));
+
+  if (existingLabels.length > 0) return;
 
   for (const name of STARTER_LABELS) {
     const now = new Date();

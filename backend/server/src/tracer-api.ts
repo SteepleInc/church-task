@@ -45,6 +45,8 @@ const getSessionContext = async (
   };
 };
 
+const toResponse = (result: unknown) => (result instanceof Response ? result : Response.json(result));
+
 export const createTracerApi = (databaseUrl: string) => {
   const { db, pool } = createDb(databaseUrl);
   const otpStore = createLocalOtpStore();
@@ -103,7 +105,7 @@ export const createTracerApi = (databaseUrl: string) => {
             }),
           schema,
           request,
-        ).then((body) => Response.json(body));
+        ).then(toResponse);
       },
     });
 
@@ -122,7 +124,7 @@ export const createTracerApi = (databaseUrl: string) => {
               });
             }),
           request,
-        ).then((body) => Response.json(body)),
+        ).then(toResponse),
     });
 
   const handleTestOtp = (request: Request) =>
