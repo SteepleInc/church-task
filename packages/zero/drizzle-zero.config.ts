@@ -20,6 +20,7 @@ export default drizzleZeroConfig(drizzleSchema, {
     cycle_adjustments: true,
     cycles: true,
     focus_windows: true,
+    invitation: true,
     key_date_occurrences: true,
     key_dates: true,
     labels: true,

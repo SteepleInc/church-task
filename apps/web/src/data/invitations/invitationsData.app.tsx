@@ -1,23 +1,50 @@
-import { api } from "@church-task/backend-old/convex/_generated/api";
-import type { ChurchInvitation } from "@church-task/domain-old";
-import { useConvexQuery as useQuery } from "@/data/query-hooks";
+import { queries, type Invitation } from "@church-task/zero";
+import { useQuery } from "@rocicorp/zero/react";
+import { useEffect, useState } from "react";
 
-import { collectionFromQueryResult } from "@/data/convex-query-adapter";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
+import { authClient } from "@/lib/auth-client";
 
-export type InvitationCollectionItem = Pick<ChurchInvitation, "id" | "email" | "role"> & {
+export type InvitationCollectionItem = {
+  readonly id: string;
+  readonly email: string;
+  readonly role: string;
   readonly status: string;
   readonly organizationName?: string;
 };
 
+type BetterAuthInvitation = {
+  readonly id: string;
+  readonly email: string;
+  readonly role?: string | null;
+  readonly status: string;
+  readonly organizationName?: string | null;
+};
+
+const mapInvitation = (
+  invitation: Pick<Invitation, "email" | "id" | "role" | "status">,
+  organizationName?: string,
+): InvitationCollectionItem => ({
+  email: invitation.email,
+  id: invitation.id,
+  organizationName,
+  role: invitation.role ?? "member",
+  status: invitation.status,
+});
+
 export function useOrgInvitations() {
   const { currentOrgOpt, loading } = useCurrentOrgOpt();
-  const state = collectionFromQueryResult<InvitationCollectionItem>(currentOrgOpt?.invitations);
+  const [rows] = useQuery(
+    queries.invitations.by_church({ church_id: currentOrgOpt?.id ?? "__no_church__" }),
+  );
+  const collection = currentOrgOpt
+    ? rows.map((invitation) => mapInvitation(invitation, currentOrgOpt.name))
+    : [];
 
   return {
-    loading: loading || state.loading,
-    collection: state.collection,
-    invitationsCollection: state.collection,
+    loading,
+    collection,
+    invitationsCollection: collection,
   };
 }
 
@@ -32,12 +59,58 @@ export function usePendingInvitationsCount() {
 }
 
 export function useUserInvitationsCollection() {
-  const result = useQuery(api.dashboard.listUserInvitations);
-  const state = collectionFromQueryResult<InvitationCollectionItem>(result);
+  const session = authClient.useSession();
+  const userId = session.data?.user.id;
+  const [collection, setCollection] = useState<readonly InvitationCollectionItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!userId) {
+      setCollection([]);
+      setLoading(session.isPending);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+
+    void authClient.organization
+      .listUserInvitations()
+      .then((result) => {
+        if (cancelled) return;
+
+        setLoading(false);
+        if (result.error) {
+          setCollection([]);
+          return;
+        }
+
+        const invitations = (result.data ?? []) as readonly BetterAuthInvitation[];
+        setCollection(
+          invitations.map((invitation) => ({
+            email: invitation.email,
+            id: invitation.id,
+            organizationName: invitation.organizationName ?? undefined,
+            role: invitation.role ?? "member",
+            status: invitation.status,
+          })),
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+
+        setLoading(false);
+        setCollection([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session.isPending, userId]);
 
   return {
-    loading: state.loading,
-    collection: state.collection,
-    invitationsCollection: state.collection,
+    loading,
+    collection,
+    invitationsCollection: collection,
   };
 }

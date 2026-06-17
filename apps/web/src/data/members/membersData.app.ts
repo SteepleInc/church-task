@@ -1,8 +1,7 @@
-import { api } from "@church-task/backend-old/convex/_generated/api";
-import { useMutation } from "convex/react";
+import { queries } from "@church-task/zero";
+import { useQuery } from "@rocicorp/zero/react";
 
-import { collectionFromQueryResult } from "@/data/convex-query-adapter";
-import { useConvexQuery as useQuery } from "@/data/query-hooks";
+import { authClient } from "@/lib/auth-client";
 
 /**
  * A Church Member as rendered by the workspace Members settings table. This is
@@ -24,47 +23,63 @@ export type MemberItem = {
   readonly teamIds: readonly string[];
 };
 
+const timestampFromDateLike = (value: Date | number | string | null | undefined) => {
+  if (!value) return null;
+
+  const timestamp = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
+};
+
 export function useMembersCollection(params: { readonly churchId: string | null }) {
-  const result = useQuery(
-    api.dashboard.listMembers,
-    params.churchId ? { organizationId: params.churchId } : "skip",
+  const { data: activeOrg, isPending: activeOrgPending } = authClient.useActiveOrganization();
+  const [teamMembershipRows] = useQuery(
+    queries.team_memberships.by_church({ church_id: params.churchId ?? "__no_church__" }),
   );
-  const state = collectionFromQueryResult(
-    result?.map(
-      (member): MemberItem => ({
-        memberId: member.id,
-        userId: member.user.id,
-        name: member.user.name,
-        username: member.user.username ?? null,
-        email: member.user.email,
-        image: member.user.image ?? null,
-        role: member.role,
-        suspended: member.user.suspended ?? false,
-        joinedAt: member.joinedAt ?? null,
-        lastSeenAt: member.user.lastSeenAt ?? null,
-        teamIds: member.teamIds ?? [],
-      }),
-    ),
-  );
+  const members = activeOrg?.id === params.churchId ? (activeOrg.members ?? []) : [];
+  const collection = members.map((member): MemberItem => {
+    const user = "user" in member ? member.user : null;
+    const userWithAdminFields = user as (typeof user & { readonly banned?: boolean }) | null;
+    const userId = user?.id ?? member.userId;
+
+    return {
+      email: user?.email ?? null,
+      image: user?.image ?? null,
+      joinedAt: timestampFromDateLike(member.createdAt),
+      lastSeenAt: null,
+      memberId: member.id,
+      name: user?.name ?? null,
+      role: member.role,
+      suspended: Boolean(userWithAdminFields?.banned),
+      teamIds: teamMembershipRows
+        .filter((teamMembership) => teamMembership.user_id === userId)
+        .map((teamMembership) => teamMembership.team_id),
+      userId,
+      username: null,
+    };
+  });
 
   return {
-    loading: params.churchId !== null && state.loading,
-    membersCollection: state.collection,
+    loading: params.churchId !== null && activeOrgPending,
+    membersCollection: collection,
   };
 }
 
+const unsupportedMemberProfileMutation = async (_params: unknown) => {
+  throw new Error("Member profile updates are not available in the new membership stack yet.");
+};
+
 export function useUpdateMemberNameMutation() {
-  return useMutation(api.dashboard.updateMemberName);
+  return unsupportedMemberProfileMutation;
 }
 
 export function useUpdateMemberUsernameMutation() {
-  return useMutation(api.dashboard.updateMemberUsername);
+  return unsupportedMemberProfileMutation;
 }
 
 export function useUpdateMemberEmailMutation() {
-  return useMutation(api.dashboard.updateMemberEmail);
+  return unsupportedMemberProfileMutation;
 }
 
 export function useSetMemberSuspendedMutation() {
-  return useMutation(api.dashboard.setMemberSuspended);
+  return unsupportedMemberProfileMutation;
 }

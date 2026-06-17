@@ -1,4 +1,5 @@
 import { createAuth } from "@church-task/auth";
+import { invitation } from "@church-task/db/schema";
 import { startPostgresHarness } from "@church-task/test-harness";
 import { describe, expect, test } from "vitest";
 
@@ -133,6 +134,64 @@ describe("tracer API", () => {
       expect(response.status).toBe(500);
       await expect(response.json()).resolves.toMatchObject({ error: "Authentication required." });
     } finally {
+      await api.close();
+      await harness.stop();
+    }
+  }, 60_000);
+
+  test("creates a test invitation for the active Church", async () => {
+    const harness = await startPostgresHarness();
+    const api = createTracerApi(harness.connectionString);
+    const authRuntime = createAuth(harness.connectionString);
+
+    try {
+      const signUp = await authRuntime.auth.api.signUpEmail({
+        asResponse: true,
+        body: {
+          email: "inviter@church-task.test",
+          name: "Invitation Test User",
+          password: "correct horse battery staple",
+        },
+      });
+      const cookie = getCookieHeader(signUp);
+
+      const org = await authRuntime.auth.api.createOrganization({
+        body: {
+          churchTimeZone: "America/Chicago",
+          name: "Invitation Test Church",
+          slug: "invitation-test-church",
+        },
+        headers: new Headers({ cookie }),
+      });
+
+      expect(org?.id).toMatch(/^org_/);
+
+      const response = await api.fetch(
+        new Request("http://127.0.0.1/api/test/invitations", {
+          body: JSON.stringify({ email: "Invitee@Church-Task.test", role: "admin" }),
+          headers: {
+            "content-type": "application/json",
+            cookie,
+          },
+          method: "POST",
+        }),
+      );
+
+      expect(response.ok).toBe(true);
+      const body = (await response.json()) as { invitation?: { id?: string } };
+
+      expect(body.invitation?.id).toMatch(/^churchinvitation_/);
+      await expect(authRuntime.db.select().from(invitation)).resolves.toMatchObject([
+        {
+          email: "invitee@church-task.test",
+          id: body.invitation?.id,
+          organizationId: org?.id,
+          role: "admin",
+          status: "pending",
+        },
+      ]);
+    } finally {
+      await authRuntime.pool.end();
       await api.close();
       await harness.stop();
     }

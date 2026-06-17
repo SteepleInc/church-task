@@ -1,6 +1,7 @@
 import { createAuth, createLocalOtpStore } from "@church-task/auth";
 import { createDb } from "@church-task/db";
-import { demo_items, session as sessionTable, user } from "@church-task/db/schema";
+import { demo_items, invitation, session as sessionTable, user } from "@church-task/db/schema";
+import { getChurchInvitationId } from "@church-task/shared/get-ids";
 import { anonymousServerContext, mutators, queries, schema } from "@church-task/zero";
 import { handleMutateRequest, handleQueryRequest } from "@rocicorp/zero/server";
 import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
@@ -151,6 +152,50 @@ export const createTracerApi = (databaseUrl: string) => {
       },
     });
 
+  const handleCreateTestInvitation = (request: Request) =>
+    Effect.tryPromise({
+      catch: (cause) => cause,
+      try: async () => {
+        const authSession = await authRuntime.auth.api.getSession({ headers: request.headers });
+
+        if (!authSession) {
+          return Response.json({ error: "Authentication required" }, { status: 401 });
+        }
+
+        const session = authSession.session as typeof authSession.session & {
+          readonly activeOrganizationId?: string | null;
+        };
+        const organizationId = session.activeOrganizationId;
+
+        if (!organizationId) {
+          return Response.json({ error: "Active Church required" }, { status: 400 });
+        }
+
+        const body = (await request.json()) as { email?: string; role?: string };
+        const email = body.email?.trim().toLowerCase();
+        const role = body.role === "admin" ? "admin" : "member";
+
+        if (!email) {
+          return Response.json({ error: "Email is required" }, { status: 400 });
+        }
+
+        const invitationId = getChurchInvitationId();
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+        await db.insert(invitation).values({
+          email,
+          expiresAt,
+          id: invitationId,
+          inviterId: authSession.user.id,
+          organizationId,
+          role,
+          status: "pending",
+        });
+
+        return Response.json({ invitation: { _id: invitationId, id: invitationId } });
+      },
+    });
+
   const fetch = async (request: Request) => {
     const url = new URL(request.url);
 
@@ -160,15 +205,17 @@ export const createTracerApi = (databaseUrl: string) => {
         ? handleTestOtp(request)
         : url.pathname === "/api/test/app-admin" && request.method === "POST"
           ? handlePromoteCurrentUserToAppAdmin(request)
-          : url.pathname === "/api/tracer" && request.method === "GET"
-            ? handleHealth()
-            : url.pathname === "/api/tracer/demo-items" && request.method === "POST"
-              ? handleCreateDemoItem(request)
-              : url.pathname === "/api/zero/query" && request.method === "POST"
-                ? handleZeroQuery(request)
-                : url.pathname === "/api/zero/mutate" && request.method === "POST"
-                  ? handleZeroMutate(request)
-                  : Effect.succeed(Response.json({ error: "Not found" }, { status: 404 }));
+          : url.pathname === "/api/test/invitations" && request.method === "POST"
+            ? handleCreateTestInvitation(request)
+            : url.pathname === "/api/tracer" && request.method === "GET"
+              ? handleHealth()
+              : url.pathname === "/api/tracer/demo-items" && request.method === "POST"
+                ? handleCreateDemoItem(request)
+                : url.pathname === "/api/zero/query" && request.method === "POST"
+                  ? handleZeroQuery(request)
+                  : url.pathname === "/api/zero/mutate" && request.method === "POST"
+                    ? handleZeroMutate(request)
+                    : Effect.succeed(Response.json({ error: "Not found" }, { status: 404 }));
 
     return Effect.runPromise(effect).catch((cause) =>
       Response.json(

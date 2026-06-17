@@ -100,6 +100,17 @@ export const queries = defineQueries({
       return zql.member.orderBy("createdAt", "desc");
     }),
   },
+  invitations: {
+    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+      if (!hasActiveChurchAccess(ctx, args.church_id)) {
+        if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
+
+        return zql.invitation.where("id", "__unauthorized__");
+      }
+
+      return zql.invitation.where("organizationId", args.church_id).orderBy("createdAt", "desc");
+    }),
+  },
   activities: {
     by_entity: defineChurchTaskQuery(ActivityForEntityArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id)) {

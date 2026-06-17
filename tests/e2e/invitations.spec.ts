@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
-import { completeOnboarding, getConvexSiteUrl, signInWithOtp, waitForOtp } from "./helpers";
+import { completeOnboarding, getE2eApiUrl, signInWithOtp, waitForOtp } from "./helpers";
 
 test.skip(
   process.env.CHURCH_TASK_E2E_READY !== "1",
@@ -20,7 +20,7 @@ async function createTestInvitation(
 
   expect(sessionToken).toEqual(expect.any(String));
 
-  const response = await page.request.post(`${getConvexSiteUrl()}/api/test/invitations`, {
+  const response = await page.request.post(`${getE2eApiUrl()}/api/test/invitations`, {
     data: invitation,
     headers: { Authorization: `Bearer ${sessionToken}` },
   });
@@ -28,8 +28,8 @@ async function createTestInvitation(
   test.skip(response.status() === 404, "Test invitation helper is not deployed.");
   expect(response.ok()).toBe(true);
 
-  const body = (await response.json()) as { invitation: { _id: string } };
-  return body.invitation._id;
+  const body = (await response.json()) as { invitation: { id: string } };
+  return body.invitation.id;
 }
 
 async function signOut(page: Page) {
