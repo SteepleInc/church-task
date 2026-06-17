@@ -15,7 +15,7 @@ import { parseSetCookieHeader } from "better-auth/cookies";
 import { betterAuth } from "better-auth/minimal";
 import { eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import {
   createAuthOptions,
@@ -25,6 +25,26 @@ import {
 } from "./auth";
 
 describe("Better Auth Postgres foundation", () => {
+  test("logs captured OTPs when local OTP logging is enabled", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    try {
+      const otpStore = createLocalOtpStore({ logOtps: true });
+
+      await otpStore.sendVerificationOTP({
+        email: "local-dev@church-task.test",
+        otp: "654321",
+        type: "sign-in",
+      });
+
+      expect(info).toHaveBeenCalledWith(
+        "[local-otp] sign-in code for local-dev@church-task.test: 654321",
+      );
+    } finally {
+      info.mockRestore();
+    }
+  });
+
   test("wires the Church Task auth plugin set and local OTP capture", async () => {
     const container = await new PostgreSqlContainer("postgres:16-alpine").start();
     const { db, pool } = createDb(container.getConnectionUri());

@@ -41,14 +41,26 @@ export type LocalOtpStore = {
   readonly sendVerificationOTP: (data: CapturedOtp) => Promise<void>;
 };
 
-export const createLocalOtpStore = (): LocalOtpStore => {
+type LocalOtpStoreOptions = {
+  readonly logOtps?: boolean;
+};
+
+const shouldLogLocalOtps = () =>
+  process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test";
+
+export const createLocalOtpStore = (options: LocalOtpStoreOptions = {}): LocalOtpStore => {
   const capturedOtps: CapturedOtp[] = [];
+  const logOtps = options.logOtps ?? shouldLogLocalOtps();
 
   return {
     getLatestOtp: (email, type) =>
       capturedOtps.findLast((otp) => otp.email === email && (!type || otp.type === type)),
     sendVerificationOTP: async (data) => {
       capturedOtps.push(data);
+
+      if (logOtps) {
+        console.info(`[local-otp] ${data.type} code for ${data.email}: ${data.otp}`);
+      }
     },
   };
 };
