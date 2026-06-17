@@ -73,4 +73,28 @@ describe("admin route fidelity", () => {
     expect(collectionSource).toContain("<CollectionTableView");
     expect(combinedSource).not.toMatch(/preacher|sermon|video|channel|agreement|royalty/i);
   });
+
+  it("wires App Administration Collections to Zero-backed admin query shapes", () => {
+    const orgsDataSource = readFileSync(
+      new URL("../data/orgs/orgsData.app.ts", import.meta.url),
+      "utf8",
+    );
+    const usersDataSource = readFileSync(
+      new URL("../data/users/usersData.app.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(orgsDataSource).toContain(
+      "useZeroQuery(queries.organization.admin_list({ list_args: listArgs }))",
+    );
+    expect(orgsDataSource).toContain("useZeroQuery(queries.member.admin_all())");
+    expect(orgsDataSource).toContain("useZeroQuery(queries.teams_admin.admin_all())");
+    expect(usersDataSource).toContain("useQuery(queries.user.admin_list({ list_args: listArgs }))");
+    expect(usersDataSource).toContain("useQuery(queries.member.admin_all())");
+    expect(usersDataSource).toContain(
+      "useQuery(queries.organization.admin_list({ list_args: { limit: 500 } }))",
+    );
+    expect(`${orgsDataSource}\n${usersDataSource}`).not.toContain("listAllOrgs");
+    expect(`${orgsDataSource}\n${usersDataSource}`).not.toContain("listAllUsers");
+  });
 });

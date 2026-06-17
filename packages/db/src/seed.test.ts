@@ -49,6 +49,10 @@ describe("seed and reset harness", () => {
         "avery.member@church-task.test",
         "ada.admin@church-task.test",
       ]);
+      expect(users.map((seedUser) => ({ email: seedUser.email, role: seedUser.role }))).toEqual([
+        { email: "avery.member@church-task.test", role: null },
+        { email: "ada.admin@church-task.test", role: "admin" },
+      ]);
       expect(admin.demo_items.map((item) => item.slug)).toEqual([
         "app-profile-demo-item",
         "admin-profile-demo-item",

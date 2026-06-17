@@ -10,6 +10,7 @@ export type SeededUserReference = {
   readonly email: string;
   readonly id: string;
   readonly name: string;
+  readonly role: "admin" | null;
   readonly slug: string;
 };
 
@@ -58,12 +59,14 @@ export const resetSeededData = async (db: ChurchTaskDb) => {
 const appUserFixture = {
   email: "avery.member@church-task.test",
   name: "Avery Member",
+  role: null,
   slug: "avery-member",
 } as const;
 
 const adminUserFixture = {
   email: "ada.admin@church-task.test",
   name: "Ada App Administrator",
+  role: "admin",
   slug: "ada-app-administrator",
 } as const;
 
@@ -78,6 +81,7 @@ const insertSeedUser = async (
     emailVerified: true,
     id,
     name: fixture.name,
+    role: fixture.role,
   });
 
   return { ...fixture, id } satisfies SeededUserReference;
