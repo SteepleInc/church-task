@@ -1,15 +1,11 @@
-import { api } from "@church-task/backend-old/convex/_generated/api";
 import type {
   CoreWorkBatchReadArgs,
   CoreWorkBatchReadResponse,
   CoreWorkBatchWriteArgs,
   CoreWorkBatchWriteResponse,
-} from "@church-task/backend-old/agent/coreWorkOperations";
-import type {
   ActiveChurchResponse,
   CurrentUserResponse,
-} from "@church-task/backend-old/agent/operations";
-import { ConvexHttpClient } from "convex/browser";
+} from "@church-task/domain";
 import { Context, Data, Effect, Layer } from "effect";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -115,24 +111,9 @@ export class CredentialStorage extends Context.Tag("@church-task/cli/CredentialS
 >() {}
 
 const readBackendUrl = (env: CliEnv) =>
-  Effect.sync(() => env.CHURCH_TASK_CONVEX_URL?.trim()).pipe(
+  Effect.sync(() => env.CHURCH_TASK_API_URL?.trim() ?? env.CHURCH_TASK_SITE_URL?.trim()).pipe(
     Effect.flatMap((url) =>
-      url ? Effect.succeed(url) : Effect.fail(new MissingBackendConfigError()),
-    ),
-  );
-
-const authBaseUrlFromEnv = (env: CliEnv) =>
-  Effect.sync(() => {
-    const explicitUrl = env.CHURCH_TASK_SITE_URL?.trim();
-    if (explicitUrl) return explicitUrl.replace(/\/$/, "");
-
-    const convexUrl = env.CHURCH_TASK_CONVEX_URL?.trim();
-    return convexUrl?.endsWith(".convex.cloud")
-      ? convexUrl.replace(/\.convex\.cloud$/, ".convex.site")
-      : undefined;
-  }).pipe(
-    Effect.flatMap((url) =>
-      url ? Effect.succeed(url) : Effect.fail(new MissingBackendConfigError()),
+      url ? Effect.succeed(url.replace(/\/$/, "")) : Effect.fail(new MissingBackendConfigError()),
     ),
   );
 
@@ -177,177 +158,111 @@ const makeFileCredentialStorageLayer = (env: CliEnv) =>
     }),
   });
 
-const makeConvexBackendLayer = (env: CliEnv) =>
+const fetchJson = <ResponseBody>(args: {
+  readonly body?: unknown;
+  readonly method: "GET" | "POST";
+  readonly token?: string;
+  readonly url: string;
+}) =>
+  Effect.tryPromise({
+    try: async () => {
+      const response = await fetch(args.url, {
+        body: args.body === undefined ? undefined : JSON.stringify(args.body),
+        headers: {
+          ...(args.body === undefined ? {} : { "content-type": "application/json" }),
+          ...(args.token ? { authorization: `Bearer ${args.token}` } : {}),
+        },
+        method: args.method,
+      });
+
+      if (!response.ok) throw new Error(`Backend request failed with ${response.status}.`);
+      return (await response.json()) as ResponseBody;
+    },
+    catch: (cause) => new BackendError({ cause }),
+  });
+
+const makeHttpBackendLayer = (env: CliEnv) =>
   Layer.effect(
     BackendClient,
     Effect.gen(function* () {
-      const convexUrl = yield* readBackendUrl(env);
-      const authBaseUrl = yield* authBaseUrlFromEnv(env);
-      const client = new ConvexHttpClient(convexUrl, { logger: false });
-
-      const queryCurrentUserWithToken = (token: string) =>
-        Effect.tryPromise({
-          try: async () => {
-            const response = await fetch(`${authBaseUrl}/api/auth/convex/token`, {
-              method: "GET",
-              headers: { authorization: `Bearer ${token}` },
-            });
-
-            if (!response.ok) throw new Error("Convex auth token request failed.");
-
-            const body = (await response.json()) as { token?: string };
-            if (!body.token) throw new Error("Convex auth token response was missing a token.");
-
-            client.setAuth(body.token);
-            return await client.query(api.agent.currentUser);
-          },
-          catch: (cause) => new BackendError({ cause }),
-        });
-
-      const queryActiveChurch = (churchId: string | null) =>
-        Effect.tryPromise({
-          try: () => client.query(api.agent.activeChurch, { churchId }),
-          catch: (cause) => new BackendError({ cause }),
-        });
-
-      const queryActiveChurchWithToken = (args: {
-        readonly token: string;
-        readonly churchId: string | null;
-      }) =>
-        Effect.tryPromise({
-          try: async () => {
-            const response = await fetch(`${authBaseUrl}/api/auth/convex/token`, {
-              method: "GET",
-              headers: { authorization: `Bearer ${args.token}` },
-            });
-
-            if (!response.ok) throw new Error("Convex auth token request failed.");
-
-            const body = (await response.json()) as { token?: string };
-            if (!body.token) throw new Error("Convex auth token response was missing a token.");
-
-            client.setAuth(body.token);
-            return await client.query(api.agent.activeChurch, { churchId: args.churchId });
-          },
-          catch: (cause) => new BackendError({ cause }),
-        });
+      const baseUrl = yield* readBackendUrl(env);
 
       return {
-        healthCheck: Effect.tryPromise({
-          try: () => client.query(api.healthCheck.get),
-          catch: (cause) => new BackendError({ cause }),
+        healthCheck: fetchJson<{ readonly ok: true; readonly service: string }>({
+          method: "GET",
+          url: `${baseUrl}/api/tracer`,
+        }).pipe(Effect.as("OK" as const)),
+        currentUser: fetchJson<CurrentUserResponse>({
+          method: "GET",
+          url: `${baseUrl}/api/agent/current-user`,
         }),
-        currentUser: Effect.tryPromise({
-          try: () => client.query(api.agent.currentUser),
-          catch: (cause) => new BackendError({ cause }),
-        }),
-        currentUserWithToken: queryCurrentUserWithToken,
-        activeChurch: queryActiveChurch,
-        activeChurchWithToken: queryActiveChurchWithToken,
+        currentUserWithToken: (token) =>
+          fetchJson<CurrentUserResponse>({
+            method: "GET",
+            token,
+            url: `${baseUrl}/api/agent/current-user`,
+          }),
+        activeChurch: (churchId) =>
+          fetchJson<ActiveChurchResponse>({
+            body: { churchId },
+            method: "POST",
+            url: `${baseUrl}/api/agent/active-church`,
+          }),
+        activeChurchWithToken: ({ churchId, token }) =>
+          fetchJson<ActiveChurchResponse>({
+            body: { churchId },
+            method: "POST",
+            token,
+            url: `${baseUrl}/api/agent/active-church`,
+          }),
         createCliCredential: ({ name, sessionToken }) =>
-          Effect.tryPromise({
-            try: async () => {
-              const response = await fetch(`${authBaseUrl}/api/auth/api-key/create`, {
-                method: "POST",
-                headers: {
-                  authorization: `Bearer ${sessionToken}`,
-                  "content-type": "application/json",
-                },
-                body: JSON.stringify({ name }),
-              });
-
-              if (!response.ok) throw new Error("CLI credential creation failed.");
-
-              const body = (await response.json()) as {
-                id: string;
-                name: string;
-                key: string;
-                start?: string | null;
-                createdAt?: string | Date;
-              };
-
-              return {
-                id: body.id,
-                name: body.name,
-                token: body.key,
-                start: body.start,
-                createdAt: body.createdAt,
-              };
-            },
-            catch: (cause) => new BackendError({ cause }),
-          }),
+          fetchJson<{
+            readonly createdAt?: string | Date;
+            readonly id: string;
+            readonly key: string;
+            readonly name: string;
+            readonly start?: string | null;
+          }>({
+            body: { name },
+            method: "POST",
+            token: sessionToken,
+            url: `${baseUrl}/api/auth/api-key/create`,
+          }).pipe(
+            Effect.map((body) => ({
+              createdAt: body.createdAt,
+              id: body.id,
+              name: body.name,
+              start: body.start,
+              token: body.key,
+            })),
+          ),
         revokeCliCredential: ({ credentialId, token }) =>
-          Effect.tryPromise({
-            try: async () => {
-              const response = await fetch(`${authBaseUrl}/api/auth/api-key/delete`, {
-                method: "POST",
-                headers: {
-                  authorization: `Bearer ${token}`,
-                  "content-type": "application/json",
-                },
-                body: JSON.stringify({ keyId: credentialId }),
-              });
-
-              if (!response.ok) throw new Error("CLI credential revocation failed.");
-
-              const body = (await response.json()) as { success?: boolean };
-              return { revoked: body.success === true };
-            },
-            catch: (cause) => new BackendError({ cause }),
-          }),
+          fetchJson<{ readonly success?: boolean }>({
+            body: { keyId: credentialId },
+            method: "POST",
+            token,
+            url: `${baseUrl}/api/auth/api-key/delete`,
+          }).pipe(Effect.map((body) => ({ revoked: body.success === true }))),
         setupBatchRead: ({ token, operations }) =>
-          Effect.tryPromise({
-            try: async () => {
-              const response = await fetch(`${authBaseUrl}/api/auth/convex/token`, {
-                method: "GET",
-                headers: { authorization: `Bearer ${token}` },
-              });
-
-              if (!response.ok) throw new Error("Convex auth token request failed.");
-
-              const body = (await response.json()) as { token?: string };
-              if (!body.token) throw new Error("Convex auth token response was missing a token.");
-
-              client.setAuth(body.token);
-              return await client.query(api.coreWork.batchRead, { operations });
-            },
-            catch: (cause) => new BackendError({ cause }),
+          fetchJson<CoreWorkBatchReadResponse>({
+            body: { operations },
+            method: "POST",
+            token,
+            url: `${baseUrl}/api/agent/core-work/batch-read`,
           }),
         setupBatchWrite: ({ token, operations }) =>
-          Effect.tryPromise({
-            try: async () => {
-              const response = await fetch(`${authBaseUrl}/api/auth/convex/token`, {
-                method: "GET",
-                headers: { authorization: `Bearer ${token}` },
-              });
-
-              if (!response.ok) throw new Error("Convex auth token request failed.");
-
-              const body = (await response.json()) as { token?: string };
-              if (!body.token) throw new Error("Convex auth token response was missing a token.");
-
-              client.setAuth(body.token);
-              return await client.mutation(api.coreWork.batchWrite, { operations });
-            },
-            catch: (cause) => new BackendError({ cause }),
+          fetchJson<CoreWorkBatchWriteResponse>({
+            body: { operations },
+            method: "POST",
+            token,
+            url: `${baseUrl}/api/agent/core-work/batch-write`,
           }),
         taskTool: ({ token, tool, body }) =>
-          Effect.tryPromise({
-            try: async () => {
-              const response = await fetch(`${authBaseUrl}/api/mcp/tools/${tool}`, {
-                method: "POST",
-                headers: {
-                  authorization: `Bearer ${token}`,
-                  "content-type": "application/json",
-                },
-                body: JSON.stringify(body),
-              });
-
-              if (!response.ok) throw new Error("Task tool request failed.");
-
-              return (await response.json()) as Record<string, unknown> & { readonly ok?: boolean };
-            },
-            catch: (cause) => new BackendError({ cause }),
+          fetchJson<Record<string, unknown> & { readonly ok?: boolean }>({
+            body,
+            method: "POST",
+            token,
+            url: `${baseUrl}/api/mcp/tools/${tool}`,
           }),
       };
     }),
@@ -843,7 +758,7 @@ const formatError = (error: CliError) => {
     case "MissingBackendConfigError":
       return failure({
         code: "missing_backend_config",
-        message: "Set CHURCH_TASK_CONVEX_URL to your Convex deployment URL.",
+        message: "Set CHURCH_TASK_API_URL or CHURCH_TASK_SITE_URL to your Church Task server URL.",
       });
     case "MissingLoginTokenError":
       return failure({
@@ -875,7 +790,7 @@ export const runCli = (
   const command = options.env.npm_lifecycle_event ?? args[0] ?? "unknown";
   const startedAt = performance.now();
 
-  const backendLayer = options.backendLayer ?? makeConvexBackendLayer(options.env);
+  const backendLayer = options.backendLayer ?? makeHttpBackendLayer(options.env);
   const credentialStorageLayer =
     options.credentialStorageLayer ?? makeFileCredentialStorageLayer(options.env);
   const currentEnvTokenLayer = Layer.succeed(

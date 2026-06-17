@@ -1,6 +1,7 @@
 import { createAuth } from "@church-task/auth";
-import { invitation } from "@church-task/db/schema";
+import { activities, invitation, tasks, teams, workflow_statuses } from "@church-task/db/schema";
 import { startPostgresHarness } from "@church-task/test-harness";
+import { and, eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 
 import { createTracerApi } from "./tracer-api";
@@ -190,6 +191,169 @@ describe("tracer API", () => {
           status: "pending",
         },
       ]);
+    } finally {
+      await authRuntime.pool.end();
+      await api.close();
+      await harness.stop();
+    }
+  }, 60_000);
+
+  test("serves agent and MCP operations through the new Drizzle-backed HTTP API", async () => {
+    const harness = await startPostgresHarness();
+    const api = createTracerApi(harness.connectionString);
+    const authRuntime = createAuth(harness.connectionString);
+
+    try {
+      const signUp = await authRuntime.auth.api.signUpEmail({
+        asResponse: true,
+        body: {
+          email: "agent-api@church-task.test",
+          name: "Agent API User",
+          password: "correct horse battery staple",
+        },
+      });
+      const cookie = getCookieHeader(signUp);
+
+      const org = await authRuntime.auth.api.createOrganization({
+        body: {
+          churchTimeZone: "America/New_York",
+          name: "Agent API Church",
+          slug: `agent-api-${crypto.randomUUID()}`,
+        },
+        headers: new Headers({ cookie }),
+      });
+      expect(org?.id).toMatch(/^org_/);
+
+      const currentUserResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/agent/current-user", { headers: { cookie } }),
+      );
+      await expect(currentUserResponse.json()).resolves.toMatchObject({
+        data: { user: { email: "agent-api@church-task.test", name: "Agent API User" } },
+        ok: true,
+        operation: "currentUser",
+      });
+
+      const activeChurchResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/agent/active-church", {
+          body: JSON.stringify({ churchId: org?.id }),
+          headers: { "content-type": "application/json", cookie },
+          method: "POST",
+        }),
+      );
+      await expect(activeChurchResponse.json()).resolves.toMatchObject({
+        data: {
+          activeChurch: { id: org?.id, name: "Agent API Church" },
+          membership: { role: "owner" },
+          status: "activeChurchReady",
+        },
+        ok: true,
+        operation: "activeChurch",
+      });
+
+      const batchReadResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/agent/core-work/batch-read", {
+          body: JSON.stringify({
+            operations: [
+              { id: "teams", input: { churchId: org?.id }, operation: "listTeams" },
+              {
+                id: "work-defaults",
+                input: { churchId: org?.id },
+                operation: "readWorkDefaults",
+              },
+            ],
+          }),
+          headers: { "content-type": "application/json", cookie },
+          method: "POST",
+        }),
+      );
+      const batchRead = (await batchReadResponse.json()) as {
+        results?: Array<{ id?: string; result?: { data?: { teams?: unknown[] } } }>;
+      };
+      expect(batchRead.results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "teams" }),
+          expect.objectContaining({ id: "work-defaults" }),
+        ]),
+      );
+
+      const [team] = await authRuntime.db
+        .select()
+        .from(teams)
+        .where(eq(teams.church_id, org!.id))
+        .limit(1);
+      const [todoStatus] = await authRuntime.db
+        .select()
+        .from(workflow_statuses)
+        .where(
+          and(eq(workflow_statuses.church_id, org!.id), eq(workflow_statuses.task_state, "todo")),
+        )
+        .limit(1);
+      const [doingStatus] = await authRuntime.db
+        .select()
+        .from(workflow_statuses)
+        .where(
+          and(
+            eq(workflow_statuses.church_id, org!.id),
+            eq(workflow_statuses.task_state, "in_progress"),
+          ),
+        )
+        .limit(1);
+      expect(team?.id).toMatch(/^team_/);
+      expect(todoStatus?.id).toMatch(/^workflowstatus_/);
+      expect(doingStatus?.id).toMatch(/^workflowstatus_/);
+
+      const createTaskResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/mcp/tools/create-task", {
+          body: JSON.stringify({
+            churchId: org?.id,
+            dueDate: "2026-06-03",
+            teamId: team!.id,
+            title: "Create from new MCP",
+            workflowStatusId: todoStatus!.id,
+          }),
+          headers: { "content-type": "application/json", cookie },
+          method: "POST",
+        }),
+      );
+      expect(createTaskResponse.ok).toBe(true);
+      const created = (await createTaskResponse.json()) as { task?: { id?: string } };
+      expect(created.task?.id).toMatch(/^task_/);
+
+      const updateTaskResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/mcp/tools/update-task", {
+          body: JSON.stringify({
+            churchId: org?.id,
+            taskId: created.task?.id,
+            workflowStatusId: doingStatus!.id,
+          }),
+          headers: { "content-type": "application/json", cookie },
+          method: "POST",
+        }),
+      );
+      await expect(updateTaskResponse.json()).resolves.toMatchObject({
+        ok: true,
+        task: { id: created.task?.id, taskState: "in_progress", workflowStatusId: doingStatus!.id },
+      });
+
+      const listTasksResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/mcp/tools/list-tasks", {
+          body: JSON.stringify({ churchId: org?.id }),
+          headers: { "content-type": "application/json", cookie },
+          method: "POST",
+        }),
+      );
+      await expect(listTasksResponse.json()).resolves.toMatchObject({
+        ok: true,
+        tasks: [expect.objectContaining({ id: created.task?.id, title: "Create from new MCP" })],
+      });
+
+      await expect(authRuntime.db.select().from(tasks)).resolves.toHaveLength(1);
+      await expect(authRuntime.db.select().from(activities)).resolves.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ entity_id: created.task?.id, event_type: "task.created" }),
+          expect.objectContaining({ entity_id: created.task?.id, event_type: "task.status_moved" }),
+        ]),
+      );
     } finally {
       await authRuntime.pool.end();
       await api.close();

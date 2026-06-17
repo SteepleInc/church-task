@@ -12,7 +12,7 @@ import { and, eq } from "drizzle-orm";
 import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth/minimal";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { admin, customSession, emailOTP, organization } from "better-auth/plugins";
+import { admin, bearer, customSession, emailOTP, organization } from "better-auth/plugins";
 
 import {
   account,
@@ -224,6 +224,7 @@ export const createAuthOptions = (
         sendInvitationEmail: async () => {},
       }),
       admin(),
+      bearer(),
       customSession(async ({ session: authSession, user: sessionUser }) => {
         const sessionWithChurch = authSession as typeof authSession & {
           readonly activeOrganizationId?: string | null;

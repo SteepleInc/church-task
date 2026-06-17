@@ -5,7 +5,7 @@ This guide verifies the local CLI and MCP setup path for [PRD #11: Agent CLI and
 ## Prerequisites
 
 - Install dependencies with `bun install`.
-- Configure Convex with `bun run dev:setup` if the repo is not connected to a Convex deployment yet.
+- Start the new server stack with `bun run dev:server` or the E2E harness for integration tests.
 - Use Bun commands from the repo root.
 
 ## Environment
@@ -13,11 +13,10 @@ This guide verifies the local CLI and MCP setup path for [PRD #11: Agent CLI and
 Set these variables before running agent-platform commands:
 
 ```bash
-export CHURCH_TASK_CONVEX_URL="https://<deployment>.convex.cloud"
-export CHURCH_TASK_SITE_URL="https://<deployment>.convex.site"
+export CHURCH_TASK_API_URL="http://127.0.0.1:3000"
 ```
 
-`CHURCH_TASK_SITE_URL` is optional for deployments that use the standard `.convex.cloud` to `.convex.site` pairing, but setting it explicitly makes MCP and auth smoke tests easier to read.
+`CHURCH_TASK_SITE_URL` can be used instead of `CHURCH_TASK_API_URL` when the TanStack Start app and server API share one origin.
 
 For CI, AFK agents, or local sandboxes, set `CHURCH_TASK_CREDENTIAL_FILE` to keep local CLI credentials out of your normal home directory:
 
@@ -41,14 +40,14 @@ Expected successful output:
 { "ok": true, "operation": "health", "status": "OK" }
 ```
 
-If `CHURCH_TASK_CONVEX_URL` is missing, the command should fail with a structured setup error instead of a stack trace:
+If `CHURCH_TASK_API_URL` and `CHURCH_TASK_SITE_URL` are missing, the command should fail with a structured setup error instead of a stack trace:
 
 ```json
 {
   "ok": false,
   "error": {
     "code": "missing_backend_config",
-    "message": "Set CHURCH_TASK_CONVEX_URL to your Convex deployment URL."
+    "message": "Set CHURCH_TASK_API_URL or CHURCH_TASK_SITE_URL to your Church Task server URL."
   }
 }
 ```
@@ -80,7 +79,7 @@ bun packages/cli/src/bin.ts auth status
 bun packages/cli/src/bin.ts current-user
 ```
 
-Until Church Membership and Active Church smoke tests are complete, these commands verify User authentication only. Church access is still derived from Church Membership and Active Church session state, not from the CLI credential itself.
+Church access is derived from Church Membership and Active Church session state, not from the CLI credential itself.
 
 ## Credential Safety And Revocation
 
@@ -111,39 +110,30 @@ If a local token is lost, run `auth logout` from that machine when possible. If 
 
 ## MCP Discovery Smoke Test
 
-MCP clients should discover OAuth/OIDC metadata from the Convex site URL:
+MCP clients call the same server origin as the CLI:
 
 ```bash
-curl "$CHURCH_TASK_SITE_URL/.well-known/oauth-authorization-server"
+curl -X POST \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"churchId":"<org id>"}' \
+  "$CHURCH_TASK_API_URL/api/mcp/tools/list-tasks"
 ```
 
-Expected metadata includes these fields:
+Expected output is a structured tool response:
 
 ```json
-{
-  "issuer": "https://<deployment>.convex.site",
-  "authorization_endpoint": "https://<deployment>.convex.site/api/auth/mcp/authorize",
-  "token_endpoint": "https://<deployment>.convex.site/api/auth/mcp/token",
-  "userinfo_endpoint": "https://<deployment>.convex.site/api/auth/mcp/userinfo",
-  "jwks_uri": "https://<deployment>.convex.site/api/auth/mcp/jwks",
-  "registration_endpoint": "https://<deployment>.convex.site/api/auth/mcp/register"
-}
+{ "ok": true, "tool": "list-tasks", "tasks": [] }
 ```
 
-MCP protected-resource metadata should advertise bearer-token header support:
+Agent setup reads use the new Drizzle-backed batch read endpoint:
 
 ```bash
-curl "$CHURCH_TASK_SITE_URL/.well-known/oauth-protected-resource"
-```
-
-Expected metadata includes:
-
-```json
-{
-  "resource": "https://<deployment>.convex.site",
-  "authorization_servers": ["https://<deployment>.convex.site"],
-  "bearer_methods_supported": ["header"]
-}
+curl -X POST \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"operations":[{"id":"teams","operation":"listTeams","input":{"churchId":"<org id>"}}]}' \
+  "$CHURCH_TASK_API_URL/api/agent/core-work/batch-read"
 ```
 
 Invalid bearer tokens must be rejected without leaking the token value:
@@ -151,7 +141,7 @@ Invalid bearer tokens must be rejected without leaking the token value:
 ```bash
 curl -i \
   -H "Authorization: Bearer invalid-mcp-token" \
-  "$CHURCH_TASK_SITE_URL/api/mcp/current-session"
+  "$CHURCH_TASK_API_URL/api/agent/current-user"
 ```
 
 Expected response status is `401` with a structured error:
@@ -170,4 +160,4 @@ bun run test:backend
 bun run check-types
 ```
 
-`bun run test:cli` verifies CLI health output, missing configuration errors, auth status, login, logout, credential storage, and secret-safe structured errors with fake Effect layers. `bun run test:backend` verifies MCP metadata discovery, invalid bearer rejection, and authenticated MCP current User behavior through public HTTP routes.
+`bun run test:cli` verifies CLI health output, missing configuration errors, auth status, login, logout, credential storage, and secret-safe structured errors with fake Effect layers. `bun --filter @church-task/server test` verifies authenticated agent reads and representative MCP task operations through public HTTP routes backed by Drizzle.

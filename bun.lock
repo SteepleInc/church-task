@@ -123,6 +123,8 @@
       "dependencies": {
         "@church-task/auth": "workspace:*",
         "@church-task/db": "workspace:*",
+        "@church-task/domain": "workspace:*",
+        "@church-task/shared": "workspace:*",
         "@church-task/zero": "workspace:*",
         "@effect/platform": "catalog:",
         "@rocicorp/zero": "catalog:",
@@ -192,8 +194,7 @@
         "church-task": "./src/bin.ts",
       },
       "dependencies": {
-        "@church-task/backend-old": "workspace:*",
-        "convex": "catalog:",
+        "@church-task/domain": "workspace:*",
         "effect": "catalog:",
       },
       "devDependencies": {
@@ -308,6 +309,7 @@
       },
       "devDependencies": {
         "@church-task/config": "workspace:*",
+        "@church-task/test-harness": "workspace:*",
         "@types/node": "catalog:",
         "typescript": "catalog:",
         "vitest": "catalog:",

@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 
 import type { OptionalZeroSessionContext } from "@church-task/zero";
+import { handleAgentRequest } from "./agent-operations";
 
 const getSessionContext = async (
   auth: ReturnType<typeof createAuth>["auth"],
@@ -198,6 +199,8 @@ export const createTracerApi = (databaseUrl: string) => {
 
   const fetch = async (request: Request) => {
     const url = new URL(request.url);
+    const agentResponse = await handleAgentRequest({ auth: authRuntime.auth, db }, request);
+    if (agentResponse) return agentResponse;
 
     const effect = url.pathname.startsWith("/api/auth/")
       ? Effect.promise(() => authRuntime.auth.handler(request))

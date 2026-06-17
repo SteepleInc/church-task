@@ -16,6 +16,8 @@
   "dependencies": {
     "@church-task/auth": "workspace:*",
     "@church-task/db": "workspace:*",
+    "@church-task/domain": "workspace:*",
+    "@church-task/shared": "workspace:*",
     "@church-task/zero": "workspace:*",
     "@effect/platform": "catalog:",
     "@rocicorp/zero": "catalog:",

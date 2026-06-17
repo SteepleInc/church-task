@@ -108,3 +108,4 @@ export const parseTaskIdentifier = (value: string): ParsedTaskIdentifier | null 
 };
 
 export * from "./template-projection";
+export * from "./agent-contracts";
