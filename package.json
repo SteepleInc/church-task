@@ -43,6 +43,7 @@
   "type": "module",
   "scripts": {
     "dev": "turbo run infra dev --continue",
+    "reference:populate": "bash scripts/populate-reference.sh",
     "build": "turbo build",
     "check-types": "turbo check-types",
     "dev:web": "turbo -F @church-task/web dev",
