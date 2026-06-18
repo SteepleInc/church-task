@@ -281,11 +281,11 @@ function WeekRow({
       </div>
       {expanded ? (
         <div
-          className="overflow-hidden border-t bg-background/40 p-3 duration-200 animate-in fade-in-0 slide-in-from-top-1"
+          className="overflow-hidden border-t bg-muted/10 px-4 py-4 duration-200 animate-in fade-in-0 slide-in-from-top-1"
           id={panelId}
         >
           <WeekProgressPanel
-            className="w-full"
+            className="w-full rounded-none border-0 bg-transparent p-0 shadow-none"
             meta={progressMeta}
             onClose={() => onProgressCycleIdChange?.(CLOSED_PROGRESS_CYCLE_ID)}
             tasks={tasks}
