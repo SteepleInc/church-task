@@ -1,7 +1,13 @@
-import { addLocalDateDays } from "@church-task/domain";
+import {
+  addLocalDateDays,
+  assertValidTimeZone,
+  cycleStartDateForLocalDate,
+  localDateForInstant,
+  localMidnightToUtcInstant,
+} from "@church-task/domain";
 import { getActivityId, getCycleId } from "@church-task/shared/get-ids";
 import { buildTemplateCycleTaskInserts } from "@church-task/zero";
-import { and, eq, inArray, isNull, lte } from "drizzle-orm";
+import { and, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import {
@@ -37,108 +43,6 @@ type CycleMaintenanceResult = {
 type ScheduledCycleMaintenanceResult = {
   readonly maintainedChurchIds: readonly string[];
   readonly resultsByChurchId: Readonly<Record<string, CycleMaintenanceResult>>;
-};
-
-const localDateFormatterByTimeZone = new Map<string, Intl.DateTimeFormat>();
-const localDateTimeFormatterByTimeZone = new Map<string, Intl.DateTimeFormat>();
-
-const assertValidTimeZone = (churchTimeZone: string) => {
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: churchTimeZone });
-  } catch {
-    throw new Error("Church Time Zone must be a valid IANA time zone.");
-  }
-};
-
-const parseLocalDate = (localDate: string) => {
-  const [year, month, day] = localDate.split("-").map(Number) as [number, number, number];
-  const asUtcDate = new Date(Date.UTC(year, month - 1, day));
-  if (asUtcDate.toISOString().slice(0, 10) !== localDate) {
-    throw new Error("Local date must be a real calendar date.");
-  }
-  return { day, month, year };
-};
-
-const localDateDayOfWeek = (localDate: string) => {
-  const { day, month, year } = parseLocalDate(localDate);
-  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-};
-
-const getLocalDateFormatter = (churchTimeZone: string) => {
-  const existing = localDateFormatterByTimeZone.get(churchTimeZone);
-  if (existing) return existing;
-
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: churchTimeZone,
-    year: "numeric",
-  });
-  localDateFormatterByTimeZone.set(churchTimeZone, formatter);
-  return formatter;
-};
-
-const getLocalDateTimeFormatter = (churchTimeZone: string) => {
-  const existing = localDateTimeFormatterByTimeZone.get(churchTimeZone);
-  if (existing) return existing;
-
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    day: "2-digit",
-    hour: "2-digit",
-    hourCycle: "h23",
-    minute: "2-digit",
-    month: "2-digit",
-    second: "2-digit",
-    timeZone: churchTimeZone,
-    year: "numeric",
-  });
-  localDateTimeFormatterByTimeZone.set(churchTimeZone, formatter);
-  return formatter;
-};
-
-const partsToRecord = (parts: Intl.DateTimeFormatPart[]) => {
-  const record: Record<string, string> = {};
-  for (const part of parts) {
-    if (part.type !== "literal") record[part.type] = part.value;
-  }
-  return record;
-};
-
-const localDateForInstant = (instant: Date, churchTimeZone: string) => {
-  assertValidTimeZone(churchTimeZone);
-  const parts = partsToRecord(getLocalDateFormatter(churchTimeZone).formatToParts(instant));
-  return `${parts.year}-${parts.month}-${parts.day}`;
-};
-
-const localMidnightToUtcInstant = (localDate: string, churchTimeZone: string) => {
-  const { day, month, year } = parseLocalDate(localDate);
-  const desiredLocalAsUtc = Date.UTC(year, month - 1, day, 0, 0, 0);
-  let candidateUtc = desiredLocalAsUtc;
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const parts = partsToRecord(
-      getLocalDateTimeFormatter(churchTimeZone).formatToParts(new Date(candidateUtc)),
-    );
-    const candidateLocalAsUtc = Date.UTC(
-      Number(parts.year),
-      Number(parts.month) - 1,
-      Number(parts.day),
-      Number(parts.hour),
-      Number(parts.minute),
-      Number(parts.second),
-    );
-    const delta = candidateLocalAsUtc - desiredLocalAsUtc;
-    if (delta === 0) return new Date(candidateUtc);
-    candidateUtc -= delta;
-  }
-
-  return new Date(candidateUtc);
-};
-
-export const cycleStartDateForLocalDate = (localDate: string) => {
-  const dayOfWeek = localDateDayOfWeek(localDate);
-  const daysSinceMonday = (dayOfWeek + 6) % 7;
-  return addLocalDateDays(localDate, -daysSinceMonday);
 };
 
 export const buildCycleForLocalDate = (args: {
@@ -239,9 +143,27 @@ const ensureCycle = async (
       id: getCycleId(),
       updated_by: null,
     })
+    .onConflictDoNothing({
+      target: [cycles.church_id, cycles.start_date],
+      where: sql`${cycles.deleted_at} IS NULL`,
+    })
     .returning();
 
-  if (!created) throw new Error("Cycle creation did not return a row.");
+  if (!created) {
+    const [conflicted] = await db
+      .select()
+      .from(cycles)
+      .where(
+        and(
+          eq(cycles.church_id, args.church_id),
+          eq(cycles.start_date, cycleFields.start_date),
+          isNull(cycles.deleted_at),
+        ),
+      )
+      .limit(1);
+    if (conflicted) return { created: false as const, cycle: conflicted };
+    throw new Error("Cycle creation did not return a row.");
+  }
   return { created: true as const, cycle: created };
 };
 
@@ -457,7 +379,6 @@ export const maintainCyclesForChurch = Effect.fn("maintainCyclesForChurch")(func
         const cycleLocalDates = [
           currentCycleFields.start_date,
           addLocalDateDays(currentCycleFields.start_date, 7),
-          addLocalDateDays(currentCycleFields.start_date, 14),
         ];
         const ensuredCycleIds: string[] = [];
         const createdCycleIds: string[] = [];

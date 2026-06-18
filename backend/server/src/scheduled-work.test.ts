@@ -1,4 +1,5 @@
 import { startPostgresHarness } from "@church-task/test-harness";
+import { cycleStartDateForLocalDate } from "@church-task/domain";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { describe, expect, test } from "vitest";
@@ -16,7 +17,11 @@ import {
   workflows,
 } from "@church-task/db/schema";
 
-import { buildCycleForLocalDate, runScheduledCycleMaintenance } from "./scheduled-work";
+import {
+  buildCycleForInstant,
+  buildCycleForLocalDate,
+  runScheduledCycleMaintenance,
+} from "./scheduled-work";
 
 const now = new Date("2026-06-16T12:00:00.000Z");
 const churchId = "org_scheduled_work";
@@ -30,6 +35,18 @@ const baseEntity = (tag: string) => ({
 });
 
 describe("scheduled work", () => {
+  test("derives Week boundaries from the Church Time Zone around UTC date edges", () => {
+    const cycle = buildCycleForInstant({
+      churchTimeZone: "America/Los_Angeles",
+      instant: new Date("2026-06-22T06:30:00.000Z"),
+    });
+
+    expect(cycle.start_date).toBe("2026-06-15");
+    expect(cycle.end_date).toBe("2026-06-21");
+    expect(cycle.starts_at.toISOString()).toBe("2026-06-15T07:00:00.000Z");
+    expect(cycle.ends_at.toISOString()).toBe("2026-06-22T07:00:00.000Z");
+  });
+
   test("maintains cycles, rolls unfinished tasks, and projects Template work", async () => {
     const harness = await startPostgresHarness();
     const { db } = harness;
@@ -136,7 +153,7 @@ describe("scheduled work", () => {
 
       expect(result.maintainedChurchIds).toEqual([churchId]);
       expect(result.resultsByChurchId[churchId]?.rolledOverTaskIds).toEqual(["task_rollover"]);
-      expect(result.resultsByChurchId[churchId]?.materializedTaskIds).toHaveLength(3);
+      expect(result.resultsByChurchId[churchId]?.materializedTaskIds).toHaveLength(2);
 
       const [rolledTask] = await db.select().from(tasks).where(eq(tasks.id, "task_rollover"));
       expect(rolledTask).toMatchObject({
@@ -148,11 +165,10 @@ describe("scheduled work", () => {
         .select()
         .from(tasks)
         .where(eq(tasks.source_template_id, "template_weekly_ops"));
-      expect(projectedTasks).toHaveLength(3);
+      expect(projectedTasks).toHaveLength(2);
       expect(projectedTasks.map((task) => task.due_date).sort()).toEqual([
         "2026-06-16",
         "2026-06-23",
-        "2026-06-30",
       ]);
       expect(projectedTasks.every((task) => task.created_by === null)).toBe(true);
 
@@ -163,6 +179,65 @@ describe("scheduled work", () => {
 
       const secondResult = await Effect.runPromise(runScheduledCycleMaintenance(db, { now }));
       expect(secondResult.resultsByChurchId[churchId]?.materializedTaskIds).toEqual([]);
+    } finally {
+      await harness.stop();
+    }
+  }, 60_000);
+
+  test("derives future Week boundaries without materializing arbitrary future Cycles", async () => {
+    const harness = await startPostgresHarness();
+    const { db } = harness;
+
+    try {
+      await db.insert(organization).values({
+        _tag: "org",
+        churchTimeZone: "America/New_York",
+        completedOnboarding: true,
+        id: `${churchId}_sparse`,
+        name: "Sparse Work Church",
+        slug: "sparse-work-church",
+      });
+      const authoredFutureCycle = buildCycleForLocalDate({
+        churchTimeZone: "America/New_York",
+        localDate: "2026-07-07",
+      });
+      await db.insert(cycles).values({
+        ...baseEntity("cycle"),
+        ...authoredFutureCycle,
+        church_id: `${churchId}_sparse`,
+        id: "cycle_authored_future",
+      });
+
+      const result = await Effect.runPromise(runScheduledCycleMaintenance(db, { now }));
+      const cycleRows = await db
+        .select()
+        .from(cycles)
+        .where(eq(cycles.church_id, `${churchId}_sparse`));
+
+      expect(cycleStartDateForLocalDate("2026-07-07")).toBe("2026-07-06");
+      expect(cycleRows.map((cycle) => cycle.start_date).sort()).toEqual([
+        "2026-06-15",
+        "2026-06-22",
+        "2026-07-06",
+      ]);
+      expect(result.resultsByChurchId[`${churchId}_sparse`]?.ensuredCycleIds).toHaveLength(2);
+      expect(result.resultsByChurchId[`${churchId}_sparse`]?.ensuredCycleIds).not.toContain(
+        "cycle_authored_future",
+      );
+
+      const secondResult = await Effect.runPromise(runScheduledCycleMaintenance(db, { now }));
+      const secondCycleRows = await db
+        .select()
+        .from(cycles)
+        .where(eq(cycles.church_id, `${churchId}_sparse`));
+
+      expect(secondResult.resultsByChurchId[`${churchId}_sparse`]?.createdCycleIds).toEqual([]);
+      expect(secondCycleRows.map((cycle) => cycle.start_date).sort()).toEqual([
+        "2026-06-15",
+        "2026-06-22",
+        "2026-07-06",
+      ]);
+      expect(secondCycleRows.some((cycle) => cycle.id === "cycle_authored_future")).toBe(true);
     } finally {
       await harness.stop();
     }

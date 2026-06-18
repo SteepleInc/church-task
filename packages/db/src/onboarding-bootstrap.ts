@@ -1,13 +1,18 @@
 import {
   DEFAULT_WORKFLOW_STATUSES,
+  addLocalDateDays,
+  cycleStartDateForLocalDate,
   generateTeamIdentifier,
   getLabelColorForName,
   getTeamColorForName,
+  localDateForInstant,
+  localMidnightToUtcInstant,
   STARTER_LABELS,
   STARTER_TEAM_NAMES,
 } from "@church-task/domain";
 import {
   getLabelId,
+  getCycleId,
   getTeamId,
   getTeamMembershipId,
   getWorkflowId,
@@ -16,7 +21,41 @@ import {
 import { and, eq, isNull, sql } from "drizzle-orm";
 
 import type { ChurchTaskDb } from "./client";
-import { labels, team_memberships, teams, workflow_statuses, workflows } from "./schema";
+import {
+  cycles,
+  labels,
+  organization,
+  team_memberships,
+  teams,
+  workflow_statuses,
+  workflows,
+} from "./schema";
+
+const currentAndNextCycleStartDates = (churchTimeZone: string, now = new Date()) => {
+  const currentCycleStartDate = cycleStartDateForLocalDate(
+    localDateForInstant(now, churchTimeZone),
+  );
+
+  return [currentCycleStartDate, addLocalDateDays(currentCycleStartDate, 7)] as const;
+};
+
+const buildOnboardingCycleInsert = (args: {
+  readonly church_id: string;
+  readonly churchTimeZone: string;
+  readonly createdByUserId: string;
+  readonly startDate: string;
+}) => ({
+  _tag: "cycle" as const,
+  church_id: args.church_id,
+  church_time_zone: args.churchTimeZone,
+  created_by: args.createdByUserId,
+  end_date: addLocalDateDays(args.startDate, 6),
+  ends_at: localMidnightToUtcInstant(addLocalDateDays(args.startDate, 7), args.churchTimeZone),
+  id: getCycleId(),
+  start_date: args.startDate,
+  starts_at: localMidnightToUtcInstant(args.startDate, args.churchTimeZone),
+  updated_by: args.createdByUserId,
+});
 
 export type BootstrapChurchOnboardingArgs = {
   readonly church_id: string;
@@ -29,6 +68,30 @@ export const bootstrapChurchOnboarding = async (
 ) => {
   await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${args.church_id}))`);
+
+    const [church] = await tx
+      .select({ churchTimeZone: organization.churchTimeZone })
+      .from(organization)
+      .where(eq(organization.id, args.church_id))
+      .limit(1);
+    const churchTimeZone = church?.churchTimeZone ?? "America/New_York";
+
+    for (const startDate of currentAndNextCycleStartDates(churchTimeZone)) {
+      await tx
+        .insert(cycles)
+        .values(
+          buildOnboardingCycleInsert({
+            church_id: args.church_id,
+            churchTimeZone,
+            createdByUserId: args.user_id,
+            startDate,
+          }),
+        )
+        .onConflictDoNothing({
+          target: [cycles.church_id, cycles.start_date],
+          where: sql`${cycles.deleted_at} IS NULL`,
+        });
+    }
 
     const existingTeams = await tx
       .select({ identifier: teams.identifier })

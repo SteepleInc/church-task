@@ -1,4 +1,11 @@
-import { DEFAULT_WORKFLOW_STATUSES, STARTER_LABELS, STARTER_TEAM_NAMES } from "@church-task/domain";
+import {
+  DEFAULT_WORKFLOW_STATUSES,
+  STARTER_LABELS,
+  STARTER_TEAM_NAMES,
+  addLocalDateDays,
+  cycleStartDateForLocalDate,
+  localDateForInstant,
+} from "@church-task/domain";
 import { getIdType, getOrgId, getUserId } from "@church-task/shared/get-ids";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
@@ -7,7 +14,19 @@ import { describe, expect, test } from "vitest";
 
 import { createDb } from "./client";
 import { bootstrapChurchOnboarding } from "./onboarding-bootstrap";
-import { labels, team_memberships, teams, workflow_statuses, workflows } from "./schema";
+import {
+  cycles,
+  labels,
+  organization,
+  team_memberships,
+  teams,
+  workflow_statuses,
+  workflows,
+} from "./schema";
+
+const currentCycleStartDate = (timeZone: string) => {
+  return cycleStartDateForLocalDate(localDateForInstant(new Date(), timeZone));
+};
 
 describe("onboarding product bootstrap", () => {
   test("creates starter Teams, memberships, Workflows, statuses, and Labels", async () => {
@@ -19,6 +38,15 @@ describe("onboarding product bootstrap", () => {
 
       const churchId = getOrgId();
       const userId = getUserId();
+
+      await db.insert(organization).values({
+        _tag: "org",
+        churchTimeZone: "America/New_York",
+        completedOnboarding: false,
+        id: churchId,
+        name: "Onboarding Church",
+        slug: churchId,
+      });
 
       await bootstrapChurchOnboarding(db, { church_id: churchId, user_id: userId });
 
@@ -36,6 +64,7 @@ describe("onboarding product bootstrap", () => {
         .from(workflow_statuses)
         .where(eq(workflow_statuses.church_id, churchId));
       const labelRows = await db.select().from(labels).where(eq(labels.church_id, churchId));
+      const cycleRows = await db.select().from(cycles).where(eq(cycles.church_id, churchId));
 
       expect(teamRows.map((team) => team.name)).toEqual([...STARTER_TEAM_NAMES]);
       expect(teamRows.map((team) => team.identifier)).toEqual([
@@ -58,6 +87,15 @@ describe("onboarding product bootstrap", () => {
       );
       expect(labelRows.map((label) => label.name).sort()).toEqual([...STARTER_LABELS].sort());
       expect(labelRows.every((label) => label.team_id === null)).toBe(true);
+      expect(cycleRows.map((cycle) => cycle.start_date).sort()).toHaveLength(2);
+
+      await bootstrapChurchOnboarding(db, { church_id: churchId, user_id: userId });
+      const secondCycleRows = await db.select().from(cycles).where(eq(cycles.church_id, churchId));
+      expect(secondCycleRows).toHaveLength(2);
+      expect(secondCycleRows.map((cycle) => cycle.start_date).sort()).toEqual([
+        currentCycleStartDate("America/New_York"),
+        addLocalDateDays(currentCycleStartDate("America/New_York"), 7),
+      ]);
     } finally {
       await pool.end();
       await container.stop();
