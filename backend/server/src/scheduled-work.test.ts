@@ -268,18 +268,23 @@ describe("scheduled work", () => {
         .select()
         .from(tasks)
         .where(eq(tasks.id, "task_progress_rollover"));
-      expect(rolledProgressTask?.cycle_id).toBe(rolledTask?.cycle_id);
+      expect(rolledProgressTask).toMatchObject({
+        cycle_id: rolledTask?.cycle_id,
+        due_date: null,
+        number: 2,
+        previous_identifiers: "[]",
+        source_template_sync_enabled: false,
+      });
 
-      for (const retainedTaskId of [
-        "task_done_retained",
-        "task_canceled_retained",
-        "task_uncycled_ignored",
-      ]) {
+      for (const retainedTaskId of ["task_done_retained", "task_canceled_retained"]) {
         const [retainedTask] = await db.select().from(tasks).where(eq(tasks.id, retainedTaskId));
-        expect(retainedTask?.cycle_id).toBe(
-          retainedTaskId === "task_uncycled_ignored" ? null : "cycle_closed",
-        );
+        expect(retainedTask?.cycle_id).toBe("cycle_closed");
       }
+      const [uncycledTask] = await db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.id, "task_uncycled_ignored"));
+      expect(uncycledTask?.cycle_id).toBeNull();
 
       const projectedTasks = await db
         .select()
