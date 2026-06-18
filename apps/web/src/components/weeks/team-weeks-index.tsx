@@ -325,7 +325,7 @@ function WeekExpandedPanel({ row }: { readonly row: TeamWeeksTimelineRow }) {
           </p>
           <p className="text-xs text-muted-foreground">
             {isFuture
-              ? "Add Tasks to this Week to start planning — its Cycle is created the moment work lands."
+              ? "Add Tasks to this Week and it starts tracking progress automatically."
               : "Progress appears once this Team has Tasks in the Week."}
           </p>
         </div>

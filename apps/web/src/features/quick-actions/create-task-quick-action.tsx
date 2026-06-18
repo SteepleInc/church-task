@@ -149,8 +149,8 @@ function TargetWeekPill({
   const dateRange = formatWeekDateRange(targetCycle);
   return (
     <span
-      className="inline-flex h-6 items-center gap-1.5 rounded-md bg-primary/10 px-2 font-medium text-primary text-xs"
-      title={`This Task will be added to the Week of ${dateRange}.`}
+      aria-label={`This Task will be added to the Week of ${dateRange}.`}
+      className="inline-flex h-7 items-center gap-1.5 rounded-md bg-muted px-2 text-xs font-medium text-muted-foreground"
     >
       <CalendarDays aria-hidden className="size-3.5" />
       <span className="hidden sm:inline">Week of </span>
