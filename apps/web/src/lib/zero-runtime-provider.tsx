@@ -45,6 +45,8 @@ export function ZeroRuntimeProvider(props: { readonly children: React.ReactNode 
     <ZeroProvider
       cacheURL={getZeroCacheUrl()}
       context={context}
+      // ZeroProvider creates the client from initial props; remount when auth context changes.
+      key={`${userId ?? "anonymous"}:${sessionId ?? "anonymous"}:${activeChurchId ?? "none"}`}
       mutators={mutators}
       schema={schema}
       userID={userId}
