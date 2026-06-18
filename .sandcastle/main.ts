@@ -63,8 +63,14 @@ const sandboxProvider = () =>
         readonly: true,
       },
       {
-        hostPath: "~/.local/share/opencode",
-        sandboxPath: "/home/agent/.local/share/opencode",
+        hostPath: "~/.local/share/opencode/auth.json",
+        sandboxPath: "/home/agent/.local/share/opencode/auth.json",
+        readonly: true,
+      },
+      {
+        hostPath: "~/.local/share/opencode/account.json",
+        sandboxPath: "/home/agent/.local/share/opencode/account.json",
+        readonly: true,
       },
     ],
   });
