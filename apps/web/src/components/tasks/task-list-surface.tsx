@@ -460,6 +460,7 @@ function TaskListRow({
   const row = (
     <div
       ref={rowRef}
+      aria-label={`Task card ${task.title}`}
       data-task-list-row=""
       data-selected={isSelected || undefined}
       className={cn(

@@ -757,7 +757,6 @@ function TaskKanbanCard({
     [],
   );
 
-  const keyboard = useTaskSurfaceKeyboard();
   const wrapWithContextMenu = useTaskContextMenu();
   const { isFocused, isSelected: selectedFromKeyboard } = useRegisterTaskShortcuts(task.id, {
     open: onOpenTask ? () => onOpenTask(task.identifier) : undefined,
