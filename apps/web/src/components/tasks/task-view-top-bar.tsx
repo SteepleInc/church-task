@@ -34,6 +34,7 @@ import {
   type TaskDisplayProperty,
   type TaskViewGrouping,
   type TaskViewOrdering,
+  type TaskWeekScope,
   type TaskViewTab,
 } from "@/components/tasks/task-view-options";
 
@@ -41,6 +42,8 @@ type TaskViewTopBarProps = {
   readonly surface: ExecutionSurface;
   readonly tab: TaskViewTab;
   readonly onTabChange: (tab: TaskViewTab) => void;
+  readonly scope?: TaskWeekScope;
+  readonly onScopeChange?: (scope: TaskWeekScope) => void;
   readonly view: ResolvedTaskViewOptions;
   readonly onViewChange: (view: ResolvedTaskViewOptions) => void;
   readonly onCreateTask?: () => void;
@@ -84,6 +87,8 @@ export function TaskViewTopBar({
   surface,
   tab,
   onTabChange,
+  scope = "current_week",
+  onScopeChange,
   view,
   onViewChange,
   onCreateTask,
@@ -124,6 +129,33 @@ export function TaskViewTopBar({
               </Button>
             );
           })}
+          {surface !== "team_board" && onScopeChange ? (
+            <div
+              aria-label="Week scope"
+              className="ml-1 flex items-center gap-1 rounded-full border p-0.5"
+            >
+              <Button
+                aria-pressed={scope === "current_week"}
+                className="h-7 rounded-full px-3"
+                onClick={() => onScopeChange("current_week")}
+                size="sm"
+                type="button"
+                variant={scope === "current_week" ? "secondary" : "ghost"}
+              >
+                Current Week
+              </Button>
+              <Button
+                aria-pressed={scope === "all"}
+                className="h-7 rounded-full px-3"
+                onClick={() => onScopeChange("all")}
+                size="sm"
+                type="button"
+                variant={scope === "all" ? "secondary" : "ghost"}
+              >
+                All
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-1">

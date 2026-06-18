@@ -162,6 +162,7 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
         : activePanel;
   const showTopBar = showCreateTask && (typeof activePanel !== "object" || selectedTeam !== null);
   const activeTab = resolveTaskViewTab(surface, search.tab);
+  const activeScope = surface === "team_board" ? undefined : (search.scope ?? "current_week");
   const activeView = resolveTaskViewOptions(search.view);
   const activeInsights = resolveInsightsState(search.insights);
   const [taskFilters, setTaskFilters] = useFilters(FilterKeys.Tasks);
@@ -201,6 +202,17 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
     });
   };
 
+  const setScope = (scope: "current_week" | "all") => {
+    void navigate({
+      to: ".",
+      replace: true,
+      search: (prev: Record<string, unknown>) => ({
+        ...prev,
+        scope: scope === "current_week" ? undefined : scope,
+      }),
+    });
+  };
+
   const setView = (view: ResolvedTaskViewOptions) => {
     void navigate({
       to: ".",
@@ -235,6 +247,8 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
           surface={surface}
           tab={activeTab}
           onTabChange={setTab}
+          scope={activeScope}
+          onScopeChange={surface === "team_board" ? undefined : setScope}
           view={activeView}
           onViewChange={setView}
           openDisplayOptionsRef={openDisplayOptionsRef}
@@ -284,6 +298,7 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
           teams={activeTeams.map((candidate) => ({ id: candidate.id, name: candidate.name }))}
           tab={activeTab}
           view={search.view}
+          scope={activeScope}
           insights={activeInsights}
           onInsightsChange={setInsights}
           onToggleLayout={toggleLayout}
