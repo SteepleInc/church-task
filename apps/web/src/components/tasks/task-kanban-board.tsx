@@ -369,31 +369,31 @@ export function TaskKanbanBoard({
       >
         <KanbanBoard className="grid h-full min-h-0 w-max auto-cols-[minmax(17rem,20rem)] grid-flow-col gap-2 pb-2 sm:grid-cols-none">
           {columns.map((column) => (
-          <TaskKanbanColumn
-            key={column.id}
-            column={column}
-            value={column.id}
-            tasks={columnTasks[column.id] ?? []}
-            workflowStatuses={workflowStatuses}
-            assigneeOptions={assigneeOptions}
-            currentUserId={currentUserId}
-            teamMemberIdsByTeamId={teamMemberIdsByTeamId}
-            displayProperties={displayPropertySet}
-            teamsById={teamsById}
-            labelOptions={labelOptions}
-            dragDisabled={!isDraggable}
-            selectedTaskIds={selectedTaskIds}
-            onAssignTask={onAssignTask}
-            onChangeTaskStatus={onChangeTaskStatus}
-            onChangeTaskLabels={onChangeTaskLabels}
-            onChangeTaskEstimate={onChangeTaskEstimate}
-            onOpenTask={onOpenTask}
-            onAddTask={grouping === "workflow_status" ? onAddTask : undefined}
-            onHideColumn={grouping === "workflow_status" ? onToggleColumnHidden : undefined}
-            onSelectAllInColumn={selectAllInColumn}
-            onToggleTaskSelected={toggleTaskSelected}
-          />
-        ))}
+            <TaskKanbanColumn
+              key={column.id}
+              column={column}
+              value={column.id}
+              tasks={columnTasks[column.id] ?? []}
+              workflowStatuses={workflowStatuses}
+              assigneeOptions={assigneeOptions}
+              currentUserId={currentUserId}
+              teamMemberIdsByTeamId={teamMemberIdsByTeamId}
+              displayProperties={displayPropertySet}
+              teamsById={teamsById}
+              labelOptions={labelOptions}
+              dragDisabled={!isDraggable}
+              selectedTaskIds={selectedTaskIds}
+              onAssignTask={onAssignTask}
+              onChangeTaskStatus={onChangeTaskStatus}
+              onChangeTaskLabels={onChangeTaskLabels}
+              onChangeTaskEstimate={onChangeTaskEstimate}
+              onOpenTask={onOpenTask}
+              onAddTask={grouping === "workflow_status" ? onAddTask : undefined}
+              onHideColumn={grouping === "workflow_status" ? onToggleColumnHidden : undefined}
+              onSelectAllInColumn={selectAllInColumn}
+              onToggleTaskSelected={toggleTaskSelected}
+            />
+          ))}
           {hiddenColumns.length > 0 ? (
             <HiddenColumnsChip hiddenColumns={hiddenColumns} onShowColumn={onToggleColumnHidden} />
           ) : null}

@@ -6,7 +6,7 @@ import { startPostgresHarness, startZeroCacheHarness } from "@church-task/test-h
 
 const rootDir = resolve(import.meta.dirname, "..");
 const webDir = resolve(rootDir, "apps/web");
-const webPort = Number(process.env.E2E_WEB_PORT ?? 2101);
+const webPort = Number(process.env.E2E_WEB_PORT ?? 32101);
 const webUrl = `http://127.0.0.1:${webPort}`;
 const seedProfiles = new Set<SeedProfile>(["empty", "app", "admin"]);
 
@@ -63,6 +63,7 @@ const runChild = (
 };
 
 const seedProfile = getSeedProfile();
+const zeroAppId = `onboarding_e2e_${Date.now()}`;
 console.info(`Starting onboarding E2E Postgres harness with ${seedProfile} seed profile`);
 const postgres = await startPostgresHarness({ seedProfile });
 process.env.E2E_SITE_URL = webUrl;
@@ -71,7 +72,7 @@ process.env.SITE_URL = webUrl;
 console.info("Starting onboarding E2E Zero cache");
 const zero = await startZeroCacheHarness({
   apiBaseUrl: webUrl,
-  appId: "onboarding_e2e",
+  appId: zeroAppId,
   databaseUrl: postgres.connectionString,
 });
 
@@ -84,6 +85,7 @@ const webEnv = {
   SITE_URL: webUrl,
   VITE_PORT: String(webPort),
   VITE_ZERO_CACHE_URL: zero.url,
+  ZERO_APP_ID: zeroAppId,
 };
 
 console.info(`Starting onboarding E2E web app at ${webUrl}`);
@@ -102,13 +104,13 @@ const shutdown = async () => {
   }
 
   await Promise.all(
-    [...children].map(
-      (child) => new Promise<void>((resolveChild) => child.once("exit", () => resolveChild())),
+    [...children].map((child) =>
+      child.exitCode === null
+        ? new Promise<void>((resolveChild) => child.once("exit", () => resolveChild()))
+        : Promise.resolve(),
     ),
   );
   await zero.stop();
-  await new Promise<void>((resolveClose) => apiServer.close(() => resolveClose()));
-  await api.close();
   await postgres.stop();
 };
 
@@ -117,4 +119,8 @@ process.once("SIGTERM", () => {
 });
 process.once("SIGINT", () => {
   void shutdown().then(() => process.exit(0));
+});
+
+await new Promise<never>(() => {
+  // Keep the harness alive for Playwright's webServer lifecycle.
 });

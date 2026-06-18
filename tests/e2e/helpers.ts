@@ -1,9 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
+import { STARTER_TEAM_NAMES } from "@church-task/domain";
 
 export const getE2eApiUrl = () => {
   if (process.env.DATABASE_URL) {
     return (
-      process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${process.env.E2E_WEB_PORT ?? 2101}`
+      process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${process.env.E2E_WEB_PORT ?? 32101}`
     );
   }
 
@@ -139,11 +140,25 @@ export async function completeOnboarding(page: Page, churchName: string) {
   }
   // Wait for the seeded Starter Teams to finish streaming in so the layout
   // is stable before clicking Next.
-  await expect(
-    page.getByLabel("Initial Teams").getByRole("button", { name: /^Edit / }),
-  ).toHaveCount(3, {
-    timeout: 20_000,
-  });
+  await expect(page.getByLabel("Initial Teams").getByRole("button", { name: /^Edit / }))
+    .toHaveCount(STARTER_TEAM_NAMES.length)
+    .catch(async (error: unknown) => {
+      const activeOrgState = await page.evaluate(async () => {
+        const { authClient } = await import("/src/lib/auth-client.ts");
+        const session = await authClient.getSession();
+        const activeOrganization = await authClient.organization.getFullOrganization();
+
+        return {
+          activeOrganization: activeOrganization.data,
+          activeOrganizationError: activeOrganization.error?.message,
+          session: session.data?.session,
+          sessionError: session.error?.message,
+        };
+      });
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)}\nActive org state: ${JSON.stringify(activeOrgState)}\nBody: ${await page.locator("body").innerText()}`,
+      );
+    });
   await page.getByRole("button", { name: "Next" }).click();
 
   await expect(page.getByRole("button", { name: "Enter Church Task" })).toBeEnabled();

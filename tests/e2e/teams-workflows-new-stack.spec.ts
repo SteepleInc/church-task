@@ -15,6 +15,9 @@ function collectBrowserErrors(page: Page) {
     if (message.type() === "error") browserErrors.push(message.text());
   });
   page.on("pageerror", (error) => browserErrors.push(error.message));
+  page.on("response", (response) => {
+    if (response.status() >= 400) browserErrors.push(`${response.status()} ${response.url()}`);
+  });
 
   return browserErrors;
 }
@@ -82,7 +85,9 @@ test("manages Teams and their owned Workflows on the local Postgres and Zero sta
     await expect(page.getByText(`Archived Team ${renamedTeamName}.`)).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByRole("link", { name: renamedTeamName })).not.toBeVisible();
+    await expect(page.getByRole("link", { name: renamedTeamName })).toHaveCount(0, {
+      timeout: 20_000,
+    });
 
     await page.goto(`/team/${teamIdentifier}`);
     await expect(page.getByText("Team board is unavailable.")).toBeVisible({ timeout: 20_000 });

@@ -120,11 +120,17 @@ function getTaskScopeListFilters(
   if (!filters) return listFilters;
   if (filters.createdByUserId) {
     listFilters.push(
-      optionFilter({ columnId: "created_by_user_id", operator: "is", values: [filters.createdByUserId] }),
+      optionFilter({
+        columnId: "created_by_user_id",
+        operator: "is",
+        values: [filters.createdByUserId],
+      }),
     );
   }
   if (filters.cycleId) {
-    listFilters.push(optionFilter({ columnId: "cycle_id", operator: "is", values: [filters.cycleId] }));
+    listFilters.push(
+      optionFilter({ columnId: "cycle_id", operator: "is", values: [filters.cycleId] }),
+    );
   }
   if (filters.excludeSubtasks) {
     listFilters.push(optionFilter({ columnId: "parent_task_id", operator: "is", values: [null] }));

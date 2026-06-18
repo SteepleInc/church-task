@@ -7,6 +7,7 @@ import {
   teams,
   user,
 } from "@church-task/db/schema";
+import { STARTER_LABELS, STARTER_TEAM_NAMES } from "@church-task/domain";
 import { getOrgId, getOrgUserId, getSessionId, getUserId } from "@church-task/shared/get-ids";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { createAuthClient } from "better-auth/client";
@@ -216,9 +217,15 @@ describe("Better Auth Postgres foundation", () => {
       const session = await authClient.getSession({ fetchOptions: { headers: cookieHeaders } });
 
       expect(session.data?.session.activeOrganizationId).toBe(created.data?.id);
-      await expect(db.select().from(teams)).resolves.toHaveLength(3);
-      await expect(db.select().from(team_memberships)).resolves.toHaveLength(3);
-      await expect(db.select().from(labels)).resolves.toHaveLength(7);
+      await expect(
+        db.select().from(teams).where(eq(teams.church_id, created.data!.id)),
+      ).resolves.toHaveLength(STARTER_TEAM_NAMES.length);
+      await expect(
+        db.select().from(team_memberships).where(eq(team_memberships.church_id, created.data!.id)),
+      ).resolves.toHaveLength(STARTER_TEAM_NAMES.length);
+      await expect(
+        db.select().from(labels).where(eq(labels.church_id, created.data!.id)),
+      ).resolves.toHaveLength(STARTER_LABELS.length);
     } finally {
       await pool.end();
       await container.stop();

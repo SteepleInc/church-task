@@ -168,9 +168,7 @@ export function useTasksCollection(params: {
   );
   const teamsById = new Map(teamRows.map((team) => [team.id, team]));
   const collection =
-    params.churchId === null
-      ? []
-      : activeTaskRows.map((task) => mapTask(task, teamsById));
+    params.churchId === null ? [] : activeTaskRows.map((task) => mapTask(task, teamsById));
 
   return {
     loading: false,

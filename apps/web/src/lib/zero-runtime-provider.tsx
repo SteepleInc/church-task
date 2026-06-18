@@ -3,7 +3,6 @@
 import { env } from "@church-task/env/web";
 import { mutators, schema, type OptionalZeroSessionContext } from "@church-task/zero";
 import { ZeroProvider } from "@rocicorp/zero/react";
-import { Option, pipe } from "effect";
 
 import { authClient } from "@/lib/auth-client";
 
@@ -19,11 +18,7 @@ const getZeroCacheUrl = () => {
 
   if (!configuredUrl) return "http://127.0.0.1:4848";
 
-  return configuredUrl.includes("127.0.0.1") || configuredUrl.includes("localhost")
-    ? typeof window === "undefined"
-      ? configuredUrl
-      : `${window.location.origin}/zero`
-    : configuredUrl;
+  return configuredUrl;
 };
 
 export function ZeroRuntimeProvider(props: { readonly children: React.ReactNode }) {
@@ -45,23 +40,16 @@ export function ZeroRuntimeProvider(props: { readonly children: React.ReactNode 
           session_id: sessionId,
           user_id: data.user.id,
         };
-  const userIdProps = pipe(
-    userId,
-    Option.fromNullishOr,
-    Option.match({
-      onNone: () => ({}),
-      onSome: (id) => ({ userID: id }),
-    }),
-  );
 
   return (
     <ZeroProvider
       cacheURL={getZeroCacheUrl()}
       context={context}
+      // ZeroProvider creates the client from initial props; remount when auth context changes.
       key={`${userId ?? "anonymous"}:${sessionId ?? "anonymous"}:${activeChurchId ?? "none"}`}
       mutators={mutators}
       schema={schema}
-      {...userIdProps}
+      userID={userId}
     >
       {props.children}
     </ZeroProvider>

@@ -3,6 +3,7 @@ import { createDb } from "@church-task/db";
 import {
   demo_items,
   invitation,
+  member,
   organization,
   session as sessionTable,
   user,
@@ -12,7 +13,7 @@ import { anonymousServerContext, mutators, queries, schema } from "@church-task/
 import { handleMutateRequest, handleQueryRequest } from "@rocicorp/zero/server";
 import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
 import { mustGetMutator, mustGetQuery } from "@rocicorp/zero";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Effect } from "effect";
 
 import type { OptionalZeroSessionContext } from "@church-task/zero";
@@ -20,6 +21,7 @@ import { handleAgentRequest } from "./agent-operations";
 
 const getSessionContext = async (
   auth: ReturnType<typeof createAuth>["auth"],
+  db: ReturnType<typeof createDb>["db"],
   request: Request,
 ): Promise<OptionalZeroSessionContext> => {
   const authSession = await auth.api.getSession({ headers: request.headers });
@@ -33,11 +35,21 @@ const getSessionContext = async (
     readonly orgRole?: string | null;
     readonly userRole?: string | null;
   };
+  const activeChurchId = session.activeOrganizationId ?? null;
+  const [membership] = activeChurchId
+    ? await db
+        .select({ role: member.role })
+        .from(member)
+        .where(
+          and(eq(member.organizationId, activeChurchId), eq(member.userId, authSession.user.id)),
+        )
+        .limit(1)
+    : [];
 
   return {
     authenticated: true,
-    active_church_id: session.activeOrganizationId ?? null,
-    church_role: session.orgRole ?? null,
+    active_church_id: activeChurchId,
+    church_role: session.orgRole ?? membership?.role ?? null,
     is_app_admin: session.userRole === "admin",
     runtime: "server",
     session_id: authSession.session.id,
@@ -70,7 +82,7 @@ export const createTracerApi = (databaseUrl: string) => {
     Effect.tryPromise({
       catch: (cause) => cause,
       try: async () => {
-        const context = await getSessionContext(authRuntime.auth, request);
+        const context = await getSessionContext(authRuntime.auth, db, request);
         const body = (await request.json()) as { name?: string };
         const mutator = getMutator("demo_items.create");
 
@@ -96,17 +108,22 @@ export const createTracerApi = (databaseUrl: string) => {
     Effect.tryPromise({
       catch: (cause) => cause,
       try: async () => {
-        const ctx = await getSessionContext(authRuntime.auth, request);
+        const sessionContext = await getSessionContext(authRuntime.auth, db, request);
+        const ctx = sessionContext?.authenticated
+          ? ({ ...sessionContext, runtime: "client" } as const)
+          : sessionContext;
 
-        return handleQueryRequest(
-          (name, args): any =>
-            getQuery(name).fn({
+        return handleQueryRequest({
+          handler: (name, args): any => {
+            return getQuery(name).fn({
               args,
               ctx,
-            }),
-          schema,
+            });
+          },
           request,
-        ).then(toResponse);
+          schema,
+          userID: ctx?.authenticated ? ctx.user_id : undefined,
+        }).then(toResponse);
       },
     });
 
@@ -118,13 +135,14 @@ export const createTracerApi = (databaseUrl: string) => {
           zeroDb,
           (transact) =>
             transact(async (tx, name, args) => {
+              const ctx = await getSessionContext(authRuntime.auth, db, request);
               await getMutator(name).fn({
                 args,
-                ctx: await getSessionContext(authRuntime.auth, request),
+                ctx,
                 tx,
               });
             }),
-          request,
+          request.clone(),
         ).then(toResponse),
     });
 

@@ -1,7 +1,15 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-export const createPgPool = (connectionString: string) => new Pool({ connectionString });
+export const createPgPool = (connectionString: string) => {
+  const pool = new Pool({ connectionString });
+
+  pool.on("error", () => {
+    // pg emits idle-client errors here, including expected testcontainer shutdowns.
+  });
+
+  return pool;
+};
 
 export const createDb = (connectionString: string) => {
   const pool = createPgPool(connectionString);

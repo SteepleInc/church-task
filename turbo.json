@@ -17,6 +17,10 @@
       "dependsOn": ["^build"],
       "outputs": []
     },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
     "test:cli": {
       "dependsOn": ["^build"],
       "outputs": []
