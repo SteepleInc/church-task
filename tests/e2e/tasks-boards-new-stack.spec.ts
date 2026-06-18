@@ -103,15 +103,37 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
   const weekSwitcher = page.getByRole("navigation", { name: "Week" });
   await expect(weekSwitcher).toBeVisible({ timeout: 20_000 });
   await expect(weekSwitcher).toContainText("Worship");
+  // The Week label currently shown in the switcher trigger — the breadcrumb's
+  // final, interactive segment. Switching Weeks must change it.
+  const weekTrigger = weekSwitcher.getByRole("button");
+  const currentWeekLabel = (await weekTrigger.textContent())?.trim() ?? "";
+  expect(currentWeekLabel).not.toBe("");
+
   // The final breadcrumb segment is the Linear-style Week switcher: open it and
-  // jump to the next (upcoming) Week. The next-Week item carries the "K"
-  // shortcut (Linear's Cycle navigation) beneath the "Next Week (upcoming)"
-  // label.
-  await weekSwitcher.getByRole("button").click();
+  // confirm it offers the immediate neighbors with Linear's exact Cycle
+  // navigation shortcuts — "Next Week (upcoming)" → ⌥K, "Previous Week
+  // (completed)" → ⌥J.
+  await weekTrigger.click();
   const weekMenu = page.getByRole("menu", { name: /Choose a different Week/ });
   await expect(weekMenu).toBeVisible();
+  await expect(weekMenu.getByText("Next Week (upcoming)")).toBeVisible();
+  await expect(weekMenu.getByText("⌥K")).toBeVisible();
+  // Jump to the next (upcoming) Week by clicking its menu item.
   await weekMenu.getByRole("menuitem").first().click();
   await expect(page).toHaveURL(new RegExp(`${escapeRegExp(teamPath)}/week/\\d+(?:\\?|$)`));
+  // The switcher trigger now names a different Week — the board actually moved.
+  const nextWeekLabel = (await weekTrigger.textContent())?.trim() ?? "";
+  expect(nextWeekLabel).not.toBe(currentWeekLabel);
+
+  // ⌥J (Linear's "Previous cycle" shortcut) steps back to the Week we came
+  // from without touching the menu — the keyboard binding (listening on the
+  // document, while no text field has focus) drives navigation.
+  await page.locator("body").press("Alt+KeyJ");
+  await expect(page).toHaveURL(new RegExp(`${escapeRegExp(teamPath)}/week/\\d+(?:\\?|$)`));
+  await expect(weekTrigger).toHaveText(new RegExp(escapeRegExp(currentWeekLabel)), {
+    timeout: 20_000,
+  });
+
   await weekSwitcher.getByRole("link", { name: "Weeks" }).click();
   await expect(page).toHaveURL(new RegExp(`${escapeRegExp(teamPath)}/weeks(?:\\?|$)`));
   await worshipTeamItem.getByRole("link", { name: "Current" }).click();
@@ -145,7 +167,9 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
   await page.getByRole("menuitem", { name: "Edit week name and description…" }).click();
   const weekDialog = page.getByRole("dialog", { name: "Edit week" });
   await expect(weekDialog).toBeVisible();
-  await expect(weekDialog.getByText("dates can't be changed")).toBeVisible();
+  // Inline editing, Linear-style: the Name field hints the Week's locked
+  // Monday–Sunday span as its placeholder rather than a separate control.
+  await expect(weekDialog.getByLabel("Name")).toHaveAttribute("placeholder", /\w/);
   const weekName = `Launch Week ${suffix}`;
   const weekDescription = `Coordinate visible task-board work for ${suffix}.`;
   await weekDialog.getByLabel("Name").fill(weekName);

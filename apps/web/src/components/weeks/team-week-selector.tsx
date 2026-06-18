@@ -62,17 +62,19 @@ export function TeamWeekSelector({
     });
   };
 
-  // `J` / `K` step to the previous / next Week — Linear's Cycle shortcuts —
-  // while the board (not a text field) has focus.
+  // `⌥K` / `⌥J` step to the next / previous Week — Linear's exact Cycle
+  // shortcuts — while the board (not a text field) has focus.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (!event.altKey || event.metaKey || event.ctrlKey) return;
       if (isEditableTarget(event.target)) return;
-      const key = event.key.toLowerCase();
-      if (key === "k" && nextWeek) {
+      // Option remaps letters on macOS (⌥K → "˚", ⌥J → "∆"); match on the
+      // physical key instead so the shortcut fires regardless of layout.
+      const code = event.code;
+      if (code === "KeyK" && nextWeek) {
         event.preventDefault();
         goToWeek(nextWeek.id);
-      } else if (key === "j" && previousWeek) {
+      } else if (code === "KeyJ" && previousWeek) {
         event.preventDefault();
         goToWeek(previousWeek.id);
       }
@@ -123,13 +125,13 @@ export function TeamWeekSelector({
           {nextWeek ? (
             <>
               <DropdownMenuLabel>Next Week (upcoming)</DropdownMenuLabel>
-              <WeekMenuItem cycle={nextWeek} onSelect={goToWeek} shortcut="K" />
+              <WeekMenuItem cycle={nextWeek} onSelect={goToWeek} shortcut="⌥K" />
             </>
           ) : null}
           {previousWeek ? (
             <>
               <DropdownMenuLabel>Previous Week (completed)</DropdownMenuLabel>
-              <WeekMenuItem cycle={previousWeek} onSelect={goToWeek} shortcut="J" />
+              <WeekMenuItem cycle={previousWeek} onSelect={goToWeek} shortcut="⌥J" />
             </>
           ) : null}
           {!nextWeek && !previousWeek ? (

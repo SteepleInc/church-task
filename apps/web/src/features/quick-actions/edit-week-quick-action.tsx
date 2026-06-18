@@ -1,8 +1,8 @@
 import { revalidateLogic } from "@tanstack/react-form";
 import { Schema } from "effect";
 import { atom, useAtom } from "jotai";
-import { CalendarRange, Lock } from "lucide-react";
-import { useState } from "react";
+import { CalendarRange } from "lucide-react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useAppForm } from "@/components/form/ts-form";
@@ -84,6 +84,7 @@ function EditWeekForm({
   const updateWeekDetails = useUpdateWeekDetailsMutation();
   const [editError, setEditError] = useState<string | null>(null);
   const dateRange = formatWeekDateRange(week);
+  const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
 
   const form = useAppForm({
     defaultValues: {
@@ -121,48 +122,52 @@ function EditWeekForm({
   return (
     <QuickActionForm
       form={form}
-      Primary={
-        <>
-          {/* Locked dates: a Week's identity is its Monday–Sunday span, and that
-              span never moves — make that immutability obvious. */}
-          <div className="flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-2.5">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground shadow-xs">
-              <Lock className="size-3.5" />
-            </span>
-            <div className="grid gap-0.5">
-              <span className="text-sm font-medium leading-none">{dateRange}</span>
-              <span className="text-xs text-muted-foreground">
-                Monday–Sunday · dates can't be changed
-              </span>
-            </div>
-          </div>
-
-          <form.AppField name="name">
+      Body={
+        // The Name and Description sit inline, the way Create Task lays them
+        // out: the Name is the large heading line and the Description follows
+        // directly beneath it — no field labels, no chrome. A Week's
+        // Monday–Sunday span never moves, so the dates are only hinted via the
+        // Name placeholder rather than a separate locked control.
+        <div className="flex min-h-0 flex-col gap-2 overflow-hidden p-4">
+          <form.Field name="name">
             {(field) => (
-              <field.InputField
+              <input
+                aria-label="Name"
                 autoFocus
-                label="Name"
+                className="w-full shrink-0 bg-transparent font-medium text-lg outline-none placeholder:text-muted-foreground"
                 maxLength={NAME_MAX_LENGTH}
+                onChange={(event) => field.handleChange(event.target.value)}
+                onKeyDown={(event) => {
+                  // Enter moves on to the description (Cmd+Enter submits).
+                  if (event.key === "Enter" && !event.metaKey && !event.ctrlKey) {
+                    event.preventDefault();
+                    descriptionInputRef.current?.focus();
+                  }
+                }}
                 placeholder={dateRange}
+                value={field.state.value}
               />
             )}
-          </form.AppField>
-          <form.AppField name="description">
+          </form.Field>
+          <form.Field name="description">
             {(field) => (
-              <field.TextareaField
-                className="min-h-20 resize-none"
-                label="Description"
-                placeholder="Add planning context for this week…"
+              <textarea
+                aria-label="Description"
+                className="field-sizing-content min-h-20 w-full flex-1 resize-none overflow-y-auto bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                onChange={(event) => field.handleChange(event.target.value)}
+                placeholder="Add description…"
+                ref={descriptionInputRef}
+                rows={4}
+                value={field.state.value}
               />
             )}
-          </form.AppField>
-
+          </form.Field>
           {editError ? (
             <Alert variant="destructive">
               <AlertDescription>{editError}</AlertDescription>
             </Alert>
           ) : null}
-        </>
+        </div>
       }
       Actions={
         <form.Subscribe
