@@ -1,7 +1,7 @@
 import { addLocalDateDays } from "@church-task/domain";
 import { getActivityId, getCycleId } from "@church-task/shared/get-ids";
 import { buildTemplateCycleTaskInserts } from "@church-task/zero";
-import { and, eq, inArray, isNull, lte } from "drizzle-orm";
+import { and, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import {
@@ -239,9 +239,27 @@ const ensureCycle = async (
       id: getCycleId(),
       updated_by: null,
     })
+    .onConflictDoNothing({
+      target: [cycles.church_id, cycles.start_date],
+      where: sql`${cycles.deleted_at} IS NULL`,
+    })
     .returning();
 
-  if (!created) throw new Error("Cycle creation did not return a row.");
+  if (!created) {
+    const [conflicted] = await db
+      .select()
+      .from(cycles)
+      .where(
+        and(
+          eq(cycles.church_id, args.church_id),
+          eq(cycles.start_date, cycleFields.start_date),
+          isNull(cycles.deleted_at),
+        ),
+      )
+      .limit(1);
+    if (conflicted) return { created: false as const, cycle: conflicted };
+    throw new Error("Cycle creation did not return a row.");
+  }
   return { created: true as const, cycle: created };
 };
 
