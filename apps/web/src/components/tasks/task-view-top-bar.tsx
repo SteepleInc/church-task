@@ -209,35 +209,51 @@ function WeekScopeControl({
 }) {
   const isCurrentWeek = scope === "current_week";
 
+  // Elevated "thumb" for the active segment. The track is an inset muted pill,
+  // so the active option lifts off it with the surface background, a hairline
+  // border, and a soft shadow — `secondary` reads almost identically to the
+  // track in both themes and would leave the selection ambiguous.
+  const segmentClassName = "h-6 rounded-full px-2.5 text-xs font-medium transition-colors";
+  const activeSegmentClassName =
+    "bg-background text-foreground border-border/60 border shadow-sm hover:bg-background";
+  const inactiveSegmentClassName =
+    "text-muted-foreground hover:text-foreground border border-transparent hover:bg-background/50";
+
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <div
             aria-label="Week scope"
-            className="bg-muted/60 text-muted-foreground flex h-7 items-center rounded-full p-0.5"
+            className="bg-muted/60 text-muted-foreground flex h-7 items-center gap-0.5 rounded-full px-1.5"
             role="group"
           />
         }
       >
-        <CalendarRange aria-hidden className="ml-1.5 size-3.5 shrink-0" />
+        <CalendarRange aria-hidden className="size-3.5 shrink-0" />
         <Button
           aria-pressed={isCurrentWeek}
-          className="ml-1 h-6 rounded-full px-2.5 text-xs"
+          className={cn(
+            segmentClassName,
+            isCurrentWeek ? activeSegmentClassName : inactiveSegmentClassName,
+          )}
           onClick={() => onScopeChange("current_week")}
           size="sm"
           type="button"
-          variant={isCurrentWeek ? "secondary" : "ghost"}
+          variant="ghost"
         >
           Current Week
         </Button>
         <Button
           aria-pressed={!isCurrentWeek}
-          className="h-6 rounded-full px-2.5 text-xs"
+          className={cn(
+            segmentClassName,
+            isCurrentWeek ? inactiveSegmentClassName : activeSegmentClassName,
+          )}
           onClick={() => onScopeChange("all")}
           size="sm"
           type="button"
-          variant={isCurrentWeek ? "ghost" : "secondary"}
+          variant="ghost"
         >
           All
         </Button>
