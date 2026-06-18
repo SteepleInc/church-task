@@ -14,6 +14,16 @@ const taskCard = (page: Page, title: string) => page.getByLabel(`Task card ${tit
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+async function expectSearchParam(page: Page, name: string, value: string | RegExp) {
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get(name))
+    .toEqual(
+      expect.stringMatching(
+        value instanceof RegExp ? value : new RegExp(`^${escapeRegExp(value)}$`),
+      ),
+    );
+}
+
 async function chooseCardOption(task: Locator, label: string, optionName: string) {
   await task.getByRole("combobox", { name: label }).first().click();
   await task
@@ -64,8 +74,18 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
   await expect(page).toHaveURL(/\/team\/worship\/weeks$/);
   await expect(page.getByRole("heading", { name: "Weeks" })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("Church-wide Weeks for Worship")).toBeVisible();
+  await expect(page.getByLabel("Week Progress")).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: "Close Week Progress" }).click();
+  await expect(page).toHaveURL(/\/team\/worship\/weeks\?/);
+  await expectSearchParam(page, "progress", "closed");
+  await expect(page.getByLabel("Week Progress")).not.toBeVisible();
+  await page.getByRole("button", { name: "Progress" }).first().click();
+  await expect(page.getByLabel("Week Progress")).toBeVisible({ timeout: 20_000 });
+  await expectSearchParam(page, "progress", /.+/);
   await worshipTeamItem.getByRole("link", { name: "Current" }).click();
-  await expect(page).toHaveURL(/\/team\/worship\?week=current$/);
+  await expect(page).toHaveURL(/\/team\/worship\?/);
+  await expectSearchParam(page, "week", "current");
+  await expectSearchParam(page, "progress", /.+/);
   await expect(worshipTeamItem.getByRole("link", { name: "Current" })).toHaveAttribute(
     "data-active",
     "true",
@@ -184,8 +204,9 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
   });
 
   await page.locator('[data-sidebar="sidebar"]').getByRole("link", { name: "Worship" }).click();
-  await expect(page).toHaveURL(/\/team\/worship$/);
-  await page.getByRole("button", { name: "Insights" }).click();
+  await expect(page).toHaveURL(/\/team\/worship\?/);
+  await expectSearchParam(page, "progress", /.+/);
+  await page.getByRole("button", { name: "Week Progress" }).click();
   await expect(page.getByLabel("Week Progress")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByLabel("Week Progress")).toContainText("Scope");
   await expect(page.getByLabel("Week Progress")).toContainText("Started");
