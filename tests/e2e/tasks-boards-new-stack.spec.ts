@@ -65,6 +65,14 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
     "data-active",
     "true",
   );
+  await expect(page.getByLabel("Week selector")).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: /Next Week,/ }).click();
+  await expect(page).toHaveURL(/\/team\/worship\/weeks\/[^/?]+$/);
+  const weekBreadcrumb = page.getByRole("navigation", { name: "Breadcrumb" });
+  await expect(weekBreadcrumb).toContainText("Worship");
+  await weekBreadcrumb.getByRole("link", { name: "Worship" }).click();
+  await expect(page).toHaveURL(/\/team\/worship$/);
+
   await worshipTeamItem.getByRole("link", { name: "Upcoming" }).click();
   await expect(page).toHaveURL(/\/team\/worship\?week=upcoming$/);
   await expect(worshipTeamItem.getByRole("link", { name: "Upcoming" })).toHaveAttribute(
