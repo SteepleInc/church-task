@@ -4,8 +4,15 @@ FROM node:22-bookworm
 RUN apt-get update && apt-get install -y \
   git \
   curl \
+  unzip \
   jq \
   && rm -rf /var/lib/apt/lists/*
+
+# Match this repo's packageManager (bun@1.3.13). Sandcastle hooks run
+# `bun install` inside the container, so Bun must be available there too.
+ENV BUN_INSTALL=/usr/local/bun
+ENV PATH=/usr/local/bun/bin:$PATH
+RUN curl -fsSL https://bun.sh/install | bash -s -- bun-v1.3.13
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
