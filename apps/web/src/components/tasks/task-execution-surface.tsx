@@ -1,6 +1,7 @@
 import { useOpenTaskDetailsPaneUrl } from "@/components/details-pane/details-pane-helpers";
 import { WeekHeader } from "@/components/weeks/week-header";
-import { formatWeekDateRange, useCyclesCollection } from "@/data/cycles/cyclesData.app";
+import { TeamWeekSelector } from "@/components/weeks/team-week-selector";
+import { useCyclesCollection } from "@/data/cycles/cyclesData.app";
 import { useLabelsCollection } from "@/data/labels/labelsData.app";
 import { useTeamMembershipsCollection } from "@/data/teams/teamsData.app";
 import {
@@ -22,8 +23,9 @@ import {
   hiddenBoardColumnsAtom,
   toggleHiddenBoardColumn,
 } from "@/shared/global-state";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useAtom } from "jotai";
+import { ChevronRight } from "lucide-react";
 import { useMemo, type ReactNode } from "react";
 
 import { mapTaskFilterValuesForZero } from "@/components/tasks/task-filters";
@@ -32,8 +34,6 @@ import { useZeroListArgs } from "@/shared/hooks/useZeroListArgs";
 import type { ListArgs } from "@church-task/zero";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { TaskInsightsPanel } from "@/components/tasks/task-insights-panel";
 import { WeekProgressPanel } from "@/components/tasks/week-progress-panel";
 import {
@@ -467,11 +467,11 @@ export function TaskExecutionSurface({
         <section className="flex min-h-0 min-w-0 flex-1 gap-4">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
             {currentWeek ? (
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                 <div className="flex min-w-0 flex-col gap-1">
-                  <div className="text-xs text-muted-foreground">
-                    {team?.name ? `${team.name} / Weeks` : "Weeks"}
-                  </div>
+                  {surface === "team_board" && team ? (
+                    <WeekBreadcrumb teamIdentifier={team.identifier} teamName={team.name} />
+                  ) : null}
                   <WeekHeader churchId={churchId} cycle={currentWeek} />
                 </div>
                 {surface === "team_board" && team?.identifier ? (
@@ -682,70 +682,37 @@ export function TaskExecutionSurface({
   );
 }
 
-function TeamWeekSelector({
-  cycles,
-  currentCycleId,
-  selectedCycleId,
+/**
+ * The Team / Weeks breadcrumb above a Team Week board. The Team segment links
+ * back to that Team's Default Team View ("Tasks"), and the current "Weeks"
+ * segment anchors the User in the Team Week surface. Keeping it a real trail —
+ * not static text — matches the rest of the app's navigation affordances.
+ */
+function WeekBreadcrumb({
   teamIdentifier,
-  today,
+  teamName,
 }: {
-  readonly cycles: readonly {
-    readonly id: string;
-    readonly startDate: string;
-    readonly endDate: string;
-    readonly name: string | null;
-  }[];
-  readonly currentCycleId: string | null;
-  readonly selectedCycleId: string;
-  readonly teamIdentifier: string;
-  readonly today: string;
+  readonly teamIdentifier?: string | null;
+  readonly teamName: string;
 }) {
-  const navigate = useNavigate();
-  const ordered = [...cycles].sort((left, right) => left.startDate.localeCompare(right.startDate));
-  const selectedIndex = ordered.findIndex((cycle) => cycle.id === selectedCycleId);
-  const currentIndex = currentCycleId
-    ? ordered.findIndex((cycle) => cycle.id === currentCycleId)
-    : ordered.findIndex((cycle) => cycle.startDate <= today && today <= cycle.endDate);
-  const center = selectedIndex >= 0 ? selectedIndex : currentIndex;
-  const nearby = ordered.slice(Math.max(0, center - 1), center + 2);
-
   return (
-    <div className="flex flex-wrap items-center gap-2" aria-label="Week selector">
-      {nearby.map((cycle) => {
-        const active = cycle.id === selectedCycleId;
-        const status = getWeekStatusLabel(cycle, today);
-        return (
-          <Button
-            key={cycle.id}
-            type="button"
-            size="sm"
-            variant={active ? "secondary" : "outline"}
-            onClick={() => {
-              void navigate({
-                to: "/team/$teamIdentifier/weeks/$cycleId",
-                params: { teamIdentifier, cycleId: cycle.id },
-                search: true,
-              });
-            }}
-          >
-            <span className="truncate">{cycle.name?.trim() || formatWeekDateRange(cycle)}</span>
-            <Badge variant="outline" className="ml-2 hidden sm:inline-flex">
-              {status}
-            </Badge>
-          </Button>
-        );
-      })}
-    </div>
+    <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-xs text-muted-foreground">
+      {teamIdentifier ? (
+        <Link
+          to="/team/$teamIdentifier"
+          params={{ teamIdentifier }}
+          search={true}
+          className="truncate rounded transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {teamName}
+        </Link>
+      ) : (
+        <span className="truncate">{teamName}</span>
+      )}
+      <ChevronRight aria-hidden className="size-3 shrink-0 opacity-60" />
+      <span className="font-medium text-foreground/80">Weeks</span>
+    </nav>
   );
-}
-
-function getWeekStatusLabel(
-  cycle: { readonly startDate: string; readonly endDate: string },
-  today: string,
-) {
-  if (cycle.startDate <= today && today <= cycle.endDate) return "Current";
-  if (cycle.startDate > today) return "Upcoming";
-  return "Completed";
 }
 
 /**
