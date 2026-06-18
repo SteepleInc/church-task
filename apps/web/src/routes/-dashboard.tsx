@@ -46,7 +46,12 @@ import { Schema } from "effect";
 import { useEffect, useRef, useState } from "react";
 
 import { TaskExecutionSurface } from "@/components/tasks/task-execution-surface";
+import {
+  resolveExecutionCycleScope,
+  selectCurrentExecutionCycle,
+} from "@/components/tasks/task-execution-surface-utils";
 import { TeamWeeksIndex } from "@/components/weeks/team-weeks-index";
+import { buildProjectedWeekCycles } from "@/components/weeks/team-weeks-index-data";
 import {
   resolveInsightsState,
   toInsightsSearchValue,
@@ -67,6 +72,7 @@ import {
   type TaskViewTab,
 } from "@/components/tasks/task-view-options";
 import { useUserInvitationsCollection } from "@/data/invitations/invitationsData.app";
+import { useCyclesCollection } from "@/data/cycles/cyclesData.app";
 import {
   useCurrentOrgOpt,
   useUpdateChurchTimeZoneMutation,
@@ -138,6 +144,7 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
   const activeChurchId = activeChurch?.id ?? sessionRouting?.activeOrganizationId ?? null;
   const currentUserId = activeChurch?.currentUserId ?? sessionData?.user?.id ?? null;
   const teams = useTeamsCollection({ churchId: activeChurchId });
+  const cyclesCollection = useCyclesCollection({ churchId: activeChurchId, currentUserId });
   const pendingInvitations =
     activeChurch?.invitations.filter((invitation) => invitation.status === "pending") ?? [];
   const activeTeams = teams.teamsCollection;
@@ -168,6 +175,31 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
   const activeTab = resolveTaskViewTab(surface, search.tab);
   const activeView = resolveTaskViewOptions(search.view);
   const activeInsights = resolveInsightsState(search.insights);
+  const today = new Date().toISOString().slice(0, 10);
+  const churchTimeZone = activeChurch?.churchTimeZone ?? "UTC";
+  const cycles = buildProjectedWeekCycles({
+    churchTimeZone,
+    cycles: cyclesCollection.cyclesCollection,
+    today,
+  });
+  const scopedCycle = resolveExecutionCycleScope({
+    surface,
+    week: search.week,
+    weekNumber:
+      typeof activePanel === "object" && activePanel.kind === "team"
+        ? activePanel.weekNumber
+        : null,
+    cycles,
+    today,
+  });
+  // On a Team Week board, new Tasks default to the scoped Week's Cycle. The
+  // cross-team surfaces (My Work / Our Work) carry no Week scope, so new Tasks
+  // default to the current Week, the way Linear files new issues into the
+  // active Cycle.
+  const topBarTargetCycle =
+    surface === "team_board"
+      ? scopedCycle?.targetCycle
+      : selectCurrentExecutionCycle(cycles, today)?.targetCycle;
   const [taskFilters, setTaskFilters] = useFilters(FilterKeys.Tasks);
   const taskFilterFields = useTaskFilterFields({
     churchId: showTopBar ? activeChurchId : null,
@@ -296,6 +328,7 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
               assignTo: activePanel === "my_work" ? currentUserId : null,
               // On a Team Board the picker is preset to that Team (ADR 0013).
               teamId: selectedTeam?.id ?? null,
+              ...(topBarTargetCycle ? { targetCycle: topBarTargetCycle } : {}),
             })
           }
         />
@@ -339,6 +372,7 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
             name: selectedTeam.name,
             color: selectedTeam.color,
           }}
+          churchTimeZone={activeChurch?.churchTimeZone ?? "UTC"}
         />
       ) : activeChurchId && currentUserId ? (
         <TaskExecutionSurface
@@ -355,6 +389,7 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
               ? activePanel.weekNumber
               : null
           }
+          churchTimeZone={activeChurch?.churchTimeZone ?? "UTC"}
           insights={activeInsights}
           onInsightsChange={setInsights}
           onToggleLayout={toggleLayout}

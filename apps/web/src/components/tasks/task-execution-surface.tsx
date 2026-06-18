@@ -3,6 +3,7 @@ import { useOpenTaskDetailsPaneUrl } from "@/components/details-pane/details-pan
 import { TeamWeekSelector } from "@/components/weeks/team-week-selector";
 import { WeekActionsMenu } from "@/components/weeks/week-actions-menu";
 import type { WeekCsvTask } from "@/components/weeks/week-actions-data";
+import { buildProjectedWeekCycles } from "@/components/weeks/team-weeks-index-data";
 import { useCyclesCollection } from "@/data/cycles/cyclesData.app";
 import { useLabelsCollection } from "@/data/labels/labelsData.app";
 import { useTeamMembershipsCollection } from "@/data/teams/teamsData.app";
@@ -172,6 +173,7 @@ export function TaskExecutionSurface({
   view,
   week,
   weekNumber,
+  churchTimeZone = "UTC",
   insights,
   onInsightsChange,
   onToggleLayout,
@@ -191,6 +193,7 @@ export function TaskExecutionSurface({
   readonly view?: TaskViewOptions;
   readonly week?: WeekShortcut;
   readonly weekNumber?: number | null;
+  readonly churchTimeZone?: string;
   readonly insights?: ResolvedInsightsState;
   readonly onInsightsChange?: (next: ResolvedInsightsState) => void;
   // Surface-level keyboard shortcut targets, owned by the route.
@@ -218,21 +221,27 @@ export function TaskExecutionSurface({
     teamMembershipsCollection.teamMembershipsCollection,
   );
 
-  const cycles = cyclesCollection.cyclesCollection;
+  // `buildProjectedWeekCycles` projects the sparse Cycle calendar into the
+  // contiguous Weeks the board reasons about (origin/main foundation).
+  const cycles = buildProjectedWeekCycles({
+    churchTimeZone,
+    cycles: cyclesCollection.cyclesCollection,
+    today,
+  });
   // A Team Week board is scoped to its selected Week; cross-team surfaces
   // (My Work, Our Work) show every Task regardless of Week, like Linear's
   // issue views, so they never filter by Cycle.
-  const scopedCycle =
-    surface === "team_board"
-      ? resolveExecutionCycleScope({ surface, week, weekNumber, cycles, today })
-      : null;
+  const scopedCycle = resolveExecutionCycleScope({ surface, week, weekNumber, cycles, today });
   const executionCycleId = surface === "team_board" ? (scopedCycle?.id ?? null) : null;
   // The Week shown in the header switcher tracks the actually-scoped Week, so
   // the switcher never implies a window the board is not honoring: a Week board
   // (`?week=…` / `/week/$n`) shows that Week, while the unscoped Default Team
   // View ("Tasks", all Cycles) shows no switcher.
   const currentWeek = executionCycleId
-    ? (cycles.find((cycle) => cycle.id === executionCycleId) ?? null)
+    ? (() => {
+        const cycle = cycles.find((cycle) => cycle.id === executionCycleId);
+        return cycle ? { ...cycle, description: cycle.description ?? null } : null;
+      })()
     : null;
   // Every Team owns its Workflow (ADR 0013): a Team Board shows that
   // Workflow's statuses. Cross-team surfaces carry every active status so
@@ -309,6 +318,8 @@ export function TaskExecutionSurface({
   // Workflow across Teams), so the board renders without a surface Workflow.
   const boardGrouping = getExecutionBoardGrouping(surface, resolvedView.grouping);
   const showBoard = surface === "team_board" ? workflowStatuses.length > 0 : !isLoading;
+  const showProjectedWeekEmptyState =
+    surface === "team_board" && week === "upcoming" && !isLoading && tasks.length === 0;
 
   // Dropping a card on a Task State lane resolves to the matching status in
   // that Task's own Team Workflow.
@@ -407,6 +418,7 @@ export function TaskExecutionSurface({
         grouping: boardGrouping,
         columnId,
         defaults: getTaskCreationDefaults({ surface, currentUserId, teamId: team?.id ?? null }),
+        ...(scopedCycle ? { targetCycle: scopedCycle.targetCycle } : {}),
         unassignedColumnId: UNASSIGNED_COLUMN_ID,
       }),
     );
@@ -502,6 +514,15 @@ export function TaskExecutionSurface({
 
             {isLoading && !showBoard ? <TaskBoardSkeleton /> : null}
 
+            {showProjectedWeekEmptyState ? (
+              <div className="grid place-items-center gap-1 rounded-lg border border-dashed bg-muted/10 px-4 py-8 text-center">
+                <p className="text-sm font-medium">Nothing planned yet</p>
+                <p className="text-xs text-muted-foreground">
+                  Add Tasks to this Week and it starts tracking progress automatically.
+                </p>
+              </div>
+            ) : null}
+
             {showBoard && resolvedView.mode === "list" ? (
               <TaskListSurface
                 className="min-h-0 flex-1"
@@ -593,6 +614,7 @@ export function TaskExecutionSurface({
                     assignTo: defaults.assignedUserId,
                     teamId: defaults.teamId,
                     workflowStatusId,
+                    ...(scopedCycle ? { targetCycle: scopedCycle.targetCycle } : {}),
                   });
                 }}
                 onToggleColumnHidden={(workflowStatusId) => {

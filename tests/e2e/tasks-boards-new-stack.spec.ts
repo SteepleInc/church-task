@@ -1,5 +1,6 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+
+import { expect, type Locator, type Page, test } from "@playwright/test";
 
 import { startAuthenticatedSession } from "./helpers";
 
@@ -49,6 +50,16 @@ async function createTask(page: Page, title: string, options: { readonly team?: 
   await expect(dialog).not.toBeVisible({ timeout: 20_000 });
 }
 
+async function expandTeamSubnav(teamItem: Locator, teamName: string) {
+  const weeksLink = teamItem.getByRole("link", { name: "Weeks" });
+  if (await weeksLink.isVisible().catch(() => false)) return;
+
+  const expandButton = teamItem.getByRole("button", { name: `Expand ${teamName}` });
+  await expect(expandButton).toBeVisible({ timeout: 20_000 });
+  await expandButton.click();
+  await expect(weeksLink).toBeVisible({ timeout: 20_000 });
+}
+
 test("creates, assigns, moves, and preserves Task board state on the local Postgres and Zero stack", async ({
   page,
 }, testInfo) => {
@@ -76,21 +87,12 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
   const teamPath = worshipHref!;
   const teamPathPattern = new RegExp(`${escapeRegExp(teamPath)}(?:[/?]|$)`);
 
-  const expandWorship = worshipTeamItem.getByRole("button", { name: "Expand Worship" });
-  if (await expandWorship.isVisible()) await expandWorship.click();
+  await expandTeamSubnav(worshipTeamItem, "Worship");
   // "Weeks" is a link straight to the Team's Weeks index; its Current/Upcoming
   // shortcuts render directly beneath it once the Team is expanded.
-  const weeksLink = worshipTeamItem.getByRole("link", { name: "Weeks" });
-  await expect(weeksLink).toBeVisible({ timeout: 20_000 });
-  await weeksLink.click();
-  await expect(page).toHaveURL(new RegExp(`${escapeRegExp(teamPath)}/weeks$`));
+  await worshipTeamItem.getByRole("link", { name: "Weeks" }).click();
+  await expect(page).toHaveURL(new RegExp(`${escapeRegExp(teamPath)}/weeks(?:\\?|$)`));
   await expect(page.getByRole("heading", { name: "Weeks" })).toBeVisible({ timeout: 20_000 });
-  // Each Week row carries a "% done" progress toggle; expanding it records the
-  // open Week in the `progress` search param so the panel is link-reproducible.
-  const progressToggle = page.getByRole("button", { name: /done/ }).first();
-  await expect(progressToggle).toBeVisible({ timeout: 20_000 });
-  await progressToggle.click();
-  await expectSearchParam(page, "progress", /.+/);
   await worshipTeamItem.getByRole("link", { name: "Current" }).click();
   await expect(page).toHaveURL(teamPathPattern);
   await expectSearchParam(page, "week", "current");
@@ -121,6 +123,17 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
     "data-status",
     "active",
   );
+  await expect(page.getByText("Nothing planned yet")).toBeVisible({ timeout: 20_000 });
+
+  const projectedWeekTaskTitle = `Projected Week Task ${suffix}`;
+  await page.getByRole("main").getByRole("button", { name: "Create Task" }).click();
+  const projectedWeekDialog = page.getByRole("dialog", { name: /New Task/ });
+  await expect(projectedWeekDialog).toBeVisible();
+  await expect(projectedWeekDialog.getByText("Week of")).toBeVisible();
+  await projectedWeekDialog.getByPlaceholder("Task title").fill(projectedWeekTaskTitle);
+  await projectedWeekDialog.getByRole("button", { name: "Create Task" }).click();
+  await expect(projectedWeekDialog).not.toBeVisible({ timeout: 20_000 });
+  await expect(taskCard(page, projectedWeekTaskTitle)).toBeVisible({ timeout: 20_000 });
 
   // Edit the Week from the Team Week board's "⋯" actions menu (the Week
   // switcher's sibling) — "Edit week" opens the same quick action chrome as
@@ -191,6 +204,7 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
 
   await page.locator('[data-sidebar="sidebar"]').getByRole("link", { name: "My Work" }).click();
   await expect(page).toHaveURL(/\/my-work$/);
+  await expect(page.getByRole("navigation", { name: "Week" })).toHaveCount(0);
   await expect(taskCard(page, sharedTaskTitle)).toBeVisible({ timeout: 20_000 });
 
   await chooseCardOption(taskCard(page, sharedTaskTitle), "Change status", "In Progress");

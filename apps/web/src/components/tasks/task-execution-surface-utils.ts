@@ -6,6 +6,7 @@ type ExecutionCycle = {
   readonly id: string;
   readonly startDate: string;
   readonly endDate: string;
+  readonly targetCycle?: TaskGroupAddPreset["targetCycle"];
 };
 
 export type TaskState = "todo" | "in_progress" | "done" | "canceled";
@@ -19,7 +20,7 @@ export type TaskSummary = {
   readonly description?: string | null;
   readonly teamId: string;
   readonly assignedUserId: string | null;
-  readonly cycleId: string;
+  readonly cycleId: string | null;
   readonly dueDate: string | null;
   readonly createdAt: number;
   readonly parentTaskId: string | null;
@@ -134,7 +135,21 @@ export type TaskGroupAddPreset = {
   readonly assignTo: string | null;
   readonly teamId: string | null;
   readonly workflowStatusId?: string;
+  readonly targetCycle?: {
+    readonly churchTimeZone: string;
+    readonly startDate: string;
+    readonly endDate: string;
+    readonly startsAt: string;
+    readonly endsAt: string;
+  };
 };
+
+function withTargetCycle(
+  preset: Omit<TaskGroupAddPreset, "targetCycle">,
+  targetCycle: TaskGroupAddPreset["targetCycle"],
+): TaskGroupAddPreset {
+  return targetCycle ? { ...preset, targetCycle } : preset;
+}
 
 /**
  * The create-dialog preset for a group header's "+" button (shared by the
@@ -149,26 +164,45 @@ export function getTaskGroupAddPreset(args: {
   readonly grouping: string;
   readonly columnId: string;
   readonly defaults: { readonly assignedUserId: string | null; readonly teamId: string | null };
+  readonly targetCycle?: TaskGroupAddPreset["targetCycle"];
   readonly unassignedColumnId: string;
 }): TaskGroupAddPreset {
   const { grouping, columnId, defaults } = args;
   if (grouping === "workflow_status") {
-    return {
-      assignTo: defaults.assignedUserId,
-      teamId: defaults.teamId,
-      workflowStatusId: columnId,
-    };
+    return withTargetCycle(
+      {
+        assignTo: defaults.assignedUserId,
+        teamId: defaults.teamId,
+        workflowStatusId: columnId,
+      },
+      args.targetCycle,
+    );
   }
   if (grouping === "assignee") {
-    return {
-      assignTo: columnId === args.unassignedColumnId ? null : columnId,
-      teamId: defaults.teamId,
-    };
+    return withTargetCycle(
+      {
+        assignTo: columnId === args.unassignedColumnId ? null : columnId,
+        teamId: defaults.teamId,
+      },
+      args.targetCycle,
+    );
   }
   if (grouping === "team") {
-    return { assignTo: defaults.assignedUserId, teamId: columnId };
+    return withTargetCycle(
+      {
+        assignTo: defaults.assignedUserId,
+        teamId: columnId,
+      },
+      args.targetCycle,
+    );
   }
-  return { assignTo: defaults.assignedUserId, teamId: defaults.teamId };
+  return withTargetCycle(
+    {
+      assignTo: defaults.assignedUserId,
+      teamId: defaults.teamId,
+    },
+    args.targetCycle,
+  );
 }
 
 /**
