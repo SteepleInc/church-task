@@ -54,31 +54,24 @@ export const bootstrapChurchOnboarding = async (
     );
 
     for (const startDate of [currentCycleStartDate, addLocalDateDays(currentCycleStartDate, 7)]) {
-      const existingCycle = await tx
-        .select({ id: cycles.id })
-        .from(cycles)
-        .where(
-          and(
-            eq(cycles.church_id, args.church_id),
-            eq(cycles.start_date, startDate),
-            isNull(cycles.deleted_at),
-          ),
-        )
-        .limit(1);
-      if (existingCycle.length > 0) continue;
-
-      await tx.insert(cycles).values({
-        _tag: "cycle",
-        church_id: args.church_id,
-        church_time_zone: churchTimeZone,
-        created_by: args.user_id,
-        end_date: addLocalDateDays(startDate, 6),
-        ends_at: localMidnightToUtcInstant(addLocalDateDays(startDate, 7), churchTimeZone),
-        id: getCycleId(),
-        start_date: startDate,
-        starts_at: localMidnightToUtcInstant(startDate, churchTimeZone),
-        updated_by: args.user_id,
-      });
+      await tx
+        .insert(cycles)
+        .values({
+          _tag: "cycle",
+          church_id: args.church_id,
+          church_time_zone: churchTimeZone,
+          created_by: args.user_id,
+          end_date: addLocalDateDays(startDate, 6),
+          ends_at: localMidnightToUtcInstant(addLocalDateDays(startDate, 7), churchTimeZone),
+          id: getCycleId(),
+          start_date: startDate,
+          starts_at: localMidnightToUtcInstant(startDate, churchTimeZone),
+          updated_by: args.user_id,
+        })
+        .onConflictDoNothing({
+          target: [cycles.church_id, cycles.start_date],
+          where: sql`${cycles.deleted_at} IS NULL`,
+        });
     }
 
     const existingTeams = await tx
