@@ -1,3 +1,4 @@
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { formatWeekDateRange, useUpdateWeekDetailsMutation } from "@/data/cycles/cyclesData.app";
 import { Lock, MoreHorizontal, Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 export type WeekActionsMenuCycle = {
   readonly id: string;
@@ -77,6 +79,7 @@ export function WeekActionsMenu({
     setSaving(false);
     if (result.ok) {
       setOpen(false);
+      toast.success(trimmedName ? `“${trimmedName}” saved.` : "Week updated.");
       return;
     }
     setError(result.error.message);
@@ -164,9 +167,9 @@ export function WeekActionsMenu({
             </div>
 
             {error ? (
-              <p className="text-sm text-destructive" role="alert">
-                {error}
-              </p>
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             ) : null}
           </div>
 
@@ -174,8 +177,8 @@ export function WeekActionsMenu({
             <Button disabled={saving} onClick={() => setOpen(false)} type="button" variant="ghost">
               Cancel
             </Button>
-            <Button disabled={saving || !isDirty} onClick={save} type="button">
-              {saving ? "Saving…" : "Save Week"}
+            <Button disabled={!isDirty} loading={saving} onClick={save} type="button">
+              Save Week
             </Button>
           </DialogFooter>
         </DialogContent>
