@@ -27,6 +27,51 @@ const signedInContext = {
 } as const;
 
 describe("Zero Cycle mutators", () => {
+  test("keeps existing Week details when ensuring an existing Week", async () => {
+    const updateCalls: Array<{
+      readonly table: unknown;
+      readonly set: Record<string, unknown>;
+      readonly where: unknown;
+    }> = [];
+    const tx = {
+      dbTransaction: {
+        wrappedTransaction: {
+          select: () => ({
+            from: () => ({
+              where: async () => [{ id: "cycle_easter" }],
+            }),
+          }),
+          update: (table: unknown) => ({
+            set: (set: Record<string, unknown>) => ({
+              where: async (where: unknown) => {
+                updateCalls.push({ table, set, where });
+              },
+            }),
+          }),
+        },
+      },
+      location: "server",
+    } as never;
+
+    await mustGetMutator(mutators, "cycles.upsert").fn({
+      args: {
+        church_id: "org_test",
+        church_time_zone: "America/New_York",
+        end_date: "2026-04-05",
+        ends_at: "2026-04-06T04:00:00.000Z",
+        start_date: "2026-03-30",
+        starts_at: "2026-03-30T04:00:00.000Z",
+      },
+      ctx: signedInContext,
+      tx,
+    });
+
+    expect(updateCalls).toHaveLength(1);
+    expect(updateCalls[0]?.table).toBe(cycles);
+    expect(updateCalls[0]?.set).not.toHaveProperty("name");
+    expect(updateCalls[0]?.set).not.toHaveProperty("description");
+  });
+
   test("updates Week name and description without changing date boundaries", async () => {
     const updateCalls: Array<{
       readonly table: unknown;

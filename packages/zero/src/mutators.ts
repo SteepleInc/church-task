@@ -1477,10 +1477,10 @@ export const mutators = defineMutators({
           .update(cycles)
           .set({
             church_time_zone: args.church_time_zone,
-            description: args.description ?? null,
             end_date: args.end_date,
             ends_at: parseIsoInstant(args.ends_at),
-            name: args.name ?? null,
+            ...(args.description === undefined ? {} : { description: args.description }),
+            ...(args.name === undefined ? {} : { name: args.name }),
             start_date: args.start_date,
             starts_at: parseIsoInstant(args.starts_at),
             updated_at: now,

@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { formatWeekDateRange, useUpdateWeekDetailsMutation } from "@/data/cycles/cyclesData.app";
 import { Lock, MoreHorizontal, Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { ReactElement } from "react";
 import { toast } from "sonner";
 
 export type WeekActionsMenuCycle = {
@@ -42,7 +43,7 @@ export function WeekActionsMenu({
   readonly cycle: WeekActionsMenuCycle;
   // Optional custom trigger so callers can present the menu inline (e.g. a Week
   // header) while the default "⋯" button still works on its own.
-  readonly trigger?: React.ReactNode;
+  readonly trigger?: ReactElement;
 }) {
   const updateWeekDetails = useUpdateWeekDetailsMutation();
   const [open, setOpen] = useState(false);
@@ -89,7 +90,7 @@ export function WeekActionsMenu({
     <>
       <DropdownMenu>
         {trigger ? (
-          <DropdownMenuTrigger aria-label="Week actions" render={trigger as React.ReactElement} />
+          <DropdownMenuTrigger aria-label="Week actions" render={trigger} />
         ) : (
           <DropdownMenuTrigger
             aria-label="Week actions"
@@ -177,7 +178,7 @@ export function WeekActionsMenu({
             <Button disabled={saving} onClick={() => setOpen(false)} type="button" variant="ghost">
               Cancel
             </Button>
-            <Button disabled={!isDirty} loading={saving} onClick={save} type="button">
+            <Button disabled={!isDirty || saving} loading={saving} onClick={save} type="button">
               Save Week
             </Button>
           </DialogFooter>
