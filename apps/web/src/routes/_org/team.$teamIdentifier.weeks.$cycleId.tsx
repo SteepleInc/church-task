@@ -7,7 +7,7 @@ import { DashboardPage } from "@/routes/-dashboard";
 export const Route = createFileRoute("/_org/team/$teamIdentifier/weeks/$cycleId")({
   validateSearch: Schema.toStandardSchemaV1(ChurchWorkSearchSchema),
   search: {
-    middlewares: [retainSearchParams(["tab", "view", "insights"])],
+    middlewares: [retainSearchParams(["tab", "view", "insights", "progress"])],
   },
   component: RouteComponent,
 });

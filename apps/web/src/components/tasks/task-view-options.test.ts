@@ -87,6 +87,14 @@ describe("task route search schemas", () => {
     expect(decodeChurchWork({ tab: "done" })).toEqual({ tab: "done" });
   });
 
+  test("decodes Team Weeks progress URL state", () => {
+    expect(decodeChurchWork({ progress: "cycle-current", insights: { open: true } })).toEqual({
+      progress: "cycle-current",
+      insights: { open: true },
+    });
+    expect(decodeChurchWork({ progress: "closed" })).toEqual({ progress: "closed" });
+  });
+
   test("malformed shared-link state degrades to defaults instead of erroring", () => {
     expect(decodeMyWork({ tab: "bogus", view: { grouping: "nope" } })).toEqual({
       tab: undefined,

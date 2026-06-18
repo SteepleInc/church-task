@@ -277,6 +277,17 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
     });
   };
 
+  const setTeamWeeksProgress = (cycleId: string | null) => {
+    void navigate({
+      to: ".",
+      replace: true,
+      search: (prev: Record<string, unknown>) => ({
+        ...prev,
+        progress: cycleId ?? undefined,
+      }),
+    });
+  };
+
   const content = (
     <>
       <TaskShortcutsHelp open={shortcutsHelpOpen} onOpenChange={setShortcutsHelpOpen} />
@@ -335,6 +346,8 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
         <TeamWeeksIndex
           churchId={activeChurchId}
           currentUserId={currentUserId}
+          progressCycleId={search.progress ?? null}
+          onProgressCycleIdChange={setTeamWeeksProgress}
           team={{
             id: selectedTeam.id,
             identifier: selectedTeam.identifier,

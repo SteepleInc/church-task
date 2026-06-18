@@ -1,10 +1,15 @@
 import { TeamAvatar } from "@/components/avatars/teamAvatar";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { WeekProgressPanel } from "@/components/tasks/week-progress-panel";
 import { useCyclesCollection } from "@/data/cycles/cyclesData.app";
+import { useLabelsCollection } from "@/data/labels/labelsData.app";
 import { useTasksCollection } from "@/data/tasks/tasksData.app";
+import { getUserDisplayName, useChurchUsersCollection } from "@/data/users/usersData.app";
 import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
 import { CalendarDays, ChevronRight } from "lucide-react";
+import type { ComponentProps } from "react";
 
 import {
   buildTeamWeeksIndexRows,
@@ -30,10 +35,18 @@ const STATUS_DOT: Record<TeamWeeksIndexStatus, string> = {
   completed: "bg-muted-foreground/30",
 };
 
+const CLOSED_PROGRESS_CYCLE_ID = "closed";
+
+type TeamWeeksIndexProgressTask = ComponentProps<typeof WeekProgressPanel>["tasks"][number] & {
+  readonly cycleId?: string | null;
+};
+
 export function TeamWeeksIndex({
   churchId,
   currentUserId,
   team,
+  progressCycleId,
+  onProgressCycleIdChange,
 }: {
   readonly churchId: string;
   readonly currentUserId: string;
@@ -43,6 +56,8 @@ export function TeamWeeksIndex({
     readonly identifier: string;
     readonly color?: string | null;
   };
+  readonly progressCycleId?: string | null;
+  readonly onProgressCycleIdChange?: (cycleId: string | null) => void;
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const cyclesCollection = useCyclesCollection({ churchId, currentUserId });
@@ -51,6 +66,8 @@ export function TeamWeeksIndex({
     currentUserId,
     filters: { teamId: team.id },
   });
+  const usersCollection = useChurchUsersCollection({ churchId });
+  const labelsCollection = useLabelsCollection({ churchId });
   const rows = buildTeamWeeksIndexRows({
     cycles: cyclesCollection.cyclesCollection,
     tasks: tasksCollection.tasksCollection,
@@ -60,6 +77,18 @@ export function TeamWeeksIndex({
   });
   const sections = groupTeamWeeksIndexRows(rows);
   const isLoading = cyclesCollection.loading || tasksCollection.loading;
+  const expandedCycleId =
+    progressCycleId === CLOSED_PROGRESS_CYCLE_ID
+      ? null
+      : (progressCycleId ?? rows.find((row) => row.status === "current")?.id ?? null);
+  const progressMeta = {
+    assignees: usersCollection.usersCollection.map((user) => ({
+      id: user.id,
+      label: getUserDisplayName(user),
+    })),
+    labels: labelsCollection.labelsCollection,
+    teams: [{ id: team.id, name: team.name }],
+  };
 
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-6 md:px-6">
@@ -88,6 +117,10 @@ export function TeamWeeksIndex({
               status={section.status}
               rows={section.rows}
               teamIdentifier={team.identifier}
+              expandedCycleId={expandedCycleId}
+              onProgressCycleIdChange={onProgressCycleIdChange}
+              progressMeta={progressMeta}
+              tasks={tasksCollection.tasksCollection}
             />
           ))}
         </div>
@@ -123,10 +156,18 @@ function WeekSection({
   status,
   rows,
   teamIdentifier,
+  expandedCycleId,
+  onProgressCycleIdChange,
+  progressMeta,
+  tasks,
 }: {
   readonly status: TeamWeeksIndexStatus;
   readonly rows: readonly TeamWeeksIndexRow[];
   readonly teamIdentifier: string;
+  readonly expandedCycleId: string | null;
+  readonly onProgressCycleIdChange?: (cycleId: string | null) => void;
+  readonly progressMeta: ComponentProps<typeof WeekProgressPanel>["meta"];
+  readonly tasks: readonly TeamWeeksIndexProgressTask[];
 }) {
   return (
     <section className="flex flex-col gap-2">
@@ -141,7 +182,14 @@ function WeekSection({
         <ul className="divide-y">
           {rows.map((row) => (
             <li key={row.id}>
-              <WeekRow row={row} teamIdentifier={teamIdentifier} />
+              <WeekRow
+                row={row}
+                teamIdentifier={teamIdentifier}
+                expanded={row.id === expandedCycleId}
+                onProgressCycleIdChange={onProgressCycleIdChange}
+                progressMeta={progressMeta}
+                tasks={tasks.filter((task) => task.cycleId === row.id)}
+              />
             </li>
           ))}
         </ul>
@@ -153,48 +201,76 @@ function WeekSection({
 function WeekRow({
   row,
   teamIdentifier,
+  expanded,
+  onProgressCycleIdChange,
+  progressMeta,
+  tasks,
 }: {
   readonly row: TeamWeeksIndexRow;
   readonly teamIdentifier: string;
+  readonly expanded: boolean;
+  readonly onProgressCycleIdChange?: (cycleId: string | null) => void;
+  readonly progressMeta: ComponentProps<typeof WeekProgressPanel>["meta"];
+  readonly tasks: ComponentProps<typeof WeekProgressPanel>["tasks"];
 }) {
   const hasName = row.displayName !== row.dateRange;
 
   return (
-    <Link
-      to="/team/$teamIdentifier/weeks/$cycleId"
-      params={{ teamIdentifier, cycleId: row.id }}
-      search={true}
-      className="group/week flex items-center gap-4 px-4 py-3 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-    >
-      <span
-        aria-hidden
-        className={cn("mt-1 size-2 shrink-0 self-start rounded-full", STATUS_DOT[row.status])}
-      />
+    <div className="group/week">
+      <div className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-muted/50">
+        <span
+          aria-hidden
+          className={cn("mt-1 size-2 shrink-0 self-start rounded-full", STATUS_DOT[row.status])}
+        />
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-          <span className="truncate text-sm font-medium">{row.displayName}</span>
-          {hasName ? (
-            <span className="truncate text-xs text-muted-foreground">{row.dateRange}</span>
-          ) : null}
-          {row.relativeLabel ? (
-            <span
-              className={cn(
-                "rounded-full px-1.5 py-px text-[10px] font-medium uppercase tracking-wide",
-                row.status === "current"
-                  ? "bg-primary/10 text-primary"
-                  : "bg-muted text-muted-foreground",
-              )}
-            >
-              {row.relativeLabel}
-            </span>
-          ) : null}
-        </div>
-        <WeekRowMeta row={row} />
+        <Link
+          to="/team/$teamIdentifier/weeks/$cycleId"
+          params={{ teamIdentifier, cycleId: row.id }}
+          search={true}
+          className="flex min-w-0 flex-1 flex-col gap-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="truncate text-sm font-medium">{row.displayName}</span>
+            {hasName ? (
+              <span className="truncate text-xs text-muted-foreground">{row.dateRange}</span>
+            ) : null}
+            {row.relativeLabel ? (
+              <span
+                className={cn(
+                  "rounded-full px-1.5 py-px text-[10px] font-medium uppercase tracking-wide",
+                  row.status === "current"
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted text-muted-foreground",
+                )}
+              >
+                {row.relativeLabel}
+              </span>
+            ) : null}
+          </div>
+          <WeekRowMeta row={row} />
+        </Link>
+
+        <Button
+          type="button"
+          variant={expanded ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => onProgressCycleIdChange?.(expanded ? CLOSED_PROGRESS_CYCLE_ID : row.id)}
+        >
+          {expanded ? "Hide progress" : "Show progress"}
+        </Button>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground/50 transition-colors group-hover/week:text-muted-foreground" />
       </div>
-
-      <ChevronRight className="size-4 shrink-0 text-muted-foreground/50 transition-colors group-hover/week:text-muted-foreground" />
-    </Link>
+      {expanded ? (
+        <div className="border-t bg-muted/20 p-3">
+          <WeekProgressPanel
+            className="w-full"
+            meta={progressMeta}
+            onClose={() => onProgressCycleIdChange?.(CLOSED_PROGRESS_CYCLE_ID)}
+            tasks={tasks}
+          />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
