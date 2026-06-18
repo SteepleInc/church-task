@@ -3,7 +3,7 @@ import {
   assertValidTimeZone,
   localMidnightToUtcInstant,
 } from "@church-task/domain";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, ne, sql } from "drizzle-orm";
 
 import type { ChurchTaskDb } from "./client";
 import { cycles } from "./schema";
@@ -80,12 +80,29 @@ export const adjustChurchCyclesForTimeZone = async (
     readonly now?: Date;
     readonly updatedByUserId?: string | null;
   },
-) =>
-  db.transaction(async (tx) => {
+) => {
+  assertValidTimeZone(args.newChurchTimeZone);
+
+  const [cycleWithOldTimeZone] = await db
+    .select({ id: cycles.id })
+    .from(cycles)
+    .where(
+      and(
+        eq(cycles.church_id, args.church_id),
+        isNull(cycles.deleted_at),
+        ne(cycles.church_time_zone, args.newChurchTimeZone),
+      ),
+    )
+    .limit(1);
+
+  if (!cycleWithOldTimeZone) return { adjustedCycleIds: [] };
+
+  return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${args.church_id}))`);
 
     return adjustChurchCyclesForTimeZoneInTransaction(tx, args);
   });
+};
 
 const adjustChurchCyclesForTimeZoneInTransaction = async (
   db: DbExecutor,
