@@ -306,15 +306,24 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
 
     await runPostPrReview({ issue, prUrl });
 
-    if (AUTO_MERGE_PRS) {
-      enableAutoMerge(prUrl);
-      console.log(`  Auto-merge enabled for ${prUrl}`);
+    const autoMergeEnabled = AUTO_MERGE_PRS ? enableAutoMerge(prUrl) : false;
+    if (autoMergeEnabled) {
+      console.log(`  GitHub auto-merge enabled for ${prUrl}`);
+    } else if (AUTO_MERGE_PRS) {
+      console.log(`  GitHub auto-merge unavailable; will merge ${prUrl} after checks pass.`);
     } else {
       console.log(`  Auto-merge skipped for ${prUrl} because SANDCASTLE_AUTO_MERGE=false`);
     }
 
+    let checksReadyToMerge = true;
     if (PR_CHECK_REPAIR) {
-      await repairFailedPrChecks({ issue, prUrl });
+      checksReadyToMerge = await repairFailedPrChecks({ issue, prUrl });
+    } else if (AUTO_MERGE_PRS && !autoMergeEnabled) {
+      checksReadyToMerge = checksArePassing(await waitForChecks(prUrl));
+    }
+
+    if (AUTO_MERGE_PRS && !autoMergeEnabled && checksReadyToMerge) {
+      mergePr(prUrl);
     }
   }
 
@@ -371,9 +380,18 @@ function enableAutoMerge(prUrl: string) {
     execFileSync("gh", ["pr", "merge", prUrl, "--auto", "--squash", "--delete-branch"], {
       encoding: "utf8",
     });
+    return true;
   } catch (error) {
     console.warn(`  Could not enable auto-merge for ${prUrl}: ${String(error)}`);
+    return false;
   }
+}
+
+function mergePr(prUrl: string) {
+  execFileSync("gh", ["pr", "merge", prUrl, "--squash", "--delete-branch"], {
+    encoding: "utf8",
+  });
+  console.log(`  PR merged through GitHub: ${prUrl}`);
 }
 
 async function runPostPrReview({
@@ -451,7 +469,7 @@ async function repairFailedPrChecks({
 
     if (failedChecks.length === 0) {
       console.log(`  PR checks are not failing: ${prUrl}`);
-      return;
+      return checksArePassing(checks);
     }
 
     console.log(`  ${failedChecks.length} PR check(s) failed; running repair agent.`);
@@ -490,6 +508,7 @@ async function repairFailedPrChecks({
   console.warn(
     `  PR checks still failing after ${MAX_REPAIR_ATTEMPTS} repair attempt(s): ${prUrl}`,
   );
+  return false;
 }
 
 async function waitForChecks(prUrl: string) {
@@ -520,6 +539,19 @@ async function waitForChecks(prUrl: string) {
     `  Timed out waiting for checks; leaving PR for GitHub auto-merge/manual inspection.`,
   );
   return [];
+}
+
+function checksArePassing(checks: PrCheck[]) {
+  return (
+    checks.length > 0 &&
+    checks.every(
+      (check) =>
+        check.bucket !== "fail" &&
+        check.conclusion !== "failure" &&
+        check.bucket !== "pending" &&
+        check.state !== "pending",
+    )
+  );
 }
 
 function getPrChecks(prUrl: string): PrCheck[] {
