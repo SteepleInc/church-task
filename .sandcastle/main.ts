@@ -1,4 +1,4 @@
-// Parallel Planner with Review — four-phase orchestration loop
+// Parallel Planner with Review — local runner that publishes GitHub PRs
 //
 // This template drives a multi-phase workflow:
 //   Phase 1 (Plan):             An opus agent analyzes open issues, builds a
@@ -10,11 +10,12 @@
 //                               reviewer runs in the same sandbox on the same
 //                               branch (1 iteration). All issue pipelines run
 //                               concurrently via Promise.allSettled().
-//   Phase 3 (Merge):            A single agent merges all completed branches
-//                               into the current branch.
+//   Phase 3 (Publish):          Push completed branches and create/update PRs
+//                               on GitHub. Merging happens through GitHub, not
+//                               by locally merging branches into this checkout.
 //
 // The outer loop repeats up to MAX_ITERATIONS times so that newly unblocked
-// issues are picked up after each round of merges.
+// issues can be picked up after each round of published PRs.
 //
 // Usage:
 //   npx tsx .sandcastle/main.ts
@@ -23,6 +24,7 @@
 
 import * as sandcastle from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
+import { execFileSync, execSync } from "node:child_process";
 import { z } from "zod";
 
 // The planner emits its plan as JSON inside <plan> tags; Output.object extracts
@@ -45,10 +47,16 @@ const planSchema = z.object({
 // Configuration
 // ---------------------------------------------------------------------------
 
-// Maximum number of plan→execute→merge cycles before stopping.
+// Maximum number of plan→execute→publish cycles before stopping.
 // Raise this if your backlog is large; lower it for a quick smoke-test run.
 const MAX_ITERATIONS = 10;
 const MAX_PARALLEL = 4;
+const AUTO_MERGE_PRS = process.env.SANDCASTLE_AUTO_MERGE !== "false";
+const BASE_BRANCH = process.env.SANDCASTLE_BASE_BRANCH ?? currentBranch();
+const PR_CHECK_REPAIR = process.env.SANDCASTLE_REPAIR_FAILED_CHECKS !== "false";
+const MAX_REPAIR_ATTEMPTS = Number(process.env.SANDCASTLE_MAX_REPAIR_ATTEMPTS ?? "3");
+const CHECK_POLL_INTERVAL_MS = Number(process.env.SANDCASTLE_CHECK_POLL_INTERVAL_MS ?? "30000");
+const CHECK_TIMEOUT_MS = Number(process.env.SANDCASTLE_CHECK_TIMEOUT_MS ?? String(20 * 60 * 1000));
 
 const allAroundAgent = () => sandcastle.opencode("openai/gpt-5.5", { variant: "low" });
 
@@ -259,6 +267,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
                 TASK_ID: issue.id,
                 ISSUE_TITLE: issue.title,
                 BRANCH: issue.branch,
+                TARGET_BRANCH: BASE_BRANCH,
               },
             });
 
@@ -285,8 +294,8 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     }
   }
 
-  // Only pass branches that actually produced commits to the merge phase.
-  // An agent that ran successfully but made no commits has nothing to merge.
+  // Only publish branches that actually produced commits.
+  // An agent that ran successfully but made no commits has nothing to publish.
   const completedIssues = settled
     .map((outcome, i) => ({ outcome, issue: issues[i]! }))
     .filter(
@@ -302,36 +311,215 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   }
 
   if (completedBranches.length === 0) {
-    // All agents ran but none made commits — nothing to merge this cycle.
-    console.log("No commits produced. Nothing to merge.");
+    // All agents ran but none made commits — nothing to publish this cycle.
+    console.log("No commits produced. Nothing to publish.");
     continue;
   }
 
   // -------------------------------------------------------------------------
-  // Phase 3: Merge
+  // Phase 3: Publish PRs
   //
-  // One agent merges all completed branches into the current branch,
-  // resolving any conflicts and running tests to confirm everything works.
-  //
-  // The {{BRANCHES}} and {{ISSUES}} prompt arguments are lists that the agent
-  // uses to know which branches to merge and which issues to close.
+  // Keep the whole workflow locally initiated, but move integration/merge into
+  // GitHub. This gives us PR checks, review comments, and normal GitHub merge
+  // semantics instead of a local mega-merge branch.
   // -------------------------------------------------------------------------
-  await sandcastle.run({
-    hooks,
-    sandbox: sandboxProvider(),
-    name: "merger",
-    maxIterations: 1,
-    agent: allAroundAgent(),
-    promptFile: "./.sandcastle/merge-prompt.md",
-    promptArgs: {
-      // A markdown list of branch names, one per line.
-      BRANCHES: completedBranches.map((b) => `- ${b}`).join("\n"),
-      // A markdown list of issue IDs and titles, one per line.
-      ISSUES: completedIssues.map((i) => `- ${i.id}: ${i.title}`).join("\n"),
-    },
-  });
+  for (const issue of completedIssues) {
+    const prUrl = publishIssuePr({ baseBranch: BASE_BRANCH, issue });
+    console.log(`  PR ready for ${issue.id}: ${prUrl}`);
 
-  console.log("\nBranches merged.");
+    if (AUTO_MERGE_PRS) {
+      enableAutoMerge(prUrl);
+      console.log(`  Auto-merge enabled for ${prUrl}`);
+    } else {
+      console.log(`  Auto-merge skipped for ${prUrl} because SANDCASTLE_AUTO_MERGE=false`);
+    }
+
+    if (PR_CHECK_REPAIR) {
+      await repairFailedPrChecks({ issue, prUrl });
+    }
+  }
+
+  console.log("\nBranches published as GitHub PRs.");
 }
 
 console.log("\nAll done.");
+
+function currentBranch() {
+  return sh("git branch --show-current").trim();
+}
+
+function publishIssuePr({
+  baseBranch,
+  issue,
+}: {
+  baseBranch: string;
+  issue: z.infer<typeof planSchema>["issues"][number];
+}) {
+  sh(`git push --set-upstream origin ${quote(issue.branch)}`);
+
+  const existingPr = safeSh(`gh pr view ${quote(issue.branch)} --json url --jq .url`).trim();
+
+  if (existingPr) {
+    return existingPr;
+  }
+
+  return execFileSync(
+    "gh",
+    [
+      "pr",
+      "create",
+      "--base",
+      baseBranch,
+      "--head",
+      issue.branch,
+      "--title",
+      `Sandcastle: ${issue.title}`,
+      "--body",
+      [
+        `Closes #${issue.id}`,
+        "",
+        "Implemented by the local Sandcastle workflow.",
+        "",
+        "Merging is intentionally handled by GitHub so this branch gets normal PR checks, review comments, and merge history.",
+      ].join("\n"),
+    ],
+    { encoding: "utf8" },
+  ).trim();
+}
+
+function enableAutoMerge(prUrl: string) {
+  try {
+    execFileSync("gh", ["pr", "merge", prUrl, "--auto", "--squash", "--delete-branch"], {
+      encoding: "utf8",
+    });
+  } catch (error) {
+    console.warn(`  Could not enable auto-merge for ${prUrl}: ${String(error)}`);
+  }
+}
+
+async function repairFailedPrChecks({
+  issue,
+  prUrl,
+}: {
+  issue: z.infer<typeof planSchema>["issues"][number];
+  prUrl: string;
+}) {
+  for (let attempt = 1; attempt <= MAX_REPAIR_ATTEMPTS; attempt++) {
+    console.log(`  Waiting for PR checks (${attempt}/${MAX_REPAIR_ATTEMPTS}): ${prUrl}`);
+    const checks = await waitForChecks(prUrl);
+    const failedChecks = checks.filter(
+      (check) => check.bucket === "fail" || check.conclusion === "failure",
+    );
+
+    if (failedChecks.length === 0) {
+      console.log(`  PR checks are not failing: ${prUrl}`);
+      return;
+    }
+
+    console.log(`  ${failedChecks.length} PR check(s) failed; running repair agent.`);
+
+    const sandbox = await sandcastle.createSandbox({
+      branch: issue.branch,
+      sandbox: sandboxProvider(),
+      hooks,
+      copyToWorktree,
+    });
+
+    try {
+      await sandbox.run({
+        name: `pr-check-repair-${issue.id}-${attempt}`,
+        maxIterations: 30,
+        agent: allAroundAgent(),
+        promptFile: "./.sandcastle/pr-check-repair-prompt.md",
+        promptArgs: {
+          TASK_ID: issue.id,
+          ISSUE_TITLE: issue.title,
+          BRANCH: issue.branch,
+          PR_URL: prUrl,
+          FAILED_CHECKS_JSON: JSON.stringify(failedChecks, null, 2),
+        },
+      });
+    } finally {
+      await sandbox.close();
+    }
+
+    sh(`git push origin ${quote(issue.branch)}`);
+    if (AUTO_MERGE_PRS) {
+      enableAutoMerge(prUrl);
+    }
+  }
+
+  console.warn(
+    `  PR checks still failing after ${MAX_REPAIR_ATTEMPTS} repair attempt(s): ${prUrl}`,
+  );
+}
+
+async function waitForChecks(prUrl: string) {
+  const deadline = Date.now() + CHECK_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    const checks = getPrChecks(prUrl);
+    if (checks.length === 0) {
+      await sleep(CHECK_POLL_INTERVAL_MS);
+      continue;
+    }
+
+    const hasPending = checks.some(
+      (check) => check.bucket === "pending" || check.state === "pending",
+    );
+    const hasFailing = checks.some(
+      (check) => check.bucket === "fail" || check.conclusion === "failure",
+    );
+
+    if (hasFailing || !hasPending) {
+      return checks;
+    }
+
+    await sleep(CHECK_POLL_INTERVAL_MS);
+  }
+
+  console.warn(
+    `  Timed out waiting for checks; leaving PR for GitHub auto-merge/manual inspection.`,
+  );
+  return [];
+}
+
+function getPrChecks(prUrl: string): PrCheck[] {
+  const json = safeSh(
+    `gh pr checks ${quote(prUrl)} --json bucket,conclusion,detailsUrl,link,name,state,workflow`,
+  );
+  if (!json.trim()) {
+    return [];
+  }
+  return JSON.parse(json) as PrCheck[];
+}
+
+type PrCheck = {
+  bucket?: string;
+  conclusion?: string;
+  detailsUrl?: string;
+  link?: string;
+  name?: string;
+  state?: string;
+  workflow?: string;
+};
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function sh(command: string) {
+  return execSync(command, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+}
+
+function safeSh(command: string) {
+  try {
+    return sh(command);
+  } catch {
+    return "";
+  }
+}
+
+function quote(value: string) {
+  return JSON.stringify(value);
+}

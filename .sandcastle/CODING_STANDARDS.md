@@ -18,6 +18,14 @@ The reviewer agent loads this file during Sandcastle review.
 - Add/update targeted Playwright E2E coverage for user-visible workflow changes.
 - CI owns the full E2E suite; Sandcastle branches should run the narrowest relevant E2E script.
 
+## Sandcastle Workflow
+
+- The local Sandcastle runner publishes completed issue branches as GitHub PRs and enables auto-merge by default.
+- Do not locally merge multiple Sandcastle branches into the caller's checkout.
+- PRs should use `Closes #<issue>` so GitHub closes issues after the PR merge.
+- If GitHub checks fail, Sandcastle should repair the same PR branch and push follow-up commits rather than opening a replacement PR.
+- Leave review feedback and follow-up context on the PR whenever possible; GitHub is the integration and merge record.
+
 ## Architecture
 
 - `apps/web` is the TanStack Start frontend app.
