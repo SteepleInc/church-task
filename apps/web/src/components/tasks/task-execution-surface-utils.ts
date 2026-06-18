@@ -62,10 +62,12 @@ export function selectUpcomingExecutionCycle(
 export function resolveExecutionCycleScope(args: {
   readonly surface: ExecutionSurface;
   readonly week?: WeekShortcut;
+  readonly weekCycleId?: string | null;
   readonly cycles: readonly ExecutionCycle[];
   readonly today: string;
 }): ExecutionCycle | null {
   if (args.surface === "team_board") {
+    if (args.weekCycleId) return args.cycles.find((cycle) => cycle.id === args.weekCycleId) ?? null;
     if (args.week === "current") return selectCurrentExecutionCycle(args.cycles, args.today);
     if (args.week === "upcoming") return selectUpcomingExecutionCycle(args.cycles, args.today);
     return null;

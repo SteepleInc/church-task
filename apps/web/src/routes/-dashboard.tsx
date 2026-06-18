@@ -109,7 +109,7 @@ export type ActiveDashboardPanel =
   | "my_work"
   | "our_work"
   | "settings"
-  | { kind: "team"; teamIdentifier: string };
+  | { kind: "team"; teamIdentifier: string; weekCycleId?: string | null };
 
 function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboardPanel }) {
   const search = useSearch({ strict: false }) as DashboardSearch;
@@ -301,6 +301,7 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
           view={search.view}
           scope={activeScope}
           week={search.week}
+          weekCycleId={typeof activePanel === "object" ? activePanel.weekCycleId : null}
           insights={activeInsights}
           onInsightsChange={setInsights}
           onToggleLayout={toggleLayout}

@@ -1,6 +1,6 @@
 import { useOpenTaskDetailsPaneUrl } from "@/components/details-pane/details-pane-helpers";
 import { WeekHeader } from "@/components/weeks/week-header";
-import { useCyclesCollection } from "@/data/cycles/cyclesData.app";
+import { formatWeekDateRange, useCyclesCollection } from "@/data/cycles/cyclesData.app";
 import { useLabelsCollection } from "@/data/labels/labelsData.app";
 import { useTeamMembershipsCollection } from "@/data/teams/teamsData.app";
 import {
@@ -32,6 +32,8 @@ import { useZeroListArgs } from "@/shared/hooks/useZeroListArgs";
 import type { ListArgs } from "@church-task/zero";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { TaskInsightsPanel } from "@/components/tasks/task-insights-panel";
 import { WeekProgressPanel } from "@/components/tasks/week-progress-panel";
 import {
@@ -172,6 +174,7 @@ export function TaskExecutionSurface({
   view,
   scope,
   week,
+  weekCycleId,
   insights,
   onInsightsChange,
   onToggleLayout,
@@ -184,12 +187,14 @@ export function TaskExecutionSurface({
   readonly team?: {
     readonly id: string;
     readonly name: string;
+    readonly identifier?: string | null;
   } | null;
   readonly teams?: readonly { readonly id: string; readonly name: string }[];
   readonly tab?: TaskViewTab;
   readonly view?: TaskViewOptions;
   readonly scope?: TaskWeekScope;
   readonly week?: WeekShortcut;
+  readonly weekCycleId?: string | null;
   readonly insights?: ResolvedInsightsState;
   readonly onInsightsChange?: (next: ResolvedInsightsState) => void;
   // Surface-level keyboard shortcut targets, owned by the route.
@@ -219,7 +224,7 @@ export function TaskExecutionSurface({
 
   const cycles = cyclesCollection.cyclesCollection;
   const currentCycle = selectCurrentExecutionCycle(cycles, today);
-  const scopedCycle = resolveExecutionCycleScope({ surface, week, cycles, today });
+  const scopedCycle = resolveExecutionCycleScope({ surface, week, weekCycleId, cycles, today });
   const executionCycleId =
     surface === "team_board"
       ? (scopedCycle?.id ?? null)
@@ -461,7 +466,25 @@ export function TaskExecutionSurface({
             remaining width, the pane scrolls independently. */}
         <section className="flex min-h-0 min-w-0 flex-1 gap-4">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-            {currentWeek ? <WeekHeader churchId={churchId} cycle={currentWeek} /> : null}
+            {currentWeek ? (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <div className="text-xs text-muted-foreground">
+                    {team?.name ? `${team.name} / Weeks` : "Weeks"}
+                  </div>
+                  <WeekHeader churchId={churchId} cycle={currentWeek} />
+                </div>
+                {surface === "team_board" && team?.identifier ? (
+                  <TeamWeekSelector
+                    cycles={cycles}
+                    currentCycleId={currentCycle?.id ?? null}
+                    selectedCycleId={currentWeek.id}
+                    teamIdentifier={team.identifier}
+                    today={today}
+                  />
+                ) : null}
+              </div>
+            ) : null}
 
             {isLoading && !showBoard ? <TaskBoardSkeleton /> : null}
 
@@ -657,6 +680,72 @@ export function TaskExecutionSurface({
       </TaskContextMenuBridge>
     </TaskSurfaceKeyboardProvider>
   );
+}
+
+function TeamWeekSelector({
+  cycles,
+  currentCycleId,
+  selectedCycleId,
+  teamIdentifier,
+  today,
+}: {
+  readonly cycles: readonly {
+    readonly id: string;
+    readonly startDate: string;
+    readonly endDate: string;
+    readonly name: string | null;
+  }[];
+  readonly currentCycleId: string | null;
+  readonly selectedCycleId: string;
+  readonly teamIdentifier: string;
+  readonly today: string;
+}) {
+  const navigate = useNavigate();
+  const ordered = [...cycles].sort((left, right) => left.startDate.localeCompare(right.startDate));
+  const selectedIndex = ordered.findIndex((cycle) => cycle.id === selectedCycleId);
+  const currentIndex = currentCycleId
+    ? ordered.findIndex((cycle) => cycle.id === currentCycleId)
+    : ordered.findIndex((cycle) => cycle.startDate <= today && today <= cycle.endDate);
+  const center = selectedIndex >= 0 ? selectedIndex : currentIndex;
+  const nearby = ordered.slice(Math.max(0, center - 1), center + 2);
+
+  return (
+    <div className="flex flex-wrap items-center gap-2" aria-label="Week selector">
+      {nearby.map((cycle) => {
+        const active = cycle.id === selectedCycleId;
+        const status = getWeekStatusLabel(cycle, today);
+        return (
+          <Button
+            key={cycle.id}
+            type="button"
+            size="sm"
+            variant={active ? "secondary" : "outline"}
+            onClick={() => {
+              void navigate({
+                to: "/team/$teamIdentifier/weeks/$cycleId",
+                params: { teamIdentifier, cycleId: cycle.id },
+                search: true,
+              });
+            }}
+          >
+            <span className="truncate">{cycle.name?.trim() || formatWeekDateRange(cycle)}</span>
+            <Badge variant="outline" className="ml-2 hidden sm:inline-flex">
+              {status}
+            </Badge>
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
+function getWeekStatusLabel(
+  cycle: { readonly startDate: string; readonly endDate: string },
+  today: string,
+) {
+  if (cycle.startDate <= today && today <= cycle.endDate) return "Current";
+  if (cycle.startDate > today) return "Upcoming";
+  return "Completed";
 }
 
 /**

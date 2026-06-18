@@ -38,6 +38,7 @@ import { Route as SettingsSettingsAccountProfileRouteImport } from './routes/_se
 import { Route as SettingsSettingsTeamsTeamIdIndexRouteImport } from './routes/_settings/settings.teams.$teamId.index'
 import { Route as SettingsSettingsTeamsTeamIdMembersRouteImport } from './routes/_settings/settings.teams.$teamId.members'
 import { Route as SettingsSettingsTeamsTeamIdGeneralRouteImport } from './routes/_settings/settings.teams.$teamId.general'
+import { Route as OrgTeamTeamIdentifierWeeksCycleIdRouteImport } from './routes/_org/team.$teamIdentifier.weeks.$cycleId'
 
 const SettingsRouteRoute = SettingsRouteRouteImport.update({
   id: '/_settings',
@@ -187,6 +188,12 @@ const SettingsSettingsTeamsTeamIdGeneralRoute =
     path: '/general',
     getParentRoute: () => SettingsSettingsTeamsTeamIdRoute,
   } as any)
+const OrgTeamTeamIdentifierWeeksCycleIdRoute =
+  OrgTeamTeamIdentifierWeeksCycleIdRouteImport.update({
+    id: '/weeks/$cycleId',
+    path: '/weeks/$cycleId',
+    getParentRoute: () => OrgTeamTeamIdentifierRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof MarketingIndexRoute
@@ -203,13 +210,14 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof OrgAdminUsersRoute
   '/dev/data': typeof OrgDevDataRoute
   '/dev/session': typeof OrgDevSessionRoute
-  '/team/$teamIdentifier': typeof OrgTeamTeamIdentifierRoute
+  '/team/$teamIdentifier': typeof OrgTeamTeamIdentifierRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/settings/account/profile': typeof SettingsSettingsAccountProfileRoute
   '/settings/teams/$teamId': typeof SettingsSettingsTeamsTeamIdRouteWithChildren
   '/settings/workspace/general': typeof SettingsSettingsWorkspaceGeneralRoute
   '/settings/workspace/labels': typeof SettingsSettingsWorkspaceLabelsRoute
   '/settings/workspace/members': typeof SettingsSettingsWorkspaceMembersRoute
+  '/team/$teamIdentifier/weeks/$cycleId': typeof OrgTeamTeamIdentifierWeeksCycleIdRoute
   '/settings/teams/$teamId/general': typeof SettingsSettingsTeamsTeamIdGeneralRoute
   '/settings/teams/$teamId/members': typeof SettingsSettingsTeamsTeamIdMembersRoute
   '/settings/teams/$teamId/': typeof SettingsSettingsTeamsTeamIdIndexRoute
@@ -229,12 +237,13 @@ export interface FileRoutesByTo {
   '/admin/users': typeof OrgAdminUsersRoute
   '/dev/data': typeof OrgDevDataRoute
   '/dev/session': typeof OrgDevSessionRoute
-  '/team/$teamIdentifier': typeof OrgTeamTeamIdentifierRoute
+  '/team/$teamIdentifier': typeof OrgTeamTeamIdentifierRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/settings/account/profile': typeof SettingsSettingsAccountProfileRoute
   '/settings/workspace/general': typeof SettingsSettingsWorkspaceGeneralRoute
   '/settings/workspace/labels': typeof SettingsSettingsWorkspaceLabelsRoute
   '/settings/workspace/members': typeof SettingsSettingsWorkspaceMembersRoute
+  '/team/$teamIdentifier/weeks/$cycleId': typeof OrgTeamTeamIdentifierWeeksCycleIdRoute
   '/settings/teams/$teamId/general': typeof SettingsSettingsTeamsTeamIdGeneralRoute
   '/settings/teams/$teamId/members': typeof SettingsSettingsTeamsTeamIdMembersRoute
   '/settings/teams/$teamId': typeof SettingsSettingsTeamsTeamIdIndexRoute
@@ -260,13 +269,14 @@ export interface FileRoutesById {
   '/_org/admin/users': typeof OrgAdminUsersRoute
   '/_org/dev/data': typeof OrgDevDataRoute
   '/_org/dev/session': typeof OrgDevSessionRoute
-  '/_org/team/$teamIdentifier': typeof OrgTeamTeamIdentifierRoute
+  '/_org/team/$teamIdentifier': typeof OrgTeamTeamIdentifierRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_settings/settings/account/profile': typeof SettingsSettingsAccountProfileRoute
   '/_settings/settings/teams/$teamId': typeof SettingsSettingsTeamsTeamIdRouteWithChildren
   '/_settings/settings/workspace/general': typeof SettingsSettingsWorkspaceGeneralRoute
   '/_settings/settings/workspace/labels': typeof SettingsSettingsWorkspaceLabelsRoute
   '/_settings/settings/workspace/members': typeof SettingsSettingsWorkspaceMembersRoute
+  '/_org/team/$teamIdentifier/weeks/$cycleId': typeof OrgTeamTeamIdentifierWeeksCycleIdRoute
   '/_settings/settings/teams/$teamId/general': typeof SettingsSettingsTeamsTeamIdGeneralRoute
   '/_settings/settings/teams/$teamId/members': typeof SettingsSettingsTeamsTeamIdMembersRoute
   '/_settings/settings/teams/$teamId/': typeof SettingsSettingsTeamsTeamIdIndexRoute
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/settings/workspace/general'
     | '/settings/workspace/labels'
     | '/settings/workspace/members'
+    | '/team/$teamIdentifier/weeks/$cycleId'
     | '/settings/teams/$teamId/general'
     | '/settings/teams/$teamId/members'
     | '/settings/teams/$teamId/'
@@ -320,6 +331,7 @@ export interface FileRouteTypes {
     | '/settings/workspace/general'
     | '/settings/workspace/labels'
     | '/settings/workspace/members'
+    | '/team/$teamIdentifier/weeks/$cycleId'
     | '/settings/teams/$teamId/general'
     | '/settings/teams/$teamId/members'
     | '/settings/teams/$teamId'
@@ -351,6 +363,7 @@ export interface FileRouteTypes {
     | '/_settings/settings/workspace/general'
     | '/_settings/settings/workspace/labels'
     | '/_settings/settings/workspace/members'
+    | '/_org/team/$teamIdentifier/weeks/$cycleId'
     | '/_settings/settings/teams/$teamId/general'
     | '/_settings/settings/teams/$teamId/members'
     | '/_settings/settings/teams/$teamId/'
@@ -571,6 +584,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsSettingsTeamsTeamIdGeneralRouteImport
       parentRoute: typeof SettingsSettingsTeamsTeamIdRoute
     }
+    '/_org/team/$teamIdentifier/weeks/$cycleId': {
+      id: '/_org/team/$teamIdentifier/weeks/$cycleId'
+      path: '/weeks/$cycleId'
+      fullPath: '/team/$teamIdentifier/weeks/$cycleId'
+      preLoaderRoute: typeof OrgTeamTeamIdentifierWeeksCycleIdRouteImport
+      parentRoute: typeof OrgTeamTeamIdentifierRoute
+    }
   }
 }
 
@@ -628,13 +648,27 @@ const OrgAdminRouteWithChildren = OrgAdminRoute._addFileChildren(
   OrgAdminRouteChildren,
 )
 
+interface OrgTeamTeamIdentifierRouteChildren {
+  OrgTeamTeamIdentifierWeeksCycleIdRoute: typeof OrgTeamTeamIdentifierWeeksCycleIdRoute
+}
+
+const OrgTeamTeamIdentifierRouteChildren: OrgTeamTeamIdentifierRouteChildren = {
+  OrgTeamTeamIdentifierWeeksCycleIdRoute:
+    OrgTeamTeamIdentifierWeeksCycleIdRoute,
+}
+
+const OrgTeamTeamIdentifierRouteWithChildren =
+  OrgTeamTeamIdentifierRoute._addFileChildren(
+    OrgTeamTeamIdentifierRouteChildren,
+  )
+
 interface OrgRouteRouteChildren {
   OrgAdminRoute: typeof OrgAdminRouteWithChildren
   OrgMyWorkRoute: typeof OrgMyWorkRoute
   OrgOurWorkRoute: typeof OrgOurWorkRoute
   OrgDevDataRoute: typeof OrgDevDataRoute
   OrgDevSessionRoute: typeof OrgDevSessionRoute
-  OrgTeamTeamIdentifierRoute: typeof OrgTeamTeamIdentifierRoute
+  OrgTeamTeamIdentifierRoute: typeof OrgTeamTeamIdentifierRouteWithChildren
 }
 
 const OrgRouteRouteChildren: OrgRouteRouteChildren = {
@@ -643,7 +677,7 @@ const OrgRouteRouteChildren: OrgRouteRouteChildren = {
   OrgOurWorkRoute: OrgOurWorkRoute,
   OrgDevDataRoute: OrgDevDataRoute,
   OrgDevSessionRoute: OrgDevSessionRoute,
-  OrgTeamTeamIdentifierRoute: OrgTeamTeamIdentifierRoute,
+  OrgTeamTeamIdentifierRoute: OrgTeamTeamIdentifierRouteWithChildren,
 }
 
 const OrgRouteRouteWithChildren = OrgRouteRoute._addFileChildren(

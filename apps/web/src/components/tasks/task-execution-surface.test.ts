@@ -84,6 +84,22 @@ describe("Task execution surface", () => {
     ).toBe("upcoming");
   });
 
+  test("resolves Team Week detail boards by explicit Week id", () => {
+    const cycles = [
+      { id: "previous", startDate: "2026-05-25", endDate: "2026-05-31" },
+      { id: "current", startDate: "2026-06-01", endDate: "2026-06-07" },
+    ];
+
+    expect(
+      resolveExecutionCycleScope({
+        surface: "team_board",
+        weekCycleId: "previous",
+        cycles,
+        today: "2026-06-03",
+      })?.id,
+    ).toBe("previous");
+  });
+
   test("defaults My Work Task creation to the current User", () => {
     expect(getTaskCreationDefaults({ surface: "my_work", currentUserId: "user-1" })).toEqual({
       assignedUserId: "user-1",
