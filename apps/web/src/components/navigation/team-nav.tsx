@@ -302,18 +302,14 @@ function TeamNavItem({
       </CollapsibleTrigger>
 
       <CollapsibleContent>
-        <SidebarMenuSub>
+        <SidebarMenuSub className="before:hidden">
           {teamNavChildren.map((child) => (
             <TeamChildItem
               key={child.key}
               activeChild={activeChild}
               child={child}
-              expanded={expanded}
               href={href}
               identifier={team.identifier}
-              parentKey={expansionKey}
-              setExpanded={setExpanded}
-              weekActive={weekActive}
             />
           ))}
         </SidebarMenuSub>
@@ -326,80 +322,53 @@ function TeamChildItem({
   child,
   href,
   identifier,
-  parentKey,
-  expanded,
-  setExpanded,
   activeChild,
-  weekActive,
 }: {
   readonly child: TeamChild;
   readonly href: string;
   readonly identifier: string;
-  readonly parentKey: string;
-  readonly expanded: Record<string, boolean>;
-  readonly setExpanded: (key: string, open: boolean) => void;
   readonly activeChild: "tasks" | "weeks" | WeekScope | null;
-  readonly weekActive: boolean;
 }) {
   const { setOpenMobile } = useSidebar();
 
   if (child.children) {
-    const expansionKey = `${parentKey}:${child.key}`;
-    // Keep the Weeks group open while one of its shortcuts is the active
-    // surface, so the highlighted item is always visible.
-    const isOpen = (expanded[expansionKey] ?? false) || weekActive;
-    const containsActive = child.children.some((grandchild) => grandchild.key === activeChild);
-
     return (
-      <Collapsible
-        open={isOpen}
-        onOpenChange={(open) => setExpanded(expansionKey, open)}
-        render={<SidebarMenuSubItem />}
-      >
-        <CollapsibleTrigger
-          render={
-            <SidebarMenuSubButton
-              className="cursor-pointer"
-              // When collapsed while a shortcut inside is active, mark the
-              // group itself so the active branch reads at a glance.
-              isActive={!isOpen && containsActive}
-              render={<button type="button" />}
-            />
-          }
-        >
-          <ChildIcon icon={child.icon} />
-          <span className="flex-1 truncate">{child.label}</span>
-          <HugeiconsIcon
-            className={cn(
-              "ml-auto shrink-0 transition-transform",
-              isOpen ? "rotate-0" : "-rotate-90",
-            )}
-            icon={ArrowDown01Icon}
-            strokeWidth={2}
-          />
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <SidebarMenuSub>
+      <>
+        <SidebarMenuSubItem>
+          <ContextMenu>
+            <ContextMenuTrigger
+              render={
+                <SidebarMenuSubButton
+                  isActive={activeChild === child.key}
+                  render={
+                    <Link
+                      onClick={() => setOpenMobile(false)}
+                      preload="intent"
+                      search={preserveDetailsPaneSearch}
+                      to={getTeamChildHref(identifier, child.key) as "/"}
+                    />
+                  }
+                />
+              }
+            >
+              <ChildIcon icon={child.icon} />
+              <span className="flex-1 truncate">{child.label}</span>
+            </ContextMenuTrigger>
+            <ChildContextMenuContent href={getTeamChildHref(identifier, child.key)} />
+          </ContextMenu>
+        </SidebarMenuSubItem>
+        <SidebarMenuSub className="ml-4 py-0 pl-3 before:inset-y-1 before:block">
+          {child.children.map((grandchild) => (
             <ChildLink
-              href={getTeamChildHref(identifier, child.key)}
-              icon={child.icon}
-              isActive={activeChild === child.key}
-              label="All Weeks"
-              week={undefined}
+              key={grandchild.key}
+              href={getTeamChildHref(identifier, grandchild.key)}
+              isActive={activeChild === grandchild.key}
+              label={grandchild.label}
+              week={isWeekScope(grandchild.key) ? grandchild.key : undefined}
             />
-            {child.children.map((grandchild) => (
-              <ChildLink
-                key={grandchild.key}
-                href={getTeamChildHref(identifier, grandchild.key)}
-                icon={grandchild.icon}
-                isActive={activeChild === grandchild.key}
-                label={grandchild.label}
-                week={isWeekScope(grandchild.key) ? grandchild.key : undefined}
-              />
-            ))}
-          </SidebarMenuSub>
-        </CollapsibleContent>
-      </Collapsible>
+          ))}
+        </SidebarMenuSub>
+      </>
     );
   }
 
@@ -453,7 +422,7 @@ function ChildLink({
 }: {
   readonly href: string;
   readonly label: string;
-  readonly icon: IconType;
+  readonly icon?: IconType;
   readonly isActive: boolean;
   readonly week: WeekScope | undefined;
 }) {
@@ -483,7 +452,7 @@ function ChildLink({
             />
           }
         >
-          <ChildIcon icon={icon} />
+          {icon ? <ChildIcon icon={icon} /> : null}
           <span className="flex-1 truncate">{label}</span>
         </ContextMenuTrigger>
         <ChildContextMenuContent href={href} />
