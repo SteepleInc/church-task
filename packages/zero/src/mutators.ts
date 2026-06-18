@@ -646,6 +646,17 @@ type ExistingProjectedTaskRow = {
   readonly id: string;
   readonly source_template_task_id: string;
 };
+export type TemplateCycleTaskProjection = {
+  readonly cycle_id: string;
+  readonly due_date: string;
+  readonly parent_template_task_id: string | null;
+  readonly skipped: false;
+  readonly source_template_id: string;
+  readonly source_template_task_id: string;
+  readonly team_id: string;
+  readonly template_task_key: string;
+  readonly title: string;
+};
 type TaskPatch = {
   readonly updated_at: Date;
   readonly updated_by: string;
@@ -780,7 +791,7 @@ export const buildTemplateCycleTaskInserts = (args: {
       previous_identifiers: "[]",
       source_template_cycle_id: args.cycle.id,
       source_template_id: args.template_id,
-      source_template_sync_enabled: true,
+      source_template_sync_enabled: false,
       source_template_task_id: templateTask.id,
       task_state: "todo",
       team_id: templateTeam.mapped_team_id,
@@ -799,6 +810,69 @@ export const buildTemplateCycleTaskInserts = (args: {
   }
 
   return { inserts, nextNumberByTeamId };
+};
+
+export const buildTemplateCycleTaskProjections = (args: {
+  readonly adjustments: readonly CycleAdjustmentRow[];
+  readonly cycle: CycleRow;
+  readonly focus_windows: readonly FocusWindowRow[];
+  readonly key_date_occurrences: readonly KeyDateOccurrenceRow[];
+  readonly template_id: string;
+  readonly template_tasks: readonly TemplateTaskRow[];
+  readonly template_teams: readonly TemplateTeamRow[];
+}): readonly TemplateCycleTaskProjection[] => {
+  const templateTeamById = new Map(args.template_teams.map((team) => [team.id, team]));
+  const adjustmentByTemplateTaskId = new Map(
+    args.adjustments.map((adjustment) => [adjustment.template_task_id, adjustment]),
+  );
+
+  return args.template_tasks.flatMap((templateTask) => {
+    const templateTeam = templateTeamById.get(templateTask.template_team_id);
+    if (!templateTeam) throw new Error("Template Task does not reference an active Template Team.");
+
+    const dueDate = resolveSchedulingRule(
+      parseJson<SchedulingRule>(templateTask.scheduling_rule, {
+        kind: "fixedDate",
+        localDate: args.cycle.start_date,
+      }),
+      {
+        cycle_start_date: args.cycle.start_date,
+        focus_windows: args.focus_windows,
+        key_date_occurrences: args.key_date_occurrences,
+      },
+    );
+    const adjustment = adjustmentByTemplateTaskId.get(templateTask.id);
+    const merged = mergeTemplateTaskProjection(
+      {
+        dueDate,
+        parentTemplateTaskId: templateTask.parent_template_task_id,
+        templateTaskId: templateTask.id,
+        templateTaskKey: templateTask.key,
+        title: templateTask.title,
+      },
+      adjustment
+        ? {
+            lifecycle: adjustment.lifecycle,
+            overrides: parseJson<readonly CycleAdjustmentOverride[]>(adjustment.overrides, []),
+          }
+        : null,
+    );
+
+    if (merged.skipped || !merged.effectiveTask) return [];
+    return [
+      {
+        cycle_id: args.cycle.id,
+        due_date: merged.effectiveTask.dueDate,
+        parent_template_task_id: merged.effectiveTask.parentTemplateTaskId,
+        skipped: false as const,
+        source_template_id: args.template_id,
+        source_template_task_id: templateTask.id,
+        team_id: templateTeam.mapped_team_id,
+        template_task_key: merged.effectiveTask.templateTaskKey,
+        title: merged.effectiveTask.title,
+      },
+    ];
+  });
 };
 
 const taskPatchForFields = async (

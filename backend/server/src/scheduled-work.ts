@@ -508,7 +508,7 @@ export const maintainCyclesForChurch = Effect.fn("maintainCyclesForChurch")(func
         }
 
         const materializedTaskIds: string[] = [];
-        for (const cycleId of ensuredCycleIds) {
+        for (const cycleId of ensuredCycleIds.slice(0, 1)) {
           const [cycle] = await tx.select().from(cycles).where(eq(cycles.id, cycleId)).limit(1);
           if (!cycle) continue;
           materializedTaskIds.push(
