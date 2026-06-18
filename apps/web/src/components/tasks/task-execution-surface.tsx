@@ -33,6 +33,7 @@ import type { ListArgs } from "@church-task/zero";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { TaskInsightsPanel } from "@/components/tasks/task-insights-panel";
+import { WeekProgressPanel } from "@/components/tasks/week-progress-panel";
 import {
   buildInsightsData,
   insightsToCsv,
@@ -68,10 +69,12 @@ import {
   getTaskExecutionReadArgs,
   getTaskGroupAddPreset,
   getTaskParentContext,
+  resolveExecutionCycleScope,
   selectCurrentExecutionCycle,
   type ExecutionSurface,
   type TaskSummary,
   type TaskState,
+  type WeekShortcut,
 } from "@/components/tasks/task-execution-surface-utils";
 import {
   resolveTaskViewOptions,
@@ -168,6 +171,7 @@ export function TaskExecutionSurface({
   tab,
   view,
   scope,
+  week,
   insights,
   onInsightsChange,
   onToggleLayout,
@@ -185,6 +189,7 @@ export function TaskExecutionSurface({
   readonly tab?: TaskViewTab;
   readonly view?: TaskViewOptions;
   readonly scope?: TaskWeekScope;
+  readonly week?: WeekShortcut;
   readonly insights?: ResolvedInsightsState;
   readonly onInsightsChange?: (next: ResolvedInsightsState) => void;
   // Surface-level keyboard shortcut targets, owned by the route.
@@ -214,15 +219,19 @@ export function TaskExecutionSurface({
 
   const cycles = cyclesCollection.cyclesCollection;
   const currentCycle = selectCurrentExecutionCycle(cycles, today);
-  const executionCycleId = getTaskExecutionCycleId({
-    surface,
-    scope,
-    currentCycleId: currentCycle?.id ?? null,
-  });
+  const scopedCycle = resolveExecutionCycleScope({ surface, week, cycles, today });
+  const executionCycleId =
+    surface === "team_board"
+      ? (scopedCycle?.id ?? null)
+      : getTaskExecutionCycleId({
+          surface,
+          scope,
+          currentCycleId: currentCycle?.id ?? null,
+        });
   // The selector returns only the date fields it needs; pull the full Week row
   // back out so the header can show its Church-wide name/description.
-  const currentWeek = currentCycle
-    ? (cycles.find((cycle) => cycle.id === currentCycle.id) ?? null)
+  const currentWeek = executionCycleId
+    ? (cycles.find((cycle) => cycle.id === executionCycleId) ?? null)
     : null;
   // Every Team owns its Workflow (ADR 0013): a Team Board shows that
   // Workflow's statuses. Cross-team surfaces carry every active status so
@@ -387,6 +396,11 @@ export function TaskExecutionSurface({
   const insightsMeta: InsightsBucketMeta = {
     workflowStatuses: activeWorkflowStatuses.map(toBoardWorkflowStatus),
     assignees: assigneeOptions,
+    teams,
+  };
+  const weekProgressMeta = {
+    assignees: assigneeOptions,
+    labels: labelsCollection.labelsCollection,
     teams,
   };
 
@@ -594,40 +608,50 @@ export function TaskExecutionSurface({
           </div>
 
           {insightsOpen && insightsState && onInsightsChange ? (
-            <TaskInsightsPanel
-              className="min-h-0 w-full max-w-md shrink-0 self-stretch overflow-y-auto md:w-96 lg:w-[28rem]"
-              meta={insightsMeta}
-              onClose={() => onInsightsChange({ ...insightsState, open: false })}
-              onCopyLink={() => {
-                void navigator.clipboard?.writeText(window.location.href);
-              }}
-              onExportCsv={() => {
-                const sliceLabel =
-                  INSIGHTS_DIMENSION_OPTIONS.find((option) => option.value === insightsState.slice)
-                    ?.label ?? "Slice";
-                const scoped = insightsState.showCanceled
-                  ? boardTasks
-                  : boardTasks.filter((task) => task.taskState !== "canceled");
-                const csv = insightsToCsv(
-                  buildInsightsData({
-                    slice: insightsState.slice,
-                    segment: insightsState.segment,
-                    tasks: scoped,
-                    meta: insightsMeta,
-                  }),
-                  sliceLabel,
-                );
-                downloadCsv(csv, "insights.csv");
-              }}
-              onRefresh={() => {
-                // Data is live through synced collections; Refresh is a no-op re-render.
-                // hook kept for parity with Linear's menu.
-                onInsightsChange({ ...insightsState });
-              }}
-              onStateChange={onInsightsChange}
-              state={insightsState}
-              tasks={boardTasks}
-            />
+            surface === "team_board" ? (
+              <WeekProgressPanel
+                className="min-h-0 w-full max-w-md shrink-0 self-stretch overflow-y-auto md:w-96 lg:w-[28rem]"
+                meta={weekProgressMeta}
+                onClose={() => onInsightsChange({ ...insightsState, open: false })}
+                tasks={boardTasks}
+              />
+            ) : (
+              <TaskInsightsPanel
+                className="min-h-0 w-full max-w-md shrink-0 self-stretch overflow-y-auto md:w-96 lg:w-[28rem]"
+                meta={insightsMeta}
+                onClose={() => onInsightsChange({ ...insightsState, open: false })}
+                onCopyLink={() => {
+                  void navigator.clipboard?.writeText(window.location.href);
+                }}
+                onExportCsv={() => {
+                  const sliceLabel =
+                    INSIGHTS_DIMENSION_OPTIONS.find(
+                      (option) => option.value === insightsState.slice,
+                    )?.label ?? "Slice";
+                  const scoped = insightsState.showCanceled
+                    ? boardTasks
+                    : boardTasks.filter((task) => task.taskState !== "canceled");
+                  const csv = insightsToCsv(
+                    buildInsightsData({
+                      slice: insightsState.slice,
+                      segment: insightsState.segment,
+                      tasks: scoped,
+                      meta: insightsMeta,
+                    }),
+                    sliceLabel,
+                  );
+                  downloadCsv(csv, "insights.csv");
+                }}
+                onRefresh={() => {
+                  // Data is live through synced collections; Refresh is a no-op re-render.
+                  // hook kept for parity with Linear's menu.
+                  onInsightsChange({ ...insightsState });
+                }}
+                onStateChange={onInsightsChange}
+                state={insightsState}
+                tasks={boardTasks}
+              />
+            )
           ) : null}
         </section>
       </TaskContextMenuBridge>

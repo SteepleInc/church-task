@@ -300,6 +300,7 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
           tab={activeTab}
           view={search.view}
           scope={activeScope}
+          week={search.week}
           insights={activeInsights}
           onInsightsChange={setInsights}
           onToggleLayout={toggleLayout}

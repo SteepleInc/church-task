@@ -46,6 +46,34 @@ export function selectCurrentExecutionCycle(
   );
 }
 
+export type WeekShortcut = "current" | "upcoming";
+
+export function selectUpcomingExecutionCycle(
+  cycles: readonly ExecutionCycle[],
+  today: string,
+): ExecutionCycle | null {
+  return (
+    [...cycles]
+      .sort((left, right) => left.startDate.localeCompare(right.startDate))
+      .find((cycle) => cycle.startDate > today) ?? null
+  );
+}
+
+export function resolveExecutionCycleScope(args: {
+  readonly surface: ExecutionSurface;
+  readonly week?: WeekShortcut;
+  readonly cycles: readonly ExecutionCycle[];
+  readonly today: string;
+}): ExecutionCycle | null {
+  if (args.surface === "team_board") {
+    if (args.week === "current") return selectCurrentExecutionCycle(args.cycles, args.today);
+    if (args.week === "upcoming") return selectUpcomingExecutionCycle(args.cycles, args.today);
+    return null;
+  }
+
+  return selectCurrentExecutionCycle(args.cycles, args.today);
+}
+
 export function getTaskCreationDefaults(args: {
   readonly surface: ExecutionSurface;
   readonly currentUserId: string;

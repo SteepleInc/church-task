@@ -1,6 +1,7 @@
 import {
   ArrowDown01Icon,
   ArrowUpRight01Icon,
+  Calendar03Icon,
   Cancel01Icon,
   Copy01Icon,
   Link01Icon,
@@ -8,13 +9,12 @@ import {
   MoreHorizontalIcon,
   PlayCircleIcon,
   PlusSignIcon,
-  RefreshIcon,
   Settings01Icon,
   Task01Icon,
   Time04Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate, useSearch } from "@tanstack/react-router";
 import { useSetAtom } from "jotai";
 import type { ComponentProps } from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -75,12 +75,14 @@ type TeamChild = {
   readonly children?: readonly TeamChild[];
 };
 
-const TEAM_CHILDREN: readonly TeamChild[] = [
+type WeekScope = "current" | "upcoming";
+
+export const teamNavChildren: readonly TeamChild[] = [
   { key: "tasks", label: "Tasks", icon: Task01Icon },
   {
-    key: "cycles",
-    label: "Cycles",
-    icon: RefreshIcon,
+    key: "weeks",
+    label: "Weeks",
+    icon: Calendar03Icon,
     children: [
       { key: "current", label: "Current", icon: PlayCircleIcon },
       { key: "upcoming", label: "Upcoming", icon: Time04Icon },
@@ -121,6 +123,40 @@ function useExpansionState() {
 
 function teamHref(identifier: string): string {
   return `/team/${identifier}`;
+}
+
+function isWeekScope(value: string | undefined): value is WeekScope {
+  return value === "current" || value === "upcoming";
+}
+
+export function getTeamChildHref(identifier: string, key: string): string {
+  const href = teamHref(identifier);
+  if (isWeekScope(key)) return `${href}?week=${key}`;
+  return href;
+}
+
+function preserveDetailsPaneSearch(previousSearch: unknown) {
+  return {
+    "details-pane": (previousSearch as { readonly "details-pane"?: unknown })["details-pane"],
+  };
+}
+
+// Which Team sub-item a given URL lights up. The bare Team path is the
+// Default Team View ("Tasks"); the Week shortcuts are the same path scoped by
+// the `week` search param. Exported for focused navigation tests.
+export function resolveActiveTeamChild(args: {
+  readonly pathname: string;
+  readonly teamHref: string;
+  readonly week: string | undefined;
+}): "tasks" | WeekScope | null {
+  const onTeam = args.pathname === args.teamHref || args.pathname.startsWith(`${args.teamHref}/`);
+  if (!onTeam) return null;
+  if (isWeekScope(args.week)) return args.week;
+  return "tasks";
+}
+
+function isTeamRoute(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 // Team mutations return a discriminated union; only the failure branch carries
@@ -181,11 +217,21 @@ function TeamNavItem({
   readonly setExpanded: (key: string, open: boolean) => void;
 }) {
   const pathname = useLocation({ select: (location) => location.pathname });
+  // The `week` shortcut lives in the URL, so the active sub-item is shared
+  // (link-reproducible) state. Read it loosely so this works from any route.
+  const week = useSearch({
+    strict: false,
+    select: (search) => (search as { readonly week?: string }).week,
+  });
   const { setOpenMobile } = useSidebar();
   const href = teamHref(team.identifier);
-  const isActive = pathname.startsWith(href);
+  const isActive = isTeamRoute(pathname, href);
+  const activeChild = resolveActiveTeamChild({ pathname, teamHref: href, week });
   const expansionKey = `team:${team.id}`;
-  const isOpen = expanded[expansionKey] ?? false;
+  // When a Week shortcut is the active surface, reveal it: open the Team and
+  // its Weeks group so the highlighted item is visible without a manual expand.
+  const weekActive = activeChild === "current" || activeChild === "upcoming";
+  const isOpen = (expanded[expansionKey] ?? false) || weekActive;
 
   return (
     <Collapsible
@@ -203,11 +249,7 @@ function TeamNavItem({
                 <Link
                   onClick={() => setOpenMobile(false)}
                   preload="intent"
-                  search={(previousSearch) => ({
-                    "details-pane": (previousSearch as { readonly "details-pane"?: unknown })[
-                      "details-pane"
-                    ],
-                  })}
+                  search={preserveDetailsPaneSearch}
                   to={href as "/"}
                 />
               }
@@ -253,14 +295,17 @@ function TeamNavItem({
 
       <CollapsibleContent>
         <SidebarMenuSub>
-          {TEAM_CHILDREN.map((child) => (
+          {teamNavChildren.map((child) => (
             <TeamChildItem
               key={child.key}
+              activeChild={activeChild}
               child={child}
               expanded={expanded}
               href={href}
+              identifier={team.identifier}
               parentKey={expansionKey}
               setExpanded={setExpanded}
+              weekActive={weekActive}
             />
           ))}
         </SidebarMenuSub>
@@ -272,21 +317,30 @@ function TeamNavItem({
 function TeamChildItem({
   child,
   href,
+  identifier,
   parentKey,
   expanded,
   setExpanded,
+  activeChild,
+  weekActive,
 }: {
   readonly child: TeamChild;
   readonly href: string;
+  readonly identifier: string;
   readonly parentKey: string;
   readonly expanded: Record<string, boolean>;
   readonly setExpanded: (key: string, open: boolean) => void;
+  readonly activeChild: "tasks" | WeekScope | null;
+  readonly weekActive: boolean;
 }) {
   const { setOpenMobile } = useSidebar();
 
   if (child.children) {
     const expansionKey = `${parentKey}:${child.key}`;
-    const isOpen = expanded[expansionKey] ?? false;
+    // Keep the Weeks group open while one of its shortcuts is the active
+    // surface, so the highlighted item is always visible.
+    const isOpen = (expanded[expansionKey] ?? false) || weekActive;
+    const containsActive = child.children.some((grandchild) => grandchild.key === activeChild);
 
     return (
       <Collapsible
@@ -296,7 +350,13 @@ function TeamChildItem({
       >
         <CollapsibleTrigger
           render={
-            <SidebarMenuSubButton className="cursor-pointer" render={<button type="button" />} />
+            <SidebarMenuSubButton
+              className="cursor-pointer"
+              // When collapsed while a shortcut inside is active, mark the
+              // group itself so the active branch reads at a glance.
+              isActive={!isOpen && containsActive}
+              render={<button type="button" />}
+            />
           }
         >
           <ChildIcon icon={child.icon} />
@@ -315,9 +375,11 @@ function TeamChildItem({
             {child.children.map((grandchild) => (
               <ChildLink
                 key={grandchild.key}
-                href={href}
+                href={getTeamChildHref(identifier, grandchild.key)}
                 icon={grandchild.icon}
+                isActive={activeChild === grandchild.key}
                 label={grandchild.label}
+                week={isWeekScope(grandchild.key) ? grandchild.key : undefined}
               />
             ))}
           </SidebarMenuSub>
@@ -332,8 +394,14 @@ function TeamChildItem({
         <ContextMenuTrigger
           render={
             <SidebarMenuSubButton
+              isActive={activeChild === child.key}
               render={
-                <Link onClick={() => setOpenMobile(false)} preload="intent" to={href as "/"} />
+                <Link
+                  onClick={() => setOpenMobile(false)}
+                  preload="intent"
+                  search={preserveDetailsPaneSearch}
+                  to={href as "/"}
+                />
               }
             />
           }
@@ -349,11 +417,12 @@ function TeamChildItem({
 
 // Leading content icon for a team sub-item. Muted by default and lit on
 // hover/active to match Linear, where the label is primary and the icon is a
-// quiet wayfinding cue.
+// quiet wayfinding cue. `in-data-[active]` lights the icon when its containing
+// sub-button is the active surface, so it reads alongside the highlighted row.
 function ChildIcon({ icon }: { readonly icon: IconType }) {
   return (
     <HugeiconsIcon
-      className="text-muted-foreground! group-hover/menu-sub-item:text-sidebar-accent-foreground!"
+      className="text-muted-foreground! group-hover/menu-sub-item:text-sidebar-accent-foreground! in-data-[active]:text-sidebar-accent-foreground!"
       icon={icon}
       strokeWidth={2}
     />
@@ -364,12 +433,19 @@ function ChildLink({
   href,
   label,
   icon,
+  isActive,
+  week,
 }: {
   readonly href: string;
   readonly label: string;
   readonly icon: IconType;
+  readonly isActive: boolean;
+  readonly week: WeekScope | undefined;
 }) {
   const { setOpenMobile } = useSidebar();
+  // The shortcut path is the Team path; the Week scope rides in `search` so it
+  // sets/replaces the `week` param cleanly and preserves an open Details Pane.
+  const path = href.split("?")[0];
 
   return (
     <SidebarMenuSubItem>
@@ -377,8 +453,17 @@ function ChildLink({
         <ContextMenuTrigger
           render={
             <SidebarMenuSubButton
+              isActive={isActive}
               render={
-                <Link onClick={() => setOpenMobile(false)} preload="intent" to={href as "/"} />
+                <Link
+                  onClick={() => setOpenMobile(false)}
+                  preload="intent"
+                  search={(previousSearch) => ({
+                    ...preserveDetailsPaneSearch(previousSearch),
+                    week,
+                  })}
+                  to={path as "/"}
+                />
               }
             />
           }

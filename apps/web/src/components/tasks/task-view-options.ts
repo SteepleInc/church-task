@@ -185,6 +185,7 @@ export const MyWorkSearchSchema = Schema.Struct({
 export const ChurchWorkSearchSchema = Schema.Struct({
   tab: lenientSearchField(ChurchWorkViewTabSchema),
   scope: lenientSearchField(TaskWeekScopeSchema),
+  week: lenientSearchField(Schema.Literals(["current", "upcoming"])),
   view: lenientSearchField(TaskViewOptionsSchema),
   ...InsightsSearchSchema,
 });
@@ -192,6 +193,7 @@ export const ChurchWorkSearchSchema = Schema.Struct({
 export type TaskViewSearch = {
   readonly tab?: TaskViewTab;
   readonly scope?: TaskWeekScope;
+  readonly week?: "current" | "upcoming";
   readonly view?: TaskViewOptions;
   readonly insights?: InsightsState;
 };

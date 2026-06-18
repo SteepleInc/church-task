@@ -52,7 +52,27 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
     userName,
   });
 
-  await page.locator('[data-sidebar="sidebar"]').getByRole("link", { name: "Our Work" }).click();
+  const sidebar = page.locator('[data-sidebar="sidebar"]');
+  const worshipTeamItem = sidebar.locator('[data-sidebar="menu-item"]', {
+    has: page.getByRole("link", { name: "Worship" }),
+  });
+  const expandWorship = worshipTeamItem.getByRole("button", { name: "Expand Worship" });
+  if (await expandWorship.isVisible()) await expandWorship.click();
+  await worshipTeamItem.getByRole("button", { name: "Weeks" }).click();
+  await worshipTeamItem.getByRole("link", { name: "Current" }).click();
+  await expect(page).toHaveURL(/\/team\/worship\?week=current$/);
+  await expect(worshipTeamItem.getByRole("link", { name: "Current" })).toHaveAttribute(
+    "data-active",
+    "true",
+  );
+  await worshipTeamItem.getByRole("link", { name: "Upcoming" }).click();
+  await expect(page).toHaveURL(/\/team\/worship\?week=upcoming$/);
+  await expect(worshipTeamItem.getByRole("link", { name: "Upcoming" })).toHaveAttribute(
+    "data-active",
+    "true",
+  );
+
+  await sidebar.getByRole("link", { name: "Our Work" }).click();
   await expect(page).toHaveURL(/\/our-work$/);
 
   await page.getByRole("button", { name: "Name this Week" }).click();
@@ -122,4 +142,12 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
   await expect(page.getByLabel("To Do Tasks").getByText(sharedTaskTitle)).toBeVisible({
     timeout: 20_000,
   });
+
+  await page.locator('[data-sidebar="sidebar"]').getByRole("link", { name: "Worship" }).click();
+  await expect(page).toHaveURL(/\/team\/worship$/);
+  await page.getByRole("button", { name: "Insights" }).click();
+  await expect(page.getByLabel("Week Progress")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByLabel("Week Progress")).toContainText("Scope");
+  await expect(page.getByLabel("Week Progress")).toContainText("Started");
+  await expect(page.getByLabel("Week Progress")).toContainText("Completed");
 });

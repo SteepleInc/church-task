@@ -11,6 +11,7 @@ import {
   getTaskGroupAddPreset,
   getTaskParentContext,
   getTaskTabFilters,
+  resolveExecutionCycleScope,
   selectCurrentExecutionCycle,
 } from "./task-execution-surface-utils";
 
@@ -48,6 +49,39 @@ describe("Task execution surface", () => {
         currentCycleId: "cycle-current",
       }),
     ).toBeNull();
+  });
+
+  test("resolves Team Week shortcuts while leaving Team Tasks unscoped", () => {
+    const cycles = [
+      { id: "previous", startDate: "2026-05-25", endDate: "2026-05-31" },
+      { id: "current", startDate: "2026-06-01", endDate: "2026-06-07" },
+      { id: "upcoming", startDate: "2026-06-08", endDate: "2026-06-14" },
+    ];
+
+    expect(
+      resolveExecutionCycleScope({
+        surface: "team_board",
+        week: undefined,
+        cycles,
+        today: "2026-06-03",
+      }),
+    ).toBeNull();
+    expect(
+      resolveExecutionCycleScope({
+        surface: "team_board",
+        week: "current",
+        cycles,
+        today: "2026-06-03",
+      })?.id,
+    ).toBe("current");
+    expect(
+      resolveExecutionCycleScope({
+        surface: "team_board",
+        week: "upcoming",
+        cycles,
+        today: "2026-06-03",
+      })?.id,
+    ).toBe("upcoming");
   });
 
   test("defaults My Work Task creation to the current User", () => {
