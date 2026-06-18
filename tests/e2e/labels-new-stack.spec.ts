@@ -47,6 +47,15 @@ test("manages Labels and applies them to Tasks on the local Postgres and Zero st
     timeout: 20_000,
   });
 
+  await page.evaluate(async () => {
+    const databases = await indexedDB.databases?.();
+    await Promise.all(
+      (databases ?? []).map((database) => database.name && indexedDB.deleteDatabase(database.name)),
+    );
+  });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Labels" })).toBeVisible({ timeout: 20_000 });
+
   await page.goto("/our-work");
   await expect(page).toHaveURL(/\/our-work$/);
   await createTask(page, taskTitle, { team: "Worship" });
