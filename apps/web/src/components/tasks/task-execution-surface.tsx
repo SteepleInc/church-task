@@ -324,6 +324,8 @@ export function TaskExecutionSurface({
   // Workflow across Teams), so the board renders without a surface Workflow.
   const boardGrouping = getExecutionBoardGrouping(surface, resolvedView.grouping);
   const showBoard = surface === "team_board" ? workflowStatuses.length > 0 : !isLoading;
+  const showProjectedWeekEmptyState =
+    surface === "team_board" && week === "upcoming" && !isLoading && tasks.length === 0;
 
   // Dropping a card on a Task State lane resolves to the matching status in
   // that Task's own Team Workflow.
@@ -523,6 +525,15 @@ export function TaskExecutionSurface({
             ) : null}
 
             {isLoading && !showBoard ? <TaskBoardSkeleton /> : null}
+
+            {showProjectedWeekEmptyState ? (
+              <div className="grid place-items-center gap-1 rounded-lg border border-dashed bg-muted/10 px-4 py-8 text-center">
+                <p className="text-sm font-medium">Nothing planned yet</p>
+                <p className="text-xs text-muted-foreground">
+                  Add Tasks to this Week and it starts tracking progress automatically.
+                </p>
+              </div>
+            ) : null}
 
             {showBoard && resolvedView.mode === "list" ? (
               <TaskListSurface
