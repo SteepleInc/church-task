@@ -40,12 +40,15 @@ const WEEK_STATUS_LABEL: Record<WeekStatus, string> = {
 };
 
 // A Week's lifecycle position reads at a glance: the live Week is tinted with
-// the primary accent, future Weeks stay neutral-prominent, and past Weeks
-// recede into the muted track so the selector telegraphs "where am I in time".
+// the primary accent, future Weeks stay neutral-prominent (solid foreground),
+// and past Weeks recede into the muted track so the selector telegraphs "where
+// am I in time". Upcoming and completed stay clearly separable so a bare dot —
+// the only status carrier on the trigger below `sm` and in the step tooltips —
+// never collapses into "just another gray".
 const WEEK_STATUS_DOT: Record<WeekStatus, string> = {
   current: "bg-primary",
-  upcoming: "bg-foreground/40",
-  completed: "bg-muted-foreground/40",
+  upcoming: "bg-foreground/70",
+  completed: "bg-muted-foreground/30",
 };
 
 function weekLabel(cycle: SelectorCycle): string {
