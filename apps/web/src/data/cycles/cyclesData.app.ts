@@ -1,5 +1,5 @@
-import { queries, type Cycle } from "@church-task/zero";
-import { useQuery } from "@rocicorp/zero/react";
+import { mutators, queries, type Cycle } from "@church-task/zero";
+import { useQuery, useZero } from "@rocicorp/zero/react";
 
 export type CycleCollectionItem = {
   readonly id: string;
@@ -7,12 +7,60 @@ export type CycleCollectionItem = {
   readonly endDate: string;
   readonly startsAt: number;
   readonly endsAt: number;
+  readonly name: string | null;
+  readonly description: string | null;
+  readonly displayName: string;
+};
+
+type CycleMutationResult = Promise<
+  | { readonly ok: true; readonly data: undefined }
+  | { readonly ok: false; readonly error: { readonly message: string } }
+>;
+type ZeroMutationResult = {
+  readonly server: Promise<
+    | { readonly type: "success" }
+    | { readonly type: "error"; readonly error: { readonly message: string } }
+  >;
+};
+
+export const formatWeekDateRange = (cycle: {
+  readonly startDate: string;
+  readonly endDate: string;
+}) => `${cycle.startDate} – ${cycle.endDate}`;
+
+export const getWeekDisplayName = (cycle: {
+  readonly name: string | null;
+  readonly startDate: string;
+  readonly endDate: string;
+}) => cycle.name?.trim() || formatWeekDateRange(cycle);
+
+const mutationResult = async (run: () => ZeroMutationResult): CycleMutationResult => {
+  try {
+    const result = await run().server;
+    if (result.type === "error") {
+      return { error: { message: result.error.message }, ok: false };
+    }
+
+    return { data: undefined, ok: true };
+  } catch (error) {
+    return {
+      error: { message: error instanceof Error ? error.message : "Could not update Week." },
+      ok: false,
+    };
+  }
 };
 
 const mapCycle = (cycle: Cycle): CycleCollectionItem => ({
+  description: cycle.description ?? null,
+  displayName: getWeekDisplayName({
+    endDate: cycle.end_date,
+    name: cycle.name ?? null,
+    startDate: cycle.start_date,
+  }),
   endDate: cycle.end_date,
   endsAt: cycle.ends_at,
   id: cycle.id,
+  name: cycle.name ?? null,
   startDate: cycle.start_date,
   startsAt: cycle.starts_at,
 });
@@ -32,4 +80,25 @@ export function useCyclesCollection(params: {
     collection,
     cyclesCollection: collection,
   };
+}
+
+export function useUpdateWeekDetailsMutation() {
+  const zero = useZero();
+
+  return (params: {
+    readonly churchId: string;
+    readonly cycleId: string;
+    readonly name: string | null;
+    readonly description: string | null;
+  }) =>
+    mutationResult(() =>
+      zero.mutate(
+        mutators.cycles.updateDetails({
+          church_id: params.churchId,
+          cycle_id: params.cycleId,
+          description: params.description,
+          name: params.name,
+        }),
+      ),
+    );
 }

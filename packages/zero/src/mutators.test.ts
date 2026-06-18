@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 
 import {
   activities,
+  cycles,
   labels,
   tasks,
   team_memberships,
@@ -24,6 +25,66 @@ const signedInContext = {
   session_id: "session_test",
   user_id: "user_test",
 } as const;
+
+describe("Zero Cycle mutators", () => {
+  test("updates Week name and description without changing date boundaries", async () => {
+    const updateCalls: Array<{
+      readonly table: unknown;
+      readonly set: Record<string, unknown>;
+      readonly where: unknown;
+    }> = [];
+    const insertCalls: Array<{ readonly table: unknown; readonly values: unknown }> = [];
+    const tx = {
+      dbTransaction: {
+        wrappedTransaction: {
+          insert: (table: unknown) => ({
+            values: async (values: unknown) => {
+              insertCalls.push({ table, values });
+            },
+          }),
+          update: (table: unknown) => ({
+            set: (set: Record<string, unknown>) => ({
+              where: async (where: unknown) => {
+                updateCalls.push({ table, set, where });
+              },
+            }),
+          }),
+        },
+      },
+      location: "server",
+    } as never;
+
+    await mustGetMutator(mutators, "cycles.updateDetails").fn({
+      args: {
+        church_id: "org_test",
+        cycle_id: "cycle_easter",
+        description: "Coordinate Easter follow-up and volunteer care.",
+        name: "Easter follow-up Week",
+      },
+      ctx: signedInContext,
+      tx,
+    });
+
+    expect(updateCalls).toHaveLength(1);
+    const cycleUpdate = updateCalls[0];
+    expect(cycleUpdate).toBeDefined();
+    expect(cycleUpdate?.table).toBe(cycles);
+    expect(cycleUpdate?.set).toMatchObject({
+      description: "Coordinate Easter follow-up and volunteer care.",
+      name: "Easter follow-up Week",
+      updated_by: "user_test",
+    });
+    expect(cycleUpdate?.set).not.toHaveProperty("start_date");
+    expect(cycleUpdate?.set).not.toHaveProperty("end_date");
+    expect(cycleUpdate?.set).not.toHaveProperty("starts_at");
+    expect(cycleUpdate?.set).not.toHaveProperty("ends_at");
+    expect(insertCalls.find((call) => call.table === activities)?.values).toMatchObject({
+      entity_id: "cycle_easter",
+      entity_type: "cycle",
+      event_type: "cycle.updated",
+    });
+  });
+});
 
 describe("Zero Team mutators", () => {
   test("creates the Team, creator membership, owned Workflow, and default Workflow Statuses", async () => {
