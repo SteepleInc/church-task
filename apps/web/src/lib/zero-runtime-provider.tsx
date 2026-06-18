@@ -15,8 +15,24 @@ type SessionWithZeroContext = {
 
 const getZeroCacheUrl = () => {
   const configuredUrl = env.VITE_ZERO_CACHE_URL;
+  const sameOriginZeroUrl = () => `${globalThis.location?.origin ?? "http://localhost:2001"}/zero`;
 
-  if (!configuredUrl) return "http://127.0.0.1:4848";
+  if (!configuredUrl) return sameOriginZeroUrl();
+
+  try {
+    const url = new URL(configuredUrl);
+
+    // Local Better Auth cookies are host-only for the web app host (localhost:2001).
+    // Connecting directly to zero-cache on 127.0.0.1:4848 prevents the browser from
+    // sending that cookie, so zero-cache validates the connection as anonymous while
+    // the client declares the signed-in userID. Use the Vite same-origin websocket
+    // proxy in local dev so forwarded query/mutate requests receive the auth cookie.
+    if (url.hostname === "127.0.0.1" || url.hostname === "localhost") {
+      return sameOriginZeroUrl();
+    }
+  } catch {
+    return configuredUrl;
+  }
 
   return configuredUrl;
 };
