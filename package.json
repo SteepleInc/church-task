@@ -43,7 +43,7 @@
   "type": "module",
   "scripts": {
     "dev": "turbo run infra dev --continue",
-    "sandcastle": "npx tsx .sandcastle/main.ts",
+    "sandcastle": "bunx tsx .sandcastle/main.ts",
     "reference:populate": "bash scripts/populate-reference.sh",
     "build": "turbo build",
     "check-types": "turbo check-types",

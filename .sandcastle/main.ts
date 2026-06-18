@@ -75,10 +75,11 @@ const hooks = {
   sandbox: { onSandboxReady: [{ command: "bun install" }] },
 };
 
-// Copy node_modules from the host into the worktree before each sandbox starts.
-// Avoids a full Bun install from scratch; the hook above handles
+// Copy host-only files into the worktree before each sandbox starts.
+// node_modules avoids a full Bun install from scratch; the hook above handles
 // platform-specific binaries and any packages added since the last copy.
-const copyToWorktree = ["node_modules"];
+// The env files are gitignored, so worktrees do not receive them automatically.
+const copyToWorktree = ["node_modules", ".env.local", ".env.e2e"];
 
 const acquireSlot = (() => {
   let running = 0;
