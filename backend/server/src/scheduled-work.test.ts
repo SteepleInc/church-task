@@ -184,6 +184,16 @@ describe("scheduled work", () => {
         name: "Sparse Work Church",
         slug: "sparse-work-church",
       });
+      const authoredFutureCycle = buildCycleForLocalDate({
+        churchTimeZone: "America/New_York",
+        localDate: "2026-07-07",
+      });
+      await db.insert(cycles).values({
+        ...baseEntity("cycle"),
+        ...authoredFutureCycle,
+        church_id: `${churchId}_sparse`,
+        id: "cycle_authored_future",
+      });
 
       const result = await Effect.runPromise(runScheduledCycleMaintenance(db, { now }));
       const cycleRows = await db
@@ -195,8 +205,12 @@ describe("scheduled work", () => {
       expect(cycleRows.map((cycle) => cycle.start_date).sort()).toEqual([
         "2026-06-15",
         "2026-06-22",
+        "2026-07-06",
       ]);
       expect(result.resultsByChurchId[`${churchId}_sparse`]?.ensuredCycleIds).toHaveLength(2);
+      expect(result.resultsByChurchId[`${churchId}_sparse`]?.ensuredCycleIds).not.toContain(
+        "cycle_authored_future",
+      );
 
       const secondResult = await Effect.runPromise(runScheduledCycleMaintenance(db, { now }));
       const secondCycleRows = await db
@@ -208,7 +222,9 @@ describe("scheduled work", () => {
       expect(secondCycleRows.map((cycle) => cycle.start_date).sort()).toEqual([
         "2026-06-15",
         "2026-06-22",
+        "2026-07-06",
       ]);
+      expect(secondCycleRows.some((cycle) => cycle.id === "cycle_authored_future")).toBe(true);
     } finally {
       await harness.stop();
     }
