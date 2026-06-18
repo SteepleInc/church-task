@@ -4,8 +4,11 @@ import { createEnv } from "@t3-oss/env-core";
 import { config } from "dotenv";
 import { z } from "zod";
 
+const runtimeEnv = { ...process.env };
+
 config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
 config({ override: true, path: fileURLToPath(new URL("../../../.env.local", import.meta.url)) });
+Object.assign(process.env, runtimeEnv);
 
 export const serverEnv = createEnv({
   clientPrefix: "VITE_",

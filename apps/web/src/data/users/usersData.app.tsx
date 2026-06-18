@@ -1,6 +1,5 @@
 import { queries, type Member, type Organization, type User } from "@church-task/zero";
 import { useQuery } from "@rocicorp/zero/react";
-import { useEffect, useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
 import { FilterKeys } from "@/shared/global-state";
@@ -97,45 +96,14 @@ export function useAllUsersCollectionWithFilters() {
   const [orgRows] = useQuery(queries.organization.admin_list({ list_args: { limit: 500 } }));
   const orgsById = new Map(orgRows.map((org) => [org.id, org]));
   const usersCollection = userRows.map((user) => mapAdminUser(user, memberRows, orgsById));
-  const [serverRows, setServerRows] = useState<readonly UserCollectionItem[]>([]);
-  const visibleUsers =
-    import.meta.env.MODE === "e2e" && serverRows.length > 0 ? serverRows : usersCollection;
-
-  useEffect(() => {
-    if (import.meta.env.MODE !== "e2e") return;
-
-    const controller = new AbortController();
-    const fetchAdminCollections = () => {
-      void fetch("/api/admin/collections", { signal: controller.signal })
-        .then(async (response) => {
-          if (!response.ok) return;
-
-          const body = (await response.json()) as {
-            readonly users?: readonly UserCollectionItem[];
-          };
-          setServerRows(body.users ?? []);
-        })
-        .catch((error: unknown) => {
-          if (error instanceof DOMException && error.name === "AbortError") return;
-        });
-    };
-
-    fetchAdminCollections();
-    const interval = setInterval(fetchAdminCollections, 1_000);
-
-    return () => {
-      clearInterval(interval);
-      controller.abort();
-    };
-  }, []);
 
   return {
-    canLoadMore: visibleUsers.length >= limit,
+    canLoadMore: userRows.length >= limit,
     limit,
     loading: false,
     loadingMore: false,
     nextPage,
     pageSize,
-    usersCollection: visibleUsers,
+    usersCollection,
   };
 }

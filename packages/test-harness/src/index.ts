@@ -94,7 +94,17 @@ export const startPostgresHarness = async (
   options: { readonly seedProfile?: SeedProfile } = {},
 ) => {
   const container = await new PostgreSqlContainer("postgres:16-alpine")
-    .withCommand(["postgres", "-c", "wal_level=logical"])
+    .withCommand([
+      "postgres",
+      "-c",
+      "wal_level=logical",
+      "-c",
+      "max_replication_slots=100",
+      "-c",
+      "max_wal_senders=100",
+      "-c",
+      "timezone=UTC",
+    ])
     .start();
   const connectionString = container.getConnectionUri();
   const { db, pool } = createDb(connectionString);
@@ -131,7 +141,6 @@ export const startZeroCacheHarness = async (options: {
       DO_NOT_TRACK: "1",
       ZERO_ADMIN_PASSWORD: adminPassword,
       ZERO_APP_ID: appId,
-      ZERO_AUTH_SECRET: "church-task-e2e-zero-auth-secret",
       ZERO_CHANGE_DB: options.databaseUrl,
       ZERO_CVR_DB: options.databaseUrl,
       ZERO_ENABLE_TELEMETRY: "false",
@@ -157,10 +166,6 @@ export const startZeroCacheHarness = async (options: {
   });
   child.stderr.on("data", (chunk) => {
     output += String(chunk);
-  });
-
-  child.once("exit", (code, signal) => {
-    console.error(`zero-cache exited: code=${code} signal=${signal}\n${output}`);
   });
 
   try {

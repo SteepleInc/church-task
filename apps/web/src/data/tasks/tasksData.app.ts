@@ -1,7 +1,6 @@
 import { formatTaskIdentifier, type TaskEstimate, type TaskStatus } from "@church-task/domain";
 import { mutators, queries, type ListArgs, type Task, type Team } from "@church-task/zero";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { useEffect, useState } from "react";
 
 export type TaskCollectionFilters = {
   readonly surface?: "my_work" | "our_work";
@@ -148,40 +147,6 @@ const taskFieldsToZero = (fields: TaskUpdateFields) => ({
   ...(fields.workflowStatusId !== undefined ? { workflow_status_id: fields.workflowStatusId } : {}),
 });
 
-const taskFieldsToTestBody = (fields: TaskUpdateFields) => ({
-  ...(fields.assignedUserId !== undefined ? { assigned_user_id: fields.assignedUserId } : {}),
-  ...(fields.boardOrder !== undefined ? { board_order: fields.boardOrder } : {}),
-  ...(fields.dueDate !== undefined ? { due_date: fields.dueDate } : {}),
-  ...(fields.estimate !== undefined ? { estimate: fields.estimate } : {}),
-  ...(fields.labelIds !== undefined ? { label_ids: [...fields.labelIds] } : {}),
-  ...(fields.parentTaskId !== undefined ? { parent_task_id: fields.parentTaskId } : {}),
-  ...(fields.teamId !== undefined ? { team_id: fields.teamId } : {}),
-  ...(fields.title !== undefined ? { title: fields.title } : {}),
-  ...(fields.workflowStatusId !== undefined ? { workflow_status_id: fields.workflowStatusId } : {}),
-});
-
-const testTaskMutation = async <Data>(
-  body: Record<string, unknown>,
-  fallbackMessage: string,
-): MutationResult<Data> => {
-  if (import.meta.env.MODE !== "e2e") return { ok: false, error: { message: "Not available." } };
-
-  const response = await fetch("/api/test/task-mutation", {
-    body: JSON.stringify(body),
-    headers: { "content-type": "application/json" },
-    method: "POST",
-  });
-
-  const result = (await response.json().catch(() => null)) as
-    | ({ error?: string } & Partial<Data>)
-    | null;
-  if (!response.ok) {
-    return { error: { message: result?.error ?? fallbackMessage }, ok: false };
-  }
-
-  return { data: (result ?? {}) as Data, ok: true };
-};
-
 export function useTasksCollection(params: {
   readonly churchId: string | null;
   readonly currentUserId: string | null;
@@ -201,61 +166,14 @@ export function useTasksCollection(params: {
   const [teamRows] = useQuery(
     queries.teams.by_church({ church_id: params.churchId ?? "__no_church__" }),
   );
-  const [serverRows, setServerRows] = useState<readonly TaskCollectionItem[]>([]);
   const teamsById = new Map(teamRows.map((team) => [team.id, team]));
   const collection =
     params.churchId === null ? [] : activeTaskRows.map((task) => mapTask(task, teamsById));
-  const serverCollection = serverRows.filter(
-    (task) =>
-      (params.filters?.teamId === undefined || task.teamId === params.filters.teamId) &&
-      (params.filters?.surface !== "my_work" || task.assignedUserId === params.currentUserId),
-  );
-  const visibleTasks =
-    import.meta.env.MODE === "e2e" && serverCollection.length > 0
-      ? serverCollection
-      : collection.length > 0
-        ? collection
-        : serverCollection;
-
-  useEffect(() => {
-    if (params.churchId === null || (import.meta.env.MODE !== "e2e" && collection.length > 0)) {
-      setServerRows([]);
-      return;
-    }
-
-    const controller = new AbortController();
-    const churchId = params.churchId;
-
-    const fetchTasks = () => {
-      void fetch(`/api/onboarding/tasks?churchId=${encodeURIComponent(churchId)}`, {
-        signal: controller.signal,
-      })
-        .then(async (response) => {
-          if (!response.ok) return;
-
-          const body = (await response.json()) as {
-            readonly tasks?: readonly TaskCollectionItem[];
-          };
-          setServerRows(body.tasks ?? []);
-        })
-        .catch((error: unknown) => {
-          if (error instanceof DOMException && error.name === "AbortError") return;
-        });
-    };
-
-    fetchTasks();
-    const interval = setInterval(fetchTasks, 1_000);
-
-    return () => {
-      clearInterval(interval);
-      controller.abort();
-    };
-  }, [params.churchId, collection.length]);
 
   return {
     loading: false,
-    collection: visibleTasks,
-    tasksCollection: visibleTasks,
+    collection,
+    tasksCollection: collection,
   };
 }
 
@@ -275,29 +193,6 @@ export function useCreateTaskMutation() {
     readonly labelIds?: readonly string[];
     readonly estimate?: TaskEstimate | null;
   }) => {
-    if (import.meta.env.MODE === "e2e") {
-      const result = await testTaskMutation<{
-        readonly tasks?: readonly { readonly id: string; readonly identifier: string }[];
-      }>(
-        {
-          action: "create",
-          assignedUserId: params.assignedUserId ?? null,
-          churchId: params.churchId,
-          description: params.description ?? null,
-          dueDate: params.dueDate ?? null,
-          estimate: params.estimate ?? null,
-          labelIds: [...(params.labelIds ?? [])],
-          parentTaskId: params.parentTaskId ?? null,
-          teamId: params.teamId,
-          title: params.title,
-          workflowStatusId: params.workflowStatusId,
-        },
-        "Could not create Task.",
-      );
-      if (!result.ok) return result;
-      return { data: { tasks: result.data.tasks ?? [] }, ok: true as const };
-    }
-
     const result = await zeroMutationResult<{
       readonly tasks: readonly { readonly id: string; readonly identifier: string }[];
     }>(
@@ -331,20 +226,8 @@ export function useUpdateTaskMutation() {
     readonly actorUserId: string | null;
     readonly taskId: string;
     readonly fields: TaskUpdateFields;
-  }) => {
-    if (import.meta.env.MODE === "e2e") {
-      return testTaskMutation(
-        {
-          action: "update",
-          churchId: params.churchId,
-          fields: taskFieldsToTestBody(params.fields),
-          taskId: params.taskId,
-        },
-        "Could not update Task.",
-      );
-    }
-
-    return zeroMutationResult(
+  }) =>
+    zeroMutationResult(
       () =>
         zero.mutate(
           mutators.tasks.update({
@@ -355,7 +238,6 @@ export function useUpdateTaskMutation() {
         ),
       "Could not update Task.",
     );
-  };
 }
 
 export function useUpdateTasksBatchMutation() {
@@ -365,22 +247,8 @@ export function useUpdateTasksBatchMutation() {
     readonly churchId: string;
     readonly actorUserId: string | null;
     readonly updates: readonly { readonly taskId: string; readonly fields: TaskUpdateFields }[];
-  }) => {
-    if (import.meta.env.MODE === "e2e") {
-      return testTaskMutation(
-        {
-          action: "update_batch",
-          churchId: params.churchId,
-          updates: params.updates.map((update) => ({
-            fields: taskFieldsToTestBody(update.fields),
-            taskId: update.taskId,
-          })),
-        },
-        "Could not update Tasks.",
-      );
-    }
-
-    return zeroMutationResult(
+  }) =>
+    zeroMutationResult(
       () =>
         zero.mutate(
           mutators.tasks.update_batch({
@@ -393,7 +261,6 @@ export function useUpdateTasksBatchMutation() {
         ),
       "Could not update Tasks.",
     );
-  };
 }
 
 export function useCompleteTaskMutation() {
@@ -403,22 +270,14 @@ export function useCompleteTaskMutation() {
     readonly churchId: string;
     readonly actorUserId: string | null;
     readonly taskId: string;
-  }) => {
-    if (import.meta.env.MODE === "e2e") {
-      return testTaskMutation(
-        { action: "complete", churchId: params.churchId, taskId: params.taskId },
-        "Could not complete Task.",
-      );
-    }
-
-    return zeroMutationResult(
+  }) =>
+    zeroMutationResult(
       () =>
         zero.mutate(
           mutators.tasks.complete({ church_id: params.churchId, task_id: params.taskId }),
         ),
       "Could not complete Task.",
     );
-  };
 }
 
 export function useCancelTaskMutation() {
@@ -428,20 +287,12 @@ export function useCancelTaskMutation() {
     readonly churchId: string;
     readonly actorUserId: string | null;
     readonly taskId: string;
-  }) => {
-    if (import.meta.env.MODE === "e2e") {
-      return testTaskMutation(
-        { action: "cancel", churchId: params.churchId, taskId: params.taskId },
-        "Could not cancel Task.",
-      );
-    }
-
-    return zeroMutationResult(
+  }) =>
+    zeroMutationResult(
       () =>
         zero.mutate(mutators.tasks.cancel({ church_id: params.churchId, task_id: params.taskId })),
       "Could not cancel Task.",
     );
-  };
 }
 
 export function useReopenTaskMutation() {
@@ -451,18 +302,10 @@ export function useReopenTaskMutation() {
     readonly churchId: string;
     readonly actorUserId: string | null;
     readonly taskId: string;
-  }) => {
-    if (import.meta.env.MODE === "e2e") {
-      return testTaskMutation(
-        { action: "reopen", churchId: params.churchId, taskId: params.taskId },
-        "Could not reopen Task.",
-      );
-    }
-
-    return zeroMutationResult(
+  }) =>
+    zeroMutationResult(
       () =>
         zero.mutate(mutators.tasks.reopen({ church_id: params.churchId, task_id: params.taskId })),
       "Could not reopen Task.",
     );
-  };
 }

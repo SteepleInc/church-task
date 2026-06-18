@@ -6,7 +6,6 @@ import {
   type WorkflowStatus,
 } from "@church-task/zero";
 import { useQuery, useZero } from "@rocicorp/zero/react";
-import { useEffect, useState } from "react";
 
 type TaskStatus = "todo" | "in_progress" | "done" | "canceled";
 
@@ -28,11 +27,6 @@ type WorkflowStatusItem = {
   readonly taskState: TaskStatus;
   readonly sortOrder: number;
   readonly archivedAt: string | null;
-};
-
-type ServerWorkflowPayload = {
-  readonly workflows?: readonly WorkflowItem[];
-  readonly statuses?: readonly WorkflowStatusItem[];
 };
 
 type MutationResult = Promise<
@@ -101,7 +95,6 @@ export function useWorkflowsCollection(params: { readonly churchId: string | nul
   const [teamRows] = useQuery(
     queries.teams.by_church({ church_id: params.churchId ?? "__no_church__" }),
   );
-  const [serverRows, setServerRows] = useState<readonly WorkflowItem[]>([]);
   const teamsById = new Map(teamRows.map((team) => [team.id, team]));
   const collection =
     params.churchId === null
@@ -109,50 +102,11 @@ export function useWorkflowsCollection(params: { readonly churchId: string | nul
       : workflowRows
           .map((workflow) => mapWorkflow(workflow, teamsById))
           .sort((left, right) => left.sortOrder - right.sortOrder);
-  const visibleWorkflows =
-    import.meta.env.MODE === "e2e" && serverRows.length > 0
-      ? serverRows
-      : collection.length > 0
-        ? collection
-        : serverRows;
-
-  useEffect(() => {
-    if (params.churchId === null || (import.meta.env.MODE !== "e2e" && collection.length > 0)) {
-      setServerRows([]);
-      return;
-    }
-
-    const controller = new AbortController();
-    const churchId = params.churchId;
-
-    const fetchWorkflows = () => {
-      void fetch(`/api/onboarding/workflows?churchId=${encodeURIComponent(churchId)}`, {
-        signal: controller.signal,
-      })
-        .then(async (response) => {
-          if (!response.ok) return;
-
-          const body = (await response.json()) as ServerWorkflowPayload;
-          setServerRows(body.workflows ?? []);
-        })
-        .catch((error: unknown) => {
-          if (error instanceof DOMException && error.name === "AbortError") return;
-        });
-    };
-
-    fetchWorkflows();
-    const interval = setInterval(fetchWorkflows, 1_000);
-
-    return () => {
-      clearInterval(interval);
-      controller.abort();
-    };
-  }, [params.churchId, collection.length]);
 
   return {
     loading: false,
-    collection: visibleWorkflows,
-    workflowsCollection: visibleWorkflows,
+    collection,
+    workflowsCollection: collection,
   };
 }
 
@@ -160,52 +114,12 @@ export function useWorkflowStatusesCollection(params: { readonly churchId: strin
   const [rows] = useQuery(
     queries.workflow_statuses.by_church({ church_id: params.churchId ?? "__no_church__" }),
   );
-  const [serverRows, setServerRows] = useState<readonly WorkflowStatusItem[]>([]);
   const collection = params.churchId === null ? [] : rows.map(mapWorkflowStatus);
-  const visibleStatuses =
-    import.meta.env.MODE === "e2e" && serverRows.length > 0
-      ? serverRows
-      : collection.length > 0
-        ? collection
-        : serverRows;
-
-  useEffect(() => {
-    if (params.churchId === null || (import.meta.env.MODE !== "e2e" && collection.length > 0)) {
-      setServerRows([]);
-      return;
-    }
-
-    const controller = new AbortController();
-    const churchId = params.churchId;
-
-    const fetchStatuses = () => {
-      void fetch(`/api/onboarding/workflows?churchId=${encodeURIComponent(churchId)}`, {
-        signal: controller.signal,
-      })
-        .then(async (response) => {
-          if (!response.ok) return;
-
-          const body = (await response.json()) as ServerWorkflowPayload;
-          setServerRows(body.statuses ?? []);
-        })
-        .catch((error: unknown) => {
-          if (error instanceof DOMException && error.name === "AbortError") return;
-        });
-    };
-
-    fetchStatuses();
-    const interval = setInterval(fetchStatuses, 1_000);
-
-    return () => {
-      clearInterval(interval);
-      controller.abort();
-    };
-  }, [params.churchId, collection.length]);
 
   return {
     loading: false,
-    collection: visibleStatuses,
-    workflowStatusesCollection: visibleStatuses,
+    collection,
+    workflowStatusesCollection: collection,
   };
 }
 

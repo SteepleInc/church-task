@@ -2,11 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { resolve } from "node:path";
 
 import type { SeedProfile } from "@church-task/db";
-import {
-  ensureZeroMutationStorage,
-  startPostgresHarness,
-  startZeroCacheHarness,
-} from "@church-task/test-harness";
+import { startPostgresHarness, startZeroCacheHarness } from "@church-task/test-harness";
 
 const rootDir = resolve(import.meta.dirname, "..");
 const webDir = resolve(rootDir, "apps/web");
@@ -79,7 +75,6 @@ const zero = await startZeroCacheHarness({
   appId: zeroAppId,
   databaseUrl: postgres.connectionString,
 });
-await ensureZeroMutationStorage(postgres.connectionString, zeroAppId);
 
 const webEnv = {
   ...process.env,
@@ -109,8 +104,10 @@ const shutdown = async () => {
   }
 
   await Promise.all(
-    [...children].map(
-      (child) => new Promise<void>((resolveChild) => child.once("exit", () => resolveChild())),
+    [...children].map((child) =>
+      child.exitCode === null
+        ? new Promise<void>((resolveChild) => child.once("exit", () => resolveChild()))
+        : Promise.resolve(),
     ),
   );
   await zero.stop();
@@ -122,4 +119,8 @@ process.once("SIGTERM", () => {
 });
 process.once("SIGINT", () => {
   void shutdown().then(() => process.exit(0));
+});
+
+await new Promise<never>(() => {
+  // Keep the harness alive for Playwright's webServer lifecycle.
 });

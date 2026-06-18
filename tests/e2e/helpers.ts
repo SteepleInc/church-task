@@ -138,21 +138,10 @@ export async function completeOnboarding(page: Page, churchName: string) {
       `Onboarding did not advance to Initial Teams at ${page.url()}. Active org state: ${JSON.stringify(activeOrgState)}. Body: ${await page.locator("body").innerText()}`,
     );
   }
-  const bootstrapResponse = await page.request.post(
-    `${getE2eApiUrl()}/api/test/bootstrap-active-church`,
-  );
-  expect(bootstrapResponse.ok()).toBe(true);
-  const bootstrapBody = (await bootstrapResponse.json()) as { teams?: number };
-  expect(bootstrapBody.teams).toBe(STARTER_TEAM_NAMES.length);
-  await page.reload();
-  await expect(teamsStepHeading).toBeVisible({ timeout: 20_000 });
-
   // Wait for the seeded Starter Teams to finish streaming in so the layout
   // is stable before clicking Next.
   await expect(page.getByLabel("Initial Teams").getByRole("button", { name: /^Edit / }))
-    .toHaveCount(STARTER_TEAM_NAMES.length, {
-      timeout: 20_000,
-    })
+    .toHaveCount(STARTER_TEAM_NAMES.length)
     .catch(async (error: unknown) => {
       const activeOrgState = await page.evaluate(async () => {
         const { authClient } = await import("/src/lib/auth-client.ts");
