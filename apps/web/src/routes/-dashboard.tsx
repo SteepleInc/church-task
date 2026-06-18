@@ -65,7 +65,6 @@ import {
   toTaskViewSearchValue,
   type ResolvedTaskViewOptions,
   type TaskViewTab,
-  type TaskWeekScope,
 } from "@/components/tasks/task-view-options";
 import { useUserInvitationsCollection } from "@/data/invitations/invitationsData.app";
 import {
@@ -167,7 +166,6 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
     showCreateTask &&
     (typeof activePanel !== "object" || (activePanel.kind === "team" && selectedTeam !== null));
   const activeTab = resolveTaskViewTab(surface, search.tab);
-  const activeScope = surface === "team_board" ? undefined : (search.scope ?? "current_week");
   const activeView = resolveTaskViewOptions(search.view);
   const activeInsights = resolveInsightsState(search.insights);
   const [taskFilters, setTaskFilters] = useFilters(FilterKeys.Tasks);
@@ -240,17 +238,6 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
     });
   };
 
-  const setScope = (scope: TaskWeekScope) => {
-    void navigate({
-      to: ".",
-      replace: true,
-      search: (prev: Record<string, unknown>) => ({
-        ...prev,
-        scope: scope === "current_week" ? undefined : scope,
-      }),
-    });
-  };
-
   const setView = (view: ResolvedTaskViewOptions) => {
     void navigate({
       to: ".",
@@ -296,8 +283,6 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
           surface={surface}
           tab={activeTab}
           onTabChange={setTab}
-          scope={activeScope}
-          onScopeChange={surface === "team_board" ? undefined : setScope}
           view={activeView}
           onViewChange={setView}
           openDisplayOptionsRef={openDisplayOptionsRef}
@@ -364,7 +349,6 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
           teams={activeTeams.map((candidate) => ({ id: candidate.id, name: candidate.name }))}
           tab={activeTab}
           view={search.view}
-          scope={activeScope}
           week={search.week}
           weekNumber={
             typeof activePanel === "object" && activePanel.kind === "team"
