@@ -646,6 +646,14 @@ type ExistingProjectedTaskRow = {
   readonly id: string;
   readonly source_template_task_id: string;
 };
+type EffectiveTemplateCycleTask = {
+  readonly due_date: string;
+  readonly parent_template_task_id: string | null;
+  readonly source_template_task_id: string;
+  readonly team_id: string;
+  readonly template_task_key: string;
+  readonly title: string;
+};
 export type TemplateCycleTaskProjection = {
   readonly cycle_id: string;
   readonly due_date: string;
@@ -692,135 +700,14 @@ type ProjectionTaskInsert = {
   readonly workflow_status_id: string;
 };
 
-export const buildTemplateCycleTaskInserts = (args: {
-  readonly adjustments: readonly CycleAdjustmentRow[];
-  readonly church_id: string;
-  readonly cycle: CycleRow;
-  readonly existing_projected_tasks?: readonly ExistingProjectedTaskRow[];
-  readonly focus_windows: readonly FocusWindowRow[];
-  readonly key_date_occurrences: readonly KeyDateOccurrenceRow[];
-  readonly now: Date;
-  readonly session_user_id: string;
-  readonly start_number_by_team_id: ReadonlyMap<string, number>;
-  readonly template_id: string;
-  readonly template_tasks: readonly TemplateTaskRow[];
-  readonly template_teams: readonly TemplateTeamRow[];
-  readonly todo_status_by_workflow_id: ReadonlyMap<string, TodoStatusRow>;
-  readonly workflow_by_team_id: ReadonlyMap<string, WorkflowRow>;
-}) => {
-  const templateTeamById = new Map(args.template_teams.map((team) => [team.id, team]));
-  const adjustmentByTemplateTaskId = new Map(
-    args.adjustments.map((adjustment) => [adjustment.template_task_id, adjustment]),
-  );
-  const nextNumberByTeamId = new Map(args.start_number_by_team_id);
-  const insertedTasksByTemplateTaskId = new Map<string, string>();
-  const pendingParentLinks: Array<{
-    readonly parentTemplateTaskId: string;
-    readonly taskId: string;
-  }> = [];
-  const inserts: ProjectionTaskInsert[] = [];
-
-  for (const existingTask of args.existing_projected_tasks ?? []) {
-    insertedTasksByTemplateTaskId.set(existingTask.source_template_task_id, existingTask.id);
-  }
-
-  for (const templateTask of args.template_tasks) {
-    const templateTeam = templateTeamById.get(templateTask.template_team_id);
-    if (!templateTeam) throw new Error("Template Task does not reference an active Template Team.");
-
-    const dueDate = resolveSchedulingRule(
-      parseJson<SchedulingRule>(templateTask.scheduling_rule, {
-        kind: "fixedDate",
-        localDate: args.cycle.start_date,
-      }),
-      {
-        cycle_start_date: args.cycle.start_date,
-        focus_windows: args.focus_windows,
-        key_date_occurrences: args.key_date_occurrences,
-      },
-    );
-    const adjustment = adjustmentByTemplateTaskId.get(templateTask.id);
-    const merged = mergeTemplateTaskProjection(
-      {
-        dueDate,
-        parentTemplateTaskId: templateTask.parent_template_task_id,
-        templateTaskId: templateTask.id,
-        templateTaskKey: templateTask.key,
-        title: templateTask.title,
-      },
-      adjustment
-        ? {
-            lifecycle: adjustment.lifecycle,
-            overrides: parseJson<readonly CycleAdjustmentOverride[]>(adjustment.overrides, []),
-          }
-        : null,
-    );
-    if (merged.skipped || !merged.effectiveTask) continue;
-
-    if (insertedTasksByTemplateTaskId.has(templateTask.id)) continue;
-
-    const workflow = args.workflow_by_team_id.get(templateTeam.mapped_team_id);
-    if (!workflow) throw new Error("Template Team mapped Team does not have an active Workflow.");
-    const todoStatus = args.todo_status_by_workflow_id.get(workflow.id);
-    if (!todoStatus) throw new Error("Mapped Team Workflow does not have a To Do status.");
-    const number = nextNumberByTeamId.get(templateTeam.mapped_team_id) ?? 1;
-    nextNumberByTeamId.set(templateTeam.mapped_team_id, number + 1);
-    const taskId = getTaskId();
-    insertedTasksByTemplateTaskId.set(templateTask.id, taskId);
-    if (merged.effectiveTask.parentTemplateTaskId) {
-      pendingParentLinks.push({
-        parentTemplateTaskId: merged.effectiveTask.parentTemplateTaskId,
-        taskId,
-      });
-    }
-
-    inserts.push({
-      _tag: "task",
-      board_order: appendBoardOrderKey(null),
-      church_id: args.church_id,
-      created_at: args.now,
-      created_by: args.session_user_id,
-      created_by_user_id: args.session_user_id,
-      cycle_id: args.cycle.id,
-      due_date: merged.effectiveTask.dueDate,
-      finished_at: null,
-      id: taskId,
-      label_ids: "[]",
-      number,
-      parent_task_id: null,
-      previous_identifiers: "[]",
-      source_template_cycle_id: args.cycle.id,
-      source_template_id: args.template_id,
-      source_template_sync_enabled: false,
-      source_template_task_id: templateTask.id,
-      task_state: "todo",
-      team_id: templateTeam.mapped_team_id,
-      title: merged.effectiveTask.title,
-      updated_at: args.now,
-      updated_by: args.session_user_id,
-      workflow_id: workflow.id,
-      workflow_status_id: todoStatus.id,
-    });
-  }
-
-  for (const link of pendingParentLinks) {
-    const parentTaskId = insertedTasksByTemplateTaskId.get(link.parentTemplateTaskId) ?? null;
-    const child = inserts.find((insert) => insert.id === link.taskId);
-    if (child) child.parent_task_id = parentTaskId;
-  }
-
-  return { inserts, nextNumberByTeamId };
-};
-
-export const buildTemplateCycleTaskProjections = (args: {
+const buildEffectiveTemplateCycleTasks = (args: {
   readonly adjustments: readonly CycleAdjustmentRow[];
   readonly cycle: CycleRow;
   readonly focus_windows: readonly FocusWindowRow[];
   readonly key_date_occurrences: readonly KeyDateOccurrenceRow[];
-  readonly template_id: string;
   readonly template_tasks: readonly TemplateTaskRow[];
   readonly template_teams: readonly TemplateTeamRow[];
-}): readonly TemplateCycleTaskProjection[] => {
+}): readonly EffectiveTemplateCycleTask[] => {
   const templateTeamById = new Map(args.template_teams.map((team) => [team.id, team]));
   const adjustmentByTemplateTaskId = new Map(
     args.adjustments.map((adjustment) => [adjustment.template_task_id, adjustment]),
@@ -861,11 +748,8 @@ export const buildTemplateCycleTaskProjections = (args: {
     if (merged.skipped || !merged.effectiveTask) return [];
     return [
       {
-        cycle_id: args.cycle.id,
         due_date: merged.effectiveTask.dueDate,
         parent_template_task_id: merged.effectiveTask.parentTemplateTaskId,
-        skipped: false as const,
-        source_template_id: args.template_id,
         source_template_task_id: templateTask.id,
         team_id: templateTeam.mapped_team_id,
         template_task_key: merged.effectiveTask.templateTaskKey,
@@ -873,6 +757,112 @@ export const buildTemplateCycleTaskProjections = (args: {
       },
     ];
   });
+};
+
+export const buildTemplateCycleTaskInserts = (args: {
+  readonly adjustments: readonly CycleAdjustmentRow[];
+  readonly church_id: string;
+  readonly cycle: CycleRow;
+  readonly existing_projected_tasks?: readonly ExistingProjectedTaskRow[];
+  readonly focus_windows: readonly FocusWindowRow[];
+  readonly key_date_occurrences: readonly KeyDateOccurrenceRow[];
+  readonly now: Date;
+  readonly session_user_id: string;
+  readonly start_number_by_team_id: ReadonlyMap<string, number>;
+  readonly template_id: string;
+  readonly template_tasks: readonly TemplateTaskRow[];
+  readonly template_teams: readonly TemplateTeamRow[];
+  readonly todo_status_by_workflow_id: ReadonlyMap<string, TodoStatusRow>;
+  readonly workflow_by_team_id: ReadonlyMap<string, WorkflowRow>;
+}) => {
+  const nextNumberByTeamId = new Map(args.start_number_by_team_id);
+  const insertedTasksByTemplateTaskId = new Map<string, string>();
+  const pendingParentLinks: Array<{
+    readonly parentTemplateTaskId: string;
+    readonly taskId: string;
+  }> = [];
+  const inserts: ProjectionTaskInsert[] = [];
+
+  for (const existingTask of args.existing_projected_tasks ?? []) {
+    insertedTasksByTemplateTaskId.set(existingTask.source_template_task_id, existingTask.id);
+  }
+
+  for (const effectiveTask of buildEffectiveTemplateCycleTasks(args)) {
+    if (insertedTasksByTemplateTaskId.has(effectiveTask.source_template_task_id)) continue;
+
+    const workflow = args.workflow_by_team_id.get(effectiveTask.team_id);
+    if (!workflow) throw new Error("Template Team mapped Team does not have an active Workflow.");
+    const todoStatus = args.todo_status_by_workflow_id.get(workflow.id);
+    if (!todoStatus) throw new Error("Mapped Team Workflow does not have a To Do status.");
+    const number = nextNumberByTeamId.get(effectiveTask.team_id) ?? 1;
+    nextNumberByTeamId.set(effectiveTask.team_id, number + 1);
+    const taskId = getTaskId();
+    insertedTasksByTemplateTaskId.set(effectiveTask.source_template_task_id, taskId);
+    if (effectiveTask.parent_template_task_id) {
+      pendingParentLinks.push({
+        parentTemplateTaskId: effectiveTask.parent_template_task_id,
+        taskId,
+      });
+    }
+
+    inserts.push({
+      _tag: "task",
+      board_order: appendBoardOrderKey(null),
+      church_id: args.church_id,
+      created_at: args.now,
+      created_by: args.session_user_id,
+      created_by_user_id: args.session_user_id,
+      cycle_id: args.cycle.id,
+      due_date: effectiveTask.due_date,
+      finished_at: null,
+      id: taskId,
+      label_ids: "[]",
+      number,
+      parent_task_id: null,
+      previous_identifiers: "[]",
+      source_template_cycle_id: args.cycle.id,
+      source_template_id: args.template_id,
+      source_template_sync_enabled: false,
+      source_template_task_id: effectiveTask.source_template_task_id,
+      task_state: "todo",
+      team_id: effectiveTask.team_id,
+      title: effectiveTask.title,
+      updated_at: args.now,
+      updated_by: args.session_user_id,
+      workflow_id: workflow.id,
+      workflow_status_id: todoStatus.id,
+    });
+  }
+
+  for (const link of pendingParentLinks) {
+    const parentTaskId = insertedTasksByTemplateTaskId.get(link.parentTemplateTaskId) ?? null;
+    const child = inserts.find((insert) => insert.id === link.taskId);
+    if (child) child.parent_task_id = parentTaskId;
+  }
+
+  return { inserts, nextNumberByTeamId };
+};
+
+export const buildTemplateCycleTaskProjections = (args: {
+  readonly adjustments: readonly CycleAdjustmentRow[];
+  readonly cycle: CycleRow;
+  readonly focus_windows: readonly FocusWindowRow[];
+  readonly key_date_occurrences: readonly KeyDateOccurrenceRow[];
+  readonly template_id: string;
+  readonly template_tasks: readonly TemplateTaskRow[];
+  readonly template_teams: readonly TemplateTeamRow[];
+}): readonly TemplateCycleTaskProjection[] => {
+  return buildEffectiveTemplateCycleTasks(args).map((effectiveTask) => ({
+    cycle_id: args.cycle.id,
+    due_date: effectiveTask.due_date,
+    parent_template_task_id: effectiveTask.parent_template_task_id,
+    skipped: false as const,
+    source_template_id: args.template_id,
+    source_template_task_id: effectiveTask.source_template_task_id,
+    team_id: effectiveTask.team_id,
+    template_task_key: effectiveTask.template_task_key,
+    title: effectiveTask.title,
+  }));
 };
 
 const taskPatchForFields = async (
