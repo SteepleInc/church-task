@@ -50,4 +50,28 @@ describe("buildCycleTimeZoneAdjustments", () => {
       },
     ]);
   });
+
+  test("does not produce updates when cycles already match the church time zone", () => {
+    const now = new Date("2026-06-17T12:00:00.000Z");
+    const current = cycle("current", "2026-06-15", "America/Los_Angeles");
+    const future = cycle("future", "2026-06-22", "America/Los_Angeles");
+
+    const adjustments = buildCycleTimeZoneAdjustments({
+      cycles: [current, future],
+      newChurchTimeZone: "America/Los_Angeles",
+      now,
+    });
+
+    expect(adjustments).toEqual([]);
+  });
+
+  test("does not rewrite cycles when there is no active current cycle", () => {
+    const adjustments = buildCycleTimeZoneAdjustments({
+      cycles: [cycle("future", "2026-06-22")],
+      newChurchTimeZone: "America/Los_Angeles",
+      now: new Date("2026-06-17T12:00:00.000Z"),
+    });
+
+    expect(adjustments).toEqual([]);
+  });
 });

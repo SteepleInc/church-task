@@ -37,6 +37,13 @@ const recalculateCycle = (
     : localMidnightToUtcInstant(cycle.start_date, newChurchTimeZone),
 });
 
+const hasBoundaryChange = (cycle: CycleBoundary, adjustment: CycleTimeZoneAdjustment) =>
+  cycle.church_time_zone !== adjustment.church_time_zone ||
+  cycle.end_date !== adjustment.end_date ||
+  cycle.ends_at.getTime() !== adjustment.ends_at.getTime() ||
+  cycle.start_date !== adjustment.start_date ||
+  cycle.starts_at.getTime() !== adjustment.starts_at.getTime();
+
 export const buildCycleTimeZoneAdjustments = (args: {
   readonly cycles: readonly CycleBoundary[];
   readonly newChurchTimeZone: string;
@@ -52,7 +59,13 @@ export const buildCycleTimeZoneAdjustments = (args: {
 
   return sortedCycles.flatMap((cycle) => {
     if (cycle.starts_at.getTime() < currentCycle.starts_at.getTime()) return [];
-    return [recalculateCycle(cycle, args.newChurchTimeZone, cycle.id === currentCycle.id)];
+
+    const adjustment = recalculateCycle(
+      cycle,
+      args.newChurchTimeZone,
+      cycle.id === currentCycle.id,
+    );
+    return hasBoundaryChange(cycle, adjustment) ? [adjustment] : [];
   });
 };
 
