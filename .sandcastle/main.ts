@@ -241,41 +241,6 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
           });
           commits = [...commits, ...verify.commits];
 
-          if (issue.needsUi && commits.length > 0) {
-            const uiReview = await sandbox.run({
-              name: `ui-design-reviewer-${issue.id}`,
-              maxIterations: 3,
-              agent: uiAgent(),
-              promptFile: "./.sandcastle/ui-review-prompt.md",
-              promptArgs: {
-                TASK_ID: issue.id,
-                ISSUE_TITLE: issue.title,
-                BRANCH: issue.branch,
-                UI_BRIEF: issue.uiBrief ?? "Review design quality and UX fit.",
-              },
-            });
-            commits = [...commits, ...uiReview.commits];
-          }
-
-          if (commits.length > 0) {
-            const review = await sandbox.run({
-              name: `all-around-code-reviewer-${issue.id}`,
-              maxIterations: 3,
-              agent: allAroundAgent(),
-              promptFile: "./.sandcastle/review-prompt.md",
-              promptArgs: {
-                TASK_ID: issue.id,
-                ISSUE_TITLE: issue.title,
-                BRANCH: issue.branch,
-              },
-            });
-
-            return {
-              ...review,
-              commits: [...commits, ...review.commits],
-            };
-          }
-
           return { ...verify, commits };
         } finally {
           await sandbox.close();
@@ -338,6 +303,8 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
   for (const issue of completedIssues) {
     const prUrl = publishIssuePr({ baseBranch: BASE_BRANCH, issue });
     console.log(`  PR ready for ${issue.id}: ${prUrl}`);
+
+    await runPostPrReview({ issue, prUrl });
 
     if (AUTO_MERGE_PRS) {
       enableAutoMerge(prUrl);
@@ -406,6 +373,63 @@ function enableAutoMerge(prUrl: string) {
     });
   } catch (error) {
     console.warn(`  Could not enable auto-merge for ${prUrl}: ${String(error)}`);
+  }
+}
+
+async function runPostPrReview({
+  issue,
+  prUrl,
+}: {
+  issue: z.infer<typeof planSchema>["issues"][number];
+  prUrl: string;
+}) {
+  console.log(`  Running post-PR review for ${issue.id}: ${prUrl}`);
+
+  const sandbox = await sandcastle.createSandbox({
+    branch: issue.branch,
+    sandbox: sandboxProvider(),
+    hooks,
+    copyToWorktree,
+  });
+
+  try {
+    let reviewCommitCount = 0;
+
+    if (issue.needsUi) {
+      const uiReview = await sandbox.run({
+        name: `post-pr-ui-design-reviewer-${issue.id}`,
+        maxIterations: 3,
+        agent: uiAgent(),
+        promptFile: "./.sandcastle/ui-review-prompt.md",
+        promptArgs: {
+          TASK_ID: issue.id,
+          ISSUE_TITLE: issue.title,
+          BRANCH: issue.branch,
+          UI_BRIEF: issue.uiBrief ?? "Review design quality and UX fit.",
+        },
+      });
+      reviewCommitCount += uiReview.commits.length;
+    }
+
+    const codeReview = await sandbox.run({
+      name: `post-pr-all-around-code-reviewer-${issue.id}`,
+      maxIterations: 3,
+      agent: allAroundAgent(),
+      promptFile: "./.sandcastle/review-prompt.md",
+      promptArgs: {
+        TASK_ID: issue.id,
+        ISSUE_TITLE: issue.title,
+        BRANCH: issue.branch,
+      },
+    });
+    reviewCommitCount += codeReview.commits.length;
+
+    if (reviewCommitCount > 0) {
+      sh(`git push origin ${quote(issue.branch)}`);
+      console.log(`  Post-PR review pushed ${reviewCommitCount} commit(s) to ${prUrl}`);
+    }
+  } finally {
+    await sandbox.close();
   }
 }
 

@@ -20,7 +20,7 @@ The reviewer agent loads this file during Sandcastle review.
 
 ## Sandcastle Workflow
 
-- The local Sandcastle runner publishes completed issue branches as GitHub PRs and enables auto-merge by default.
+- The local Sandcastle runner publishes completed issue branches as GitHub PRs, runs the final review cycle on the open PR branch, and enables auto-merge by default.
 - Do not locally merge multiple Sandcastle branches into the caller's checkout.
 - PRs should use `Closes #<issue>` so GitHub closes issues after the PR merge.
 - If GitHub checks fail, Sandcastle should repair the same PR branch and push follow-up commits rather than opening a replacement PR.
