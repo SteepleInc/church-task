@@ -183,14 +183,23 @@ function PrivateDashboardContent({ activePanel }: { activePanel: ActiveDashboard
     if (typeof activePanel !== "object" || canonicalTeamIdentifier === null) return;
 
     if (normalizeTeamIdentifier(activePanel.teamIdentifier) !== canonicalTeamIdentifier) {
+      const target = activePanel.weekCycleId
+        ? {
+            to: "/team/$teamIdentifier/weeks/$cycleId" as const,
+            params: { teamIdentifier: canonicalTeamIdentifier, cycleId: activePanel.weekCycleId },
+          }
+        : {
+            to: "/team/$teamIdentifier" as const,
+            params: { teamIdentifier: canonicalTeamIdentifier },
+          };
+
       void navigate({
-        to: "/team/$teamIdentifier",
-        params: { teamIdentifier: canonicalTeamIdentifier },
+        ...target,
         replace: true,
         search: true,
       });
     }
-  }, [activePanel, canonicalTeamIdentifier, navigate, search]);
+  }, [activePanel, canonicalTeamIdentifier, navigate]);
 
   const setTab = (tab: TaskViewTab) => {
     void navigate({

@@ -55,6 +55,14 @@ function weekLabel(cycle: SelectorCycle): string {
   return cycle.name?.trim() || formatWeekDateRange(cycle);
 }
 
+function weekStepLabel(direction: "previous" | "next", cycle: SelectorCycle | null): string {
+  if (direction === "previous") {
+    return cycle ? `Previous Week, ${weekLabel(cycle)}` : "No earlier Week";
+  }
+
+  return cycle ? `Next Week, ${weekLabel(cycle)}` : "No later Week";
+}
+
 /**
  * The nearby Week navigator for a Team Week board. It centers on the Week in
  * view and lets Users step one Week at a time (prev / next chevrons) or jump to
@@ -213,14 +221,7 @@ function WeekStepButton({
   readonly today: string;
 }) {
   const Icon = direction === "previous" ? ChevronLeft : ChevronRight;
-  const label =
-    direction === "previous"
-      ? cycle
-        ? `Previous Week, ${weekLabel(cycle)}`
-        : "No earlier Week"
-      : cycle
-        ? `Next Week, ${weekLabel(cycle)}`
-        : "No later Week";
+  const label = weekStepLabel(direction, cycle);
 
   const button = (
     <Button
