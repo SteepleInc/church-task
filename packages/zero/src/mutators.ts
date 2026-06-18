@@ -30,7 +30,7 @@ import {
   getWorkflowStatusId,
 } from "@church-task/shared/get-ids";
 import { defineMutatorWithType, defineMutators } from "@rocicorp/zero";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { Schema } from "effect";
 
 import {
@@ -596,6 +596,27 @@ const ensureTargetCycle = async (
   return cycleId;
 };
 
+const requireCurrentCycleId = async (
+  db: ServerTx["dbTransaction"]["wrappedTransaction"],
+  church_id: string,
+) => {
+  const now = new Date();
+  const rows = (await db
+    .select({ id: cycles.id })
+    .from(cycles)
+    .where(
+      and(
+        eq(cycles.church_id, church_id),
+        lte(cycles.starts_at, now),
+        gte(cycles.ends_at, now),
+        isNull(cycles.deleted_at),
+      ),
+    )) as Array<{ readonly id: string }>;
+  const cycle = rows[0];
+  if (!cycle) throw new Error("Current Cycle not found.");
+  return cycle.id;
+};
+
 type TemplateTaskRow = {
   readonly id: string;
   readonly key: string;
@@ -837,6 +858,12 @@ const taskPatchForFields = async (
     patch.task_state = status.task_state;
     patch.finished_at =
       status.task_state === "done" ? now : task.task_state === "done" ? null : task.finished_at;
+  }
+
+  const effectiveTaskState = (patch.task_state as string | undefined) ?? task.task_state;
+  const effectiveCycleId = Object.hasOwn(patch, "cycle_id") ? patch.cycle_id : task.cycle_id;
+  if (effectiveTaskState !== "todo" && effectiveCycleId === null) {
+    patch.cycle_id = await requireCurrentCycleId(db, args.church_id);
   }
 
   if (args.fields.team_id !== undefined && args.fields.team_id !== task.team_id) {
@@ -2086,7 +2113,9 @@ export const mutators = defineMutators({
             session_user_id: session.user_id,
             target_cycle: args.target_cycle,
           })
-        : null;
+        : status.task_state === "todo"
+          ? null
+          : await requireCurrentCycleId(db, args.church_id);
 
       await db.insert(tasks).values({
         _tag: "task",
@@ -2234,9 +2263,12 @@ export const mutators = defineMutators({
       const status = rows[0];
       if (!status) throw new Error("Done Workflow Status not found.");
       const now = new Date();
+      const cycleId =
+        task.cycle_id === null ? await requireCurrentCycleId(db, args.church_id) : task.cycle_id;
       await db
         .update(tasks)
         .set({
+          cycle_id: cycleId,
           finished_at: now,
           task_state: "done",
           updated_at: now,
@@ -2248,6 +2280,7 @@ export const mutators = defineMutators({
       await writeActivity(db, {
         actor_id: session.user_id,
         church_id: args.church_id,
+        cycle_id: cycleId,
         entity_id: args.task_id,
         entity_type: "task",
         event_type: "task.completed",
@@ -2267,9 +2300,12 @@ export const mutators = defineMutators({
       const task = await getTaskWithTeamIdentifier(db, args.task_id, args.church_id);
       if (!task) throw new Error("Task not found.");
       const now = new Date();
+      const cycleId =
+        task.cycle_id === null ? await requireCurrentCycleId(db, args.church_id) : task.cycle_id;
       await db
         .update(tasks)
         .set({
+          cycle_id: cycleId,
           finished_at: now,
           task_state: "canceled",
           updated_at: now,
@@ -2286,6 +2322,7 @@ export const mutators = defineMutators({
       await writeActivity(db, {
         actor_id: session.user_id,
         church_id: args.church_id,
+        cycle_id: cycleId,
         entity_id: args.task_id,
         entity_type: "task",
         event_type: "task.canceled",
