@@ -33,8 +33,20 @@ A repeating rhythm that causes church work to recur, such as weekly, monthly, or
 _Avoid_: Cycle, schedule pattern
 
 **Cycle**:
-The Monday-to-Sunday weekly planning surface for work in a specific Church week, using the Church Time Zone. Every Task belongs to one Cycle; monthly, quarterly, yearly, and weekly template work flows into the relevant Cycle, and a Cycle may also include one-off work or week-specific adjustments.
-_Avoid_: Sprint, task run, occurrence
+The Monday-to-Sunday weekly planning surface for work in a specific Church week, using the Church Time Zone. Every Task belongs to one Cycle; monthly, quarterly, yearly, and weekly template work flows into the relevant Cycle, and a Cycle may also include one-off work or week-specific adjustments. Cycles are Church-wide, always run Monday through Sunday, and are presented to Users as Weeks; Users may rename a Cycle or add a description, but they do not change its date range.
+_Avoid_: Sprint, task run, occurrence, Cycle as user-facing copy
+
+**Week**:
+The user-facing name for a Cycle. Product navigation and copy should say Week or Weeks when referring to the Monday-to-Sunday work period, while code and internal domain language may continue to use Cycle.
+_Avoid_: Sprint, Cycle in user-facing copy
+
+**Cycle Name**:
+An optional user-facing name for a Week, such as "Focus on the Family week three." When absent, the Week is presented by its date range.
+_Avoid_: Sprint name, changing the week by renaming it
+
+**Cycle Description**:
+Optional explanatory text for a Week that helps the Church understand the emphasis or context for that week. It does not change which dates the Cycle covers or which Tasks belong to it.
+_Avoid_: Planning notes that alter task ownership, date override
 
 **Cycle Adjustment**:
 A week-specific change to Cycle work, such as moving, skipping, or changing a task for that week. A Cycle Adjustment does not change the Source Template; deleting a projected Task from a Cycle is represented as skipping it for that Cycle.
@@ -159,8 +171,24 @@ A built-in Saved View created or maintained by Church Task, such as My Work, a d
 _Avoid_: Hard-coded view, special view
 
 **Default Team View**:
-A Team's built-in System Saved View showing that Team's incomplete Tasks across all Cycles, not scoped to any single Cycle. It is the team destination surfaced in the sidebar as "Tasks" and is presented as a System Board.
-_Avoid_: Team backlog, team inbox, Cycle-scoped team list
+A Team's built-in System Saved View showing that Team's real Tasks across Cycles. It is the team destination surfaced in the sidebar as "Tasks" and is presented as a System Board. Template-generated future Tasks do not appear here until they are real Cycle Tasks.
+_Avoid_: Cycle-specific team view, team inbox
+
+**Cycle-scoped Work View**:
+A Task view whose default Task set is limited to one Cycle, usually the current Cycle. My Work and Our Work default to the current Cycle whenever opened; viewing all real Tasks or a past/future Cycle there is an explicit per-visit action and is not carried across surfaces.
+_Avoid_: Infinite backlog, all future work by default
+
+**Team Cycles View**:
+A Team-scoped planning surface listing that Team's Cycles as current, upcoming, planned, or completed. It is reached from the Team navigation under Cycles and lets Users open the Team's current or upcoming Cycle work.
+_Avoid_: Church-wide cycles as the default, generic planning dashboard
+
+**Week Progress**:
+A task-count summary of a Team's work in a Week. Scope is the total number of real Tasks in that Team and Week, Started is the number of those Tasks whose Task State is In Progress or Done, and Completed is the number whose Task State is Done. Week Progress does not use capacity planning or summed Estimates.
+_Avoid_: Velocity, points, capacity, estimate total
+
+**Week Breakdown**:
+A Week Progress split by a Task dimension such as assignee, Label, Priority, Estimate, or Team. Each row shows that slice's share of the Week's scoped Tasks and its Task count; percentages are task-count percentages, not capacity percentages. Estimate breakdown counts Tasks by t-shirt size; it does not sum or treat Estimates as points.
+_Avoid_: Capacity allocation, workload promise
 
 **Insights**:
 A bar-chart-and-table summary of the Tasks in the current Saved View, counted by Task dimensions. Insights inherits the Saved View's filters and Task set so its totals match the Board or list, and adds its own Measure, Slice, and Segment. Insights summarizes Tasks; it does not own them or define their Task State.
