@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createDb, resetAndSeedDatabase, type SeedProfile } from "@church-task/db";
+import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 
@@ -53,6 +54,42 @@ const getZeroCacheCliPath = () => {
   return join(zeroEntry, "..", "cli.js");
 };
 
+export const ensureZeroMutationStorage = async (databaseUrl: string, appId: string) => {
+  const { db, pool } = createDb(databaseUrl);
+  const schemaName = `${appId}_0`;
+
+  if (!/^[A-Za-z0-9_]+$/.test(schemaName)) {
+    throw new Error(`Invalid Zero mutation storage schema: ${schemaName}`);
+  }
+
+  try {
+    await db.execute(sql.raw(`create schema if not exists "${schemaName}"`));
+    await db.execute(
+      sql.raw(`
+        create table if not exists "${schemaName}"."clients" (
+          "clientGroupID" text not null,
+          "clientID" text not null,
+          "lastMutationID" bigint,
+          primary key ("clientGroupID", "clientID")
+        )
+      `),
+    );
+    await db.execute(
+      sql.raw(`
+        create table if not exists "${schemaName}"."mutations" (
+          "clientGroupID" text not null,
+          "clientID" text not null,
+          "mutationID" bigint not null,
+          "result" json,
+          primary key ("clientGroupID", "clientID", "mutationID")
+        )
+      `),
+    );
+  } finally {
+    await pool.end();
+  }
+};
+
 export const startPostgresHarness = async (
   options: { readonly seedProfile?: SeedProfile } = {},
 ) => {
@@ -81,6 +118,7 @@ export const startZeroCacheHarness = async (options: {
   readonly databaseUrl: string;
   readonly port?: number;
 }) => {
+  const appId = options.appId ?? "tracer";
   const port = options.port ?? (await getOpenPort());
   const tmpDir = await mkdtemp(join(tmpdir(), "church-task-zero-"));
   const replicaFile = join(tmpDir, "zero.db");
@@ -92,7 +130,8 @@ export const startZeroCacheHarness = async (options: {
       ...process.env,
       DO_NOT_TRACK: "1",
       ZERO_ADMIN_PASSWORD: adminPassword,
-      ZERO_APP_ID: options.appId ?? "tracer",
+      ZERO_APP_ID: appId,
+      ZERO_AUTH_SECRET: "church-task-e2e-zero-auth-secret",
       ZERO_CHANGE_DB: options.databaseUrl,
       ZERO_CVR_DB: options.databaseUrl,
       ZERO_ENABLE_TELEMETRY: "false",
@@ -120,6 +159,10 @@ export const startZeroCacheHarness = async (options: {
     output += String(chunk);
   });
 
+  child.once("exit", (code, signal) => {
+    console.error(`zero-cache exited: code=${code} signal=${signal}\n${output}`);
+  });
+
   try {
     await Promise.race([
       waitForHttpOk(`${zeroUrl}/statz`, 60_000, {
@@ -133,6 +176,8 @@ export const startZeroCacheHarness = async (options: {
         });
       }),
     ]);
+
+    await ensureZeroMutationStorage(options.databaseUrl, appId);
   } catch (error) {
     child.kill("SIGTERM");
     await rm(tmpDir, { force: true, recursive: true });

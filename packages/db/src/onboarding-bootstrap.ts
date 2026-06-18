@@ -13,7 +13,7 @@ import {
   getWorkflowId,
   getWorkflowStatusId,
 } from "@church-task/shared/get-ids";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 
 import type { ChurchTaskDb } from "./client";
 import { labels, team_memberships, teams, workflow_statuses, workflows } from "./schema";
@@ -27,100 +27,104 @@ export const bootstrapChurchOnboarding = async (
   db: ChurchTaskDb,
   args: BootstrapChurchOnboardingArgs,
 ) => {
-  const existingTeams = await db
-    .select({ identifier: teams.identifier })
-    .from(teams)
-    .where(and(eq(teams.church_id, args.church_id), isNull(teams.deleted_at)));
-  const takenIdentifiers = existingTeams.map((team) => team.identifier);
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${args.church_id}))`);
 
-  if (existingTeams.length === 0) {
-    for (const [index, name] of STARTER_TEAM_NAMES.entries()) {
-      const identifier = generateTeamIdentifier(name, takenIdentifiers);
-      takenIdentifiers.push(identifier);
+    const existingTeams = await tx
+      .select({ identifier: teams.identifier })
+      .from(teams)
+      .where(and(eq(teams.church_id, args.church_id), isNull(teams.deleted_at)));
+    const takenIdentifiers = existingTeams.map((team) => team.identifier);
 
-      const now = new Date();
-      const teamId = getTeamId();
-      const workflowId = getWorkflowId();
+    if (existingTeams.length === 0) {
+      for (const [index, name] of STARTER_TEAM_NAMES.entries()) {
+        const identifier = generateTeamIdentifier(name, takenIdentifiers);
+        takenIdentifiers.push(identifier);
 
-      await db.insert(teams).values({
-        _tag: "team",
-        church_id: args.church_id,
-        color: getTeamColorForName(name),
-        created_at: now,
-        created_by: args.user_id,
-        id: teamId,
-        identifier,
-        name,
-        previous_identifiers: "[]",
-        sort_order: index,
-        updated_at: now,
-        updated_by: args.user_id,
-      });
+        const now = new Date();
+        const teamId = getTeamId();
+        const workflowId = getWorkflowId();
 
-      await db.insert(team_memberships).values({
-        _tag: "teammembership",
-        church_id: args.church_id,
-        created_at: now,
-        created_by: args.user_id,
-        id: getTeamMembershipId(),
-        team_id: teamId,
-        updated_at: now,
-        updated_by: args.user_id,
-        user_id: args.user_id,
-      });
+        await tx.insert(teams).values({
+          _tag: "team",
+          church_id: args.church_id,
+          color: getTeamColorForName(name),
+          created_at: now,
+          created_by: args.user_id,
+          id: teamId,
+          identifier,
+          name,
+          previous_identifiers: "[]",
+          sort_order: index,
+          updated_at: now,
+          updated_by: args.user_id,
+        });
 
-      await db.insert(workflows).values({
-        _tag: "workflow",
-        church_id: args.church_id,
-        created_at: now,
-        created_by: args.user_id,
-        id: workflowId,
-        name: `${name} Workflow`,
-        team_id: teamId,
-        updated_at: now,
-        updated_by: args.user_id,
-      });
-
-      await db.insert(workflow_statuses).values(
-        DEFAULT_WORKFLOW_STATUSES.map((status) => ({
-          _tag: "workflowstatus",
+        await tx.insert(team_memberships).values({
+          _tag: "teammembership",
           church_id: args.church_id,
           created_at: now,
           created_by: args.user_id,
-          id: getWorkflowStatusId(),
-          key: status.key,
-          name: status.name,
-          sort_order: status.sort_order,
-          task_state: status.task_state,
+          id: getTeamMembershipId(),
+          team_id: teamId,
           updated_at: now,
           updated_by: args.user_id,
-          workflow_id: workflowId,
-        })),
-      );
+          user_id: args.user_id,
+        });
+
+        await tx.insert(workflows).values({
+          _tag: "workflow",
+          church_id: args.church_id,
+          created_at: now,
+          created_by: args.user_id,
+          id: workflowId,
+          name: `${name} Workflow`,
+          team_id: teamId,
+          updated_at: now,
+          updated_by: args.user_id,
+        });
+
+        await tx.insert(workflow_statuses).values(
+          DEFAULT_WORKFLOW_STATUSES.map((status) => ({
+            _tag: "workflowstatus",
+            church_id: args.church_id,
+            created_at: now,
+            created_by: args.user_id,
+            id: getWorkflowStatusId(),
+            key: status.key,
+            name: status.name,
+            sort_order: status.sort_order,
+            task_state: status.task_state,
+            updated_at: now,
+            updated_by: args.user_id,
+            workflow_id: workflowId,
+          })),
+        );
+      }
     }
-  }
 
-  const existingLabels = await db
-    .select({ id: labels.id })
-    .from(labels)
-    .where(and(eq(labels.church_id, args.church_id), isNull(labels.deleted_at)));
+    const existingLabels = await tx
+      .select({ id: labels.id })
+      .from(labels)
+      .where(and(eq(labels.church_id, args.church_id), isNull(labels.deleted_at)));
 
-  if (existingLabels.length > 0) return;
+    if (existingLabels.length > 0) return;
 
-  for (const name of STARTER_LABELS) {
-    const now = new Date();
+    for (const name of STARTER_LABELS) {
+      const now = new Date();
 
-    await db.insert(labels).values({
-      _tag: "label",
-      church_id: args.church_id,
-      color: getLabelColorForName(name),
-      created_at: now,
-      created_by: args.user_id,
-      id: getLabelId(),
-      name,
-      team_id: null,
-      updated_at: now,
-      updated_by: args.user_id,
-    });
-  }
+      await tx.insert(labels).values({
+        _tag: "label",
+        church_id: args.church_id,
+        color: getLabelColorForName(name),
+        created_at: now,
+        created_by: args.user_id,
+        id: getLabelId(),
+        name,
+        team_id: null,
+        updated_at: now,
+        updated_by: args.user_id,
+      });
+    }
+  });
 };

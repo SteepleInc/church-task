@@ -2,11 +2,15 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { resolve } from "node:path";
 
 import type { SeedProfile } from "@church-task/db";
-import { startPostgresHarness, startZeroCacheHarness } from "@church-task/test-harness";
+import {
+  ensureZeroMutationStorage,
+  startPostgresHarness,
+  startZeroCacheHarness,
+} from "@church-task/test-harness";
 
 const rootDir = resolve(import.meta.dirname, "..");
 const webDir = resolve(rootDir, "apps/web");
-const webPort = Number(process.env.E2E_WEB_PORT ?? 2101);
+const webPort = Number(process.env.E2E_WEB_PORT ?? 32101);
 const webUrl = `http://127.0.0.1:${webPort}`;
 const seedProfiles = new Set<SeedProfile>(["empty", "app", "admin"]);
 
@@ -63,6 +67,7 @@ const runChild = (
 };
 
 const seedProfile = getSeedProfile();
+const zeroAppId = `onboarding_e2e_${Date.now()}`;
 console.info(`Starting onboarding E2E Postgres harness with ${seedProfile} seed profile`);
 const postgres = await startPostgresHarness({ seedProfile });
 process.env.E2E_SITE_URL = webUrl;
@@ -71,9 +76,10 @@ process.env.SITE_URL = webUrl;
 console.info("Starting onboarding E2E Zero cache");
 const zero = await startZeroCacheHarness({
   apiBaseUrl: webUrl,
-  appId: "onboarding_e2e",
+  appId: zeroAppId,
   databaseUrl: postgres.connectionString,
 });
+await ensureZeroMutationStorage(postgres.connectionString, zeroAppId);
 
 const webEnv = {
   ...process.env,
@@ -84,6 +90,7 @@ const webEnv = {
   SITE_URL: webUrl,
   VITE_PORT: String(webPort),
   VITE_ZERO_CACHE_URL: zero.url,
+  ZERO_APP_ID: zeroAppId,
 };
 
 console.info(`Starting onboarding E2E web app at ${webUrl}`);
@@ -107,8 +114,6 @@ const shutdown = async () => {
     ),
   );
   await zero.stop();
-  await new Promise<void>((resolveClose) => apiServer.close(() => resolveClose()));
-  await api.close();
   await postgres.stop();
 };
 
