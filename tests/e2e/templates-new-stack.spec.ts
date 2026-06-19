@@ -27,4 +27,20 @@ test("authors and schedules a weekly service Template", async ({ page }, testInf
   await page.getByRole("button", { name: "Save and schedule" }).click();
 
   await expect(page.getByText(/Template saved/)).toBeVisible({ timeout: 20_000 });
+
+  const sidebar = page.locator('[data-sidebar="sidebar"]');
+  const worshipTeamItem = sidebar.locator('[data-sidebar="menu-item"]', {
+    has: page.getByRole("link", { name: "Worship" }),
+  });
+  const expandButton = worshipTeamItem.getByRole("button", { name: "Expand Worship" });
+  if (await expandButton.isVisible().catch(() => false)) await expandButton.click();
+  await worshipTeamItem.getByRole("link", { name: "Current" }).click();
+
+  const projectedTask = page.getByLabel("Task card Plan worship set");
+  await expect(projectedTask).toBeVisible({ timeout: 20_000 });
+  await expect(projectedTask).toContainText("Sunday Service Template");
+  await expect(projectedTask).toContainText(/Sunday \w{3} \d{1,2}/);
+  await expect(
+    projectedTask.getByLabel(/From Template Schedule Sunday Service Template/),
+  ).toBeVisible();
 });

@@ -44,6 +44,7 @@ import type {
   TaskCardLabelsChange,
   TaskCardStatusChange,
 } from "./task-kanban-board";
+import { TemplateSourceBadge } from "./template-source-badge";
 import { DEFAULT_TASK_VIEW_OPTIONS, type TaskDisplayProperty } from "./task-view-options";
 import { statusOptions } from "./task-kanban-board-utils";
 import { useTaskContextMenu } from "./task-context-menu";
@@ -466,6 +467,9 @@ function TaskListRow({
       className={cn(
         "mx-3 my-0.5 flex h-9 items-center gap-2 rounded-md px-3 transition-colors",
         rowState === "canceled" && "opacity-70",
+        // Projected Template Tasks are planned, not yet created: a dashed, muted
+        // row reads them as "ghost" placeholders distinct from real Tasks.
+        task.isProjected && "border border-dashed bg-muted/20 text-muted-foreground",
         onOpenTask && "cursor-pointer hover:bg-muted/70",
         isFocused && "bg-accent/60",
         isSelected && "bg-primary/5",
@@ -550,6 +554,10 @@ function TaskListRow({
         ) : null}
 
         {showProperty("team") && teamName ? <Badge variant="outline">{teamName}</Badge> : null}
+
+        {task.sourceBadge ? (
+          <TemplateSourceBadge badge={task.sourceBadge} className="max-w-[16rem]" />
+        ) : null}
 
         {showProperty("due_date") && dueDateLabel ? (
           <Badge className="text-muted-foreground" variant="outline">

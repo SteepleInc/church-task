@@ -1,5 +1,16 @@
 import { formatTaskIdentifier, type TaskEstimate, type TaskStatus } from "@church-task/domain";
-import { mutators, queries, type ListArgs, type Task, type Team } from "@church-task/zero";
+import {
+  mutators,
+  queries,
+  type ListArgs,
+  type Task,
+  type Team,
+  type TemplateSchedule,
+  type TemplateTask,
+  type TemplateTeam,
+  type Workflow,
+  type WorkflowStatus,
+} from "@church-task/zero";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 
 export type TaskCollectionFilters = {
@@ -35,6 +46,40 @@ export type TaskCollectionItem = {
   readonly sourceTemplateScheduleId: string | null;
   readonly sourceTemplateOccurrenceKey: string | null;
   readonly sourceTemplateSyncEnabled: boolean;
+  readonly sourceBadge: TemplateSourceBadge | null;
+  /**
+   * True for UI-only Tasks projected from a Template Schedule that have not yet
+   * been materialized into real Tasks. Surfaces use this to render a "planned"
+   * (dashed/ghost) treatment so projections read distinctly from real Tasks.
+   */
+  readonly isProjected: boolean;
+};
+
+export type TemplateSourceBadge = {
+  readonly scheduleId: string;
+  readonly scheduleName: string;
+  readonly occurrenceKey: string;
+  readonly occurrenceLabel: string;
+  readonly occurrenceDate: string | null;
+  readonly occurrencePeriod: string | null;
+  /** Human-friendly period label (e.g. "Jun 2026"), derived from the occurrence. */
+  readonly periodLabel: string | null;
+  /**
+   * Full chip background/border/text class set, used where a strongly tinted
+   * chip is appropriate. Kept stable per Template Schedule ID.
+   */
+  readonly colorClassName: string;
+  /**
+   * Solid dot color class (e.g. "bg-sky-500"), stable per Template Schedule ID.
+   * Mirrors the Label colored-dot convention so source chips read as native.
+   */
+  readonly dotClassName: string;
+};
+
+type CycleProjectionContext = {
+  readonly id: string;
+  readonly startDate: string;
+  readonly endDate: string;
 };
 
 export type TaskUpdateFields = {
@@ -94,7 +139,114 @@ const taskEstimate = (value: string | null | undefined): TaskEstimate | null => 
 const timestampToIso = (value: number | null | undefined): string | null =>
   typeof value === "number" ? new Date(value).toISOString() : null;
 
-const mapTask = (task: Task, teamsById: ReadonlyMap<string, Team>): TaskCollectionItem => ({
+const SCHEDULE_COLOR_CLASSES = [
+  "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300",
+  "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300",
+  "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300",
+  "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+  "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300",
+] as const;
+
+// Solid dot colors, parallel to SCHEDULE_COLOR_CLASSES, matching the Label
+// colored-dot convention so projected/materialized source chips read as native
+// alongside Label badges on Task cards and rows.
+const SCHEDULE_DOT_CLASSES = [
+  "bg-sky-500",
+  "bg-violet-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+  "bg-rose-500",
+] as const;
+
+const scheduleColorIndex = (scheduleId: string): number => {
+  let hash = 0;
+  for (const char of scheduleId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return hash % SCHEDULE_COLOR_CLASSES.length;
+};
+
+export const getTemplateScheduleColorClassName = (scheduleId: string): string =>
+  SCHEDULE_COLOR_CLASSES[scheduleColorIndex(scheduleId)] ?? SCHEDULE_COLOR_CLASSES[0];
+
+export const getTemplateScheduleDotClassName = (scheduleId: string): string =>
+  SCHEDULE_DOT_CLASSES[scheduleColorIndex(scheduleId)] ?? SCHEDULE_DOT_CLASSES[0];
+
+const weekdayName = (weekday: number) =>
+  ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][weekday] ?? "day";
+
+const mondayFirstPosition = (weekday: number) => (weekday + 6) % 7;
+
+const addDays = (date: string, days: number): string => {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
+};
+
+const dateWeekday = (date: string): number => new Date(`${date}T00:00:00.000Z`).getUTCDay();
+
+const parseJson = <T>(value: string | null | undefined, fallback: T): T => {
+  try {
+    return JSON.parse(value ?? "") as T;
+  } catch {
+    return fallback;
+  }
+};
+
+const occurrenceLabel = (date: string) => {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  return `${weekdayName(parsed.getUTCDay())} ${parsed.toLocaleDateString("en-US", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  })}`;
+};
+
+const periodLabel = (date: string) => {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  return parsed.toLocaleDateString("en-US", {
+    month: "short",
+    timeZone: "UTC",
+    year: "numeric",
+  });
+};
+
+export const buildTemplateSourceBadge = (args: {
+  readonly schedule: Pick<TemplateSchedule, "id" | "name">;
+  readonly occurrenceKey: string | null;
+}): TemplateSourceBadge | null => {
+  if (!args.occurrenceKey) return null;
+  const date = args.occurrenceKey.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
+  return {
+    colorClassName: getTemplateScheduleColorClassName(args.schedule.id),
+    dotClassName: getTemplateScheduleDotClassName(args.schedule.id),
+    occurrenceDate: date,
+    occurrenceKey: args.occurrenceKey,
+    occurrenceLabel: date ? occurrenceLabel(date) : args.occurrenceKey,
+    occurrencePeriod: date ? date.slice(0, 7) : null,
+    periodLabel: date ? periodLabel(date) : null,
+    scheduleId: args.schedule.id,
+    scheduleName: args.schedule.name,
+  };
+};
+
+const buildMaterializedTaskSourceBadge = (
+  task: Task,
+  schedulesById: ReadonlyMap<string, TemplateSchedule>,
+): TemplateSourceBadge | null => {
+  if (!task.source_template_schedule_id) return null;
+  const schedule = schedulesById.get(task.source_template_schedule_id);
+  return schedule
+    ? buildTemplateSourceBadge({
+        occurrenceKey: task.source_template_occurrence_key ?? null,
+        schedule,
+      })
+    : null;
+};
+
+const mapTask = (
+  task: Task,
+  teamsById: ReadonlyMap<string, Team>,
+  schedulesById: ReadonlyMap<string, TemplateSchedule> = new Map(),
+): TaskCollectionItem => ({
   assignedUserId: task.assigned_user_id ?? null,
   boardOrder: task.board_order,
   churchId: task.church_id,
@@ -107,6 +259,7 @@ const mapTask = (task: Task, teamsById: ReadonlyMap<string, Team>): TaskCollecti
   finishedAt: timestampToIso(task.finished_at),
   id: task.id,
   identifier: formatTaskIdentifier(teamsById.get(task.team_id)?.identifier ?? "TEAM", task.number),
+  isProjected: false,
   labelIds: parseStringArray(task.label_ids),
   number: task.number,
   parentTaskId: task.parent_task_id ?? null,
@@ -117,12 +270,111 @@ const mapTask = (task: Task, teamsById: ReadonlyMap<string, Team>): TaskCollecti
   sourceTemplateScheduleId: task.source_template_schedule_id ?? null,
   sourceTemplateSyncEnabled: task.source_template_sync_enabled ?? false,
   sourceTemplateTaskId: task.source_template_task_id ?? null,
+  sourceBadge: buildMaterializedTaskSourceBadge(task, schedulesById),
   taskState: taskStatus(task.task_state),
   teamId: task.team_id,
   title: task.title,
   workflowId: task.workflow_id,
   workflowStatusId: task.workflow_status_id,
 });
+
+export function buildProjectedTemplateTasksForCycle(args: {
+  readonly cycle: CycleProjectionContext;
+  readonly existingTasks: readonly TaskCollectionItem[];
+  readonly schedules: readonly TemplateSchedule[];
+  readonly templateTasks: readonly TemplateTask[];
+  readonly templateTeams: readonly TemplateTeam[];
+  readonly workflows: readonly Workflow[];
+  readonly workflowStatuses: readonly WorkflowStatus[];
+  readonly teamFilterId?: string;
+}): readonly TaskCollectionItem[] {
+  const templateTeamsById = new Map(args.templateTeams.map((team) => [team.id, team]));
+  const workflowsByTeamId = new Map(args.workflows.map((workflow) => [workflow.team_id, workflow]));
+  const todoByWorkflowId = new Map(
+    args.workflowStatuses
+      .filter((status) => status.task_state === "todo")
+      .map((status) => [status.workflow_id, status]),
+  );
+  const existingSourceKeys = new Set(
+    args.existingTasks.flatMap((task) =>
+      task.sourceTemplateScheduleId && task.sourceTemplateTaskId && task.sourceTemplateOccurrenceKey
+        ? [
+            `${task.sourceTemplateScheduleId}:${task.sourceTemplateTaskId}:${task.sourceTemplateOccurrenceKey}:${args.cycle.id}`,
+          ]
+        : [],
+    ),
+  );
+  const projected: TaskCollectionItem[] = [];
+
+  for (const schedule of args.schedules) {
+    if (schedule.kind !== "weekly") continue;
+    const rule = parseJson<{ kind?: string; weekdays?: readonly number[] }>(schedule.rule, {});
+    const serviceWeekday = rule.weekdays?.[0];
+    if (rule.kind !== "weekly" || serviceWeekday == null) continue;
+    const scheduleTasks = args.templateTasks.filter(
+      (task) => task.template_id === schedule.template_id,
+    );
+    for (
+      let occurrenceDate = schedule.start_date;
+      occurrenceDate <= addDays(args.cycle.endDate, 371);
+      occurrenceDate = addDays(occurrenceDate, 7)
+    ) {
+      if (schedule.end_date && occurrenceDate > schedule.end_date) break;
+      if (dateWeekday(occurrenceDate) !== serviceWeekday) continue;
+      const occurrenceKey = `weekly:${occurrenceDate}:${weekdayName(serviceWeekday).toLowerCase()}`;
+      for (const templateTask of scheduleTasks) {
+        const templateTeam = templateTeamsById.get(templateTask.template_team_id);
+        const teamId = templateTeam?.mapped_team_id;
+        if (!teamId || (args.teamFilterId && args.teamFilterId !== teamId)) continue;
+        const placementWeekday = templateTask.placement_weekday ?? serviceWeekday;
+        const dueDate = addDays(
+          occurrenceDate,
+          (templateTask.placement_cycle_offset ?? 0) * 7 +
+            (mondayFirstPosition(placementWeekday) - mondayFirstPosition(serviceWeekday)),
+        );
+        if (dueDate < args.cycle.startDate || dueDate > args.cycle.endDate) continue;
+        const sourceKey = `${schedule.id}:${templateTask.id}:${occurrenceKey}:${args.cycle.id}`;
+        if (existingSourceKeys.has(sourceKey)) continue;
+        const workflow = workflowsByTeamId.get(teamId);
+        const todo = workflow ? todoByWorkflowId.get(workflow.id) : null;
+        if (!workflow || !todo) continue;
+        projected.push({
+          assignedUserId: templateTask.assigned_user_id ?? null,
+          boardOrder: `template:${schedule.id}:${occurrenceKey}:${templateTask.id}`,
+          churchId: schedule.church_id,
+          createdAt: 0,
+          createdByUserId: null,
+          cycleId: args.cycle.id,
+          description: templateTask.description ?? null,
+          dueDate,
+          estimate: taskEstimate(templateTask.estimate),
+          finishedAt: null,
+          id: `projected-template-task:${schedule.id}:${templateTask.id}:${occurrenceKey}:${args.cycle.id}`,
+          identifier: "Projected",
+          isProjected: true,
+          labelIds: parseStringArray(templateTask.label_ids),
+          number: 0,
+          parentTaskId: null,
+          previousIdentifiers: [],
+          sourceBadge: buildTemplateSourceBadge({ occurrenceKey, schedule }),
+          sourceTemplateCycleId: null,
+          sourceTemplateId: schedule.template_id,
+          sourceTemplateOccurrenceKey: occurrenceKey,
+          sourceTemplateScheduleId: schedule.id,
+          sourceTemplateSyncEnabled: true,
+          sourceTemplateTaskId: templateTask.id,
+          taskState: "todo",
+          teamId,
+          title: templateTask.title,
+          workflowId: workflow.id,
+          workflowStatusId: todo.id,
+        });
+      }
+    }
+  }
+
+  return projected;
+}
 
 const zeroMutationResult = async <Data>(
   run: () => {
@@ -179,6 +431,7 @@ export function useTasksCollection(params: {
   readonly currentUserId: string | null;
   readonly filters?: TaskCollectionFilters;
   readonly listArgs?: ListArgs;
+  readonly projectionCycle?: CycleProjectionContext | null;
 }) {
   const [taskRows] = useQuery(
     queries.tasks.filtered({
@@ -193,9 +446,41 @@ export function useTasksCollection(params: {
   const [teamRows] = useQuery(
     queries.teams.by_church({ church_id: params.churchId ?? "__no_church__" }),
   );
+  const [scheduleRows] = useQuery(
+    queries.template_schedules.by_church({ church_id: params.churchId ?? "__no_church__" }),
+  );
+  const [templateTaskRows] = useQuery(
+    queries.template_tasks.by_church({ church_id: params.churchId ?? "__no_church__" }),
+  );
+  const [templateTeamRows] = useQuery(
+    queries.template_teams.by_church({ church_id: params.churchId ?? "__no_church__" }),
+  );
+  const [workflowRows] = useQuery(
+    queries.workflows.by_church({ church_id: params.churchId ?? "__no_church__" }),
+  );
+  const [workflowStatusRows] = useQuery(
+    queries.workflow_statuses.by_church({ church_id: params.churchId ?? "__no_church__" }),
+  );
   const teamsById = new Map(teamRows.map((team) => [team.id, team]));
-  const collection =
-    params.churchId === null ? [] : activeTaskRows.map((task) => mapTask(task, teamsById));
+  const schedulesById = new Map(scheduleRows.map((schedule) => [schedule.id, schedule]));
+  const materializedCollection =
+    params.churchId === null
+      ? []
+      : activeTaskRows.map((task) => mapTask(task, teamsById, schedulesById));
+  const projectedCollection =
+    params.churchId !== null && params.projectionCycle
+      ? buildProjectedTemplateTasksForCycle({
+          cycle: params.projectionCycle,
+          existingTasks: materializedCollection,
+          schedules: scheduleRows,
+          teamFilterId: params.filters?.teamId,
+          templateTasks: templateTaskRows,
+          templateTeams: templateTeamRows,
+          workflows: workflowRows,
+          workflowStatuses: workflowStatusRows,
+        })
+      : [];
+  const collection = [...materializedCollection, ...projectedCollection];
 
   return {
     loading: false,

@@ -68,6 +68,7 @@ import {
   type TaskBoardTaskState,
   type TaskBoardWorkflowStatus,
 } from "./task-kanban-adapter";
+import { TemplateSourceBadge } from "./template-source-badge";
 import { DEFAULT_TASK_VIEW_OPTIONS, type TaskDisplayProperty } from "./task-view-options";
 import { statusOptions } from "./task-kanban-board-utils";
 import { useTaskContextMenu } from "./task-context-menu";
@@ -836,6 +837,10 @@ function TaskKanbanCard({
       className={cn(
         "gap-0 rounded-md py-0 shadow-xs ring-foreground/10",
         cardState === "canceled" && "opacity-70",
+        // Projected Template Tasks are planned, not yet created: read them as a
+        // dashed/muted "ghost" card so they're distinct from real Tasks, in
+        // keeping with the app's dashed-placeholder language.
+        task.isProjected && "border-dashed bg-muted/20 shadow-none ring-0",
         onOpenTask && "cursor-pointer transition-colors hover:ring-foreground/20",
         isFocused && "ring-1 ring-foreground/20",
         isSelected &&
@@ -968,6 +973,9 @@ function TaskKanbanCard({
           </Badge>
         ) : null}
         {showProperty("team") && teamName ? <Badge variant="outline">{teamName}</Badge> : null}
+        {task.sourceBadge ? (
+          <TemplateSourceBadge badge={task.sourceBadge} className="max-w-[14rem]" />
+        ) : null}
       </CardContent>
 
       {showProperty("created") && createdAtLabel ? (

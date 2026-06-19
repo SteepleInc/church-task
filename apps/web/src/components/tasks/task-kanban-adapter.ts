@@ -37,6 +37,16 @@ export type TaskBoardTask = {
     readonly id: string;
     readonly title: string;
   } | null;
+  // UI-only Task projected from a Template Schedule, not yet materialized.
+  readonly isProjected?: boolean;
+  readonly sourceBadge?: {
+    readonly scheduleName: string;
+    readonly occurrenceLabel: string;
+    readonly occurrenceDate: string | null;
+    readonly occurrencePeriod: string | null;
+    readonly periodLabel: string | null;
+    readonly dotClassName: string;
+  } | null;
 };
 
 export type TaskBoardColumn = {

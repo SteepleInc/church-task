@@ -30,6 +30,15 @@ export type TaskSummary = {
   readonly estimate?: "xs" | "s" | "m" | "l" | "xl" | null;
   readonly boardOrder?: string;
   readonly labelIds?: readonly string[];
+  readonly isProjected?: boolean;
+  readonly sourceBadge?: {
+    readonly scheduleName: string;
+    readonly occurrenceLabel: string;
+    readonly occurrenceDate: string | null;
+    readonly occurrencePeriod: string | null;
+    readonly periodLabel: string | null;
+    readonly dotClassName: string;
+  } | null;
 };
 
 export function selectCurrentExecutionCycle(
