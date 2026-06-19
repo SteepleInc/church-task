@@ -1007,9 +1007,12 @@ function KeyDateCalendarStep({
                     </span>
                   ) : null}
                   {isOccurrence ? (
-                    <span className="inline-flex w-fit items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 font-medium text-[10px] text-primary uppercase tracking-wide">
-                      <CalendarHeart className="size-3" />
-                      {selectedKeyDate.name}
+                    <span
+                      className="inline-flex max-w-full items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 font-medium text-[11px] text-primary"
+                      title={selectedKeyDate.name}
+                    >
+                      <CalendarHeart className="size-3 shrink-0" />
+                      <span className="truncate">{selectedKeyDate.name}</span>
                     </span>
                   ) : null}
                 </div>
