@@ -166,8 +166,12 @@ export async function completeOnboarding(page: Page, churchName: string) {
     STARTER_KEY_DATES.length,
     { timeout: 20_000 },
   );
-  await expect(page.getByLabel("Starter Key Dates").getByText("Easter")).toBeVisible();
-  await expect(page.getByLabel("Starter Key Dates").getByText("Christmas")).toBeVisible();
+  await expect(
+    page.getByLabel("Starter Key Dates").getByText("Easter", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Starter Key Dates").getByText("Christmas", { exact: true }),
+  ).toBeVisible();
 
   await expect(page.getByRole("button", { name: "Enter Church Task" })).toBeEnabled();
   await page.getByRole("button", { name: "Enter Church Task" }).click();
