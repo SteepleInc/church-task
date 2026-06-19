@@ -17,6 +17,7 @@ import {
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import {
@@ -575,9 +576,9 @@ function FixedAnnualPicker({
 
   return (
     <div className="flex items-center gap-2">
-      <select
+      <NativeSelect
         aria-label="Month"
-        className="h-8 flex-1 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="flex-1"
         onChange={(event) => {
           const nextMonth = Number(event.currentTarget.value);
           onChange(nextMonth, Math.min(clampedDay, daysInMonth(nextMonth)));
@@ -585,23 +586,23 @@ function FixedAnnualPicker({
         value={month}
       >
         {MONTHS.map((name, index) => (
-          <option key={name} value={index + 1}>
+          <NativeSelectOption key={name} value={index + 1}>
             {name}
-          </option>
+          </NativeSelectOption>
         ))}
-      </select>
-      <select
+      </NativeSelect>
+      <NativeSelect
         aria-label="Day"
-        className="h-8 w-20 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="w-20"
         onChange={(event) => onChange(month, Number(event.currentTarget.value))}
         value={clampedDay}
       >
         {Array.from({ length: maxDay }, (_, index) => index + 1).map((value) => (
-          <option key={value} value={value}>
+          <NativeSelectOption key={value} value={value}>
             {value}
-          </option>
+          </NativeSelectOption>
         ))}
-      </select>
+      </NativeSelect>
     </div>
   );
 }
