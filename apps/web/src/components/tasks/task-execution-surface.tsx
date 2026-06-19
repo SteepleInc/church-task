@@ -295,6 +295,14 @@ export function TaskExecutionSurface({
     currentUserId,
     filters: taskFilters,
     listArgs: taskListArgs,
+    projectionCycle:
+      surface === "team_board" && scopedCycle
+        ? {
+            endDate: scopedCycle.endDate,
+            id: scopedCycle.id,
+            startDate: scopedCycle.startDate,
+          }
+        : null,
   });
 
   const updateTask = useUpdateTaskMutation();
@@ -799,5 +807,6 @@ function toBoardTask(task: TaskSummary, tasks: readonly TaskSummary[]) {
     estimate: task.estimate ?? null,
     boardOrder: task.boardOrder,
     labelIds: task.labelIds ?? [],
+    sourceBadge: task.sourceBadge ?? null,
   };
 }

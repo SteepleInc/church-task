@@ -37,6 +37,13 @@ export type TaskBoardTask = {
     readonly id: string;
     readonly title: string;
   } | null;
+  readonly sourceBadge?: {
+    readonly scheduleName: string;
+    readonly occurrenceLabel: string;
+    readonly occurrenceDate: string | null;
+    readonly occurrencePeriod: string | null;
+    readonly colorClassName: string;
+  } | null;
 };
 
 export type TaskBoardColumn = {

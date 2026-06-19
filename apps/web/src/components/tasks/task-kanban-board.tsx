@@ -968,6 +968,17 @@ function TaskKanbanCard({
           </Badge>
         ) : null}
         {showProperty("team") && teamName ? <Badge variant="outline">{teamName}</Badge> : null}
+        {task.sourceBadge ? (
+          <Badge
+            className={cn("gap-1 border", task.sourceBadge.colorClassName)}
+            title={`${task.sourceBadge.scheduleName} · ${task.sourceBadge.occurrenceLabel}${task.sourceBadge.occurrencePeriod ? ` · ${task.sourceBadge.occurrencePeriod}` : ""}`}
+            variant="outline"
+          >
+            <span>{task.sourceBadge.scheduleName}</span>
+            <span aria-hidden="true">·</span>
+            <span>{task.sourceBadge.occurrenceLabel}</span>
+          </Badge>
+        ) : null}
       </CardContent>
 
       {showProperty("created") && createdAtLabel ? (
