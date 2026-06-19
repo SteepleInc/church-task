@@ -110,7 +110,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install runner utilities
-        run: apt-get update && apt-get install -y ca-certificates tar unzip
+        run: apt-get update && apt-get install -y ca-certificates node-gyp tar unzip
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
