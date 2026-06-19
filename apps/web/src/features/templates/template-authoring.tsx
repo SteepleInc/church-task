@@ -1,6 +1,11 @@
 import { CalendarDays, Check, Layers, Plus, Repeat, Trash2, Triangle } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import {
+  buildPeriodPlacementFrame,
+  defaultTemplateScheduleForPlacementShape,
+  type PeriodTemplatePlacementShape,
+} from "@church-task/domain";
 
 import { TeamAvatar } from "@/components/avatars/teamAvatar";
 import {
@@ -27,7 +32,10 @@ import {
   type TeamCollectionItem,
 } from "@/data/teams/teamsData.app";
 import { getUserDisplayName, useChurchUsersCollection } from "@/data/users/usersData.app";
-import { useCreateWeeklyServiceTemplate } from "@/data/templates/templatesData.app";
+import {
+  useCreatePeriodTemplate,
+  useCreateWeeklyServiceTemplate,
+} from "@/data/templates/templatesData.app";
 import { cn } from "@/lib/utils";
 
 // --- Weekday model ----------------------------------------------------------
@@ -59,6 +67,8 @@ type DraftTask = {
   readonly estimate: TaskEstimate;
   readonly placementWeekday: number;
 };
+
+type TemplateAuthoringShape = "weekly_service" | PeriodTemplatePlacementShape;
 
 const ESTIMATE_TO_KEY: Record<TaskEstimate, string | null> = {
   no_estimate: null,
@@ -117,6 +127,17 @@ function formatLongDate(value: string) {
   });
 }
 
+function nextPeriodStartDate(shape: PeriodTemplatePlacementShape) {
+  const today = new Date();
+  if (shape === "monthly")
+    return formatLocalDate(new Date(today.getFullYear(), today.getMonth() + 1, 1));
+  if (shape === "quarterly") {
+    const nextQuarterMonth = Math.floor(today.getMonth() / 3) * 3 + 3;
+    return formatLocalDate(new Date(today.getFullYear(), nextQuarterMonth, 1));
+  }
+  return formatLocalDate(new Date(today.getFullYear() + 1, 0, 1));
+}
+
 /**
  * The weekly service Template authoring flow. A single guided surface that
  * mirrors Church Task's planning language: pick the Template shape, choose the
@@ -135,19 +156,33 @@ export function TemplateAuthoring() {
   const labels = useLabelsCollection({ churchId });
   const memberships = useTeamMembershipsCollection({ churchId });
   const createTemplate = useCreateWeeklyServiceTemplate();
+  const createPeriodTemplate = useCreatePeriodTemplate();
 
   const teamsCollection = teams.teamsCollection;
   const defaultTeamId = teamsCollection[0]?.id ?? "";
 
   const [name, setName] = useState("Weekly Service");
+  const [shape, setShape] = useState<TemplateAuthoringShape>("weekly_service");
   const [serviceWeekday, setServiceWeekday] = useState(0); // Sunday default
   const [schedule, setSchedule] = useState(true);
+  const [repeatYearly, setRepeatYearly] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [tasks, setTasks] = useState<readonly DraftTask[]>([]);
 
   const startDate = useMemo(() => nextWeekdayDate(serviceWeekday), [serviceWeekday]);
+  const periodStartDate = useMemo(
+    () => (shape === "weekly_service" ? startDate : nextPeriodStartDate(shape)),
+    [shape, startDate],
+  );
+  const periodFrame = useMemo(
+    () =>
+      shape === "weekly_service"
+        ? null
+        : buildPeriodPlacementFrame({ periodStartLocalDate: periodStartDate, shape }),
+    [shape, periodStartDate],
+  );
 
   const memberTeamIds = useMemo(
     () =>
@@ -206,13 +241,11 @@ export function TemplateAuthoring() {
         return team ? [{ key: team.identifier, mapped_team_id: team.id, name: team.name }] : [];
       },
     );
-    const result = await createTemplate({
+    const common = {
       churchId,
       key: slugify(name),
       name: name.trim() || "Weekly Service",
       schedule,
-      serviceWeekday,
-      startDate,
       tasks: validTasks.map((task, index) => {
         const team = teamsCollection.find((candidate) => candidate.id === task.teamId);
         return {
@@ -228,7 +261,22 @@ export function TemplateAuthoring() {
         };
       }),
       templateTeams,
-    });
+    };
+    const result =
+      shape === "weekly_service"
+        ? await createTemplate({ ...common, serviceWeekday, startDate })
+        : await createPeriodTemplate({
+            ...common,
+            name: name.trim() || `${shape[0]?.toUpperCase()}${shape.slice(1)} Template`,
+            periodStartDate,
+            scheduleDefaults: defaultTemplateScheduleForPlacementShape(shape, { repeatYearly }),
+            shape,
+            tasks: common.tasks.map((task) => ({
+              ...task,
+              placementCycleOffset:
+                task.placementCycleOffset - ((periodFrame?.cycles.length ?? 1) - 1),
+            })),
+          });
     setSaving(false);
     if (result.ok) {
       setSaved(true);
@@ -248,8 +296,8 @@ export function TemplateAuthoring() {
         </div>
         <h1 className="font-semibold text-2xl tracking-tight">New weekly service Template</h1>
         <p className="max-w-2xl text-muted-foreground text-sm">
-          Author a reusable weekly service Template, place its Template Tasks across a Monday–Sunday
-          Cycle, and schedule it to project work into upcoming Weeks.
+          Author a reusable Template, place its Template Tasks across normalized Cycle frames, and
+          schedule it to project work into upcoming Cycles.
         </p>
       </header>
 
@@ -259,16 +307,35 @@ export function TemplateAuthoring() {
           setSaved(false);
           setName(next);
         }}
+        onShapeChange={(next) => {
+          setSaved(false);
+          setShape(next);
+          setSchedule(next === "yearly" ? false : true);
+        }}
+        shape={shape}
       />
 
-      <ScheduleStep
-        onWeekdayChange={(next) => {
-          setSaved(false);
-          setServiceWeekday(next);
-        }}
-        serviceWeekday={serviceWeekday}
-        startDate={startDate}
-      />
+      {shape === "weekly_service" ? (
+        <ScheduleStep
+          onWeekdayChange={(next) => {
+            setSaved(false);
+            setServiceWeekday(next);
+          }}
+          serviceWeekday={serviceWeekday}
+          startDate={startDate}
+        />
+      ) : (
+        <PeriodScheduleStep
+          frame={periodFrame}
+          onRepeatYearlyChange={(next) => {
+            setSaved(false);
+            setRepeatYearly(next);
+          }}
+          repeatYearly={repeatYearly}
+          shape={shape}
+          startDate={periodStartDate}
+        />
+      )}
 
       <CycleCalendarStep
         addTask={addTask}
@@ -350,35 +417,39 @@ const SHAPES = [
     available: true,
   },
   {
-    key: "key_date",
-    label: "Key Date",
-    description: "Anchored to a named Church date",
-    available: false,
-  },
-  {
     key: "monthly",
     label: "Monthly",
-    description: "Recurs every month",
-    available: false,
+    description: "Five-Cycle month frame",
+    available: true,
+  },
+  {
+    key: "quarterly",
+    label: "Quarterly",
+    description: "Thirteen-Cycle quarter frame",
+    available: true,
   },
   {
     key: "yearly",
     label: "Yearly",
-    description: "Recurs once a year",
-    available: false,
+    description: "Fifty-two-Cycle year frame",
+    available: true,
   },
 ] as const;
 
 function ShapeStep({
   name,
   onNameChange,
+  onShapeChange,
+  shape: selectedShape,
 }: {
   readonly name: string;
   readonly onNameChange: (next: string) => void;
+  readonly onShapeChange: (next: TemplateAuthoringShape) => void;
+  readonly shape: TemplateAuthoringShape;
 }) {
   return (
     <StepSection
-      description="Choose the authoring frame. Weekly service is the first supported shape."
+      description="Choose the authoring frame. Period shapes use normalized Cycle frames."
       step={1}
       title="Template shape"
     >
@@ -386,31 +457,32 @@ function ShapeStep({
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {SHAPES.map((shape) => (
             <button
-              aria-current={shape.available ? "true" : undefined}
+              aria-current={selectedShape === shape.key ? "true" : undefined}
               aria-disabled={!shape.available}
-              aria-label={`${shape.label} Template shape${shape.available ? " selected" : " coming soon"}`}
+              aria-label={`${shape.label} Template shape${selectedShape === shape.key ? " selected" : ""}`}
               className={cn(
                 "flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors",
-                shape.available
+                selectedShape === shape.key
                   ? "border-primary bg-primary/5 shadow-xs"
-                  : "cursor-not-allowed border-dashed text-muted-foreground opacity-70",
+                  : "border-border hover:bg-muted/60",
               )}
               disabled={!shape.available}
               key={shape.key}
+              onClick={() => onShapeChange(shape.key)}
               type="button"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-sm text-foreground">{shape.label}</span>
-                {shape.available ? (
+                {selectedShape === shape.key ? (
                   <span className="inline-flex items-center gap-1 font-medium text-[10px] text-primary uppercase tracking-wide">
                     <Check className="size-3.5" />
                     Selected
                   </span>
-                ) : (
+                ) : !shape.available ? (
                   <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide">
                     Soon
                   </span>
-                )}
+                ) : null}
               </div>
               <span className="text-muted-foreground text-xs">{shape.description}</span>
             </button>
@@ -427,6 +499,59 @@ function ShapeStep({
             value={name}
           />
         </div>
+      </div>
+    </StepSection>
+  );
+}
+
+function PeriodScheduleStep({
+  frame,
+  onRepeatYearlyChange,
+  repeatYearly,
+  shape,
+  startDate,
+}: {
+  readonly frame: ReturnType<typeof buildPeriodPlacementFrame> | null;
+  readonly onRepeatYearlyChange: (next: boolean) => void;
+  readonly repeatYearly: boolean;
+  readonly shape: PeriodTemplatePlacementShape;
+  readonly startDate: string;
+}) {
+  const label = shape[0]?.toUpperCase() + shape.slice(1);
+  return (
+    <StepSection
+      description="The period start anchors the normalized Cycle frame. Boundary days stay marked inside rows."
+      step={2}
+      title={`${label} schedule`}
+    >
+      <div className="flex flex-col gap-3 rounded-lg border bg-card p-4">
+        <p className="flex items-center gap-2 text-muted-foreground text-sm">
+          <CalendarDays className="size-4" />
+          First period: {formatLongDate(startDate)} · {frame?.cycles.length ?? "—"} Cycles · owner{" "}
+          {frame?.periodKey ?? "—"}
+        </p>
+        <div className="grid gap-1 sm:grid-cols-5 lg:grid-cols-13">
+          {frame?.cycles.map((cycle) => (
+            <div
+              className={cn(
+                "h-2 rounded-full",
+                cycle.isInFocusPeriod ? "bg-primary" : "bg-muted-foreground/30",
+              )}
+              key={cycle.startLocalDate}
+              title={`${cycle.startLocalDate} · ${cycle.ownedPeriodKey}`}
+            />
+          ))}
+        </div>
+        {shape === "yearly" ? (
+          <label className="flex items-center gap-2 text-sm">
+            <Switch checked={repeatYearly} onCheckedChange={onRepeatYearlyChange} />
+            Repeat yearly instead of nearest one-off
+          </label>
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Monthly and quarterly schedules repeat by default.
+          </p>
+        )}
       </div>
     </StepSection>
   );
