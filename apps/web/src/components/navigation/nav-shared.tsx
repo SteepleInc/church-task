@@ -39,6 +39,7 @@ export const workspaceNavItems: readonly NavItem[] = [
   },
   {
     icon: <NavIcon icon={Calendar03Icon} />,
+    matchPath: "/templates",
     title: "Templates",
     to: "/templates",
   },

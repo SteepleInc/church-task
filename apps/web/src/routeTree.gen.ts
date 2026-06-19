@@ -25,6 +25,9 @@ import { Route as OnboardingOnboardingRouteImport } from './routes/_onboarding/o
 import { Route as MarketingLibraryRouteImport } from './routes/_marketing/library'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as OrgTemplatesLibraryRouteImport } from './routes/_org/templates.library'
+import { Route as OrgTemplatesKeyDatesRouteImport } from './routes/_org/templates.key-dates'
+import { Route as OrgTemplatesTemplateIdRouteImport } from './routes/_org/templates.$templateId'
 import { Route as OrgTeamTeamIdentifierRouteImport } from './routes/_org/team.$teamIdentifier'
 import { Route as OrgDevSessionRouteImport } from './routes/_org/dev.session'
 import { Route as OrgDevDataRouteImport } from './routes/_org/dev.data'
@@ -117,6 +120,21 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
+} as any)
+const OrgTemplatesLibraryRoute = OrgTemplatesLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => OrgTemplatesRoute,
+} as any)
+const OrgTemplatesKeyDatesRoute = OrgTemplatesKeyDatesRouteImport.update({
+  id: '/key-dates',
+  path: '/key-dates',
+  getParentRoute: () => OrgTemplatesRoute,
+} as any)
+const OrgTemplatesTemplateIdRoute = OrgTemplatesTemplateIdRouteImport.update({
+  id: '/$templateId',
+  path: '/$templateId',
+  getParentRoute: () => OrgTemplatesRoute,
 } as any)
 const OrgTeamTeamIdentifierRoute = OrgTeamTeamIdentifierRouteImport.update({
   id: '/team/$teamIdentifier',
@@ -223,7 +241,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof OrgAdminRouteWithChildren
   '/my-work': typeof OrgMyWorkRoute
   '/our-work': typeof OrgOurWorkRoute
-  '/templates': typeof OrgTemplatesRoute
+  '/templates': typeof OrgTemplatesRouteWithChildren
   '/settings': typeof SettingsSettingsRouteWithChildren
   '/api/$': typeof ApiSplatRoute
   '/accept-invitation/$id': typeof AuthAcceptInvitationIdRoute
@@ -232,6 +250,9 @@ export interface FileRoutesByFullPath {
   '/dev/data': typeof OrgDevDataRoute
   '/dev/session': typeof OrgDevSessionRoute
   '/team/$teamIdentifier': typeof OrgTeamTeamIdentifierRoute
+  '/templates/$templateId': typeof OrgTemplatesTemplateIdRoute
+  '/templates/key-dates': typeof OrgTemplatesKeyDatesRoute
+  '/templates/library': typeof OrgTemplatesLibraryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/team/$teamIdentifier/weeks': typeof OrgTeamTeamIdentifierWeeksRoute
   '/settings/account/profile': typeof SettingsSettingsAccountProfileRoute
@@ -253,7 +274,7 @@ export interface FileRoutesByTo {
   '/admin': typeof OrgAdminRouteWithChildren
   '/my-work': typeof OrgMyWorkRoute
   '/our-work': typeof OrgOurWorkRoute
-  '/templates': typeof OrgTemplatesRoute
+  '/templates': typeof OrgTemplatesRouteWithChildren
   '/settings': typeof SettingsSettingsRouteWithChildren
   '/api/$': typeof ApiSplatRoute
   '/accept-invitation/$id': typeof AuthAcceptInvitationIdRoute
@@ -262,6 +283,9 @@ export interface FileRoutesByTo {
   '/dev/data': typeof OrgDevDataRoute
   '/dev/session': typeof OrgDevSessionRoute
   '/team/$teamIdentifier': typeof OrgTeamTeamIdentifierRoute
+  '/templates/$templateId': typeof OrgTemplatesTemplateIdRoute
+  '/templates/key-dates': typeof OrgTemplatesKeyDatesRoute
+  '/templates/library': typeof OrgTemplatesLibraryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/team/$teamIdentifier/weeks': typeof OrgTeamTeamIdentifierWeeksRoute
   '/settings/account/profile': typeof SettingsSettingsAccountProfileRoute
@@ -287,7 +311,7 @@ export interface FileRoutesById {
   '/_org/admin': typeof OrgAdminRouteWithChildren
   '/_org/my-work': typeof OrgMyWorkRoute
   '/_org/our-work': typeof OrgOurWorkRoute
-  '/_org/templates': typeof OrgTemplatesRoute
+  '/_org/templates': typeof OrgTemplatesRouteWithChildren
   '/_settings/settings': typeof SettingsSettingsRouteWithChildren
   '/api/$': typeof ApiSplatRoute
   '/_marketing/': typeof MarketingIndexRoute
@@ -297,6 +321,9 @@ export interface FileRoutesById {
   '/_org/dev/data': typeof OrgDevDataRoute
   '/_org/dev/session': typeof OrgDevSessionRoute
   '/_org/team/$teamIdentifier': typeof OrgTeamTeamIdentifierRoute
+  '/_org/templates/$templateId': typeof OrgTemplatesTemplateIdRoute
+  '/_org/templates/key-dates': typeof OrgTemplatesKeyDatesRoute
+  '/_org/templates/library': typeof OrgTemplatesLibraryRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_org/team/$teamIdentifier_/weeks': typeof OrgTeamTeamIdentifierWeeksRoute
   '/_settings/settings/account/profile': typeof SettingsSettingsAccountProfileRoute
@@ -329,6 +356,9 @@ export interface FileRouteTypes {
     | '/dev/data'
     | '/dev/session'
     | '/team/$teamIdentifier'
+    | '/templates/$templateId'
+    | '/templates/key-dates'
+    | '/templates/library'
     | '/api/auth/$'
     | '/team/$teamIdentifier/weeks'
     | '/settings/account/profile'
@@ -359,6 +389,9 @@ export interface FileRouteTypes {
     | '/dev/data'
     | '/dev/session'
     | '/team/$teamIdentifier'
+    | '/templates/$templateId'
+    | '/templates/key-dates'
+    | '/templates/library'
     | '/api/auth/$'
     | '/team/$teamIdentifier/weeks'
     | '/settings/account/profile'
@@ -393,6 +426,9 @@ export interface FileRouteTypes {
     | '/_org/dev/data'
     | '/_org/dev/session'
     | '/_org/team/$teamIdentifier'
+    | '/_org/templates/$templateId'
+    | '/_org/templates/key-dates'
+    | '/_org/templates/library'
     | '/api/auth/$'
     | '/_org/team/$teamIdentifier_/weeks'
     | '/_settings/settings/account/profile'
@@ -530,6 +566,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_org/templates/library': {
+      id: '/_org/templates/library'
+      path: '/library'
+      fullPath: '/templates/library'
+      preLoaderRoute: typeof OrgTemplatesLibraryRouteImport
+      parentRoute: typeof OrgTemplatesRoute
+    }
+    '/_org/templates/key-dates': {
+      id: '/_org/templates/key-dates'
+      path: '/key-dates'
+      fullPath: '/templates/key-dates'
+      preLoaderRoute: typeof OrgTemplatesKeyDatesRouteImport
+      parentRoute: typeof OrgTemplatesRoute
+    }
+    '/_org/templates/$templateId': {
+      id: '/_org/templates/$templateId'
+      path: '/$templateId'
+      fullPath: '/templates/$templateId'
+      preLoaderRoute: typeof OrgTemplatesTemplateIdRouteImport
+      parentRoute: typeof OrgTemplatesRoute
     }
     '/_org/team/$teamIdentifier': {
       id: '/_org/team/$teamIdentifier'
@@ -707,11 +764,27 @@ const OrgAdminRouteWithChildren = OrgAdminRoute._addFileChildren(
   OrgAdminRouteChildren,
 )
 
+interface OrgTemplatesRouteChildren {
+  OrgTemplatesTemplateIdRoute: typeof OrgTemplatesTemplateIdRoute
+  OrgTemplatesKeyDatesRoute: typeof OrgTemplatesKeyDatesRoute
+  OrgTemplatesLibraryRoute: typeof OrgTemplatesLibraryRoute
+}
+
+const OrgTemplatesRouteChildren: OrgTemplatesRouteChildren = {
+  OrgTemplatesTemplateIdRoute: OrgTemplatesTemplateIdRoute,
+  OrgTemplatesKeyDatesRoute: OrgTemplatesKeyDatesRoute,
+  OrgTemplatesLibraryRoute: OrgTemplatesLibraryRoute,
+}
+
+const OrgTemplatesRouteWithChildren = OrgTemplatesRoute._addFileChildren(
+  OrgTemplatesRouteChildren,
+)
+
 interface OrgRouteRouteChildren {
   OrgAdminRoute: typeof OrgAdminRouteWithChildren
   OrgMyWorkRoute: typeof OrgMyWorkRoute
   OrgOurWorkRoute: typeof OrgOurWorkRoute
-  OrgTemplatesRoute: typeof OrgTemplatesRoute
+  OrgTemplatesRoute: typeof OrgTemplatesRouteWithChildren
   OrgDevDataRoute: typeof OrgDevDataRoute
   OrgDevSessionRoute: typeof OrgDevSessionRoute
   OrgTeamTeamIdentifierRoute: typeof OrgTeamTeamIdentifierRoute
@@ -723,7 +796,7 @@ const OrgRouteRouteChildren: OrgRouteRouteChildren = {
   OrgAdminRoute: OrgAdminRouteWithChildren,
   OrgMyWorkRoute: OrgMyWorkRoute,
   OrgOurWorkRoute: OrgOurWorkRoute,
-  OrgTemplatesRoute: OrgTemplatesRoute,
+  OrgTemplatesRoute: OrgTemplatesRouteWithChildren,
   OrgDevDataRoute: OrgDevDataRoute,
   OrgDevSessionRoute: OrgDevSessionRoute,
   OrgTeamTeamIdentifierRoute: OrgTeamTeamIdentifierRoute,
