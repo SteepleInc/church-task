@@ -13,6 +13,7 @@ const newStackTestMatch = [
   /labels-new-stack\.spec\.ts$/,
   /onboarding-new-stack\.spec\.ts$/,
   /tasks-boards-new-stack\.spec\.ts$/,
+  /templates-new-stack\.spec\.ts$/,
   /teams-workflows-new-stack\.spec\.ts$/,
 ];
 const repoRoot = process.cwd();

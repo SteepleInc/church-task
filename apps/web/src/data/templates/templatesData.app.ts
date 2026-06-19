@@ -45,6 +45,13 @@ const mutationResult = async (
   }
 };
 
+const mondayFirstPosition = (weekday: number) => (weekday + 6) % 7;
+
+const cycleDayOffset = (params: {
+  readonly placementWeekday: number;
+  readonly serviceWeekday: number;
+}) => mondayFirstPosition(params.placementWeekday) - mondayFirstPosition(params.serviceWeekday);
+
 export function useTemplatesCollection(params: { readonly churchId: string | null }) {
   const [rows, result] = useQuery(
     queries.templates.by_church({ church_id: params.churchId ?? "__no_church__" }),
@@ -114,7 +121,10 @@ export function useCreateWeeklyServiceTemplate() {
               placement_weekday: task.placementWeekday,
               scheduling_rule: {
                 baseLocalDate: params.startDate,
-                dayOffset: task.placementWeekday - params.serviceWeekday,
+                dayOffset: cycleDayOffset({
+                  placementWeekday: task.placementWeekday,
+                  serviceWeekday: params.serviceWeekday,
+                }),
                 kind: "cycleOffset",
                 offsetCycles: task.placementCycleOffset,
               },
