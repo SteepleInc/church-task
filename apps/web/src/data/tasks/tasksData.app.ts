@@ -56,7 +56,18 @@ export type TemplateSourceBadge = {
   readonly occurrenceLabel: string;
   readonly occurrenceDate: string | null;
   readonly occurrencePeriod: string | null;
+  /** Human-friendly period label (e.g. "Jun 2026"), derived from the occurrence. */
+  readonly periodLabel: string | null;
+  /**
+   * Full chip background/border/text class set, used where a strongly tinted
+   * chip is appropriate. Kept stable per Template Schedule ID.
+   */
   readonly colorClassName: string;
+  /**
+   * Solid dot color class (e.g. "bg-sky-500"), stable per Template Schedule ID.
+   * Mirrors the Label colored-dot convention so source chips read as native.
+   */
+  readonly dotClassName: string;
 };
 
 type CycleProjectionContext = {
@@ -130,11 +141,28 @@ const SCHEDULE_COLOR_CLASSES = [
   "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300",
 ] as const;
 
-export const getTemplateScheduleColorClassName = (scheduleId: string): string => {
+// Solid dot colors, parallel to SCHEDULE_COLOR_CLASSES, matching the Label
+// colored-dot convention so projected/materialized source chips read as native
+// alongside Label badges on Task cards and rows.
+const SCHEDULE_DOT_CLASSES = [
+  "bg-sky-500",
+  "bg-violet-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+  "bg-rose-500",
+] as const;
+
+const scheduleColorIndex = (scheduleId: string): number => {
   let hash = 0;
   for (const char of scheduleId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return SCHEDULE_COLOR_CLASSES[hash % SCHEDULE_COLOR_CLASSES.length] ?? SCHEDULE_COLOR_CLASSES[0];
+  return hash % SCHEDULE_COLOR_CLASSES.length;
 };
+
+export const getTemplateScheduleColorClassName = (scheduleId: string): string =>
+  SCHEDULE_COLOR_CLASSES[scheduleColorIndex(scheduleId)] ?? SCHEDULE_COLOR_CLASSES[0];
+
+export const getTemplateScheduleDotClassName = (scheduleId: string): string =>
+  SCHEDULE_DOT_CLASSES[scheduleColorIndex(scheduleId)] ?? SCHEDULE_DOT_CLASSES[0];
 
 const weekdayName = (weekday: number) =>
   ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][weekday] ?? "day";
@@ -166,6 +194,15 @@ const occurrenceLabel = (date: string) => {
   })}`;
 };
 
+const periodLabel = (date: string) => {
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  return parsed.toLocaleDateString(undefined, {
+    month: "short",
+    timeZone: "UTC",
+    year: "numeric",
+  });
+};
+
 export const buildTemplateSourceBadge = (args: {
   readonly schedule: Pick<TemplateSchedule, "id" | "name">;
   readonly occurrenceKey: string | null;
@@ -174,10 +211,12 @@ export const buildTemplateSourceBadge = (args: {
   const date = args.occurrenceKey.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
   return {
     colorClassName: getTemplateScheduleColorClassName(args.schedule.id),
+    dotClassName: getTemplateScheduleDotClassName(args.schedule.id),
     occurrenceDate: date,
     occurrenceKey: args.occurrenceKey,
     occurrenceLabel: date ? occurrenceLabel(date) : args.occurrenceKey,
     occurrencePeriod: date ? date.slice(0, 7) : null,
+    periodLabel: date ? periodLabel(date) : null,
     scheduleId: args.schedule.id,
     scheduleName: args.schedule.name,
   };

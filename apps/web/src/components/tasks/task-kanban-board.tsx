@@ -68,6 +68,7 @@ import {
   type TaskBoardTaskState,
   type TaskBoardWorkflowStatus,
 } from "./task-kanban-adapter";
+import { TemplateSourceBadge } from "./template-source-badge";
 import { DEFAULT_TASK_VIEW_OPTIONS, type TaskDisplayProperty } from "./task-view-options";
 import { statusOptions } from "./task-kanban-board-utils";
 import { useTaskContextMenu } from "./task-context-menu";
@@ -969,15 +970,7 @@ function TaskKanbanCard({
         ) : null}
         {showProperty("team") && teamName ? <Badge variant="outline">{teamName}</Badge> : null}
         {task.sourceBadge ? (
-          <Badge
-            className={cn("gap-1 border", task.sourceBadge.colorClassName)}
-            title={`${task.sourceBadge.scheduleName} · ${task.sourceBadge.occurrenceLabel}${task.sourceBadge.occurrencePeriod ? ` · ${task.sourceBadge.occurrencePeriod}` : ""}`}
-            variant="outline"
-          >
-            <span>{task.sourceBadge.scheduleName}</span>
-            <span aria-hidden="true">·</span>
-            <span>{task.sourceBadge.occurrenceLabel}</span>
-          </Badge>
+          <TemplateSourceBadge badge={task.sourceBadge} className="max-w-[14rem]" />
         ) : null}
       </CardContent>
 

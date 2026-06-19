@@ -35,7 +35,9 @@ export type TaskSummary = {
     readonly occurrenceLabel: string;
     readonly occurrenceDate: string | null;
     readonly occurrencePeriod: string | null;
+    readonly periodLabel: string | null;
     readonly colorClassName: string;
+    readonly dotClassName: string;
   } | null;
 };
 

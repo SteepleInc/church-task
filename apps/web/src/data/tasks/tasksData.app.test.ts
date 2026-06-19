@@ -4,6 +4,7 @@ import {
   buildProjectedTemplateTasksForCycle,
   buildTemplateSourceBadge,
   getTemplateScheduleColorClassName,
+  getTemplateScheduleDotClassName,
 } from "./tasksData.app";
 
 describe("scheduled Template projections for Cycle surfaces", () => {
@@ -80,8 +81,17 @@ describe("scheduled Template projections for Cycle surfaces", () => {
 
     expect(badge).toMatchObject({
       colorClassName: getTemplateScheduleColorClassName("templateschedule_sunday_service"),
+      dotClassName: getTemplateScheduleDotClassName("templateschedule_sunday_service"),
       occurrenceDate: "2026-06-21",
+      periodLabel: "Jun 2026",
       scheduleName: "Sunday Service",
     });
+  });
+
+  test("derives a stable native dot color per Template Schedule", () => {
+    expect(getTemplateScheduleDotClassName("templateschedule_sunday_service")).toBe(
+      getTemplateScheduleDotClassName("templateschedule_sunday_service"),
+    );
+    expect(getTemplateScheduleDotClassName("templateschedule_sunday_service")).toMatch(/^bg-/);
   });
 });
