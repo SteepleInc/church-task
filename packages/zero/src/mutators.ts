@@ -257,6 +257,20 @@ const CycleAdjustmentOverrideArg = Schema.Union([
     value: Schema.Union([Schema.String, Schema.Null]),
   }),
 ]);
+type CycleAdjustmentOverrideInput = typeof CycleAdjustmentOverrideArg.Type;
+
+const mergeCycleAdjustmentOverrides = (
+  existingOverrides: readonly CycleAdjustmentOverrideInput[],
+  incomingOverrides: readonly CycleAdjustmentOverrideInput[],
+) => {
+  const overridesByField = new Map<
+    CycleAdjustmentOverrideInput["field"],
+    CycleAdjustmentOverrideInput
+  >();
+  for (const override of existingOverrides) overridesByField.set(override.field, override);
+  for (const override of incomingOverrides) overridesByField.set(override.field, override);
+  return [...overridesByField.values()];
+};
 const UpsertCycleArgs = toZeroSchema(
   Schema.Struct({
     church_id: Schema.String,
@@ -2241,7 +2255,7 @@ export const mutators = defineMutators({
       const now = new Date();
       for (const adjustment of args.adjustments) {
         const existing = (await db
-          .select({ id: cycle_adjustments.id })
+          .select({ id: cycle_adjustments.id, overrides: cycle_adjustments.overrides })
           .from(cycle_adjustments)
           .where(
             and(
@@ -2258,10 +2272,16 @@ export const mutators = defineMutators({
               ),
               isNull(cycle_adjustments.deleted_at),
             ),
-          )) as Array<{ readonly id: string }>;
+          )) as Array<{ readonly id: string; readonly overrides: string }>;
+        const mergedOverrides = existing[0]
+          ? mergeCycleAdjustmentOverrides(
+              parseJson<readonly CycleAdjustmentOverrideInput[]>(existing[0].overrides, []),
+              adjustment.overrides,
+            )
+          : adjustment.overrides;
         const values = {
           lifecycle: adjustment.lifecycle,
-          overrides: stringifyJson(adjustment.overrides),
+          overrides: stringifyJson(mergedOverrides),
           updated_at: now,
           updated_by: session.user_id,
         };

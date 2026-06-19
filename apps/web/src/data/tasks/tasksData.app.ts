@@ -126,13 +126,29 @@ const applyProjectedTaskOverrides = (
 ): TaskCollectionItem => {
   let next = task;
   for (const override of overrides) {
-    if (override.field === "title") next = { ...next, title: override.value };
-    if (override.field === "description") next = { ...next, description: override.value };
-    if (override.field === "assignedUserId") next = { ...next, assignedUserId: override.value };
-    if (override.field === "teamId") next = { ...next, teamId: override.value };
-    if (override.field === "dueDate") next = { ...next, dueDate: override.value };
-    if (override.field === "labelIds") next = { ...next, labelIds: override.value };
-    if (override.field === "estimate") next = { ...next, estimate: override.value };
+    switch (override.field) {
+      case "assignedUserId":
+        next = { ...next, assignedUserId: override.value };
+        break;
+      case "description":
+        next = { ...next, description: override.value };
+        break;
+      case "dueDate":
+        next = { ...next, dueDate: override.value };
+        break;
+      case "estimate":
+        next = { ...next, estimate: override.value };
+        break;
+      case "labelIds":
+        next = { ...next, labelIds: override.value };
+        break;
+      case "teamId":
+        next = { ...next, teamId: override.value };
+        break;
+      case "title":
+        next = { ...next, title: override.value };
+        break;
+    }
   }
   return next;
 };
