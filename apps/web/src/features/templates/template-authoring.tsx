@@ -1,5 +1,6 @@
 import { CalendarDays, Check, Layers, Plus, Repeat, Trash2, Triangle } from "lucide-react";
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 
 import { TeamAvatar } from "@/components/avatars/teamAvatar";
 import {
@@ -94,7 +95,15 @@ function nextWeekdayDate(weekday: number) {
   const date = new Date();
   const diff = (weekday - date.getDay() + 7) % 7 || 7;
   date.setDate(date.getDate() + diff);
-  return date.toISOString().slice(0, 10);
+  return formatLocalDate(date);
+}
+
+function formatLocalDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function formatLongDate(value: string) {
@@ -309,8 +318,8 @@ function StepSection({
   readonly step: number;
   readonly title: string;
   readonly description: string;
-  readonly children: React.ReactNode;
-  readonly action?: React.ReactNode;
+  readonly children: ReactNode;
+  readonly action?: ReactNode;
 }) {
   return (
     <section className="flex flex-col gap-4">
@@ -649,6 +658,16 @@ function TemplateTaskCard({
     [task.labelIds, labelOptions],
   );
 
+  const changeTeam = (nextTeamId: string) => {
+    const nextLabelIds = task.labelIds.filter((labelId) => {
+      const label = churchLabels.find((candidate) => candidate.id === labelId);
+
+      return label?.teamId === null || label?.teamId === nextTeamId;
+    });
+
+    onChange({ labelIds: nextLabelIds, teamId: nextTeamId });
+  };
+
   return (
     <div className="group/task flex flex-col gap-2 rounded-lg border bg-background p-2.5 shadow-xs">
       <div className="flex items-start gap-2">
@@ -681,7 +700,7 @@ function TemplateTaskCard({
       <div className="flex flex-wrap items-center gap-1.5">
         <TeamComboboxSelector
           memberTeamIds={memberTeamIds}
-          onValueChange={(next) => onChange({ teamId: next })}
+          onValueChange={changeTeam}
           options={teamPickerOptions}
           trigger={
             <FieldPill muted={selectedTeam === null}>
@@ -763,7 +782,7 @@ function FieldPill({
   children,
   muted = false,
 }: {
-  readonly children: React.ReactNode;
+  readonly children: ReactNode;
   readonly muted?: boolean;
 }) {
   return (
