@@ -237,7 +237,21 @@ const WeeklyTemplateScheduleRuleArg = Schema.Struct({
 });
 const CycleAdjustmentOverrideArg = Schema.Union([
   Schema.Struct({ field: Schema.Literal("title"), value: Schema.String }),
+  Schema.Struct({
+    field: Schema.Literal("description"),
+    value: Schema.Union([Schema.String, Schema.Null]),
+  }),
+  Schema.Struct({
+    field: Schema.Literal("assignedUserId"),
+    value: Schema.Union([Schema.String, Schema.Null]),
+  }),
+  Schema.Struct({ field: Schema.Literal("teamId"), value: Schema.String }),
   Schema.Struct({ field: Schema.Literal("dueDate"), value: Schema.String }),
+  Schema.Struct({ field: Schema.Literal("labelIds"), value: Schema.Array(Schema.String) }),
+  Schema.Struct({
+    field: Schema.Literal("estimate"),
+    value: Schema.Union([Schema.String, Schema.Null]),
+  }),
   Schema.Struct({
     field: Schema.Literal("parentTemplateTaskId"),
     value: Schema.Union([Schema.String, Schema.Null]),
@@ -348,6 +362,8 @@ const SetCycleAdjustmentsArgs = toZeroSchema(
         cycle_id: Schema.String,
         lifecycle: Schema.Union([Schema.Literal("active"), Schema.Literal("skipped")]),
         overrides: Schema.Array(CycleAdjustmentOverrideArg),
+        source_template_occurrence_key: Schema.String,
+        source_template_schedule_id: Schema.String,
         template_task_id: Schema.String,
       }),
     ),
@@ -657,8 +673,12 @@ const requireCurrentCycleId = async (
 };
 
 type TemplateTaskRow = {
+  readonly assigned_user_id?: string | null;
+  readonly description?: string | null;
+  readonly estimate?: string | null;
   readonly id: string;
   readonly key: string;
+  readonly label_ids?: string;
   readonly parent_template_task_id: string | null;
   readonly scheduling_rule: string;
   readonly template_team_id: string;
@@ -785,7 +805,12 @@ const buildEffectiveTemplateCycleTasks = (args: {
     const merged = mergeTemplateTaskProjection(
       {
         dueDate,
+        assignedUserId: templateTask.assigned_user_id ?? null,
+        description: templateTask.description ?? null,
+        estimate: templateTask.estimate ?? null,
+        labelIds: parseJson<readonly string[]>(templateTask.label_ids ?? "[]", []),
         parentTemplateTaskId: templateTask.parent_template_task_id,
+        teamId: templateTeam.mapped_team_id,
         templateTaskId: templateTask.id,
         templateTaskKey: templateTask.key,
         title: templateTask.title,
@@ -2222,7 +2247,15 @@ export const mutators = defineMutators({
             and(
               eq(cycle_adjustments.church_id, args.church_id),
               eq(cycle_adjustments.cycle_id, adjustment.cycle_id),
+              eq(
+                cycle_adjustments.source_template_schedule_id,
+                adjustment.source_template_schedule_id,
+              ),
               eq(cycle_adjustments.template_task_id, adjustment.template_task_id),
+              eq(
+                cycle_adjustments.source_template_occurrence_key,
+                adjustment.source_template_occurrence_key,
+              ),
               isNull(cycle_adjustments.deleted_at),
             ),
           )) as Array<{ readonly id: string }>;
@@ -2247,6 +2280,8 @@ export const mutators = defineMutators({
             created_by: session.user_id,
             cycle_id: adjustment.cycle_id,
             id: getCycleAdjustmentId(),
+            source_template_occurrence_key: adjustment.source_template_occurrence_key,
+            source_template_schedule_id: adjustment.source_template_schedule_id,
             template_task_id: adjustment.template_task_id,
           });
         }
