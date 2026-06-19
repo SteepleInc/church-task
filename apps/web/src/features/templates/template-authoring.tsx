@@ -377,7 +377,8 @@ function ShapeStep({
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {SHAPES.map((shape) => (
             <button
-              aria-pressed={shape.available}
+              aria-current={shape.available ? "true" : undefined}
+              aria-disabled={!shape.available}
               className={cn(
                 "flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors",
                 shape.available
@@ -391,7 +392,10 @@ function ShapeStep({
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium text-sm text-foreground">{shape.label}</span>
                 {shape.available ? (
-                  <Check className="size-4 text-primary" />
+                  <span className="inline-flex items-center gap-1 font-medium text-[10px] text-primary uppercase tracking-wide">
+                    <Check className="size-3.5" />
+                    Selected
+                  </span>
                 ) : (
                   <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide">
                     Soon
@@ -530,7 +534,8 @@ function CycleCalendarStep({
                 className={cn(
                   "flex gap-3 px-3 py-3 sm:px-4",
                   index !== 0 && "border-t",
-                  isService && "bg-primary/[0.03]",
+                  isService &&
+                    "border-l-2 border-l-primary bg-primary/[0.06] pl-[calc(0.75rem-2px)] sm:pl-[calc(1rem-2px)]",
                 )}
                 key={weekday}
               >
@@ -851,9 +856,11 @@ function SaveStep({
             {schedule ? "Save and schedule" : "Save Template"}
           </Button>
           {saved ? (
-            <span className="flex items-center gap-1.5 text-emerald-600 text-sm dark:text-emerald-400">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-2.5 py-1 font-medium text-emerald-700 text-sm dark:text-emerald-400">
               <Check className="size-4" />
-              Template saved.
+              {schedule
+                ? `Template saved and scheduled for ${WEEKDAY_NAMES[serviceWeekday]}s.`
+                : "Template saved."}
             </span>
           ) : !canSave ? (
             <span className="text-muted-foreground text-sm">
