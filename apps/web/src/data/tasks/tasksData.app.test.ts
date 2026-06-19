@@ -57,6 +57,7 @@ describe("scheduled Template projections for Cycle surfaces", () => {
       dueDate: "2026-06-10",
       id: "projected-template-task:templateschedule_sunday_service:templatetask_plan_setlist:weekly:2026-06-21:sunday:cycle_2026_06_08",
       identifier: "Projected",
+      isProjected: true,
       sourceTemplateOccurrenceKey: "weekly:2026-06-21:sunday",
       sourceTemplateScheduleId: "templateschedule_sunday_service",
       taskState: "todo",

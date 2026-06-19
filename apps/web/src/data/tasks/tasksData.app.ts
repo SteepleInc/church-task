@@ -47,6 +47,12 @@ export type TaskCollectionItem = {
   readonly sourceTemplateOccurrenceKey: string | null;
   readonly sourceTemplateSyncEnabled: boolean;
   readonly sourceBadge: TemplateSourceBadge | null;
+  /**
+   * True for UI-only Tasks projected from a Template Schedule that have not yet
+   * been materialized into real Tasks. Surfaces use this to render a "planned"
+   * (dashed/ghost) treatment so projections read distinctly from real Tasks.
+   */
+  readonly isProjected: boolean;
 };
 
 export type TemplateSourceBadge = {
@@ -239,6 +245,7 @@ const mapTask = (
   finishedAt: timestampToIso(task.finished_at),
   id: task.id,
   identifier: formatTaskIdentifier(teamsById.get(task.team_id)?.identifier ?? "TEAM", task.number),
+  isProjected: false,
   labelIds: parseStringArray(task.label_ids),
   number: task.number,
   parentTaskId: task.parent_task_id ?? null,
@@ -336,6 +343,7 @@ export function buildProjectedTemplateTasksForCycle(args: {
           finishedAt: null,
           id: `projected-template-task:${schedule.id}:${templateTask.id}:${occurrenceKey}:${args.cycle.id}`,
           identifier: "Projected",
+          isProjected: true,
           labelIds: parseStringArray(templateTask.label_ids),
           number: 0,
           parentTaskId: null,

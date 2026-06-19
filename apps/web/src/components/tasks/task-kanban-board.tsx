@@ -837,6 +837,10 @@ function TaskKanbanCard({
       className={cn(
         "gap-0 rounded-md py-0 shadow-xs ring-foreground/10",
         cardState === "canceled" && "opacity-70",
+        // Projected Template Tasks are planned, not yet created: read them as a
+        // dashed/muted "ghost" card so they're distinct from real Tasks, in
+        // keeping with the app's dashed-placeholder language.
+        task.isProjected && "border-dashed bg-muted/20 shadow-none ring-0",
         onOpenTask && "cursor-pointer transition-colors hover:ring-foreground/20",
         isFocused && "ring-1 ring-foreground/20",
         isSelected &&

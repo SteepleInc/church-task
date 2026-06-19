@@ -807,6 +807,7 @@ function toBoardTask(task: TaskSummary, tasks: readonly TaskSummary[]) {
     estimate: task.estimate ?? null,
     boardOrder: task.boardOrder,
     labelIds: task.labelIds ?? [],
+    isProjected: task.isProjected ?? false,
     sourceBadge: task.sourceBadge ?? null,
   };
 }

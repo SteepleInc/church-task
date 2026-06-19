@@ -16,7 +16,6 @@ export type TemplateSourceBadgeData = {
   readonly occurrenceDate: string | null;
   readonly occurrencePeriod: string | null;
   readonly periodLabel: string | null;
-  readonly colorClassName: string;
   readonly dotClassName: string;
 };
 

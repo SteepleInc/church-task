@@ -467,6 +467,9 @@ function TaskListRow({
       className={cn(
         "mx-3 my-0.5 flex h-9 items-center gap-2 rounded-md px-3 transition-colors",
         rowState === "canceled" && "opacity-70",
+        // Projected Template Tasks are planned, not yet created: a dashed, muted
+        // row reads them as "ghost" placeholders distinct from real Tasks.
+        task.isProjected && "border border-dashed bg-muted/20 text-muted-foreground",
         onOpenTask && "cursor-pointer hover:bg-muted/70",
         isFocused && "bg-accent/60",
         isSelected && "bg-primary/5",
