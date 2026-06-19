@@ -6,6 +6,7 @@ import type {
   TemplateScheduleRule,
   TemplateTaskPlacement,
 } from "./template-projection";
+import { assertTemplateScheduleContract } from "./template-projection";
 
 describe("Template Schedule contracts", () => {
   test("represent v1 schedule kinds and Template Task placement", () => {
@@ -80,6 +81,35 @@ describe("Template Schedule contracts", () => {
         ["yearly", "oneOff", "yearly"],
         ["yearly", "repeating", "yearly"],
       ],
+    );
+  });
+
+  test("reject mismatched schedule source contracts", () => {
+    assert.doesNotThrow(() =>
+      assertTemplateScheduleContract({
+        kind: "weekly",
+        recurrence: "repeating",
+        rule: { kind: "weekly", weekdays: [6] },
+      }),
+    );
+
+    assert.throws(
+      () =>
+        assertTemplateScheduleContract({
+          kind: "weekly",
+          recurrence: "repeating",
+          rule: { kind: "monthly", repeat: "monthly" },
+        }),
+      /kind must match/u,
+    );
+    assert.throws(
+      () =>
+        assertTemplateScheduleContract({
+          kind: "yearly",
+          recurrence: "oneOff",
+          rule: { kind: "yearly", repeat: "yearly" },
+        }),
+      /must not repeat/u,
     );
   });
 });

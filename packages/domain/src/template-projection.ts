@@ -17,6 +17,28 @@ export type TemplateScheduleContract = {
   readonly rule: TemplateScheduleRule;
 };
 
+export const assertTemplateScheduleContract = (schedule: TemplateScheduleContract) => {
+  if (schedule.kind !== schedule.rule.kind) {
+    throw new Error("Template Schedule kind must match its rule kind.");
+  }
+
+  if (
+    schedule.recurrence === "oneOff" &&
+    "repeat" in schedule.rule &&
+    schedule.rule.repeat !== "none"
+  ) {
+    throw new Error("One-off Template Schedule rules must not repeat.");
+  }
+
+  if (
+    schedule.recurrence === "repeating" &&
+    "repeat" in schedule.rule &&
+    schedule.rule.repeat === "none"
+  ) {
+    throw new Error("Repeating Template Schedule rules must repeat.");
+  }
+};
+
 export type TemplateTaskPlacement = {
   readonly cycleOffsetFromEnd: number;
   /** 0 = Monday, 6 = Sunday. */
