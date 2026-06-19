@@ -11,6 +11,12 @@ export type TemplateScheduleRule =
   | { readonly kind: "quarterly"; readonly repeat: "none" | "quarterly" }
   | { readonly kind: "yearly"; readonly repeat: "none" | "yearly" };
 
+export type TemplateScheduleContract = {
+  readonly kind: TemplateScheduleKind;
+  readonly recurrence: TemplateScheduleRecurrence;
+  readonly rule: TemplateScheduleRule;
+};
+
 export type TemplateTaskPlacement = {
   readonly cycleOffsetFromEnd: number;
   /** 0 = Monday, 6 = Sunday. */
