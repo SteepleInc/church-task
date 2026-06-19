@@ -56,7 +56,7 @@ const mutationResult = async (run: () => ZeroMutationResult): KeyDateMutationRes
 };
 
 export function useKeyDatesCollection(params: { readonly churchId: string | null }) {
-  const [rows] = useQuery(
+  const [rows, result] = useQuery(
     queries.key_dates.by_church({ church_id: params.churchId ?? "__no_church__" }),
   );
   const collection =
@@ -73,7 +73,11 @@ export function useKeyDatesCollection(params: { readonly churchId: string | null
           };
         });
 
-  return { collection, keyDatesCollection: collection, loading: false };
+  return {
+    collection,
+    keyDatesCollection: collection,
+    loading: params.churchId !== null && result.type !== "complete",
+  };
 }
 
 export function useCreateKeyDate() {

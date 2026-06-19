@@ -17,7 +17,7 @@ import {
  * management lives later in Church settings.
  */
 export function OnboardingKeyDatesReview({ churchId }: { readonly churchId: string }) {
-  const { keyDatesCollection } = useKeyDatesCollection({ churchId });
+  const { keyDatesCollection, loading } = useKeyDatesCollection({ churchId });
   const deleteKeyDate = useDeleteKeyDate();
 
   const keyDates = [...keyDatesCollection].sort((a, b) => {
@@ -27,13 +27,13 @@ export function OnboardingKeyDatesReview({ churchId }: { readonly churchId: stri
     return a.name.localeCompare(b.name);
   });
 
-  if (keyDates.length === 0) {
+  if (loading && keyDates.length === 0) {
     return (
       <div className="flex flex-col gap-1.5">
         <span className="px-0.5 font-medium text-foreground text-sm">Your Key Dates</span>
         {Array.from({ length: 3 }, (_, index) => (
           <div
-            className="flex items-center gap-3 rounded-lg border border-border/70 bg-card px-3 py-2"
+            className="flex items-center gap-3 rounded-lg border px-3 py-3 shadow-sm"
             key={`key-date-skeleton-${index}`}
           >
             <Skeleton className="size-7 shrink-0 rounded-md" />
@@ -52,44 +52,51 @@ export function OnboardingKeyDatesReview({ churchId }: { readonly churchId: stri
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between gap-2 px-0.5">
         <span className="font-medium text-foreground text-sm">Your Key Dates</span>
-        <span className="text-muted-foreground text-xs">
-          {keyDates.length} dates · editable later
-        </span>
+        {keyDates.length > 0 ? (
+          <span className="text-muted-foreground text-xs">
+            {keyDates.length} {keyDates.length === 1 ? "date" : "dates"} · editable later
+          </span>
+        ) : null}
       </div>
 
-      <ScrollArea className="max-h-52" viewportClassName="pr-2">
-        <ul aria-label="Starter Key Dates" className="flex flex-col gap-1.5">
-          {keyDates.map((keyDate) => (
-            <li
-              className="group flex items-center gap-3 rounded-lg border border-border/70 bg-card px-3 py-2"
-              key={keyDate.id}
-            >
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                <CalendarDays className="size-3.5" />
-              </span>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate font-medium text-sm">{keyDate.name}</span>
-                <span className="truncate text-muted-foreground text-xs">
-                  {describeKeyDateSchedule(keyDate.schedule)}
-                </span>
-              </div>
-              <span className="shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
-                {formatKeyDateOccurrence(keyDate.nextOccurrence)}
-              </span>
-              <Button
-                aria-label={`Remove ${keyDate.name}`}
-                className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                onClick={() => void deleteKeyDate({ churchId, keyDateId: keyDate.id })}
-                size="icon-sm"
-                type="button"
-                variant="ghost"
+      {keyDates.length === 0 ? (
+        <div className="rounded-lg border border-dashed px-3 py-4 text-center text-muted-foreground text-sm">
+          No Key Dates — you can add them later in Church settings.
+        </div>
+      ) : (
+        <ScrollArea className="max-h-52" viewportClassName="pr-2">
+          <ul aria-label="Starter Key Dates" className="flex flex-col gap-2">
+            {keyDates.map((keyDate) => (
+              <li
+                className="flex items-center gap-3 rounded-lg border px-3 py-3 shadow-sm"
+                key={keyDate.id}
               >
-                <X />
-              </Button>
-            </li>
-          ))}
-        </ul>
-      </ScrollArea>
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                  <CalendarDays className="size-3.5" />
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate font-medium text-sm">{keyDate.name}</span>
+                  <span className="truncate text-muted-foreground text-xs">
+                    {describeKeyDateSchedule(keyDate.schedule)}
+                  </span>
+                </div>
+                <span className="shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
+                  {formatKeyDateOccurrence(keyDate.nextOccurrence)}
+                </span>
+                <Button
+                  aria-label={`Remove ${keyDate.name}`}
+                  onClick={() => void deleteKeyDate({ churchId, keyDateId: keyDate.id })}
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <X />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </ScrollArea>
+      )}
     </div>
   );
 }

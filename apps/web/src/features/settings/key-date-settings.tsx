@@ -213,8 +213,8 @@ function KeyDatesSettingsPanel({
         <h1 className="font-semibold text-2xl tracking-tight">Key Dates</h1>
         <p className="text-muted-foreground text-sm">
           Named dates with planning significance — Easter, Christmas, a church anniversary.
-          Templates can schedule work around them.{" "}
-          {canManage ? "" : "Only owners and admins can change Key Dates."}
+          Templates can schedule work around them.
+          {canManage ? null : " Only owners and admins can change Key Dates."}
         </p>
       </div>
 
