@@ -193,7 +193,7 @@ const parseJson = <T>(value: string | null | undefined, fallback: T): T => {
 
 const occurrenceLabel = (date: string) => {
   const parsed = new Date(`${date}T00:00:00.000Z`);
-  return `${weekdayName(parsed.getUTCDay())} ${parsed.toLocaleDateString(undefined, {
+  return `${weekdayName(parsed.getUTCDay())} ${parsed.toLocaleDateString("en-US", {
     day: "numeric",
     month: "short",
     timeZone: "UTC",
@@ -202,7 +202,7 @@ const occurrenceLabel = (date: string) => {
 
 const periodLabel = (date: string) => {
   const parsed = new Date(`${date}T00:00:00.000Z`);
-  return parsed.toLocaleDateString(undefined, {
+  return parsed.toLocaleDateString("en-US", {
     month: "short",
     timeZone: "UTC",
     year: "numeric",
@@ -226,6 +226,20 @@ export const buildTemplateSourceBadge = (args: {
     scheduleId: args.schedule.id,
     scheduleName: args.schedule.name,
   };
+};
+
+const buildMaterializedTaskSourceBadge = (
+  task: Task,
+  schedulesById: ReadonlyMap<string, TemplateSchedule>,
+): TemplateSourceBadge | null => {
+  if (!task.source_template_schedule_id) return null;
+  const schedule = schedulesById.get(task.source_template_schedule_id);
+  return schedule
+    ? buildTemplateSourceBadge({
+        occurrenceKey: task.source_template_occurrence_key ?? null,
+        schedule,
+      })
+    : null;
 };
 
 const mapTask = (
@@ -256,13 +270,7 @@ const mapTask = (
   sourceTemplateScheduleId: task.source_template_schedule_id ?? null,
   sourceTemplateSyncEnabled: task.source_template_sync_enabled ?? false,
   sourceTemplateTaskId: task.source_template_task_id ?? null,
-  sourceBadge:
-    task.source_template_schedule_id && schedulesById.has(task.source_template_schedule_id)
-      ? buildTemplateSourceBadge({
-          occurrenceKey: task.source_template_occurrence_key ?? null,
-          schedule: schedulesById.get(task.source_template_schedule_id)!,
-        })
-      : null,
+  sourceBadge: buildMaterializedTaskSourceBadge(task, schedulesById),
   taskState: taskStatus(task.task_state),
   teamId: task.team_id,
   title: task.title,
