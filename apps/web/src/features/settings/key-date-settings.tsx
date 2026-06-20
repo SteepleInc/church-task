@@ -1,6 +1,6 @@
-import type { KeyDatePreset, KeyDateRule } from "@church-task/domain";
+import type { KeyDateRule } from "@church-task/domain";
 import type { ColumnDef } from "@tanstack/react-table";
-import { CalendarDays, Check, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { CalendarDays, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { type ReactNode, useMemo, useRef, useState } from "react";
 
 import { SettingsColumnHeader, SettingsTable } from "@/components/collections/settingsTable";
@@ -22,28 +22,18 @@ import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import {
   describeKeyDateSchedule,
   formatKeyDateOccurrence,
-  KEY_DATE_PRESET_OPTIONS,
-  keyDateKindLabel,
-  useCreateKeyDate,
   useDeleteKeyDate,
   useKeyDatesCollection,
   useUpdateKeyDate,
   type KeyDateItem,
-  type KeyDateScheduleKind,
 } from "@/data/templates/keyDatesData.app";
+import { ScheduleEditor, slugifyKey } from "@/features/settings/key-date-schedule";
+import { useQuickActionOpeners } from "@/features/quick-actions/quick-actions-state";
 import { cn } from "@/lib/utils";
 
 type KeyDateMutationResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly error: { readonly message: string } };
-
-const slugifyKey = (name: string) =>
-  name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 64) || "key-date";
 
 export function SettingsKeyDatesPanel({
   embedded = false,
@@ -94,12 +84,11 @@ function KeyDatesSettingsPanel({
   readonly keyDates: readonly KeyDateItem[];
   readonly loading: boolean;
 }) {
-  const createKeyDate = useCreateKeyDate();
   const updateKeyDate = useUpdateKeyDate();
   const deleteKeyDate = useDeleteKeyDate();
+  const { openCreateKeyDate } = useQuickActionOpeners();
 
   const [filter, setFilter] = useState("");
-  const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -210,15 +199,6 @@ function KeyDatesSettingsPanel({
     [canManage, churchId, editingId, updateKeyDate, uniqueKeyFor],
   );
 
-  const createNewKeyDate = (name: string, schedule: KeyDateRule) => {
-    setCreating(false);
-    const trimmed = name.trim();
-    if (!churchId || !trimmed) return;
-    void run(() =>
-      createKeyDate({ churchId, key: uniqueKeyFor(trimmed), name: trimmed, schedule }),
-    );
-  };
-
   return (
     <div className="flex flex-col gap-6">
       {embedded ? null : (
@@ -244,10 +224,11 @@ function KeyDatesSettingsPanel({
         </div>
         {canManage ? (
           <Button
-            disabled={!churchId || creating}
+            disabled={!churchId}
             onClick={() => {
+              if (!churchId) return;
               setError(null);
-              setCreating(true);
+              openCreateKeyDate({ churchId });
             }}
             type="button"
           >
@@ -284,11 +265,6 @@ function KeyDatesSettingsPanel({
           getRowId={(keyDate) => keyDate.id}
           globalFilter={filter}
           initialSorting={[{ desc: false, id: "name" }]}
-          leadingRow={
-            creating ? (
-              <NewKeyDateRow onCancel={() => setCreating(false)} onSubmit={createNewKeyDate} />
-            ) : null
-          }
           loading={loading}
           rowActions={
             canManage
@@ -306,51 +282,6 @@ function KeyDatesSettingsPanel({
         />
       )}
     </div>
-  );
-}
-
-/** The inline "create a Key Date" row pinned to the top of the table body. */
-function NewKeyDateRow({
-  onSubmit,
-  onCancel,
-}: {
-  readonly onSubmit: (name: string, schedule: KeyDateRule) => void;
-  readonly onCancel: () => void;
-}) {
-  const [name, setName] = useState("");
-  const [schedule, setSchedule] = useState<KeyDateRule>(defaultScheduleForKind("computedYearly"));
-
-  return (
-    <tr className="bg-muted/40">
-      <td className="h-16 rounded-lg pr-3 pl-3 align-middle" colSpan={4}>
-        <div className="flex flex-wrap items-center gap-3">
-          <CalendarDays className="size-4 shrink-0 text-muted-foreground" />
-          <KeyDateNameInput
-            autoFocus
-            defaultValue=""
-            onCancel={onCancel}
-            onSubmit={(committed) => onSubmit(committed, schedule)}
-            onValueChange={setName}
-            placeholder="Key Date name"
-            value={name}
-          />
-          <ScheduleEditor onChange={setSchedule} schedule={schedule} />
-          <div className="ml-auto flex items-center gap-2">
-            <Button onClick={onCancel} size="sm" type="button" variant="ghost">
-              Cancel
-            </Button>
-            <Button
-              disabled={!name.trim()}
-              onClick={() => onSubmit(name, schedule)}
-              size="sm"
-              type="button"
-            >
-              Add
-            </Button>
-          </div>
-        </div>
-      </td>
-    </tr>
   );
 }
 
@@ -448,166 +379,6 @@ function ScheduleCell({
         <ScheduleEditor onChange={onChange} schedule={schedule} />
       </PopoverContent>
     </Popover>
-  );
-}
-
-const KEY_DATE_KINDS: readonly KeyDateScheduleKind[] = ["computedYearly", "fixedYearly", "oneTime"];
-
-const defaultScheduleForKind = (kind: KeyDateScheduleKind): KeyDateRule => {
-  if (kind === "computedYearly") return { kind: "computedYearly", rule: "easter" };
-  if (kind === "fixedYearly") return { day: 25, kind: "fixedYearly", month: 12 };
-  return { kind: "oneTime", localDate: new Date().toISOString().slice(0, 10) };
-};
-
-/**
- * The schedule authoring control shared by the create row and the per-row
- * schedule editor: a kind picker (Preset / Fixed annual / One-off) followed by
- * the inputs for the chosen kind.
- */
-function ScheduleEditor({
-  schedule,
-  onChange,
-}: {
-  readonly schedule: KeyDateRule;
-  readonly onChange: (schedule: KeyDateRule) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-2.5">
-      <div className="flex flex-wrap gap-1.5">
-        {KEY_DATE_KINDS.map((kind) => (
-          <button
-            className={cn(
-              "rounded-md border px-2.5 py-1 text-xs transition-colors",
-              schedule.kind === kind
-                ? "border-primary bg-primary/10 font-medium text-foreground"
-                : "border-border text-muted-foreground hover:bg-muted",
-            )}
-            key={kind}
-            onClick={() => onChange(defaultScheduleForKind(kind))}
-            type="button"
-          >
-            {keyDateKindLabel(kind)}
-          </button>
-        ))}
-      </div>
-
-      {schedule.kind === "computedYearly" ? (
-        <PresetPicker
-          onChange={(rule) => onChange({ kind: "computedYearly", rule })}
-          rule={schedule.rule}
-        />
-      ) : schedule.kind === "fixedYearly" ? (
-        <FixedAnnualPicker
-          day={schedule.day}
-          month={schedule.month}
-          onChange={(month, day) => onChange({ day, kind: "fixedYearly", month })}
-        />
-      ) : (
-        <Input
-          aria-label="One-off date"
-          className="h-8 w-44"
-          onChange={(event) =>
-            onChange({
-              kind: "oneTime",
-              localDate: event.currentTarget.value || schedule.localDate,
-            })
-          }
-          type="date"
-          value={schedule.localDate}
-        />
-      )}
-    </div>
-  );
-}
-
-function PresetPicker({
-  rule,
-  onChange,
-}: {
-  readonly rule: KeyDatePreset;
-  readonly onChange: (rule: KeyDatePreset) => void;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-1.5">
-      {KEY_DATE_PRESET_OPTIONS.map((option) => (
-        <button
-          className={cn(
-            "flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-left text-sm transition-colors",
-            option.rule === rule
-              ? "border-primary bg-primary/10 text-foreground"
-              : "border-border text-muted-foreground hover:bg-muted",
-          )}
-          key={option.rule}
-          onClick={() => onChange(option.rule)}
-          type="button"
-        >
-          <span className="truncate">{option.label}</span>
-          {option.rule === rule ? <Check className="size-3.5 shrink-0 text-primary" /> : null}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-] as const;
-
-const daysInMonth = (month: number) => new Date(Date.UTC(2024, month, 0)).getUTCDate();
-
-function FixedAnnualPicker({
-  month,
-  day,
-  onChange,
-}: {
-  readonly month: number;
-  readonly day: number;
-  readonly onChange: (month: number, day: number) => void;
-}) {
-  const maxDay = daysInMonth(month);
-  const clampedDay = Math.min(day, maxDay);
-
-  return (
-    <div className="flex items-center gap-2">
-      <select
-        aria-label="Month"
-        className="h-8 flex-1 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-        onChange={(event) => {
-          const nextMonth = Number(event.currentTarget.value);
-          onChange(nextMonth, Math.min(clampedDay, daysInMonth(nextMonth)));
-        }}
-        value={month}
-      >
-        {MONTHS.map((name, index) => (
-          <option key={name} value={index + 1}>
-            {name}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label="Day"
-        className="h-8 w-20 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-        onChange={(event) => onChange(month, Number(event.currentTarget.value))}
-        value={clampedDay}
-      >
-        {Array.from({ length: maxDay }, (_, index) => index + 1).map((value) => (
-          <option key={value} value={value}>
-            {value}
-          </option>
-        ))}
-      </select>
-    </div>
   );
 }
 
