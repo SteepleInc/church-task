@@ -345,6 +345,100 @@ describe("church-task setup write", () => {
 });
 
 describe("church-task task execution", () => {
+  it("maps Template Library CLI commands to MCP tools", async () => {
+    const requests: Array<{
+      readonly token: string;
+      readonly tool: string;
+      readonly body: Record<string, unknown>;
+    }> = [];
+    const env = { CHURCH_TASK_AUTH_TOKEN: "env-token" };
+    const backendLayer = fakeBackend({
+      taskTool: (args) =>
+        Effect.sync(() => {
+          requests.push(args);
+          return taskToolResponse(args.tool, { received: args.body });
+        }),
+    });
+
+    await runCli(
+      [
+        "template",
+        "create-weekly-service",
+        "--church-id",
+        "church_123",
+        "--name",
+        "Sunday Service",
+        "--team-id",
+        "team_123",
+        "--start-date",
+        "2026-06-01",
+        "--weekday",
+        "6",
+      ],
+      { backendLayer, env },
+    );
+    await runCli(
+      [
+        "template-task",
+        "add-at-placement",
+        "--church-id",
+        "church_123",
+        "--template-id",
+        "template_123",
+        "--team-id",
+        "team_123",
+        "--title",
+        "Prepare slides",
+        "--cycle-offset",
+        "-1",
+        "--weekday",
+        "4",
+      ],
+      { backendLayer, env },
+    );
+    await runCli(
+      [
+        "mcp",
+        "call",
+        "template-schedule-create",
+        "--json",
+        JSON.stringify({ churchId: "church_123", templateId: "template_123", kind: "monthly" }),
+      ],
+      { backendLayer, env },
+    );
+
+    expect(requests).toEqual([
+      {
+        token: "env-token",
+        tool: "template-create-weekly-service",
+        body: {
+          churchId: "church_123",
+          name: "Sunday Service",
+          teamId: "team_123",
+          startDate: "2026-06-01",
+          weekday: 6,
+        },
+      },
+      {
+        token: "env-token",
+        tool: "template-task-add-at-placement",
+        body: {
+          churchId: "church_123",
+          templateId: "template_123",
+          teamId: "team_123",
+          title: "Prepare slides",
+          cycleOffset: -1,
+          weekday: 4,
+        },
+      },
+      {
+        token: "env-token",
+        tool: "template-schedule-create",
+        body: { churchId: "church_123", templateId: "template_123", kind: "monthly" },
+      },
+    ]);
+  });
+
   it("updates a Task assignment and lists the assigned Task in My Work", async () => {
     const requests: Array<{
       readonly token: string;
