@@ -53,6 +53,7 @@ describe("scheduled work", () => {
     expect(normalizeMaterializationWindowCycles(0)).toBe(1);
     expect(normalizeMaterializationWindowCycles(53)).toBe(52);
     expect(normalizeMaterializationWindowCycles(6.9)).toBe(6);
+    expect(normalizeMaterializationWindowCycles(Number.NaN)).toBe(3);
   });
 
   test("maintains cycles, rolls unfinished tasks, and projects Template work", async () => {

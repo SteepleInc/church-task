@@ -35,22 +35,67 @@ type DbTransaction = Parameters<Parameters<ChurchTaskDb["transaction"]>[0]>[0];
 type DbExecutor = ChurchTaskDb | DbTransaction;
 const MATERIALIZATION_WINDOW_MIN_CYCLES = 1;
 const MATERIALIZATION_WINDOW_MAX_CYCLES = 52;
+const MATERIALIZATION_WINDOW_DEFAULT_CYCLES = 3;
 
-export const normalizeMaterializationWindowCycles = (value: number | null | undefined) =>
-  Math.max(
+export const normalizeMaterializationWindowCycles = (value: number | null | undefined) => {
+  const cycles = value ?? MATERIALIZATION_WINDOW_DEFAULT_CYCLES;
+  if (!Number.isFinite(cycles)) return MATERIALIZATION_WINDOW_DEFAULT_CYCLES;
+
+  return Math.max(
     MATERIALIZATION_WINDOW_MIN_CYCLES,
-    Math.min(MATERIALIZATION_WINDOW_MAX_CYCLES, Math.trunc(value ?? 3)),
+    Math.min(MATERIALIZATION_WINDOW_MAX_CYCLES, Math.trunc(cycles)),
   );
+};
 
 const weekdayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const dateWeekday = (localDate: string) => {
   const [year, month, day] = localDate.split("-").map(Number);
-  if (year === undefined || month === undefined || day === undefined) {
+  if (!year || !month || !day) {
     throw new Error(`Invalid local date: ${localDate}`);
   }
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
 };
 const mondayFirstPosition = (weekday: number) => (weekday + 6) % 7;
+const addDaysUntilWeekday = (localDate: string, weekday: number) =>
+  addLocalDateDays(localDate, (weekday - dateWeekday(localDate) + 7) % 7);
+
+const groupByCycleStartDate = <Task extends { readonly due_date: string }>(
+  tasks: readonly Task[],
+) => {
+  const groups = new Map<string, Task[]>();
+  for (const task of tasks) {
+    const cycleStartDate = cycleStartDateForLocalDate(task.due_date);
+    groups.set(cycleStartDate, [...(groups.get(cycleStartDate) ?? []), task]);
+  }
+  return groups;
+};
+
+const parseWeeklyScheduleRule = (ruleJson: string): number | null => {
+  try {
+    const rule = JSON.parse(ruleJson || "{}") as { kind?: string; weekdays?: readonly number[] };
+    const serviceWeekday = rule.weekdays?.[0];
+    if (rule.kind !== "weekly") return null;
+    if (!Number.isInteger(serviceWeekday)) return null;
+    if (serviceWeekday === undefined || serviceWeekday < 0 || serviceWeekday > 6) return null;
+    return serviceWeekday;
+  } catch {
+    return null;
+  }
+};
+
+type ScheduledExistingProjectedTask = {
+  readonly id: string;
+  readonly source_template_occurrence_key: string | null;
+  readonly source_template_schedule_id: string | null;
+  readonly source_template_task_id: string;
+};
+
+const hasSourceTemplateTaskId = (task: {
+  readonly id: string;
+  readonly source_template_occurrence_key: string | null;
+  readonly source_template_schedule_id: string | null;
+  readonly source_template_task_id: string | null;
+}): task is ScheduledExistingProjectedTask => task.source_template_task_id !== null;
 
 type CycleMaintenanceResult = {
   readonly createdCycleIds: readonly string[];
@@ -415,20 +460,15 @@ const materializeScheduledTemplateTasksForWindow = async (
 
   for (const schedule of scheduleRows) {
     if (schedule.kind !== "weekly") continue;
-    const rule = JSON.parse(schedule.rule || "{}") as {
-      kind?: string;
-      weekdays?: readonly number[];
-    };
-    const serviceWeekday = rule.weekdays?.[0];
-    if (rule.kind !== "weekly" || serviceWeekday == null) continue;
+    const serviceWeekday = parseWeeklyScheduleRule(schedule.rule);
+    if (serviceWeekday === null) continue;
 
     for (
-      let occurrenceDate = schedule.start_date;
+      let occurrenceDate = addDaysUntilWeekday(schedule.start_date, serviceWeekday);
       occurrenceDate <= addLocalDateDays(windowEndDate, 371);
       occurrenceDate = addLocalDateDays(occurrenceDate, 7)
     ) {
       if (schedule.end_date && occurrenceDate > schedule.end_date) break;
-      if (dateWeekday(occurrenceDate) !== serviceWeekday) continue;
 
       const templateTaskRows = await db
         .select({
@@ -470,9 +510,7 @@ const materializeScheduledTemplateTasksForWindow = async (
         );
       if (effectiveTemplateTasks.length === 0) continue;
 
-      const effectiveTemplateTasksByCycleStartDate = Map.groupBy(effectiveTemplateTasks, (task) =>
-        cycleStartDateForLocalDate(task.due_date),
-      );
+      const effectiveTemplateTasksByCycleStartDate = groupByCycleStartDate(effectiveTemplateTasks);
 
       const templateTeamRows = await db
         .select({ id: template_teams.id, mapped_team_id: template_teams.mapped_team_id })
@@ -537,9 +575,7 @@ const materializeScheduledTemplateTasksForWindow = async (
           adjustments: [],
           church_id: args.church_id,
           cycle: cycle.cycle,
-          existing_projected_tasks: existingProjectedTasks.filter(
-            (task) => task.source_template_task_id !== null,
-          ) as never,
+          existing_projected_tasks: existingProjectedTasks.filter(hasSourceTemplateTaskId),
           focus_windows: [],
           key_date_occurrences: [],
           now: args.now,
