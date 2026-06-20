@@ -11,6 +11,29 @@ export const getE2eApiUrl = () => {
   throw new Error("DATABASE_URL must be set for e2e API tests.");
 };
 
+async function postTestHelperWithRetry(
+  page: Page,
+  path: string,
+  options: Parameters<Page["request"]["post"]>[1] = {},
+) {
+  const url = `${getE2eApiUrl()}${path}`;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await page.request.post(url, options);
+    } catch (error) {
+      lastError = error;
+      if (attempt === 3 || !String(error).match(/ECONNRESET|EPIPE|socket hang up/i)) {
+        throw error;
+      }
+      await page.waitForTimeout(attempt * 500);
+    }
+  }
+
+  throw lastError;
+}
+
 async function getLatestOtp(page: Page, email: string) {
   const encodedEmail = encodeURIComponent(email);
 
@@ -87,7 +110,7 @@ export async function startAuthenticatedSession(
     readonly userName?: string;
   },
 ) {
-  const response = await page.request.post(`${getE2eApiUrl()}/api/test/session`, { data: args });
+  const response = await postTestHelperWithRetry(page, "/api/test/session", { data: args });
 
   test.skip(response.status() === 404, "Test session helper is not deployed.");
   if (!response.ok()) {
@@ -99,7 +122,7 @@ export async function startAuthenticatedSession(
 }
 
 export async function promoteCurrentUserToAppAdmin(page: Page) {
-  const response = await page.request.post(`${getE2eApiUrl()}/api/test/app-admin`);
+  const response = await postTestHelperWithRetry(page, "/api/test/app-admin");
 
   test.skip(response.status() === 404, "App Admin promotion helper is not deployed.");
   expect(response.ok()).toBe(true);
