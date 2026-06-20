@@ -18,7 +18,7 @@ test("authors and schedules a weekly service Template", async ({ page }, testInf
   await expect(page.getByRole("heading", { name: "New weekly service Template" })).toBeVisible();
 
   await page.getByLabel("Template name").fill("Sunday Service Template");
-  await page.getByRole("button", { name: "Sun" }).click();
+  await page.getByRole("button", { exact: true, name: "Sun" }).click();
   await page.getByRole("button", { name: "Add Template Task" }).first().click();
   await page.getByPlaceholder("Template Task title").fill("Plan worship set");
 
