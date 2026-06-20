@@ -185,6 +185,24 @@ const UpdateTasksBatchArgs = toZeroSchema(
     updates: Schema.Array(Schema.Struct({ fields: TaskFieldsArg, task_id: Schema.String })),
   }),
 );
+const MaterializeProjectedTaskArgs = toZeroSchema(
+  Schema.Struct({
+    assigned_user_id: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
+    church_id: Schema.String,
+    cycle_id: Schema.String,
+    description: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
+    due_date: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
+    estimate: Schema.optional(TaskEstimateArg),
+    label_ids: Schema.optional(Schema.Array(Schema.String)),
+    source_template_id: Schema.String,
+    source_template_occurrence_key: Schema.String,
+    source_template_schedule_id: Schema.String,
+    source_template_task_id: Schema.String,
+    team_id: Schema.String,
+    title: Schema.String,
+    workflow_status_id: Schema.String,
+  }),
+);
 const TaskTransitionArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, task_id: Schema.String }),
 );
@@ -2535,6 +2553,144 @@ export const mutators = defineMutators({
         });
       }
     }),
+    materialize_projected: defineChurchTaskMutator(
+      MaterializeProjectedTaskArgs,
+      async ({ args, ctx, tx }) => {
+        const db = serverDb(tx);
+        if (!db) return;
+
+        const session = requireActiveChurchAccess(ctx, args.church_id);
+        const now = new Date();
+        const existing = (await db
+          .select({ id: tasks.id })
+          .from(tasks)
+          .where(
+            and(
+              eq(tasks.church_id, args.church_id),
+              eq(tasks.source_template_schedule_id, args.source_template_schedule_id),
+              eq(tasks.source_template_task_id, args.source_template_task_id),
+              eq(tasks.source_template_occurrence_key, args.source_template_occurrence_key),
+              isNull(tasks.deleted_at),
+            ),
+          )
+          .limit(1)) as Array<{ readonly id: string }>;
+        if (existing[0]) {
+          await db
+            .update(tasks)
+            .set(
+              await taskPatchForFields(db, {
+                church_id: args.church_id,
+                fields: { workflow_status_id: args.workflow_status_id },
+                session_user_id: session.user_id,
+                task_id: existing[0].id,
+              }),
+            )
+            .where(eq(tasks.id, existing[0].id));
+          return;
+        }
+
+        const [team] = (await db
+          .select({ id: teams.id, next_task_number: teams.next_task_number })
+          .from(teams)
+          .where(
+            and(
+              eq(teams.id, args.team_id),
+              eq(teams.church_id, args.church_id),
+              isNull(teams.deleted_at),
+            ),
+          )
+          .limit(1)) as Array<{ readonly id: string; readonly next_task_number: number }>;
+        if (!team) throw new Error("Team not found.");
+        const [status] = (await db
+          .select({
+            id: workflow_statuses.id,
+            task_state: workflow_statuses.task_state,
+            workflow_id: workflow_statuses.workflow_id,
+          })
+          .from(workflow_statuses)
+          .where(
+            and(
+              eq(workflow_statuses.id, args.workflow_status_id),
+              eq(workflow_statuses.church_id, args.church_id),
+              isNull(workflow_statuses.deleted_at),
+            ),
+          )
+          .limit(1)) as Array<{
+          readonly id: string;
+          readonly task_state: string;
+          readonly workflow_id: string;
+        }>;
+        if (!status) throw new Error("Workflow Status not found.");
+        const [workflow] = (await db
+          .select({ id: workflows.id })
+          .from(workflows)
+          .where(
+            and(
+              eq(workflows.id, status.workflow_id),
+              eq(workflows.team_id, team.id),
+              eq(workflows.church_id, args.church_id),
+              isNull(workflows.deleted_at),
+            ),
+          )
+          .limit(1)) as Array<{ readonly id: string }>;
+        if (!workflow) throw new Error("Workflow Status is not in this Team's Workflow.");
+
+        const taskId = getTaskId();
+        await db.insert(tasks).values({
+          _tag: "task",
+          assigned_user_id: args.assigned_user_id ?? null,
+          board_order: appendBoardOrderKey(null),
+          church_id: args.church_id,
+          created_at: now,
+          created_by: session.user_id,
+          created_by_user_id: session.user_id,
+          cycle_id: args.cycle_id,
+          description: args.description ?? null,
+          due_date: args.due_date ?? null,
+          estimate: args.estimate ?? null,
+          finished_at: status.task_state === "done" ? now : null,
+          id: taskId,
+          label_ids: serializeStringArray(args.label_ids ?? []),
+          number: team.next_task_number,
+          parent_task_id: null,
+          previous_identifiers: "[]",
+          source_template_cycle_id: null,
+          source_template_id: args.source_template_id,
+          source_template_occurrence_key: args.source_template_occurrence_key,
+          source_template_schedule_id: args.source_template_schedule_id,
+          source_template_sync_enabled: false,
+          source_template_task_id: args.source_template_task_id,
+          task_state: status.task_state,
+          team_id: team.id,
+          title: args.title.trim(),
+          updated_at: now,
+          updated_by: session.user_id,
+          workflow_id: workflow.id,
+          workflow_status_id: status.id,
+        });
+        await db
+          .update(teams)
+          .set({
+            next_task_number: team.next_task_number + 1,
+            updated_at: now,
+            updated_by: session.user_id,
+          })
+          .where(eq(teams.id, team.id));
+        await writeActivity(db, {
+          actor_id: session.user_id,
+          church_id: args.church_id,
+          cycle_id: args.cycle_id,
+          entity_id: taskId,
+          entity_type: "task",
+          event_type: "task.template_materialized",
+          metadata: {
+            source_template_occurrence_key: args.source_template_occurrence_key,
+            source_template_schedule_id: args.source_template_schedule_id,
+            source_template_task_id: args.source_template_task_id,
+          },
+        });
+      },
+    ),
     complete: defineChurchTaskMutator(TaskTransitionArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;

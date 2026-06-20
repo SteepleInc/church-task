@@ -1,4 +1,18 @@
+import { SparklesIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+
 import { AppHeaderSlot } from "@/components/app-header-slot";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useOpenTaskDetailsPaneUrl } from "@/components/details-pane/details-pane-helpers";
 import { TeamWeekSelector } from "@/components/weeks/team-week-selector";
 import { WeekActionsMenu } from "@/components/weeks/week-actions-menu";
@@ -9,12 +23,14 @@ import { useLabelsCollection } from "@/data/labels/labelsData.app";
 import { useTeamMembershipsCollection } from "@/data/teams/teamsData.app";
 import {
   useAdjustProjectedTemplateTaskMutation,
+  useMaterializeProjectedTemplateTaskMutation,
   useCancelTaskMutation,
   useCompleteTaskMutation,
   useReopenTaskMutation,
   useTasksCollection,
   useUpdateTaskMutation,
   useUpdateTasksBatchMutation,
+  type TaskCollectionItem,
   type TaskUpdateFields,
 } from "@/data/tasks/tasksData.app";
 import { getUserDisplayName, useChurchUsersCollection } from "@/data/users/usersData.app";
@@ -30,7 +46,7 @@ import {
 } from "@/shared/global-state";
 import { useNavigate } from "@tanstack/react-router";
 import { useAtom } from "jotai";
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { mapTaskFilterValuesForZero } from "@/components/tasks/task-filters";
 import { FilterKeys } from "@/shared/global-state";
@@ -310,6 +326,7 @@ export function TaskExecutionSurface({
   const updateTask = useUpdateTaskMutation();
   const updateTasksBatch = useUpdateTasksBatchMutation();
   const adjustProjectedTask = useAdjustProjectedTemplateTaskMutation();
+  const materializeProjectedTask = useMaterializeProjectedTemplateTaskMutation();
   const completeTask = useCompleteTaskMutation();
   const cancelTask = useCancelTaskMutation();
   const reopenTask = useReopenTaskMutation();
@@ -321,6 +338,37 @@ export function TaskExecutionSurface({
   };
 
   const tasks = tasksCollection.tasksCollection;
+
+  // Materializing a projected Template Task turns a planning ghost into a real,
+  // numbered Task — an action that creates durable work and cannot be silently
+  // undone. Route every materialization trigger (status menu, status-lane drag)
+  // through a confirmation prompt so it reads as intentional, not accidental.
+  const [pendingMaterialization, setPendingMaterialization] = useState<{
+    readonly task: TaskCollectionItem;
+    readonly workflowStatusId: string;
+  } | null>(null);
+  const [materializing, setMaterializing] = useState(false);
+
+  const requestMaterialize = (params: {
+    readonly task: TaskCollectionItem;
+    readonly workflowStatusId: string;
+  }) => {
+    setPendingMaterialization(params);
+  };
+
+  const confirmMaterialize = () => {
+    if (!pendingMaterialization) return;
+    setMaterializing(true);
+    void Promise.resolve(
+      materializeProjectedTask({
+        task: pendingMaterialization.task,
+        workflowStatusId: pendingMaterialization.workflowStatusId,
+      }),
+    ).finally(() => {
+      setMaterializing(false);
+      setPendingMaterialization(null);
+    });
+  };
 
   // A single inline-edit seam shared by the Board, List, and right-click menu.
   // Materialized Tasks update their Task row; projected Template Tasks have no
@@ -413,11 +461,11 @@ export function TaskExecutionSurface({
       editTask(change.taskId, { assignedUserId: change.assignedUserId });
     },
     onChangeTaskStatus: (change: { taskId: string; workflowStatusId: string }) => {
-      // Projected Template Tasks have no materialized Workflow Status to set;
-      // their Cycle Adjustment only carries planning fields, so status edits
-      // apply to real Tasks only.
       const task = tasks.find((candidate) => candidate.id === change.taskId);
-      if (task?.isProjected) return;
+      if (task?.isProjected) {
+        requestMaterialize({ task, workflowStatusId: change.workflowStatusId });
+        return;
+      }
       void updateTask({
         churchId,
         actorUserId: currentUserId,
@@ -592,12 +640,15 @@ export function TaskExecutionSurface({
                               }
                             : null;
                   if (!fields) return;
-                  // A projected Template Task carries no Workflow Status of its
-                  // own, so a status/state-lane drag has nothing to persist;
-                  // assignee/estimate drags route to its Cycle Adjustment.
                   const movedTask = tasks.find((candidate) => candidate.id === move.taskId);
                   if (movedTask?.isProjected) {
-                    if ("workflowStatusId" in fields) return;
+                    if ("workflowStatusId" in fields && fields.workflowStatusId) {
+                      requestMaterialize({
+                        task: movedTask,
+                        workflowStatusId: fields.workflowStatusId,
+                      });
+                      return;
+                    }
                     editTask(move.taskId, fields);
                     return;
                   }
@@ -723,8 +774,78 @@ export function TaskExecutionSurface({
             )
           ) : null}
         </section>
+        <MaterializeProjectedTaskDialog
+          loading={materializing}
+          onConfirm={confirmMaterialize}
+          onOpenChange={(open) => {
+            if (!materializing && !open) setPendingMaterialization(null);
+          }}
+          pending={pendingMaterialization}
+          statusName={
+            pendingMaterialization
+              ? (workflowStatusNamesById.get(pendingMaterialization.workflowStatusId) ?? null)
+              : null
+          }
+        />
       </TaskContextMenuBridge>
     </TaskSurfaceKeyboardProvider>
+  );
+}
+
+function MaterializeProjectedTaskDialog({
+  pending,
+  statusName,
+  loading,
+  onConfirm,
+  onOpenChange,
+}: {
+  readonly pending: {
+    readonly task: TaskCollectionItem;
+    readonly workflowStatusId: string;
+  } | null;
+  readonly statusName: string | null;
+  readonly loading: boolean;
+  readonly onConfirm: () => void;
+  readonly onOpenChange: (open: boolean) => void;
+}) {
+  const scheduleName = pending?.task.sourceBadge?.scheduleName ?? null;
+  const occurrenceLabel = pending?.task.sourceBadge?.occurrenceLabel ?? null;
+
+  return (
+    <AlertDialog onOpenChange={onOpenChange} open={pending !== null}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogMedia>
+            <HugeiconsIcon icon={SparklesIcon} strokeWidth={2} />
+          </AlertDialogMedia>
+          <AlertDialogTitle>Turn this planned work into a Task?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {pending ? (
+              <>
+                “{pending.task.title}” is projected from{" "}
+                {scheduleName ? <span className="font-medium">{scheduleName}</span> : "a Template"}
+                {occurrenceLabel ? <> ({occurrenceLabel})</> : null}.{" "}
+                {statusName ? (
+                  <>
+                    Moving it to <span className="font-medium">{statusName}</span> creates
+                  </>
+                ) : (
+                  "This creates"
+                )}{" "}
+                a real, numbered Task in this Week. It becomes assignable, counts toward Week
+                progress, and stays even if the projection later changes.
+              </>
+            ) : null}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={loading}>Keep as planned</AlertDialogCancel>
+          <AlertDialogAction disabled={loading} loading={loading} onClick={onConfirm}>
+            {loading ? "Creating Task…" : "Create Task"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 

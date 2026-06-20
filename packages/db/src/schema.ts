@@ -157,6 +157,9 @@ export const organization = pgTable(
     logo: text("logo"),
     metadata: text("metadata"),
     churchTimeZone: text("church_time_zone").notNull().default("America/New_York"),
+    rollingMaterializationWindowCycles: integer("rolling_materialization_window_cycles")
+      .notNull()
+      .default(3),
     completedOnboarding: boolean("completed_onboarding").notNull().default(false),
     url: text("url"),
     street: text("street"),
