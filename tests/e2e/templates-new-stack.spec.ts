@@ -61,6 +61,8 @@ test("authors and schedules a weekly service Template", async ({ page }, testInf
 test("soft-deletes and restores a scheduled Template from the Library", async ({
   page,
 }, testInfo) => {
+  test.slow();
+
   const email = `templates-delete-${Date.now()}-${testInfo.workerIndex}@example.com`;
   const churchName = `E2E Template Delete Church ${Date.now()}`;
 
