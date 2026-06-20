@@ -207,7 +207,8 @@ export interface StepConfig extends StepLabelProps {
 }
 
 export interface StepProps
-  extends Omit<HTMLAttributes<HTMLDivElement>, "children">,
+  extends
+    Omit<HTMLAttributes<HTMLDivElement>, "children">,
     VariantProps<typeof stepVariants>,
     StepConfig {
   isCompletedStep?: boolean;

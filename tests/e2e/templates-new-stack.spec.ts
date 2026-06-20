@@ -30,9 +30,7 @@ test("authors and schedules a weekly service Template", async ({ page }, testInf
 
   await openTemplateCreate(page);
   await selectTemplateShape(page, "Weekly service");
-  await expect(
-    page.getByRole("heading", { name: "New Weekly Service Template" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "New Weekly Service Template" })).toBeVisible();
 
   // Step 1: Details (name).
   await page.getByLabel("Template name").fill("Sunday Service Template");

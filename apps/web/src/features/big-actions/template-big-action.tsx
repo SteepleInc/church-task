@@ -87,11 +87,7 @@ export const TemplateBigAction: FC = () => {
                 responsive
               >
                 {TEMPLATE_FLOW_STEPS[state.shape].map((entry) => (
-                  <Step
-                    description={entry.description}
-                    key={entry.label}
-                    label={entry.label}
-                  />
+                  <Step description={entry.description} key={entry.label} label={entry.label} />
                 ))}
               </Steps>
             </div>

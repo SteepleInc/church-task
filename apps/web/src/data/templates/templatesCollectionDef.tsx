@@ -62,8 +62,7 @@ export const templatesColumnsDef: Array<ColumnDef<TemplateCollectionItem>> = [
   },
   {
     accessorKey: "taskCount",
-    cell: ({ row }) =>
-      `${row.original.taskCount} task${row.original.taskCount === 1 ? "" : "s"}`,
+    cell: ({ row }) => `${row.original.taskCount} task${row.original.taskCount === 1 ? "" : "s"}`,
     enableHiding: false,
     header: ({ column }) => <ColumnHeader column={column}>Tasks</ColumnHeader>,
     id: "taskCount",
