@@ -94,27 +94,23 @@ test.describe("Task card hover keybindings", () => {
     const first = await bootBoardWithTask(page, firstTitle);
     const second = await bootBoardWithTask(page, secondTitle);
 
+    // Each card also carries a hidden context-menu status picker, so scope to
+    // the visible inline trigger to identify the on-card picker unambiguously.
+    const statusTrigger = (card: Locator) =>
+      card.getByRole("combobox", { name: "Change status" }).filter({ visible: true });
+
     // Arm the first card and open its status picker scoped within that card.
     await first.hover();
     await page.keyboard.press("KeyS");
-    await expect(first.getByRole("combobox", { name: "Change status" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
+    await expect(statusTrigger(first)).toHaveAttribute("aria-expanded", "true");
     await page.keyboard.press("Escape");
 
     // Moving the mouse to the second card re-arms it: now "S" opens the second
     // card's picker, not the first's.
     await second.hover();
     await page.keyboard.press("KeyS");
-    await expect(second.getByRole("combobox", { name: "Change status" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
-    await expect(first.getByRole("combobox", { name: "Change status" })).toHaveAttribute(
-      "aria-expanded",
-      "false",
-    );
+    await expect(statusTrigger(second)).toHaveAttribute("aria-expanded", "true");
+    await expect(statusTrigger(first)).toHaveAttribute("aria-expanded", "false");
     await page.keyboard.press("Escape");
   });
 
