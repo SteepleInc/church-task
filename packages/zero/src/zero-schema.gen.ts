@@ -753,6 +753,12 @@ const organizationTable = {
       customType: null as unknown as string,
       serverName: "church_time_zone",
     },
+    rollingMaterializationWindowCycles: {
+      type: "number",
+      optional: true,
+      customType: null as unknown as number,
+      serverName: "rolling_materialization_window_cycles",
+    },
     completedOnboarding: {
       type: "boolean",
       optional: true,

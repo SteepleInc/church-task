@@ -835,6 +835,34 @@ export function useAdjustProjectedTemplateTaskMutation() {
     );
 }
 
+export function useMaterializeProjectedTemplateTaskMutation() {
+  const zero = useZero();
+
+  return (params: { readonly task: TaskCollectionItem; readonly workflowStatusId: string }) =>
+    zeroMutationResult(
+      () =>
+        zero.mutate(
+          mutators.tasks.materialize_projected({
+            assigned_user_id: params.task.assignedUserId,
+            church_id: params.task.churchId,
+            cycle_id: params.task.cycleId ?? "",
+            description: params.task.description,
+            due_date: params.task.dueDate,
+            estimate: params.task.estimate,
+            label_ids: [...params.task.labelIds],
+            source_template_id: params.task.sourceTemplateId ?? "",
+            source_template_occurrence_key: params.task.sourceTemplateOccurrenceKey ?? "",
+            source_template_schedule_id: params.task.sourceTemplateScheduleId ?? "",
+            source_template_task_id: params.task.sourceTemplateTaskId ?? "",
+            team_id: params.task.teamId,
+            title: params.task.title,
+            workflow_status_id: params.workflowStatusId,
+          }),
+        ),
+      "Could not materialize projected Template Task.",
+    );
+}
+
 export function useUpdateTasksBatchMutation() {
   const zero = useZero();
 

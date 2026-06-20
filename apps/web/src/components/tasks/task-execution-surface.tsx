@@ -9,6 +9,7 @@ import { useLabelsCollection } from "@/data/labels/labelsData.app";
 import { useTeamMembershipsCollection } from "@/data/teams/teamsData.app";
 import {
   useAdjustProjectedTemplateTaskMutation,
+  useMaterializeProjectedTemplateTaskMutation,
   useCancelTaskMutation,
   useCompleteTaskMutation,
   useReopenTaskMutation,
@@ -310,6 +311,7 @@ export function TaskExecutionSurface({
   const updateTask = useUpdateTaskMutation();
   const updateTasksBatch = useUpdateTasksBatchMutation();
   const adjustProjectedTask = useAdjustProjectedTemplateTaskMutation();
+  const materializeProjectedTask = useMaterializeProjectedTemplateTaskMutation();
   const completeTask = useCompleteTaskMutation();
   const cancelTask = useCancelTaskMutation();
   const reopenTask = useReopenTaskMutation();
@@ -413,11 +415,11 @@ export function TaskExecutionSurface({
       editTask(change.taskId, { assignedUserId: change.assignedUserId });
     },
     onChangeTaskStatus: (change: { taskId: string; workflowStatusId: string }) => {
-      // Projected Template Tasks have no materialized Workflow Status to set;
-      // their Cycle Adjustment only carries planning fields, so status edits
-      // apply to real Tasks only.
       const task = tasks.find((candidate) => candidate.id === change.taskId);
-      if (task?.isProjected) return;
+      if (task?.isProjected) {
+        void materializeProjectedTask({ task, workflowStatusId: change.workflowStatusId });
+        return;
+      }
       void updateTask({
         churchId,
         actorUserId: currentUserId,
@@ -592,12 +594,15 @@ export function TaskExecutionSurface({
                               }
                             : null;
                   if (!fields) return;
-                  // A projected Template Task carries no Workflow Status of its
-                  // own, so a status/state-lane drag has nothing to persist;
-                  // assignee/estimate drags route to its Cycle Adjustment.
                   const movedTask = tasks.find((candidate) => candidate.id === move.taskId);
                   if (movedTask?.isProjected) {
-                    if ("workflowStatusId" in fields) return;
+                    if ("workflowStatusId" in fields && fields.workflowStatusId) {
+                      void materializeProjectedTask({
+                        task: movedTask,
+                        workflowStatusId: fields.workflowStatusId,
+                      });
+                      return;
+                    }
                     editTask(move.taskId, fields);
                     return;
                   }
