@@ -309,6 +309,11 @@ const nullableIdFromArgs = (args: ReadonlyArray<string>, option: string) => {
   return value;
 };
 
+const numberOptionFromArgs = (args: ReadonlyArray<string>, option: string) => {
+  const value = optionValueFromArgs(args, option);
+  return value === undefined ? undefined : Number(value);
+};
+
 const firstDefined = <T>(...values: ReadonlyArray<T | undefined>) =>
   values.find((value) => value !== undefined);
 
@@ -431,6 +436,44 @@ const runTaskTool = (tool: string, body: Record<string, unknown>) =>
     return result.ok === false
       ? operationFailure(result as { readonly ok: false; readonly error: unknown })
       : success(result);
+  });
+
+const runMcpCall = (args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const tool = args[0];
+    if (!tool) return yield* Effect.fail(new MissingOptionError({ option: "tool" }));
+    const json = yield* jsonOptionFromArgs(args.slice(1));
+    return yield* runTaskTool(tool, JSON.parse(json) as Record<string, unknown>);
+  });
+
+const runTemplateCreateWeeklyService = (args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const body: Record<string, unknown> = {
+      churchId: yield* requiredOptionFromArgs(args, "--church-id"),
+      name: yield* requiredOptionFromArgs(args, "--name"),
+      teamId: yield* requiredOptionFromArgs(args, "--team-id"),
+      startDate: yield* requiredOptionFromArgs(args, "--start-date"),
+      weekday: numberOptionFromArgs(args, "--weekday") ?? 6,
+    };
+    addOptionalValue(body, "key", optionValueFromArgs(args, "--key"));
+    addOptionalValue(body, "scheduleName", optionValueFromArgs(args, "--schedule-name"));
+    return yield* runTaskTool("template-create-weekly-service", body);
+  });
+
+const runTemplateTaskAddAtPlacement = (args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const body: Record<string, unknown> = {
+      churchId: yield* requiredOptionFromArgs(args, "--church-id"),
+      templateId: yield* requiredOptionFromArgs(args, "--template-id"),
+      teamId: yield* requiredOptionFromArgs(args, "--team-id"),
+      title: yield* requiredOptionFromArgs(args, "--title"),
+      cycleOffset: numberOptionFromArgs(args, "--cycle-offset") ?? 0,
+      weekday: numberOptionFromArgs(args, "--weekday") ?? 6,
+    };
+    addOptionalValue(body, "description", optionValueFromArgs(args, "--description"));
+    addOptionalValue(body, "assignedUserId", nullableIdFromArgs(args, "--assigned-user-id"));
+    addOptionalValue(body, "estimate", nullableIdFromArgs(args, "--estimate"));
+    return yield* runTaskTool("template-task-add-at-placement", body);
   });
 
 const runTaskList = (args: ReadonlyArray<string>) =>
@@ -682,6 +725,18 @@ const runCliEffect = (
 
   if (command === "task" && args[1] === "list") {
     return runTaskList(args.slice(2));
+  }
+
+  if (command === "mcp" && args[1] === "call") {
+    return runMcpCall(args.slice(2));
+  }
+
+  if (command === "template" && args[1] === "create-weekly-service") {
+    return runTemplateCreateWeeklyService(args.slice(2));
+  }
+
+  if (command === "template-task" && args[1] === "add-at-placement") {
+    return runTemplateTaskAddAtPlacement(args.slice(2));
   }
 
   if (command === "task" && args[1] === "get") {
