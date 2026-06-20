@@ -648,12 +648,20 @@ function PeriodScheduleStep({
                 <Tooltip key={cycle.startLocalDate}>
                   <TooltipTrigger
                     className={cn(
-                      "h-full flex-1 transition-colors",
+                      "relative h-full flex-1 transition-colors",
+                      // Base fill keeps the in-period vs carried distinction
+                      // legible even on boundary Cycles.
                       cycle.isInFocusPeriod ? "bg-primary" : "bg-muted-foreground/25",
                       startsNewPeriod && "border-card border-l-2",
-                      hasBoundary && "bg-amber-500 dark:bg-amber-400",
                     )}
-                  />
+                  >
+                    {hasBoundary ? (
+                      // Boundary marker layers an amber notch over the base fill
+                      // rather than replacing it, so "in period" and "boundary"
+                      // read as the two independent dimensions the legend shows.
+                      <span className="absolute top-1/2 left-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500 ring-1 ring-card dark:bg-amber-400" />
+                    ) : null}
+                  </TooltipTrigger>
                   <TooltipContent>
                     Cycle of {formatShortDate(cycle.startLocalDate)} · owns{" "}
                     {ownedPeriodLabel(cycle.ownedPeriodKey)}
@@ -972,7 +980,7 @@ function PeriodFrameStep({
                       frameSize={frameSize}
                       isFirstRow={rowInGroup === 0}
                       key={cycle.startLocalDate}
-                      label={`Week ${cycleIndex + 1}`}
+                      label={`Cycle ${cycleIndex + 1}`}
                       removeTask={removeTask}
                       tasks={cycleTasks}
                       updateTask={updateTask}
