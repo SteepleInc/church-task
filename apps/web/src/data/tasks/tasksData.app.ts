@@ -1,10 +1,18 @@
-import { formatTaskIdentifier, type TaskEstimate, type TaskStatus } from "@church-task/domain";
+import {
+  calculateKeyDateOccurrence,
+  formatTaskIdentifier,
+  KEY_DATE_PRESETS,
+  type KeyDateRule,
+  type TaskEstimate,
+  type TaskStatus,
+} from "@church-task/domain";
 import {
   mutators,
   queries,
-  type ListArgs,
   type CycleAdjustment,
+  type KeyDate,
   type Label,
+  type ListArgs,
   type Task,
   type Team,
   type TemplateSchedule,
@@ -70,6 +78,12 @@ export type TemplateSourceBadge = {
   readonly occurrenceLabel: string;
   readonly occurrenceDate: string | null;
   readonly occurrencePeriod: string | null;
+  /**
+   * The kind of Template Schedule occurrence this source chip represents,
+   * derived from the occurrence key prefix. Drives the source-chip glyph so a
+   * Key Date occurrence reads distinctly from a weekly Cadence occurrence.
+   */
+  readonly occurrenceKind: "keyDate" | "weekly" | "other";
   /** Human-friendly period label (e.g. "Jun 2026"), derived from the occurrence. */
   readonly periodLabel: string | null;
   /**
@@ -255,6 +269,36 @@ const parseJson = <T>(value: string | null | undefined, fallback: T): T => {
   }
 };
 
+const isKeyDatePreset = (value: unknown) =>
+  typeof value === "string" && KEY_DATE_PRESETS.some((preset) => preset === value);
+
+const isKeyDateRule = (value: unknown): value is KeyDateRule => {
+  if (!value || typeof value !== "object" || !("kind" in value)) return false;
+  if (value.kind === "fixedYearly") {
+    return (
+      "month" in value &&
+      "day" in value &&
+      typeof value.month === "number" &&
+      typeof value.day === "number"
+    );
+  }
+  if (value.kind === "computedYearly") {
+    return "rule" in value && isKeyDatePreset(value.rule);
+  }
+  return value.kind === "oneTime" && "localDate" in value && typeof value.localDate === "string";
+};
+
+const parseKeyDateSchedule = (value: string | null | undefined): KeyDateRule | null => {
+  const parsed = parseJson<unknown>(value, null);
+  return isKeyDateRule(parsed) ? parsed : null;
+};
+
+const templateOccurrenceKind = (occurrenceKey: string): TemplateSourceBadge["occurrenceKind"] => {
+  if (occurrenceKey.startsWith("keydate:")) return "keyDate";
+  if (occurrenceKey.startsWith("weekly:")) return "weekly";
+  return "other";
+};
+
 const occurrenceLabel = (date: string) => {
   const parsed = new Date(`${date}T00:00:00.000Z`);
   return `${weekdayName(parsed.getUTCDay())} ${parsed.toLocaleDateString("en-US", {
@@ -284,6 +328,7 @@ export const buildTemplateSourceBadge = (args: {
     dotClassName: getTemplateScheduleDotClassName(args.schedule.id),
     occurrenceDate: date,
     occurrenceKey: args.occurrenceKey,
+    occurrenceKind: templateOccurrenceKind(args.occurrenceKey),
     occurrenceLabel: date ? occurrenceLabel(date) : args.occurrenceKey,
     occurrencePeriod: date ? date.slice(0, 7) : null,
     periodLabel: date ? periodLabel(date) : null,
@@ -343,9 +388,36 @@ const mapTask = (
   workflowStatusId: task.workflow_status_id,
 });
 
+const keyDateScheduleOccurrences = (args: {
+  readonly cycleEndDate: string;
+  readonly keyDateId: string;
+  readonly keyDateSchedule: KeyDateRule;
+  readonly schedule: TemplateSchedule;
+}) => {
+  const occurrences: { occurrenceDate: string; occurrenceKey: string }[] = [];
+  const startYear = Number(args.schedule.start_date.slice(0, 4));
+  const endYear = Number(addDays(args.cycleEndDate, 371).slice(0, 4));
+
+  for (let year = startYear; year <= endYear; year += 1) {
+    const occurrenceDate = calculateKeyDateOccurrence(args.keyDateSchedule, year);
+    if (!occurrenceDate || occurrenceDate < args.schedule.start_date) continue;
+    if (args.schedule.end_date && occurrenceDate > args.schedule.end_date) break;
+    if (args.schedule.recurrence !== "repeating" && occurrenceDate !== args.schedule.start_date) {
+      continue;
+    }
+    occurrences.push({
+      occurrenceDate,
+      occurrenceKey: `keydate:${occurrenceDate}:${args.keyDateId}`,
+    });
+  }
+
+  return occurrences;
+};
+
 export function buildProjectedTemplateTasksForCycle(args: {
   readonly cycle: CycleProjectionContext;
   readonly existingTasks: readonly TaskCollectionItem[];
+  readonly keyDates?: readonly KeyDate[];
   readonly schedules: readonly TemplateSchedule[];
   readonly templateTasks: readonly TemplateTask[];
   readonly templateTeams: readonly TemplateTeam[];
@@ -356,6 +428,7 @@ export function buildProjectedTemplateTasksForCycle(args: {
   readonly teamFilterId?: string;
 }): readonly TaskCollectionItem[] {
   const templateTeamsById = new Map(args.templateTeams.map((team) => [team.id, team]));
+  const keyDatesById = new Map((args.keyDates ?? []).map((keyDate) => [keyDate.id, keyDate]));
   const workflowsByTeamId = new Map(args.workflows.map((workflow) => [workflow.team_id, workflow]));
   const todoByWorkflowId = new Map(
     args.workflowStatuses
@@ -379,14 +452,119 @@ export function buildProjectedTemplateTasksForCycle(args: {
     ]),
   );
 
+  const projectOccurrence = (params: {
+    readonly schedule: TemplateSchedule;
+    readonly scheduleTasks: readonly TemplateTask[];
+    readonly occurrenceDate: string;
+    readonly occurrenceKey: string;
+    readonly anchorWeekday: number;
+  }) => {
+    for (const templateTask of params.scheduleTasks) {
+      const templateTeam = templateTeamsById.get(templateTask.template_team_id);
+      const teamId = templateTeam?.mapped_team_id;
+      if (!teamId) continue;
+      const placementWeekday = templateTask.placement_weekday ?? params.anchorWeekday;
+      const dueDate = addDays(
+        params.occurrenceDate,
+        (templateTask.placement_cycle_offset ?? 0) * 7 +
+          (mondayFirstPosition(placementWeekday) - mondayFirstPosition(params.anchorWeekday)),
+      );
+      if (dueDate < args.cycle.startDate || dueDate > args.cycle.endDate) continue;
+      const sourceKey = `${params.schedule.id}:${templateTask.id}:${params.occurrenceKey}:${args.cycle.id}`;
+      if (existingSourceKeys.has(sourceKey)) continue;
+      const baseLabelIds = parseStringArray(templateTask.label_ids);
+      const adjustment = adjustmentBySourceKey.get(sourceKey);
+      const overrides = parseJson<readonly ProjectedTaskAdjustmentOverride[]>(
+        adjustment?.overrides,
+        [],
+      );
+      const adjustedTeamOverride = overrides.find((override) => override.field === "teamId");
+      const effectiveTeamId = adjustedTeamOverride?.value ?? teamId;
+      const adjustedLabelsOverride = overrides.find((override) => override.field === "labelIds");
+      const effectiveLabelIds = scopedLabelIdsForTeam(
+        adjustedLabelsOverride?.value ?? baseLabelIds,
+        effectiveTeamId,
+        args.labels ?? [],
+      );
+      if (args.teamFilterId && args.teamFilterId !== effectiveTeamId) continue;
+      const effectiveWorkflow = workflowsByTeamId.get(effectiveTeamId);
+      const todo = effectiveWorkflow ? todoByWorkflowId.get(effectiveWorkflow.id) : null;
+      if (!effectiveWorkflow || !todo) continue;
+      const baseProjection: TaskCollectionItem = {
+        assignedUserId: templateTask.assigned_user_id ?? null,
+        boardOrder: `template:${params.schedule.id}:${params.occurrenceKey}:${templateTask.id}`,
+        churchId: params.schedule.church_id,
+        createdAt: 0,
+        createdByUserId: null,
+        cycleId: args.cycle.id,
+        description: templateTask.description ?? null,
+        dueDate,
+        estimate: taskEstimate(templateTask.estimate),
+        finishedAt: null,
+        id: `projected-template-task:${params.schedule.id}:${templateTask.id}:${params.occurrenceKey}:${args.cycle.id}`,
+        identifier: "Projected",
+        isAdjusted: overrides.length > 0,
+        isProjected: true,
+        labelIds: effectiveLabelIds,
+        number: 0,
+        parentTaskId: null,
+        previousIdentifiers: [],
+        sourceBadge: buildTemplateSourceBadge({
+          occurrenceKey: params.occurrenceKey,
+          schedule: params.schedule,
+        }),
+        sourceTemplateCycleId: null,
+        sourceTemplateId: params.schedule.template_id,
+        sourceTemplateOccurrenceKey: params.occurrenceKey,
+        sourceTemplateScheduleId: params.schedule.id,
+        sourceTemplateSyncEnabled: true,
+        sourceTemplateTaskId: templateTask.id,
+        taskState: "todo",
+        teamId: effectiveTeamId,
+        title: templateTask.title,
+        workflowId: effectiveWorkflow.id,
+        workflowStatusId: todo.id,
+      };
+      if (adjustment?.lifecycle === "skipped") continue;
+      projected.push(applyProjectedTaskOverrides(baseProjection, overrides));
+    }
+  };
+
   for (const schedule of args.schedules) {
-    if (schedule.kind !== "weekly") continue;
-    const rule = parseJson<{ kind?: string; weekdays?: readonly number[] }>(schedule.rule, {});
-    const serviceWeekday = rule.weekdays?.[0];
-    if (rule.kind !== "weekly" || serviceWeekday == null) continue;
+    if (schedule.kind !== "weekly" && schedule.kind !== "key_date") continue;
+    const rule = parseJson<{
+      kind?: string;
+      weekdays?: readonly number[];
+      keyDateId?: string;
+      repeat?: string;
+    }>(schedule.rule, {});
     const scheduleTasks = args.templateTasks.filter(
       (task) => task.template_id === schedule.template_id,
     );
+
+    if (schedule.kind === "key_date") {
+      if (rule.kind !== "keyDate" || !rule.keyDateId) continue;
+      const keyDateSchedule = parseKeyDateSchedule(keyDatesById.get(rule.keyDateId)?.schedule);
+      if (!keyDateSchedule) continue;
+      for (const { occurrenceDate, occurrenceKey } of keyDateScheduleOccurrences({
+        cycleEndDate: args.cycle.endDate,
+        keyDateId: rule.keyDateId,
+        keyDateSchedule,
+        schedule,
+      })) {
+        projectOccurrence({
+          anchorWeekday: dateWeekday(occurrenceDate),
+          occurrenceDate,
+          occurrenceKey,
+          schedule,
+          scheduleTasks,
+        });
+      }
+      continue;
+    }
+
+    const serviceWeekday = rule.weekdays?.[0];
+    if (rule.kind !== "weekly" || serviceWeekday == null) continue;
     for (
       let occurrenceDate = schedule.start_date;
       occurrenceDate <= addDays(args.cycle.endDate, 371);
@@ -395,72 +573,13 @@ export function buildProjectedTemplateTasksForCycle(args: {
       if (schedule.end_date && occurrenceDate > schedule.end_date) break;
       if (dateWeekday(occurrenceDate) !== serviceWeekday) continue;
       const occurrenceKey = `weekly:${occurrenceDate}:${weekdayName(serviceWeekday).toLowerCase()}`;
-      for (const templateTask of scheduleTasks) {
-        const templateTeam = templateTeamsById.get(templateTask.template_team_id);
-        const teamId = templateTeam?.mapped_team_id;
-        if (!teamId) continue;
-        const placementWeekday = templateTask.placement_weekday ?? serviceWeekday;
-        const dueDate = addDays(
-          occurrenceDate,
-          (templateTask.placement_cycle_offset ?? 0) * 7 +
-            (mondayFirstPosition(placementWeekday) - mondayFirstPosition(serviceWeekday)),
-        );
-        if (dueDate < args.cycle.startDate || dueDate > args.cycle.endDate) continue;
-        const sourceKey = `${schedule.id}:${templateTask.id}:${occurrenceKey}:${args.cycle.id}`;
-        if (existingSourceKeys.has(sourceKey)) continue;
-        const baseLabelIds = parseStringArray(templateTask.label_ids);
-        const adjustment = adjustmentBySourceKey.get(sourceKey);
-        const overrides = parseJson<readonly ProjectedTaskAdjustmentOverride[]>(
-          adjustment?.overrides,
-          [],
-        );
-        const adjustedTeamOverride = overrides.find((override) => override.field === "teamId");
-        const effectiveTeamId = adjustedTeamOverride?.value ?? teamId;
-        const adjustedLabelsOverride = overrides.find((override) => override.field === "labelIds");
-        const effectiveLabelIds = scopedLabelIdsForTeam(
-          adjustedLabelsOverride?.value ?? baseLabelIds,
-          effectiveTeamId,
-          args.labels ?? [],
-        );
-        if (args.teamFilterId && args.teamFilterId !== effectiveTeamId) continue;
-        const workflow = workflowsByTeamId.get(effectiveTeamId);
-        const todo = workflow ? todoByWorkflowId.get(workflow.id) : null;
-        if (!workflow || !todo) continue;
-        const baseProjection: TaskCollectionItem = {
-          assignedUserId: templateTask.assigned_user_id ?? null,
-          boardOrder: `template:${schedule.id}:${occurrenceKey}:${templateTask.id}`,
-          churchId: schedule.church_id,
-          createdAt: 0,
-          createdByUserId: null,
-          cycleId: args.cycle.id,
-          description: templateTask.description ?? null,
-          dueDate,
-          estimate: taskEstimate(templateTask.estimate),
-          finishedAt: null,
-          id: `projected-template-task:${schedule.id}:${templateTask.id}:${occurrenceKey}:${args.cycle.id}`,
-          identifier: "Projected",
-          isAdjusted: overrides.length > 0,
-          isProjected: true,
-          labelIds: effectiveLabelIds,
-          number: 0,
-          parentTaskId: null,
-          previousIdentifiers: [],
-          sourceBadge: buildTemplateSourceBadge({ occurrenceKey, schedule }),
-          sourceTemplateCycleId: null,
-          sourceTemplateId: schedule.template_id,
-          sourceTemplateOccurrenceKey: occurrenceKey,
-          sourceTemplateScheduleId: schedule.id,
-          sourceTemplateSyncEnabled: true,
-          sourceTemplateTaskId: templateTask.id,
-          taskState: "todo",
-          teamId: effectiveTeamId,
-          title: templateTask.title,
-          workflowId: workflow.id,
-          workflowStatusId: todo.id,
-        };
-        if (adjustment?.lifecycle === "skipped") continue;
-        projected.push(applyProjectedTaskOverrides(baseProjection, overrides));
-      }
+      projectOccurrence({
+        occurrenceDate,
+        occurrenceKey,
+        anchorWeekday: serviceWeekday,
+        schedule,
+        scheduleTasks,
+      });
     }
   }
 
@@ -569,6 +688,9 @@ export function useTasksCollection(params: {
   const [templateTeamRows] = useQuery(
     queries.template_teams.by_church({ church_id: params.churchId ?? "__no_church__" }),
   );
+  const [keyDateRows] = useQuery(
+    queries.key_dates.by_church({ church_id: params.churchId ?? "__no_church__" }),
+  );
   const [workflowRows] = useQuery(
     queries.workflows.by_church({ church_id: params.churchId ?? "__no_church__" }),
   );
@@ -592,6 +714,7 @@ export function useTasksCollection(params: {
       ? buildProjectedTemplateTasksForCycle({
           cycle: params.projectionCycle,
           existingTasks: materializedCollection,
+          keyDates: keyDateRows,
           schedules: scheduleRows,
           cycleAdjustments: cycleAdjustmentRows,
           labels: labelRows,

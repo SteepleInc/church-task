@@ -97,6 +97,122 @@ describe("scheduled Template projections for Cycle surfaces", () => {
     expect(getTemplateScheduleDotClassName("templateschedule_sunday_service")).toMatch(/^bg-/);
   });
 
+  test("projects fixed, dynamic, one-off, and yearly Key Date Template schedules", () => {
+    const base = {
+      cycle: { endDate: "2026-03-29", id: "cycle_2026_03_23", startDate: "2026-03-23" },
+      existingTasks: [],
+      keyDates: [
+        {
+          id: "keydate_easter",
+          schedule: JSON.stringify({ kind: "computedYearly", rule: "easter" }),
+        },
+        {
+          id: "keydate_christmas",
+          schedule: JSON.stringify({ kind: "fixedYearly", month: 12, day: 25 }),
+        },
+        {
+          id: "keydate_retreat",
+          schedule: JSON.stringify({ kind: "oneTime", localDate: "2026-03-29" }),
+        },
+      ],
+      templateTasks: [
+        {
+          assigned_user_id: null,
+          description: null,
+          estimate: null,
+          id: "templatetask_invite",
+          label_ids: JSON.stringify([]),
+          placement_cycle_offset: 0,
+          placement_weekday: 3,
+          template_id: "template_special",
+          template_team_id: "templateteam_worship",
+          title: "Send invites",
+        },
+      ],
+      templateTeams: [{ id: "templateteam_worship", mapped_team_id: "team_worship" }],
+      workflows: [{ id: "workflow_worship", team_id: "team_worship" }],
+      workflowStatuses: [
+        { id: "workflowstatus_todo", task_state: "todo", workflow_id: "workflow_worship" },
+      ],
+    } as const;
+
+    const retreatProjection = buildProjectedTemplateTasksForCycle({
+      ...base,
+      schedules: [
+        {
+          church_id: "church_1",
+          end_date: "2026-03-29",
+          id: "templateschedule_retreat",
+          kind: "key_date",
+          name: "Retreat prep",
+          recurrence: "oneOff",
+          rule: JSON.stringify({ keyDateId: "keydate_retreat", kind: "keyDate", repeat: "none" }),
+          start_date: "2026-03-29",
+          template_id: "template_special",
+        },
+      ] as never,
+    } as never);
+
+    expect(retreatProjection[0]).toMatchObject({
+      dueDate: "2026-03-25",
+      sourceTemplateOccurrenceKey: "keydate:2026-03-29:keydate_retreat",
+    });
+
+    const easterProjection = buildProjectedTemplateTasksForCycle({
+      ...base,
+      cycle: { endDate: "2026-04-05", id: "cycle_2026_03_30", startDate: "2026-03-30" },
+      schedules: [
+        {
+          church_id: "church_1",
+          end_date: null,
+          id: "templateschedule_easter",
+          kind: "key_date",
+          name: "Easter prep",
+          recurrence: "repeating",
+          rule: JSON.stringify({ keyDateId: "keydate_easter", kind: "keyDate", repeat: "yearly" }),
+          start_date: "2026-04-05",
+          template_id: "template_special",
+        },
+      ] as never,
+    } as never);
+
+    expect(easterProjection[0]).toMatchObject({
+      dueDate: "2026-04-01",
+      sourceTemplateOccurrenceKey: "keydate:2026-04-05:keydate_easter",
+    });
+
+    // Key Date occurrences carry a distinct source-chip glyph kind so they read
+    // differently from weekly Cadence occurrences on Cycle surfaces.
+    expect(easterProjection[0]?.sourceBadge?.occurrenceKind).toBe("keyDate");
+
+    const christmas2027 = buildProjectedTemplateTasksForCycle({
+      ...base,
+      cycle: { endDate: "2027-12-26", id: "cycle_2027_12_20", startDate: "2027-12-20" },
+      schedules: [
+        {
+          church_id: "church_1",
+          end_date: null,
+          id: "templateschedule_christmas",
+          kind: "key_date",
+          name: "Christmas prep",
+          recurrence: "repeating",
+          rule: JSON.stringify({
+            keyDateId: "keydate_christmas",
+            kind: "keyDate",
+            repeat: "yearly",
+          }),
+          start_date: "2026-12-25",
+          template_id: "template_special",
+        },
+      ] as never,
+    } as never);
+
+    expect(christmas2027[0]).toMatchObject({
+      dueDate: "2027-12-22",
+      sourceTemplateOccurrenceKey: "keydate:2027-12-25:keydate_christmas",
+    });
+  });
+
   test("merges Cycle Adjustments into projected Template Tasks and drops foreign Team Labels", () => {
     const projections = buildProjectedTemplateTasksForCycle({
       cycle: { endDate: "2026-06-14", id: "cycle_2026_06_08", startDate: "2026-06-08" },

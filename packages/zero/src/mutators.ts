@@ -235,6 +235,11 @@ const WeeklyTemplateScheduleRuleArg = Schema.Struct({
   kind: Schema.Literal("weekly"),
   weekdays: Schema.Array(Schema.Number),
 });
+const KeyDateTemplateScheduleRuleArg = Schema.Struct({
+  keyDateId: Schema.String,
+  kind: Schema.Literal("keyDate"),
+  repeat: Schema.Union([Schema.Literal("none"), Schema.Literal("yearly")]),
+});
 const CycleAdjustmentOverrideArg = Schema.Union([
   Schema.Struct({ field: Schema.Literal("title"), value: Schema.String }),
   Schema.Struct({
@@ -344,7 +349,7 @@ const CreateTemplateArgs = toZeroSchema(
         kind: Schema.String,
         name: Schema.String,
         recurrence: Schema.String,
-        rule: WeeklyTemplateScheduleRuleArg,
+        rule: Schema.Union([WeeklyTemplateScheduleRuleArg, KeyDateTemplateScheduleRuleArg]),
         start_date: Schema.String,
       }),
       Schema.Null,
