@@ -78,6 +78,71 @@ describe("Zero Cycle mutators", () => {
     ]);
   });
 
+  test("soft-deletes and restores Template Tasks and Schedules without changing identity", async () => {
+    const updateCalls: Array<{ readonly table: unknown; readonly set: Record<string, unknown> }> =
+      [];
+    const insertCalls: Array<{ readonly table: unknown; readonly values: unknown }> = [];
+    const tx = {
+      dbTransaction: {
+        wrappedTransaction: {
+          insert: (table: unknown) => ({
+            values: async (values: unknown) => insertCalls.push({ table, values }),
+          }),
+          update: (table: unknown) => ({
+            set: (set: Record<string, unknown>) => ({
+              where: async () => updateCalls.push({ table, set }),
+            }),
+          }),
+        },
+      },
+      location: "server",
+    } as never;
+
+    await mustGetMutator(mutators, "template_tasks.delete").fn({
+      args: { church_id: "org_test", id: "templatetask_plan_setlist" },
+      ctx: signedInContext,
+      tx,
+    });
+    await mustGetMutator(mutators, "template_tasks.restore").fn({
+      args: { church_id: "org_test", id: "templatetask_plan_setlist" },
+      ctx: signedInContext,
+      tx,
+    });
+    await mustGetMutator(mutators, "template_schedules.delete").fn({
+      args: {
+        church_id: "org_test",
+        cleanup_current_occurrence: false,
+        current_date: "2026-06-15",
+        current_occurrence_key: "weekly:2026-06-21:sunday",
+        id: "templateschedule_sunday_service",
+      },
+      ctx: signedInContext,
+      tx,
+    });
+    await mustGetMutator(mutators, "template_schedules.restore").fn({
+      args: { church_id: "org_test", id: "templateschedule_sunday_service" },
+      ctx: signedInContext,
+      tx,
+    });
+
+    expect(updateCalls.map((call) => call.table)).toEqual([
+      template_tasks,
+      template_tasks,
+      template_schedules,
+      template_schedules,
+    ]);
+    expect(updateCalls[0]?.set.deleted_at).toBeInstanceOf(Date);
+    expect(updateCalls[1]?.set).toMatchObject({ deleted_at: null, deleted_by: null });
+    expect(updateCalls[2]?.set.deleted_at).toBeInstanceOf(Date);
+    expect(updateCalls[3]?.set).toMatchObject({ deleted_at: null, deleted_by: null });
+    expect(insertCalls.map((call) => (call.values as { event_type?: string }).event_type)).toEqual([
+      "template_task.deleted",
+      "template_task.restored",
+      "template_schedule.deleted",
+      "template_schedule.restored",
+    ]);
+  });
+
   test("schedule cleanup soft-deletes future occurrence Tasks and adjustments", async () => {
     const updateCalls: Array<{ readonly table: unknown; readonly set: Record<string, unknown> }> =
       [];
