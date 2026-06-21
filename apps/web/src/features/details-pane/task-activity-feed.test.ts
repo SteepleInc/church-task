@@ -94,4 +94,43 @@ describe("TaskActivityFeed task comments", () => {
     expect(source).toContain("group-hover/comment:opacity-100");
     expect(source).toContain("group-hover/reply:opacity-100");
   });
+
+  test("exposes non-destructive comment menu actions without leaking deleted bodies", () => {
+    expect(source).toContain("Copy content as Markdown");
+    expect(source).toContain("copyCommentMarkdown(comment.body)");
+    expect(source).toContain("copyCommentMarkdown(reply.body)");
+    expect(source).toContain("!isDeleted ? (");
+  });
+
+  test("wires real thread subscription state separately from the header stub", () => {
+    expect(source).toContain("useTaskCommentSubscriptionsForTaskCollection");
+    expect(source).toContain("useSubscribeTaskCommentThreadMutation");
+    expect(source).toContain("useUnsubscribeTaskCommentThreadMutation");
+    expect(source).toContain("subscribedRootCommentIds.has(comment.id)");
+    expect(source).toContain("Subscribe to thread");
+    expect(source).toContain("Unsubscribe from thread");
+    expect(source).toContain("disabled");
+    expect(source).toContain("Activity header Subscribe button");
+  });
+
+  test("keeps visible attachment affordances as safe stubs in both composers", () => {
+    expect(source).toContain("handleCommentAttachmentStub");
+    // Both composers route through the shared AttachmentStubButton, which keeps
+    // the paperclip visible, surfaces a "coming soon" tooltip, and no-ops safely.
+    expect(source).toContain("function AttachmentStubButton");
+    expect(source).toContain('ariaLabel="Attach file to comment"');
+    expect(source).toContain('ariaLabel="Attach file to reply"');
+    expect(source).toContain("Attachments are coming soon.");
+    expect(source).toContain("Attachments are coming soon</TooltipContent>");
+  });
+
+  test("surfaces thread subscription state at a glance with a quiet indicator", () => {
+    // Subscription state reads without opening the overflow menu, Linear-style.
+    expect(source).toContain("function SubscribedIndicator");
+    expect(source).toContain("subscribed ? <SubscribedIndicator /> : null");
+    expect(source).toContain("You&rsquo;re subscribed to this thread");
+    // Toggling the subscription confirms with a toast.
+    expect(source).toContain("Subscribed to this thread.");
+    expect(source).toContain("Unsubscribed from this thread.");
+  });
 });
