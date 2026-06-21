@@ -115,8 +115,22 @@ describe("TaskActivityFeed task comments", () => {
 
   test("keeps visible attachment affordances as safe stubs in both composers", () => {
     expect(source).toContain("handleCommentAttachmentStub");
-    expect(source).toContain('aria-label="Attach file to comment"');
-    expect(source).toContain('aria-label="Attach file to reply"');
+    // Both composers route through the shared AttachmentStubButton, which keeps
+    // the paperclip visible, surfaces a "coming soon" tooltip, and no-ops safely.
+    expect(source).toContain("function AttachmentStubButton");
+    expect(source).toContain('ariaLabel="Attach file to comment"');
+    expect(source).toContain('ariaLabel="Attach file to reply"');
     expect(source).toContain("Attachments are coming soon.");
+    expect(source).toContain("Attachments are coming soon</TooltipContent>");
+  });
+
+  test("surfaces thread subscription state at a glance with a quiet indicator", () => {
+    // Subscription state reads without opening the overflow menu, Linear-style.
+    expect(source).toContain("function SubscribedIndicator");
+    expect(source).toContain("subscribed ? <SubscribedIndicator /> : null");
+    expect(source).toContain("You&rsquo;re subscribed to this thread");
+    // Toggling the subscription confirms with a toast.
+    expect(source).toContain("Subscribed to this thread.");
+    expect(source).toContain("Unsubscribed from this thread.");
   });
 });

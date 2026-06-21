@@ -63,6 +63,7 @@ import {
 import { Kbd } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import {
@@ -171,13 +172,21 @@ export function TaskActivityFeed(props: ActivityFeedProps) {
         <h3 className="font-semibold text-[15px]">Activity</h3>
         {/* Activity header Subscribe button remains a task-level notification
             stub, separate from persisted comment thread subscriptions. */}
-        <button
-          className="text-muted-foreground text-sm transition-colors hover:text-foreground"
-          disabled
-          type="button"
-        >
-          Subscribe
-        </button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                className="flex items-center gap-1.5 text-muted-foreground text-sm transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:text-muted-foreground"
+                disabled
+                type="button"
+              />
+            }
+          >
+            <Bell className="size-3.5" />
+            Subscribe
+          </TooltipTrigger>
+          <TooltipContent>Task notifications are coming soon</TooltipContent>
+        </Tooltip>
       </div>
 
       {loading ? (
@@ -377,6 +386,7 @@ function TaskCommentCard({
       <article className="min-w-0 flex-1 rounded-lg border bg-card shadow-xs">
         <header className="flex items-center gap-2 border-b px-3 py-1.5 text-sm">
           <span className="min-w-0 truncate font-medium text-foreground">{actorName}</span>
+          {!isDeleted && subscribed ? <SubscribedIndicator /> : null}
           <span className="ml-auto shrink-0 text-muted-foreground text-xs" title={title}>
             {formatActivityTime(createdAt, now)}
           </span>
@@ -564,6 +574,28 @@ function CommentTombstone({
   );
 }
 
+/**
+ * A quiet, always-visible badge marking a thread the current User is subscribed
+ * to, so subscription state reads at a glance without opening the overflow menu.
+ */
+function SubscribedIndicator() {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            aria-label="Subscribed to this thread"
+            className="flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground"
+          />
+        }
+      >
+        <Bell className="size-3.5" />
+      </TooltipTrigger>
+      <TooltipContent>You&rsquo;re subscribed to this thread</TooltipContent>
+    </Tooltip>
+  );
+}
+
 /** The quiet "edited" marker with an absolute-time tooltip, Linear-style. */
 function EditedMarker({
   editedAt,
@@ -595,6 +627,39 @@ async function copyCommentMarkdown(body: string) {
 function handleCommentAttachmentStub() {
   // TODO(attachments): open an upload picker once attachment storage exists.
   toast.info("Attachments are coming soon.");
+}
+
+/**
+ * The composer paperclip affordance. Always visible so the surface reads as a
+ * real composer, but a safe no-op for now: it surfaces a "coming soon" toast
+ * and a tooltip rather than failing or hiding. See `handleCommentAttachmentStub`.
+ */
+function AttachmentStubButton({
+  ariaLabel,
+  size,
+}: {
+  readonly ariaLabel: string;
+  readonly size: "icon-xs" | "icon-sm";
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            aria-label={ariaLabel}
+            className="text-muted-foreground"
+            onClick={handleCommentAttachmentStub}
+            size={size}
+            type="button"
+            variant="ghost"
+          />
+        }
+      >
+        <Paperclip />
+      </TooltipTrigger>
+      <TooltipContent>Attachments are coming soon</TooltipContent>
+    </Tooltip>
+  );
 }
 
 /**
@@ -655,6 +720,7 @@ function CommentActions({
     setTogglingSubscription(true);
     try {
       await action();
+      toast.success(subscribed ? "Unsubscribed from this thread." : "Subscribed to this thread.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update thread subscription.");
     } finally {
@@ -908,15 +974,7 @@ function TaskCommentReplyComposer({
           value={body}
         />
         <div className="mt-1 flex items-center justify-between gap-1">
-          <Button
-            aria-label="Attach file to reply"
-            onClick={handleCommentAttachmentStub}
-            size="icon-xs"
-            type="button"
-            variant="ghost"
-          >
-            <Paperclip />
-          </Button>
+          <AttachmentStubButton ariaLabel="Attach file to reply" size="icon-xs" />
           <div className="flex items-center justify-end gap-1">
             <Button onClick={onCancel} size="sm" type="button" variant="ghost">
               Cancel
@@ -998,15 +1056,7 @@ function ActivityCommentComposer({
           value={body}
         />
         <div className="mt-2 flex items-center justify-between gap-2">
-          <Button
-            aria-label="Attach file to comment"
-            onClick={handleCommentAttachmentStub}
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-          >
-            <Paperclip />
-          </Button>
+          <AttachmentStubButton ariaLabel="Attach file to comment" size="icon-sm" />
           <Button
             disabled={!canSubmit}
             loading={submitting}
