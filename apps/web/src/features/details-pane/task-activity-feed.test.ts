@@ -26,4 +26,11 @@ describe("TaskActivityFeed task comments", () => {
     expect(source).toContain("rounded-lg border bg-card shadow-xs");
     expect(source).toContain("whitespace-pre-wrap break-words");
   });
+
+  test("renders one-level replies inside the parent comment card", () => {
+    expect(source).toContain("repliesByParentCommentId");
+    expect(source).toContain('parent_comment_id ?? "__root__"');
+    expect(source).toContain('placeholder={canReply ? "Leave a reply..."');
+    expect(source).toContain("<TaskCommentReply");
+  });
 });

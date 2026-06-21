@@ -72,7 +72,7 @@ type ActivityFeedProps = {
  * Renders one reverse-chronological line per Activity, leading with the actor's
  * avatar, an event glyph, the human-readable phrase, and a compact relative
  * timestamp (absolute time in the line's `title`). Task Comments render inline
- * as cards; replies and subscriptions are deferred.
+ * as cards with one-level replies; subscriptions are deferred.
  */
 export function TaskActivityFeed(props: ActivityFeedProps) {
   const { activitiesCollection, loading } = useActivitiesForEntityCollection({
@@ -94,6 +94,17 @@ export function TaskActivityFeed(props: ActivityFeedProps) {
     () => new Map(taskCommentsCollection.map((comment) => [comment.id, comment])),
     [taskCommentsCollection],
   );
+  const repliesByParentCommentId = useMemo(() => {
+    const grouped = new Map<string, TaskCommentCollectionItem[]>();
+    for (const comment of taskCommentsCollection) {
+      const parentId = comment.parent_comment_id ?? "__root__";
+      if (parentId === "__root__") continue;
+      const replies = grouped.get(parentId) ?? [];
+      replies.push(comment);
+      grouped.set(parentId, replies);
+    }
+    return grouped;
+  }, [taskCommentsCollection]);
 
   // The query returns newest-first; the feed reads oldest-first like Linear.
   const ordered = useMemo(() => [...activitiesCollection].reverse(), [activitiesCollection]);
@@ -125,7 +136,10 @@ export function TaskActivityFeed(props: ActivityFeedProps) {
               key={activity.id}
               now={now}
               commentsById={commentsById}
+              createComment={createComment}
+              currentUserId={props.currentUserId}
               resolveActorName={props.resolveActorName}
+              repliesByParentCommentId={repliesByParentCommentId}
               resolvers={props.resolvers}
             />
           ))}
@@ -159,25 +173,35 @@ function ActivityRow({
   activity,
   now,
   commentsById,
+  createComment,
+  currentUserId,
   resolvers,
   resolveActorName,
+  repliesByParentCommentId,
 }: {
   readonly activity: ActivityCollectionItem;
   readonly commentsById: ReadonlyMap<string, TaskCommentCollectionItem>;
+  readonly createComment: (body: string, parentCommentId?: string | null) => Promise<void>;
+  readonly currentUserId: string | null;
   readonly now: number;
   readonly resolvers: ActivityResolvers;
   readonly resolveActorName: (userId: string) => string | null;
+  readonly repliesByParentCommentId: ReadonlyMap<string, readonly TaskCommentCollectionItem[]>;
 }) {
   const metadata = parseMetadata(activity.metadata);
   if (activity.event_type === "comment_created") {
     const commentId = getCommentId(metadata);
     const comment = commentId ? commentsById.get(commentId) : undefined;
     if (!comment) return null;
+    if (comment.parent_comment_id) return null;
 
     return (
       <TaskCommentCard
         comment={comment}
+        currentUserId={currentUserId}
         now={now}
+        onReply={(body) => createComment(body, comment.id)}
+        replies={repliesByParentCommentId.get(comment.id) ?? []}
         resolveActorName={resolveActorName}
         title={new Date(activity.occurred_at).toLocaleString()}
       />
@@ -219,12 +243,18 @@ function getCommentId(metadata: unknown): string | null {
 
 function TaskCommentCard({
   comment,
+  currentUserId,
   now,
+  onReply,
+  replies,
   resolveActorName,
   title,
 }: {
   readonly comment: TaskCommentCollectionItem;
+  readonly currentUserId: string | null;
   readonly now: number;
+  readonly onReply: (body: string) => Promise<void>;
+  readonly replies: readonly TaskCommentCollectionItem[];
   readonly resolveActorName: (userId: string) => string | null;
   readonly title: string;
 }) {
@@ -249,8 +279,131 @@ function TaskCommentCard({
         <p className="whitespace-pre-wrap break-words px-3 py-2.5 text-foreground/90 text-sm leading-relaxed">
           {comment.body}
         </p>
+        <div className="border-t px-3 py-2">
+          {replies.length > 0 ? (
+            <ol className="mb-2 grid gap-2" aria-label="Replies">
+              {replies.map((reply) => (
+                <TaskCommentReply
+                  key={reply.id}
+                  now={now}
+                  reply={reply}
+                  resolveActorName={resolveActorName}
+                />
+              ))}
+            </ol>
+          ) : null}
+          <TaskCommentReplyComposer
+            currentUserId={currentUserId}
+            currentUserName={
+              currentUserId ? (resolveActorName(currentUserId) ?? "Unknown user") : null
+            }
+            onSubmit={onReply}
+          />
+        </div>
       </article>
     </li>
+  );
+}
+
+function TaskCommentReply({
+  now,
+  reply,
+  resolveActorName,
+}: {
+  readonly now: number;
+  readonly reply: TaskCommentCollectionItem;
+  readonly resolveActorName: (userId: string) => string | null;
+}) {
+  const actorName = resolveActorName(reply.authored_by_user_id) ?? "Unknown user";
+  const createdAt = reply.created_at ?? now;
+
+  return (
+    <li className="flex items-start gap-2.5">
+      <UserAvatar
+        className="mt-0.5 shrink-0"
+        name={actorName}
+        size={22}
+        userId={reply.authored_by_user_id}
+      />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm leading-5">
+          <span className="font-medium text-foreground">{actorName}</span>
+          <span className="text-muted-foreground"> · {formatActivityTime(createdAt, now)}</span>
+        </p>
+        <p className="whitespace-pre-wrap break-words text-foreground/90 text-sm leading-relaxed">
+          {reply.body}
+        </p>
+      </div>
+    </li>
+  );
+}
+
+function TaskCommentReplyComposer({
+  currentUserId,
+  currentUserName,
+  onSubmit,
+}: {
+  readonly currentUserId: string | null;
+  readonly currentUserName: string | null;
+  readonly onSubmit: (body: string) => Promise<void>;
+}) {
+  const [body, setBody] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const trimmed = body.trim();
+  const canReply = currentUserId !== null;
+  const canSubmit = canReply && trimmed.length > 0 && !submitting;
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(trimmed);
+      setBody("");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="flex items-start gap-2">
+      {currentUserId ? (
+        <UserAvatar
+          className="mt-1 shrink-0"
+          name={currentUserName}
+          size={22}
+          userId={currentUserId}
+        />
+      ) : null}
+      <div className="min-w-0 flex-1 rounded-md border bg-background/60 px-2 py-1.5">
+        <Textarea
+          aria-label="Add a reply"
+          className="min-h-9 resize-y border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
+          disabled={!canReply}
+          onChange={(event) => setBody(event.target.value)}
+          onKeyDown={(event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+              event.preventDefault();
+              void submit();
+            }
+          }}
+          placeholder={canReply ? "Leave a reply..." : "Sign in to reply"}
+          value={body}
+        />
+        <div className="mt-1 flex justify-end">
+          <Button
+            disabled={!canSubmit}
+            loading={submitting}
+            onClick={() => void submit()}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            Reply
+            <Kbd className="ml-1.5">mod enter</Kbd>
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
