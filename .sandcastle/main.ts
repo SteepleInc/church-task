@@ -426,7 +426,7 @@ function publishIssuePr({
   baseBranch: string;
   issue: z.infer<typeof planSchema>["issues"][number];
 }) {
-  sh(`git push --set-upstream origin ${quote(issue.branch)}`);
+  pushIssueBranch(issue.branch);
 
   const existingPr = safeSh(`gh pr view ${quote(issue.branch)} --json url --jq .url`).trim();
 
@@ -460,6 +460,19 @@ function publishIssuePr({
 
 function findIssuePr(issue: z.infer<typeof planSchema>["issues"][number]) {
   return safeSh(`gh pr view ${quote(issue.branch)} --json url --jq .url`).trim() || undefined;
+}
+
+function pushIssueBranch(branch: string) {
+  const remoteBranchExists = safeSh(
+    `git fetch origin ${quote(branch)} && git rev-parse --verify ${quote(`origin/${branch}`)}`,
+  ).trim();
+
+  if (remoteBranchExists) {
+    sh(`git switch ${quote(branch)}`);
+    sh(`git rebase ${quote(`origin/${branch}`)}`);
+  }
+
+  sh(`git push --set-upstream origin ${quote(branch)}`);
 }
 
 function enableAutoMerge(prUrl: string) {
@@ -582,7 +595,7 @@ async function repairPrConflicts({
     await sandbox.close();
   }
 
-  sh(`git push origin ${quote(issue.branch)}`);
+  pushIssueBranch(issue.branch);
   if (AUTO_MERGE_PRS) {
     enableAutoMerge(prUrl);
   }
@@ -689,7 +702,7 @@ async function runPostPrReview({
     reviewCommitCount += codeReview.commits.length;
 
     if (reviewCommitCount > 0) {
-      sh(`git push origin ${quote(issue.branch)}`);
+      pushIssueBranch(issue.branch);
       console.log(`  Post-PR review pushed ${reviewCommitCount} commit(s) to ${prUrl}`);
     }
   } finally {
@@ -743,7 +756,7 @@ async function repairFailedPrChecks({
       await sandbox.close();
     }
 
-    sh(`git push origin ${quote(issue.branch)}`);
+    pushIssueBranch(issue.branch);
     if (AUTO_MERGE_PRS) {
       enableAutoMerge(prUrl);
     }
