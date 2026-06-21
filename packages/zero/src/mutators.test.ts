@@ -1002,6 +1002,28 @@ describe("Zero Task mutators", () => {
     });
   });
 
+  test("rejects replies to Task Comment replies", async () => {
+    const { insertCalls, tx } = createServerTx([
+      [{ id: "task_test", cycle_id: "cycle_test" }],
+      [{ id: "taskcomment_reply", parent_comment_id: "taskcomment_root" }],
+    ]);
+
+    await expect(
+      mustGetMutator(mutators, "task_comments.create").fn({
+        args: {
+          body: "Nested reply",
+          church_id: "org_test",
+          parent_comment_id: "taskcomment_reply",
+          task_id: "task_test",
+        },
+        ctx: signedInContext,
+        tx,
+      }),
+    ).rejects.toThrow("Replies can only be one level deep.");
+
+    expect(insertCalls).toEqual([]);
+  });
+
   test("creates Week-context Tasks in an existing Cycle", async () => {
     const { insertCalls, tx } = createServerTx([
       [{ id: "workflowstatus_todo", task_state: "todo", workflow_id: "workflow_production" }],

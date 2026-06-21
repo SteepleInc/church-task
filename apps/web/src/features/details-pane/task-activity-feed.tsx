@@ -98,8 +98,8 @@ export function TaskActivityFeed(props: ActivityFeedProps) {
   const repliesByParentCommentId = useMemo(() => {
     const grouped = new Map<string, TaskCommentCollectionItem[]>();
     for (const comment of taskCommentsCollection) {
-      const parentId = comment.parent_comment_id ?? "__root__";
-      if (parentId === "__root__") continue;
+      const parentId = comment.parent_comment_id;
+      if (!parentId) continue;
       const replies = grouped.get(parentId) ?? [];
       replies.push(comment);
       grouped.set(parentId, replies);

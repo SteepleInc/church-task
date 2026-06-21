@@ -29,7 +29,8 @@ describe("TaskActivityFeed task comments", () => {
 
   test("renders one-level replies inside the parent comment card", () => {
     expect(source).toContain("repliesByParentCommentId");
-    expect(source).toContain('parent_comment_id ?? "__root__"');
+    expect(source).toContain("const parentId = comment.parent_comment_id");
+    expect(source).toContain("if (!parentId) continue");
     expect(source).toContain('placeholder={canReply ? "Leave a reply..."');
     expect(source).toContain("<TaskCommentReply");
   });
