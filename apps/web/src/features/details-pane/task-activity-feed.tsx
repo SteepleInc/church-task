@@ -550,6 +550,12 @@ function CommentActions({
   readonly onDelete: () => Promise<void>;
   readonly onStartEdit: () => void;
 }) {
+  // Reveal the kebab only for the row it belongs to, so hovering a parent
+  // comment never lights up every nested reply's menu at once.
+  const revealOnHover =
+    entity === "reply"
+      ? "opacity-0 group-hover/reply:opacity-100"
+      : "opacity-0 group-hover/comment:opacity-100";
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -570,17 +576,22 @@ function CommentActions({
     <>
       <DropdownMenu onOpenChange={setMenuOpen} open={menuOpen}>
         <DropdownMenuTrigger
-          aria-label={`${entity === "reply" ? "Reply" : "Comment"} actions`}
-          className={cn(
-            "-mr-1 ml-0.5 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:opacity-100",
-            // Stay out of the way until the row is hovered or the menu is open,
-            // matching the quiet row affordances elsewhere in the app.
-            menuOpen
-              ? "bg-foreground/5 text-foreground opacity-100"
-              : "opacity-0 group-hover/comment:opacity-100 group-hover/reply:opacity-100",
-          )}
+          render={
+            <Button
+              aria-label={`${entity === "reply" ? "Reply" : "Comment"} actions`}
+              // Quiet until the row is hovered or the menu is open, matching the
+              // row-action affordances used elsewhere in the app.
+              className={cn(
+                "-mr-1 ml-0.5 shrink-0 text-muted-foreground aria-expanded:opacity-100",
+                revealOnHover,
+              )}
+              size="icon-xs"
+              type="button"
+              variant="ghost"
+            />
+          }
         >
-          <MoreHorizontal className="size-4" />
+          <MoreHorizontal />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-36">
           <DropdownMenuItem
@@ -611,7 +622,7 @@ function CommentActions({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogMedia>
-              <Trash2 className="size-4" />
+              <Trash2 />
             </AlertDialogMedia>
             <AlertDialogTitle>Delete this {entity}?</AlertDialogTitle>
             <AlertDialogDescription>
