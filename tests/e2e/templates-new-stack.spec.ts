@@ -64,9 +64,22 @@ test("authors and schedules a weekly service Template", async ({ page }, testInf
   });
   const expandButton = worshipTeamItem.getByRole("button", { name: "Expand Worship" });
   if (await expandButton.isVisible().catch(() => false)) await expandButton.click();
-  await worshipTeamItem.getByRole("link", { name: "Current" }).click();
 
+  // The Template schedules the next upcoming Sunday. That occurrence lands in the
+  // Current Week on most days, but when "today" is itself the service weekday
+  // (e.g. tests running on a Sunday), the next occurrence rolls into the Upcoming
+  // Week. Look in Current first and fall back to Upcoming so the projected Task is
+  // found regardless of which day the suite runs.
   const projectedTask = page.getByLabel("Task card Plan worship set");
+  await worshipTeamItem.getByRole("link", { name: "Current" }).click();
+  if (
+    !(await projectedTask
+      .first()
+      .isVisible({ timeout: 10_000 })
+      .catch(() => false))
+  ) {
+    await worshipTeamItem.getByRole("link", { name: "Upcoming" }).click();
+  }
   await expect(projectedTask).toBeVisible({ timeout: 20_000 });
   await expect(projectedTask).toContainText("Sunday Service Template");
   await expect(projectedTask).toContainText(/Sunday \w{3} \d{1,2}/);
