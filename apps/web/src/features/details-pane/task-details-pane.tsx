@@ -526,6 +526,7 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
                   {workflowStatus?.name ?? "Status"}
                 </FieldPill>
               }
+              triggerTestId="task-details-status-trigger"
               value={task.workflowStatusId}
             />
 
@@ -592,6 +593,7 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
                   )}
                 </FieldPill>
               }
+              triggerTestId="task-details-labels-trigger"
               value={task.labelIds ?? []}
             />
 
@@ -637,6 +639,7 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
                     {team.name}
                   </FieldPill>
                 }
+                triggerTestId="task-details-team-trigger"
                 value={team.id}
               />
             ) : null}

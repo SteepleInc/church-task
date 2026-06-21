@@ -94,7 +94,7 @@ test.describe("Task details Activity Feed", () => {
 
     // Move the Task to a different Team. The mutator writes a task.team_changed
     // Activity with { from: Worship, to: Production }, rendered as a single line.
-    const teamChip = pane.getByRole("combobox", { name: "Change team" });
+    const teamChip = pane.getByTestId("task-details-team-trigger");
     await page.keyboard.press("KeyT");
     await page.getByRole("option", { name: "Production" }).click();
     await expect(teamChip).toContainText("Production");

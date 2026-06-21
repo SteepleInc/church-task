@@ -251,7 +251,7 @@ test.describe("Task details pane sub-tasks", () => {
     await expect(detailsPane(page).getByRole("textbox", { name: "Task title" })).toHaveValue(
       childTitle,
     );
-    await expect(detailsPane(page).getByRole("combobox", { name: "Change status" })).toContainText(
+    await expect(detailsPane(page).getByTestId("task-details-status-trigger")).toContainText(
       "In Progress",
     );
   });

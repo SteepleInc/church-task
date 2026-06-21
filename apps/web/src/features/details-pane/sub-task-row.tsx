@@ -252,6 +252,7 @@ function SubTaskRow({
               <WorkflowStatusIcon className="size-4 shrink-0" taskState={task.taskState} />
             </span>
           }
+          triggerLabel="Change sub-task status"
           value={task.workflowStatusId}
         />
 
@@ -312,6 +313,7 @@ function SubTaskRow({
                   <span className="sr-only" />
                 )
               }
+              triggerLabel="Add sub-task labels"
               value={task.labelIds}
             />
           ) : null}
@@ -320,25 +322,22 @@ function SubTaskRow({
             <span className="hidden text-muted-foreground text-xs sm:inline">{weekLabel}</span>
           ) : null}
 
-          {show("due_date") ? (
-            <DueDateSelector
-              onValueChange={(next) => context.onEdit(task.id, { dueDate: next })}
-              openRef={dueDateOpenRef}
-              trigger={
-                // The pill only shows when a due date is set; when empty the
-                // trigger is a zero-size anchor so the `D` hover shortcut can
-                // still open it (matching the labels/estimate triggers).
-                dueDateLabel ? (
-                  <RowPill>
-                    <span className="text-muted-foreground text-xs">{dueDateLabel}</span>
-                  </RowPill>
-                ) : (
-                  <span className="sr-only" />
-                )
-              }
-              value={task.dueDate}
-            />
-          ) : null}
+          <DueDateSelector
+            onValueChange={(next) => context.onEdit(task.id, { dueDate: next })}
+            openRef={dueDateOpenRef}
+            trigger={
+              // Always render a trigger so the hover `D` shortcut can open the
+              // picker even when Due date is hidden in display properties.
+              show("due_date") && dueDateLabel ? (
+                <RowPill>
+                  <span className="text-muted-foreground text-xs">{dueDateLabel}</span>
+                </RowPill>
+              ) : (
+                <span className="sr-only" />
+              )
+            }
+            value={task.dueDate}
+          />
 
           {show("estimate") ? (
             <EstimateComboboxSelector
@@ -359,14 +358,14 @@ function SubTaskRow({
             />
           ) : null}
 
-          {show("team") ? (
+          {team ? (
             <TeamComboboxSelector
               memberTeamIds={context.memberTeamIds}
               onValueChange={(next) => context.onEdit(task.id, { teamId: next })}
               openRef={teamOpenRef}
               options={context.teamOptions}
               trigger={
-                team ? (
+                show("team") ? (
                   <span className="inline-flex items-center">
                     <TeamAvatar color={team.color} name={team.name} size={16} />
                   </span>
@@ -374,6 +373,7 @@ function SubTaskRow({
                   <span className="sr-only" />
                 )
               }
+              triggerLabel="Change sub-task team"
               value={task.teamId}
             />
           ) : null}
