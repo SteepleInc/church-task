@@ -133,6 +133,12 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
   await weekMenu.getByRole("menuitem").first().click();
   await expect(page).toHaveURL(new RegExp(`${escapeRegExp(teamPath)}/week/\\d+(?:\\?|$)`));
   // The switcher trigger now names a different Week — the board actually moved.
+  // The trigger label re-renders reactively after the URL changes, so wait for
+  // it to stop showing the previous Week before reading it; a bare textContent()
+  // read here races the re-render and can still observe the old label.
+  await expect(weekTrigger).not.toHaveText(new RegExp(`^${escapeRegExp(currentWeekLabel)}$`), {
+    timeout: 20_000,
+  });
   const nextWeekLabel = (await weekTrigger.textContent())?.trim() ?? "";
   expect(nextWeekLabel).not.toBe(currentWeekLabel);
 
