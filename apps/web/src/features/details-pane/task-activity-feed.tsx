@@ -889,6 +889,7 @@ function CommentEditComposer({
             Cancel
           </Button>
           <Button
+            aria-label="Save"
             disabled={!canSubmit}
             loading={submitting}
             onClick={() => void submit()}
@@ -980,6 +981,7 @@ function TaskCommentReplyComposer({
               Cancel
             </Button>
             <Button
+              aria-label="Reply"
               disabled={!canSubmit}
               loading={submitting}
               onClick={() => void submit()}
@@ -1058,6 +1060,7 @@ function ActivityCommentComposer({
         <div className="mt-2 flex items-center justify-between gap-2">
           <AttachmentStubButton ariaLabel="Attach file to comment" size="icon-sm" />
           <Button
+            aria-label="Comment"
             disabled={!canSubmit}
             loading={submitting}
             onClick={() => void submit()}

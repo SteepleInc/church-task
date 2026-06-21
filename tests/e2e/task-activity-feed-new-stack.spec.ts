@@ -116,7 +116,7 @@ test.describe("Task details Activity Feed", () => {
     const commentBody = `This is a persisted top-level comment ${suffix}`;
 
     await pane.getByRole("textbox", { name: "Add a comment" }).fill(commentBody);
-    await pane.getByRole("button", { name: "Comment" }).click();
+    await pane.getByRole("button", { exact: true, name: "Comment" }).click();
 
     await expect(activityFeed(page).getByText("E2E Comment Owner").first()).toBeVisible({
       timeout: 20_000,
@@ -144,7 +144,7 @@ test.describe("Task details Activity Feed", () => {
     const commentBody = `Comment with **Markdown** menu actions ${suffix}`;
 
     await pane.getByRole("textbox", { name: "Add a comment" }).fill(commentBody);
-    await pane.getByRole("button", { name: "Comment" }).click();
+    await pane.getByRole("button", { exact: true, name: "Comment" }).click();
 
     const commentCard = activityFeed(page).getByRole("listitem").filter({ hasText: commentBody });
     await expect(commentCard).toBeVisible({ timeout: 20_000 });
@@ -191,13 +191,13 @@ test.describe("Task details Activity Feed", () => {
     const replyBody = `Nested one-level reply ${suffix}`;
 
     await pane.getByRole("textbox", { name: "Add a comment" }).fill(commentBody);
-    await pane.getByRole("button", { name: "Comment" }).click();
+    await pane.getByRole("button", { exact: true, name: "Comment" }).click();
 
     const commentCard = activityFeed(page).getByRole("listitem").filter({ hasText: commentBody });
     await expect(commentCard).toBeVisible({ timeout: 20_000 });
-    await commentCard.getByRole("button", { name: "Reply" }).click();
+    await commentCard.getByRole("button", { exact: true, name: "Reply" }).click();
     await commentCard.getByRole("textbox", { name: "Add a reply" }).fill(replyBody);
-    await commentCard.getByRole("button", { name: "Reply" }).click();
+    await commentCard.getByRole("button", { exact: true, name: "Reply" }).click();
 
     await expect(
       commentCard.getByRole("list", { name: "Replies" }).getByText(replyBody),
@@ -228,7 +228,7 @@ test.describe("Task details Activity Feed", () => {
     const editedBody = `Edited comment body ${suffix}`;
 
     await pane.getByRole("textbox", { name: "Add a comment" }).fill(originalBody);
-    await pane.getByRole("button", { name: "Comment" }).click();
+    await pane.getByRole("button", { exact: true, name: "Comment" }).click();
 
     const commentCard = activityFeed(page).getByRole("listitem").filter({ hasText: originalBody });
     await expect(commentCard).toBeVisible({ timeout: 20_000 });
@@ -236,8 +236,11 @@ test.describe("Task details Activity Feed", () => {
     await commentCard.hover();
     await commentCard.getByLabel("Comment actions").click();
     await page.getByRole("menuitem", { name: "Edit" }).click();
-    await commentCard.getByRole("textbox", { name: "Edit comment" }).fill(editedBody);
-    await commentCard.getByRole("button", { name: "Save" }).click();
+    // While editing, the card swaps its body text for the edit composer, so the
+    // `originalBody` filter no longer matches it. Scope to the pane's open edit
+    // composer instead, which is unique while a single comment is being edited.
+    await pane.getByRole("textbox", { name: "Edit comment" }).fill(editedBody);
+    await pane.getByRole("button", { exact: true, name: "Save" }).click();
 
     await expect(activityFeed(page).getByText(editedBody)).toBeVisible({ timeout: 20_000 });
     await expect(activityFeed(page).getByText(originalBody)).not.toBeVisible();
