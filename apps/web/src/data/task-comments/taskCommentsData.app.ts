@@ -1,7 +1,34 @@
 import { mutators, queries, type TaskComment } from "@church-task/zero";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 
+import { authClient } from "@/lib/auth-client";
+import type { TaskCommentModerationViewer } from "@/data/task-comments/taskCommentModeration-utils";
+
 export type TaskCommentCollectionItem = TaskComment;
+
+type SessionWithRoles = {
+  readonly orgRole?: string | null;
+  readonly userRole?: string | null;
+};
+
+/**
+ * Resolves the current viewer's moderation capabilities for Task Comments,
+ * mirroring the server `canModerateTaskComment` inputs (author / Church
+ * owner-admin / app admin) so the UI only offers Edit + Delete when the
+ * mutator would accept them.
+ */
+export function useTaskCommentModerationViewer(params: {
+  readonly currentUserId: string | null;
+}): TaskCommentModerationViewer {
+  const { data } = authClient.useSession();
+  const session = data?.session as SessionWithRoles | undefined;
+
+  return {
+    currentUserId: params.currentUserId,
+    churchRole: session?.orgRole ?? null,
+    isAppAdmin: session?.userRole === "admin",
+  };
+}
 
 export function useTaskCommentsForTaskCollection(params: {
   readonly churchId: string | null;

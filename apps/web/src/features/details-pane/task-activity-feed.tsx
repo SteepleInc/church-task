@@ -5,13 +5,17 @@ import {
   CirclePlus,
   CornerDownRight,
   MessageSquare,
+  MoreHorizontal,
+  Pencil,
   RotateCcw,
   Tag,
+  Trash2,
   Triangle,
   Users,
   type LucideIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import {
   useActivitiesForEntityCollection,
@@ -20,12 +24,35 @@ import {
 import {
   useCreateTaskCommentMutation,
   useDeleteTaskCommentMutation,
+  useTaskCommentModerationViewer,
   useTaskCommentsForTaskCollection,
   useUpdateTaskCommentMutation,
   type TaskCommentCollectionItem,
 } from "@/data/task-comments/taskCommentsData.app";
+import {
+  canModerateTaskComment,
+  type TaskCommentModerationViewer,
+} from "@/data/task-comments/taskCommentModeration-utils";
 import { UserAvatar } from "@/components/avatars/userAvatar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -93,6 +120,9 @@ export function TaskActivityFeed(props: ActivityFeedProps) {
   });
   const updateComment = useUpdateTaskCommentMutation({ churchId: props.churchId });
   const deleteComment = useDeleteTaskCommentMutation({ churchId: props.churchId });
+  const moderationViewer = useTaskCommentModerationViewer({
+    currentUserId: props.currentUserId,
+  });
 
   const now = Date.now();
   const commentsById = useMemo(
@@ -144,6 +174,7 @@ export function TaskActivityFeed(props: ActivityFeedProps) {
               createComment={createComment}
               currentUserId={props.currentUserId}
               deleteComment={deleteComment}
+              moderationViewer={moderationViewer}
               resolveActorName={props.resolveActorName}
               repliesByParentCommentId={repliesByParentCommentId}
               resolvers={props.resolvers}
@@ -183,6 +214,7 @@ function ActivityRow({
   createComment,
   currentUserId,
   deleteComment,
+  moderationViewer,
   resolvers,
   resolveActorName,
   repliesByParentCommentId,
@@ -193,6 +225,7 @@ function ActivityRow({
   readonly createComment: (body: string, parentCommentId?: string | null) => Promise<void>;
   readonly currentUserId: string | null;
   readonly deleteComment: (commentId: string) => Promise<void>;
+  readonly moderationViewer: TaskCommentModerationViewer;
   readonly now: number;
   readonly resolvers: ActivityResolvers;
   readonly resolveActorName: (userId: string) => string | null;
@@ -210,6 +243,7 @@ function ActivityRow({
       <TaskCommentCard
         comment={comment}
         currentUserId={currentUserId}
+        moderationViewer={moderationViewer}
         now={now}
         onReply={(body) => createComment(body, comment.id)}
         onDelete={deleteComment}
@@ -257,6 +291,7 @@ function getCommentId(metadata: unknown): string | null {
 function TaskCommentCard({
   comment,
   currentUserId,
+  moderationViewer,
   now,
   onDelete,
   onReply,
@@ -267,6 +302,7 @@ function TaskCommentCard({
 }: {
   readonly comment: TaskCommentCollectionItem;
   readonly currentUserId: string | null;
+  readonly moderationViewer: TaskCommentModerationViewer;
   readonly now: number;
   readonly onReply: (body: string) => Promise<void>;
   readonly onDelete: (commentId: string) => Promise<void>;
@@ -278,15 +314,21 @@ function TaskCommentCard({
   const actorName = resolveActorName(comment.authored_by_user_id) ?? "Unknown user";
   const createdAt = comment.created_at ?? now;
   const [composing, setComposing] = useState(false);
+  const [editing, setEditing] = useState(false);
   const canReply = currentUserId !== null;
   const hasReplies = replies.length > 0;
   const isDeleted = comment.deleted_at !== null;
-  const canEdit = currentUserId === comment.authored_by_user_id && !isDeleted;
+  const canModerate =
+    !isDeleted &&
+    canModerateTaskComment({
+      viewer: moderationViewer,
+      authoredByUserId: comment.authored_by_user_id,
+    });
   const isEdited =
     !isDeleted && comment.updated_at !== null && comment.updated_at !== comment.created_at;
 
   return (
-    <li className="flex items-start gap-2.5 py-0.5">
+    <li className="group/comment flex items-start gap-2.5 py-0.5">
       <UserAvatar
         className="mt-0.5 shrink-0"
         name={actorName}
@@ -299,18 +341,27 @@ function TaskCommentCard({
           <span className="ml-auto shrink-0 text-muted-foreground text-xs" title={title}>
             {formatActivityTime(createdAt, now)}
           </span>
-          {isEdited ? <span className="text-muted-foreground text-xs">edited</span> : null}
-          {canEdit ? (
+          {isEdited ? <EditedMarker editedAt={comment.updated_at} now={now} /> : null}
+          {canModerate ? (
             <CommentActions
-              body={comment.body}
-              commentId={comment.id}
-              onDelete={onDelete}
-              onUpdate={onUpdate}
+              entity="comment"
+              isEditing={editing}
+              onDelete={() => onDelete(comment.id)}
+              onStartEdit={() => setEditing(true)}
             />
           ) : null}
         </header>
         {isDeleted ? (
           <CommentTombstone label="This comment was deleted." />
+        ) : editing ? (
+          <CommentEditComposer
+            initialBody={comment.body}
+            onCancel={() => setEditing(false)}
+            onSubmit={async (body) => {
+              await onUpdate(comment.id, body);
+              setEditing(false);
+            }}
+          />
         ) : (
           <p className="whitespace-pre-wrap break-words px-3 py-2.5 text-foreground/90 text-sm leading-relaxed">
             {comment.body}
@@ -322,9 +373,9 @@ function TaskCommentCard({
             {replies.map((reply) => (
               <TaskCommentReply
                 key={reply.id}
+                moderationViewer={moderationViewer}
                 now={now}
                 reply={reply}
-                currentUserId={currentUserId}
                 onDelete={onDelete}
                 onUpdate={onUpdate}
                 resolveActorName={resolveActorName}
@@ -367,7 +418,7 @@ function TaskCommentCard({
 }
 
 function TaskCommentReply({
-  currentUserId,
+  moderationViewer,
   now,
   onDelete,
   onUpdate,
@@ -376,19 +427,25 @@ function TaskCommentReply({
 }: {
   readonly now: number;
   readonly reply: TaskCommentCollectionItem;
-  readonly currentUserId: string | null;
+  readonly moderationViewer: TaskCommentModerationViewer;
   readonly onDelete: (commentId: string) => Promise<void>;
   readonly onUpdate: (commentId: string, body: string) => Promise<void>;
   readonly resolveActorName: (userId: string) => string | null;
 }) {
   const actorName = resolveActorName(reply.authored_by_user_id) ?? "Unknown user";
   const createdAt = reply.created_at ?? now;
+  const [editing, setEditing] = useState(false);
   const isDeleted = reply.deleted_at !== null;
-  const canEdit = currentUserId === reply.authored_by_user_id && !isDeleted;
+  const canModerate =
+    !isDeleted &&
+    canModerateTaskComment({
+      viewer: moderationViewer,
+      authoredByUserId: reply.authored_by_user_id,
+    });
   const isEdited = !isDeleted && reply.updated_at !== null && reply.updated_at !== reply.created_at;
 
   return (
-    <li className="flex items-start gap-2.5 px-3 py-2 not-last:border-b">
+    <li className="group/reply flex items-start gap-2.5 px-3 py-2 not-last:border-b">
       <UserAvatar
         className="mt-0.5 shrink-0"
         name={actorName}
@@ -396,7 +453,7 @@ function TaskCommentReply({
         userId={reply.authored_by_user_id}
       />
       <div className="min-w-0 flex-1">
-        <p className="flex items-baseline gap-1.5 text-sm leading-5">
+        <p className="flex items-center gap-1.5 text-sm leading-5">
           <span className="min-w-0 truncate font-medium text-foreground">{actorName}</span>
           <span
             className="shrink-0 text-muted-foreground text-xs"
@@ -404,18 +461,28 @@ function TaskCommentReply({
           >
             {formatActivityTime(createdAt, now)}
           </span>
-          {isEdited ? <span className="text-muted-foreground text-xs">edited</span> : null}
-          {canEdit ? (
+          {isEdited ? <EditedMarker editedAt={reply.updated_at} now={now} /> : null}
+          {canModerate ? (
             <CommentActions
-              body={reply.body}
-              commentId={reply.id}
-              onDelete={onDelete}
-              onUpdate={onUpdate}
+              entity="reply"
+              isEditing={editing}
+              onDelete={() => onDelete(reply.id)}
+              onStartEdit={() => setEditing(true)}
             />
           ) : null}
         </p>
         {isDeleted ? (
-          <CommentTombstone className="mt-1" label="This reply was deleted." />
+          <CommentTombstone className="mt-1 px-0 py-0" label="This reply was deleted." />
+        ) : editing ? (
+          <CommentEditComposer
+            className="mt-1.5"
+            initialBody={reply.body}
+            onCancel={() => setEditing(false)}
+            onSubmit={async (body) => {
+              await onUpdate(reply.id, body);
+              setEditing(false);
+            }}
+          />
         ) : (
           <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground/90 text-sm leading-relaxed">
             {reply.body}
@@ -434,41 +501,221 @@ function CommentTombstone({
   readonly label: string;
 }) {
   return (
-    <p className={cn("px-3 py-2.5 text-muted-foreground text-sm italic", className)}>{label}</p>
+    <div
+      className={cn(
+        "flex items-center gap-1.5 px-3 py-2.5 text-muted-foreground text-sm italic",
+        className,
+      )}
+    >
+      <Ban className="size-3.5 shrink-0 not-italic" />
+      <span>{label}</span>
+    </div>
   );
 }
 
-function CommentActions({
-  body,
-  commentId,
-  onDelete,
-  onUpdate,
+/** The quiet "edited" marker with an absolute-time tooltip, Linear-style. */
+function EditedMarker({
+  editedAt,
+  now,
 }: {
-  readonly body: string;
-  readonly commentId: string;
-  readonly onDelete: (commentId: string) => Promise<void>;
-  readonly onUpdate: (commentId: string, body: string) => Promise<void>;
+  readonly editedAt: number | null;
+  readonly now: number;
 }) {
+  const editedTitle =
+    editedAt !== null
+      ? `Edited ${formatActivityTime(editedAt, now)} (${new Date(editedAt).toLocaleString()})`
+      : "Edited";
   return (
-    <span className="ml-1 flex items-center gap-1">
-      <button
-        className="text-muted-foreground text-xs hover:text-foreground"
-        onClick={() => {
-          const nextBody = window.prompt("Edit comment", body)?.trim();
-          if (nextBody) void onUpdate(commentId, nextBody);
-        }}
-        type="button"
-      >
-        Edit
-      </button>
-      <button
-        className="text-muted-foreground text-xs hover:text-destructive"
-        onClick={() => void onDelete(commentId)}
-        type="button"
-      >
-        Delete
-      </button>
+    <span className="shrink-0 text-muted-foreground text-xs" title={editedTitle}>
+      (edited)
     </span>
+  );
+}
+
+/**
+ * The per-comment moderation menu: a hover-revealed kebab opening Edit + Delete.
+ * Editing happens inline (via `onStartEdit`); deletion is gated behind an
+ * AlertDialog so a soft-delete tombstone is never one stray click away. Both
+ * authors and Church moderators reach this affordance (see
+ * `canModerateTaskComment`).
+ */
+function CommentActions({
+  entity,
+  isEditing,
+  onDelete,
+  onStartEdit,
+}: {
+  readonly entity: "comment" | "reply";
+  readonly isEditing: boolean;
+  readonly onDelete: () => Promise<void>;
+  readonly onStartEdit: () => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await onDelete();
+      setConfirmingDelete(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Could not delete ${entity}.`);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <DropdownMenu onOpenChange={setMenuOpen} open={menuOpen}>
+        <DropdownMenuTrigger
+          aria-label={`${entity === "reply" ? "Reply" : "Comment"} actions`}
+          className={cn(
+            "-mr-1 ml-0.5 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:opacity-100",
+            // Stay out of the way until the row is hovered or the menu is open,
+            // matching the quiet row affordances elsewhere in the app.
+            menuOpen
+              ? "bg-foreground/5 text-foreground opacity-100"
+              : "opacity-0 group-hover/comment:opacity-100 group-hover/reply:opacity-100",
+          )}
+        >
+          <MoreHorizontal className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-36">
+          <DropdownMenuItem
+            disabled={isEditing}
+            onClick={() => {
+              onStartEdit();
+              setMenuOpen(false);
+            }}
+          >
+            <Pencil />
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => {
+              setMenuOpen(false);
+              setConfirmingDelete(true);
+            }}
+            variant="destructive"
+          >
+            <Trash2 />
+            Delete...
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialog onOpenChange={setConfirmingDelete} open={confirmingDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogMedia>
+              <Trash2 className="size-4" />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Delete this {entity}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The {entity} will be removed from the conversation and replaced with a
+              &ldquo;deleted&rdquo; placeholder. This can&rsquo;t be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              loading={deleting}
+              onClick={() => void handleDelete()}
+              variant="destructive"
+            >
+              {deleting ? "Deleting..." : `Delete ${entity}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+/**
+ * Inline editor for an existing Task Comment or reply. Mirrors the composer
+ * affordances (focus ring, ⌘/Ctrl+Enter to save, Escape to cancel) and only
+ * saves when the body actually changed.
+ */
+function CommentEditComposer({
+  className,
+  initialBody,
+  onCancel,
+  onSubmit,
+}: {
+  readonly className?: string;
+  readonly initialBody: string;
+  readonly onCancel: () => void;
+  readonly onSubmit: (body: string) => Promise<void>;
+}) {
+  const [body, setBody] = useState(initialBody);
+  const [submitting, setSubmitting] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const trimmed = body.trim();
+  const isUnchanged = trimmed === initialBody.trim();
+  const canSubmit = trimmed.length > 0 && !isUnchanged && !submitting;
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(trimmed);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save changes.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className={cn("px-3 py-2.5", className)}>
+      <div
+        className={cn(
+          "rounded-md border bg-background/60 px-2 py-1.5 transition-colors",
+          focused && "border-ring ring-3 ring-ring/50",
+        )}
+      >
+        <Textarea
+          aria-label="Edit comment"
+          autoFocus
+          className="min-h-16 resize-y border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
+          onBlur={() => setFocused(false)}
+          onChange={(event) => setBody(event.target.value)}
+          onFocus={() => setFocused(true)}
+          onKeyDown={(event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+              event.preventDefault();
+              void submit();
+              return;
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              onCancel();
+            }
+          }}
+          value={body}
+        />
+        <div className="mt-1 flex items-center justify-end gap-1">
+          <Button disabled={submitting} onClick={onCancel} size="sm" type="button" variant="ghost">
+            Cancel
+          </Button>
+          <Button
+            disabled={!canSubmit}
+            loading={submitting}
+            onClick={() => void submit()}
+            size="sm"
+            type="button"
+          >
+            Save
+            <Kbd className="ml-1.5">mod enter</Kbd>
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
