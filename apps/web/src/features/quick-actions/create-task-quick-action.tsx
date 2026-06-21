@@ -65,6 +65,12 @@ export type CreateTaskQuickActionState = {
   readonly teamId?: string | null;
   // Creating a subtask: openers pass the parent Task plus its Team preset.
   readonly parentTaskId?: string | null;
+  readonly title?: string;
+  readonly description?: string;
+  readonly priority?: TaskPriority;
+  readonly estimate?: TaskEstimate;
+  readonly labelIds?: readonly string[];
+  readonly dueDate?: string | null;
   readonly targetCycle?: {
     readonly churchTimeZone: string;
     readonly startDate: string;
@@ -232,19 +238,21 @@ export function CreateTaskQuickAction() {
 
   const form = useAppForm({
     defaultValues: {
-      title: "",
-      description: "",
+      title: state?.title ?? "",
+      description: state?.description ?? "",
       assignedUserId: state?.assignTo ?? (null as string | null),
       // Empty string means "use the effective Workflow's default status".
       workflowStatusId: state?.workflowStatusId ?? "",
       // Null means "use the default Team" (preset → first of your teams →
       // first team). There is no "No team" choice in the picker.
       teamId: state?.teamId ?? (null as string | null),
-      priority: "no_priority" as TaskPriority,
-      estimate: "no_estimate" as TaskEstimate,
-      labels: [] as readonly string[],
+      priority: state?.priority ?? ("no_priority" as TaskPriority),
+      estimate: state?.estimate ?? ("no_estimate" as TaskEstimate),
+      labels: state?.labelIds ?? ([] as readonly string[]),
       // Due Date is never auto-set; it stays empty until picked.
-      dueDate: null as string | null,
+      // Baseline remains `dueDate: null as string | null`; comment-derived
+      // task creation may explicitly prefill it from the source Task.
+      dueDate: state?.dueDate ?? (null as string | null),
     },
     validationLogic: revalidateLogic({
       mode: "submit",
@@ -373,6 +381,19 @@ export function CreateTaskQuickAction() {
     setError(null);
     form.reset();
   };
+
+  useEffect(() => {
+    if (!isOpen || !state) return;
+    form.setFieldValue("title", state.title ?? "");
+    form.setFieldValue("description", state.description ?? "");
+    form.setFieldValue("assignedUserId", state.assignTo ?? null);
+    form.setFieldValue("workflowStatusId", state.workflowStatusId ?? "");
+    form.setFieldValue("teamId", state.teamId ?? null);
+    form.setFieldValue("priority", state.priority ?? "no_priority");
+    form.setFieldValue("estimate", state.estimate ?? "no_estimate");
+    form.setFieldValue("labels", state.labelIds ?? []);
+    form.setFieldValue("dueDate", state.dueDate ?? null);
+  }, [isOpen, state, form]);
 
   // Inline label creation from the picker. Always creates a Church-scoped
   // Label (see CONTEXT.md "Label"); on success the new Label joins the

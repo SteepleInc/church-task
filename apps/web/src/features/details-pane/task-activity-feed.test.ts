@@ -150,6 +150,25 @@ describe("TaskActivityFeed task comments", () => {
     expect(source).toContain("`Copied ${entity} link.`");
   });
 
+  test("offers Task and Subtask creation from non-deleted comments and replies", () => {
+    expect(source).toContain("New Task from {entity}");
+    expect(source).toContain("New Subtask from {entity}");
+    expect(source).toContain("onNewTask");
+    expect(source).toContain("onNewSubtask");
+    // Deleted comments/replies skip CommentActions entirely, so their bodies
+    // cannot be converted into new work.
+    expect(source).toContain("!isDeleted ? (");
+  });
+
+  test("builds Linear-style Task/Subtask prefill from comment text", () => {
+    expect(source).toContain("buildTaskPrefillFromComment");
+    expect(source).toContain("TASK_COMMENT_PREFILL_TITLE_MAX_LENGTH = 80");
+    expect(source).toContain("firstLine.slice(0, TASK_COMMENT_PREFILL_TITLE_MAX_LENGTH - 1)");
+    expect(source).toContain("@${actorName} said in ${sourceTask.identifier} ${sourceTask.title}");
+    expect(source).toContain("parentTaskId: sourceTask.id");
+    expect(source).toContain("parentTaskId: null");
+  });
+
   test("scrolls to and briefly highlights comment fragments including tombstones", () => {
     expect(source).toContain("window.location.hash");
     expect(source).toContain('block: "center"');

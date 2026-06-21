@@ -28,6 +28,7 @@ import type { SubTaskCreateInput } from "@/features/details-pane/sub-task-creato
 import { TeamAvatar } from "@/components/avatars/teamAvatar";
 import { useChangeDetailsPaneId } from "@/components/details-pane/details-pane-helpers";
 import { DetailsShell } from "@/components/details-pane/details-shell";
+import { useQuickActionOpeners } from "@/features/quick-actions/quick-actions-state";
 import {
   AssigneeAvatar,
   AssigneeComboboxSelector,
@@ -117,6 +118,7 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
   const completeTask = useCompleteTaskMutation();
   const cancelTask = useCancelTaskMutation();
   const reopenTask = useReopenTaskMutation();
+  const { openCreateTask } = useQuickActionOpeners();
 
   const team = teams.teamsCollection.find((candidate) => candidate.id === task?.teamId) ?? null;
   const loading = orgLoading || taskLoading;
@@ -741,8 +743,20 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
             <TaskActivityFeed
               churchId={churchId}
               currentUserId={currentUserId}
+              onCreateTaskFromComment={(prefill) => openCreateTask(prefill)}
               resolveActorName={activityResolvers.user}
               resolvers={activityResolvers}
+              sourceTask={{
+                id: task.id,
+                identifier: task.identifier,
+                title: task.title,
+                assignedUserId: task.assignedUserId,
+                teamId: task.teamId,
+                priority: task.priority ?? "no_priority",
+                estimate: task.estimate ?? "no_estimate",
+                labelIds: task.labelIds,
+                dueDate: task.dueDate,
+              }}
               taskEntityId={task.id}
             />
           )}
