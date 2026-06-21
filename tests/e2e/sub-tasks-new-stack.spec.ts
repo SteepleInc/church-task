@@ -198,6 +198,19 @@ test.describe("Task details pane sub-tasks", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByPlaceholder("Change priority to...")).toHaveCount(0);
 
+    // Shared Task field shortcuts also cover due date and team on sub-task rows.
+    await row.hover();
+    await page.keyboard.press("KeyD");
+    await expect(page.getByRole("grid")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("grid")).toHaveCount(0);
+
+    await row.hover();
+    await page.keyboard.press("KeyT");
+    await expect(page.getByPlaceholder("Change team...")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByPlaceholder("Change team...")).toHaveCount(0);
+
     // "O" on the hovered row opens that sub-task's details, swapping the pane to
     // the sub-task's Task Identifier (ADR 0013).
     const parentIdentifier = new URL(page.url()).searchParams.get("details-pane");
@@ -238,7 +251,7 @@ test.describe("Task details pane sub-tasks", () => {
     await expect(detailsPane(page).getByRole("textbox", { name: "Task title" })).toHaveValue(
       childTitle,
     );
-    await expect(detailsPane(page).getByRole("combobox", { name: "Change status" })).toContainText(
+    await expect(detailsPane(page).getByTestId("task-details-status-trigger")).toContainText(
       "In Progress",
     );
   });

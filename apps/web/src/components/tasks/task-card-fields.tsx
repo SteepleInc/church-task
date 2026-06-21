@@ -660,10 +660,15 @@ export function StatusComboboxSelector({
   options,
   onValueChange,
   trigger,
+  triggerLabel = "Change status",
+  triggerTestId,
   disabled = false,
   emptyText = "No results.",
   openRef,
-}: StatusComboboxSelectorProps) {
+}: StatusComboboxSelectorProps & {
+  readonly triggerLabel?: string;
+  readonly triggerTestId?: string;
+}) {
   const rows = useMemo(() => statusRows(options), [options]);
   const items = useMemo(() => rows.map((row) => row.value), [rows]);
   const labelFor = useMemo(() => {
@@ -702,9 +707,10 @@ export function StatusComboboxSelector({
       value={value ?? ""}
     >
       <ComboboxPrimitive.Trigger
-        aria-label="Change status"
+        aria-label={triggerLabel}
         className="inline-flex cursor-pointer items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-60"
         data-slot="card-combobox-trigger"
+        data-testid={triggerTestId}
         // "S" opens the picker (matches Linear's "S" shortcut hint).
         onKeyDown={(event) => {
           if (disabled) return;
@@ -867,9 +873,14 @@ export function LabelsComboboxSelector({
   onValueChange,
   onCreateLabel,
   trigger,
+  triggerLabel = "Add labels",
+  triggerTestId,
   disabled = false,
   openRef,
-}: LabelsComboboxSelectorProps) {
+}: LabelsComboboxSelectorProps & {
+  readonly triggerLabel?: string;
+  readonly triggerTestId?: string;
+}) {
   const [query, setQuery] = useState("");
   const trimmedQuery = query.trim();
   const canCreate =
@@ -910,9 +921,10 @@ export function LabelsComboboxSelector({
       value={value as string[]}
     >
       <ComboboxPrimitive.Trigger
-        aria-label="Add labels"
+        aria-label={triggerLabel}
         className="inline-flex cursor-pointer items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-60"
         data-slot="card-combobox-trigger"
+        data-testid={triggerTestId}
         // "L" opens the picker (matches Linear's "L" shortcut hint).
         onKeyDown={(event) => {
           if (disabled) return;
@@ -1113,9 +1125,14 @@ export function TeamComboboxSelector({
   memberTeamIds,
   onValueChange,
   trigger,
+  triggerLabel = "Change team",
+  triggerTestId,
   disabled = false,
   openRef,
-}: TeamComboboxSelectorProps) {
+}: TeamComboboxSelectorProps & {
+  readonly triggerLabel?: string;
+  readonly triggerTestId?: string;
+}) {
   const partition = useMemo(
     () => partitionTeams({ options, memberTeamIds }),
     [options, memberTeamIds],
@@ -1144,9 +1161,10 @@ export function TeamComboboxSelector({
       value={value ?? ""}
     >
       <ComboboxPrimitive.Trigger
-        aria-label="Change team"
+        aria-label={triggerLabel}
         className="inline-flex cursor-pointer items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-60"
         data-slot="card-combobox-trigger"
+        data-testid={triggerTestId}
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >

@@ -64,14 +64,14 @@ test("manages Labels and applies them to Tasks on the local Postgres and Zero st
 
   const detailsPane = page.getByRole("dialog", { name: "Details Pane" });
   await expect(detailsPane).toBeVisible();
-  await detailsPane.getByLabel("Add labels").click();
+  await detailsPane.getByTestId("task-details-labels-trigger").click();
   await page.getByRole("option", { name: labelName }).click();
   // Assert on the Labels chip specifically: the Activity Feed also renders the
   // label name ("added the <label> label"), so a bare getByText would match two
   // elements and trip Playwright strict mode.
-  await expect(
-    detailsPane.getByRole("combobox", { name: "Add labels", exact: true }),
-  ).toContainText(labelName, { timeout: 20_000 });
+  await expect(detailsPane.getByTestId("task-details-labels-trigger")).toContainText(labelName, {
+    timeout: 20_000,
+  });
 
   await page.goto("/settings/workspace/labels");
   await expect(page.getByRole("row", { name: new RegExp(`${labelName}.*1`) })).toBeVisible({

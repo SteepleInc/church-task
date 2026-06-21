@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, type MutableRefObject } f
 
 import { isEditableTarget } from "@/components/tasks/task-kanban-board-utils";
 import {
-  matchFieldKey,
+  resolveTaskFieldShortcut,
   type ShortcutKeyEvent,
   type TaskShortcutField,
 } from "@/components/tasks/task-surface-keyboard-utils";
@@ -15,15 +15,14 @@ export type SubTaskHoverIntent =
 
 /**
  * Pure decision logic for the hovered sub-task row: `Enter`/`O` opens it and
- * `S`/`A`/`P`/`L`/`Shift+E` open its field picker. Modifier combos
+ * `S`/`A`/`P`/`L`/`Shift+E`/`D`/`T` open its field picker. Modifier combos
  * (Cmd/Ctrl/Alt) are left for the browser/app. Kept DOM-free for unit tests.
  */
 export function resolveSubTaskHoverShortcut(event: ShortcutKeyEvent): SubTaskHoverIntent {
-  if (event.metaKey || event.ctrlKey || event.altKey) return { kind: "none" };
-  const key = event.key;
-  if ((key === "Enter" || key === "o" || key === "O") && !event.shiftKey) return { kind: "open" };
-  const field = matchFieldKey(event);
-  return field ? { kind: "field", field } : { kind: "none" };
+  const intent = resolveTaskFieldShortcut(event);
+  if (intent.kind === "open") return { kind: "open" };
+  if (intent.kind === "field") return { kind: "field", field: intent.field };
+  return { kind: "none" };
 }
 
 /**
@@ -37,10 +36,10 @@ export function resolveSubTaskHoverShortcut(event: ShortcutKeyEvent): SubTaskHov
  * pull in navigation/selection behaviour the pane doesn't want.
  *
  * Instead this layer mirrors only Linear's hover-armed field shortcuts: hover a
- * sub-task row and `S`/`A`/`P`/`L`/`Shift+E` open that row's field picker while
- * `Enter`/`O` opens the sub-task. Like Linear, leaving a row keeps it "armed"
- * so the pointer can drift off before the keystroke lands; only entering a new
- * row moves the cursor.
+ * sub-task row and the shared Task field keys open that row's field picker while
+ * `Enter`/`O` opens the sub-task. Like Linear, leaving a row keeps it "armed" so
+ * the pointer can drift off before the keystroke lands; only entering a new row
+ * moves the cursor.
  */
 
 export type SubTaskRowHandlers = {
@@ -49,7 +48,7 @@ export type SubTaskRowHandlers = {
 };
 
 // Module-scoped signal: is a sub-task row currently armed? The Task details
-// pane binds the same `S`/`P`/`A`/`L`/`⇧E` keys to the *parent* Task while open
+// pane binds the same shared Task field keys to the *parent* Task while open
 // (capture phase). When the pointer is over a sub-task row, that row must win
 // those keys instead — the pane handler reads this to defer. Module scope (not
 // context) keeps the pane decoupled from the section's provider.

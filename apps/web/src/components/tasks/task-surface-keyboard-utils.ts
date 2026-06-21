@@ -5,7 +5,19 @@
  * can be unit-tested directly.
  */
 
-export type TaskShortcutField = "status" | "assignee" | "priority" | "labels" | "estimate";
+export type TaskShortcutField =
+  | "status"
+  | "assignee"
+  | "priority"
+  | "labels"
+  | "estimate"
+  | "dueDate"
+  | "team";
+
+export type TaskFieldShortcutIntent =
+  | { readonly kind: "none" }
+  | { readonly kind: "open" }
+  | { readonly kind: "field"; readonly field: TaskShortcutField };
 
 /**
  * The high-level intent a keydown resolves to. The component performs the side
@@ -35,6 +47,21 @@ export type ShortcutKeyEvent = Pick<
   "key" | "shiftKey" | "metaKey" | "ctrlKey" | "altKey"
 >;
 
+export type TaskFieldShortcutEvent = ShortcutKeyEvent & {
+  readonly target?: EventTarget | null;
+};
+
+function isEditableShortcutTarget(target: EventTarget | null | undefined): boolean {
+  if (!target || typeof target !== "object") return false;
+  const maybeElement = target as {
+    readonly isContentEditable?: boolean;
+    readonly tagName?: string;
+  };
+  if (maybeElement.isContentEditable) return true;
+  const tag = maybeElement.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
 // Bare keystroke -> field picker it opens (S status, A assignee, P priority, L
 // labels, Shift+E estimate). Mirrors the previous hover-scoped bindings.
 export function matchFieldKey(event: ShortcutKeyEvent): TaskShortcutField | null {
@@ -46,7 +73,20 @@ export function matchFieldKey(event: ShortcutKeyEvent): TaskShortcutField | null
   if (key === "a") return "assignee";
   if (key === "p") return "priority";
   if (key === "l") return "labels";
+  if (key === "d") return "dueDate";
+  if (key === "t") return "team";
   return null;
+}
+
+export function resolveTaskFieldShortcut(event: TaskFieldShortcutEvent): TaskFieldShortcutIntent {
+  if (isEditableShortcutTarget(event.target)) return { kind: "none" };
+  if (event.altKey || event.metaKey || event.ctrlKey) return { kind: "none" };
+  const key = event.key;
+  if ((key === "Enter" || key === "o" || key === "O") && !event.shiftKey) {
+    return { kind: "open" };
+  }
+  const field = matchFieldKey(event);
+  return field ? { kind: "field", field } : { kind: "none" };
 }
 
 /**
