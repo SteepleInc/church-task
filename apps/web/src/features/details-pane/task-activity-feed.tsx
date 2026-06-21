@@ -19,7 +19,9 @@ import {
 } from "@/data/activities/activitiesData.app";
 import {
   useCreateTaskCommentMutation,
+  useDeleteTaskCommentMutation,
   useTaskCommentsForTaskCollection,
+  useUpdateTaskCommentMutation,
   type TaskCommentCollectionItem,
 } from "@/data/task-comments/taskCommentsData.app";
 import { UserAvatar } from "@/components/avatars/userAvatar";
@@ -89,6 +91,8 @@ export function TaskActivityFeed(props: ActivityFeedProps) {
     churchId: props.churchId,
     taskId: props.taskEntityId,
   });
+  const updateComment = useUpdateTaskCommentMutation({ churchId: props.churchId });
+  const deleteComment = useDeleteTaskCommentMutation({ churchId: props.churchId });
 
   const now = Date.now();
   const commentsById = useMemo(
@@ -139,9 +143,11 @@ export function TaskActivityFeed(props: ActivityFeedProps) {
               commentsById={commentsById}
               createComment={createComment}
               currentUserId={props.currentUserId}
+              deleteComment={deleteComment}
               resolveActorName={props.resolveActorName}
               repliesByParentCommentId={repliesByParentCommentId}
               resolvers={props.resolvers}
+              updateComment={updateComment}
             />
           ))}
         </ol>
@@ -176,18 +182,22 @@ function ActivityRow({
   commentsById,
   createComment,
   currentUserId,
+  deleteComment,
   resolvers,
   resolveActorName,
   repliesByParentCommentId,
+  updateComment,
 }: {
   readonly activity: ActivityCollectionItem;
   readonly commentsById: ReadonlyMap<string, TaskCommentCollectionItem>;
   readonly createComment: (body: string, parentCommentId?: string | null) => Promise<void>;
   readonly currentUserId: string | null;
+  readonly deleteComment: (commentId: string) => Promise<void>;
   readonly now: number;
   readonly resolvers: ActivityResolvers;
   readonly resolveActorName: (userId: string) => string | null;
   readonly repliesByParentCommentId: ReadonlyMap<string, readonly TaskCommentCollectionItem[]>;
+  readonly updateComment: (commentId: string, body: string) => Promise<void>;
 }) {
   const metadata = parseMetadata(activity.metadata);
   if (activity.event_type === "comment_created") {
@@ -202,6 +212,8 @@ function ActivityRow({
         currentUserId={currentUserId}
         now={now}
         onReply={(body) => createComment(body, comment.id)}
+        onDelete={deleteComment}
+        onUpdate={updateComment}
         replies={repliesByParentCommentId.get(comment.id) ?? []}
         resolveActorName={resolveActorName}
         title={new Date(activity.occurred_at).toLocaleString()}
@@ -246,7 +258,9 @@ function TaskCommentCard({
   comment,
   currentUserId,
   now,
+  onDelete,
   onReply,
+  onUpdate,
   replies,
   resolveActorName,
   title,
@@ -255,6 +269,8 @@ function TaskCommentCard({
   readonly currentUserId: string | null;
   readonly now: number;
   readonly onReply: (body: string) => Promise<void>;
+  readonly onDelete: (commentId: string) => Promise<void>;
+  readonly onUpdate: (commentId: string, body: string) => Promise<void>;
   readonly replies: readonly TaskCommentCollectionItem[];
   readonly resolveActorName: (userId: string) => string | null;
   readonly title: string;
@@ -264,6 +280,10 @@ function TaskCommentCard({
   const [composing, setComposing] = useState(false);
   const canReply = currentUserId !== null;
   const hasReplies = replies.length > 0;
+  const isDeleted = comment.deleted_at !== null;
+  const canEdit = currentUserId === comment.authored_by_user_id && !isDeleted;
+  const isEdited =
+    !isDeleted && comment.updated_at !== null && comment.updated_at !== comment.created_at;
 
   return (
     <li className="flex items-start gap-2.5 py-0.5">
@@ -279,10 +299,23 @@ function TaskCommentCard({
           <span className="ml-auto shrink-0 text-muted-foreground text-xs" title={title}>
             {formatActivityTime(createdAt, now)}
           </span>
+          {isEdited ? <span className="text-muted-foreground text-xs">edited</span> : null}
+          {canEdit ? (
+            <CommentActions
+              body={comment.body}
+              commentId={comment.id}
+              onDelete={onDelete}
+              onUpdate={onUpdate}
+            />
+          ) : null}
         </header>
-        <p className="whitespace-pre-wrap break-words px-3 py-2.5 text-foreground/90 text-sm leading-relaxed">
-          {comment.body}
-        </p>
+        {isDeleted ? (
+          <CommentTombstone label="This comment was deleted." />
+        ) : (
+          <p className="whitespace-pre-wrap break-words px-3 py-2.5 text-foreground/90 text-sm leading-relaxed">
+            {comment.body}
+          </p>
+        )}
 
         {hasReplies ? (
           <ol aria-label="Replies" className="grid border-t">
@@ -291,6 +324,9 @@ function TaskCommentCard({
                 key={reply.id}
                 now={now}
                 reply={reply}
+                currentUserId={currentUserId}
+                onDelete={onDelete}
+                onUpdate={onUpdate}
                 resolveActorName={resolveActorName}
               />
             ))}
@@ -331,16 +367,25 @@ function TaskCommentCard({
 }
 
 function TaskCommentReply({
+  currentUserId,
   now,
+  onDelete,
+  onUpdate,
   reply,
   resolveActorName,
 }: {
   readonly now: number;
   readonly reply: TaskCommentCollectionItem;
+  readonly currentUserId: string | null;
+  readonly onDelete: (commentId: string) => Promise<void>;
+  readonly onUpdate: (commentId: string, body: string) => Promise<void>;
   readonly resolveActorName: (userId: string) => string | null;
 }) {
   const actorName = resolveActorName(reply.authored_by_user_id) ?? "Unknown user";
   const createdAt = reply.created_at ?? now;
+  const isDeleted = reply.deleted_at !== null;
+  const canEdit = currentUserId === reply.authored_by_user_id && !isDeleted;
+  const isEdited = !isDeleted && reply.updated_at !== null && reply.updated_at !== reply.created_at;
 
   return (
     <li className="flex items-start gap-2.5 px-3 py-2 not-last:border-b">
@@ -359,12 +404,71 @@ function TaskCommentReply({
           >
             {formatActivityTime(createdAt, now)}
           </span>
+          {isEdited ? <span className="text-muted-foreground text-xs">edited</span> : null}
+          {canEdit ? (
+            <CommentActions
+              body={reply.body}
+              commentId={reply.id}
+              onDelete={onDelete}
+              onUpdate={onUpdate}
+            />
+          ) : null}
         </p>
-        <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground/90 text-sm leading-relaxed">
-          {reply.body}
-        </p>
+        {isDeleted ? (
+          <CommentTombstone className="mt-1" label="This reply was deleted." />
+        ) : (
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground/90 text-sm leading-relaxed">
+            {reply.body}
+          </p>
+        )}
       </div>
     </li>
+  );
+}
+
+function CommentTombstone({
+  className,
+  label,
+}: {
+  readonly className?: string;
+  readonly label: string;
+}) {
+  return (
+    <p className={cn("px-3 py-2.5 text-muted-foreground text-sm italic", className)}>{label}</p>
+  );
+}
+
+function CommentActions({
+  body,
+  commentId,
+  onDelete,
+  onUpdate,
+}: {
+  readonly body: string;
+  readonly commentId: string;
+  readonly onDelete: (commentId: string) => Promise<void>;
+  readonly onUpdate: (commentId: string, body: string) => Promise<void>;
+}) {
+  return (
+    <span className="ml-1 flex items-center gap-1">
+      <button
+        className="text-muted-foreground text-xs hover:text-foreground"
+        onClick={() => {
+          const nextBody = window.prompt("Edit comment", body)?.trim();
+          if (nextBody) void onUpdate(commentId, nextBody);
+        }}
+        type="button"
+      >
+        Edit
+      </button>
+      <button
+        className="text-muted-foreground text-xs hover:text-destructive"
+        onClick={() => void onDelete(commentId)}
+        type="button"
+      >
+        Delete
+      </button>
+    </span>
   );
 }
 

@@ -226,6 +226,12 @@ const CreateTaskCommentArgs = toZeroSchema(
     task_id: Schema.String,
   }),
 );
+const UpdateTaskCommentArgs = toZeroSchema(
+  Schema.Struct({ body: Schema.String, church_id: Schema.String, comment_id: Schema.String }),
+);
+const DeleteTaskCommentArgs = toZeroSchema(
+  Schema.Struct({ church_id: Schema.String, comment_id: Schema.String }),
+);
 const KeyDateScheduleArg = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("fixedYearly"), month: Schema.Number, day: Schema.Number }),
   Schema.Struct({
@@ -519,6 +525,15 @@ const requireTeamManager = (ctx: OptionalZeroSessionContext, church_id: string) 
 
   return session;
 };
+
+const canModerateTaskComment = (
+  session: ReturnType<typeof requireActiveChurchAccess>,
+  authoredByUserId: string,
+) =>
+  session.user_id === authoredByUserId ||
+  session.is_app_admin ||
+  session.church_role === "owner" ||
+  session.church_role === "admin";
 
 const isValidTeamIdentifier = (identifier: string) =>
   identifier.length > 0 &&
@@ -3251,6 +3266,117 @@ export const mutators = defineMutators({
         metadata: parentCommentId
           ? { comment_id: commentId, parent_comment_id: parentCommentId }
           : { comment_id: commentId },
+        occurred_at: now,
+      });
+    }),
+    delete: defineChurchTaskMutator(DeleteTaskCommentArgs, async ({ args, ctx, tx }) => {
+      const db = serverDb(tx);
+      if (!db) return;
+
+      const session = requireActiveChurchAccess(ctx, args.church_id);
+      const rows = (await db
+        .select({
+          authored_by_user_id: task_comments.authored_by_user_id,
+          deleted_at: task_comments.deleted_at,
+          parent_comment_id: task_comments.parent_comment_id,
+          task_id: task_comments.task_id,
+        })
+        .from(task_comments)
+        .where(
+          and(eq(task_comments.id, args.comment_id), eq(task_comments.church_id, args.church_id)),
+        )) as Array<{
+        readonly authored_by_user_id: string;
+        readonly deleted_at: Date | null;
+        readonly parent_comment_id: string | null;
+        readonly task_id: string;
+      }>;
+      const comment = rows[0];
+      if (!comment) throw new Error("Task Comment not found.");
+      if (comment.deleted_at) return;
+      if (!canModerateTaskComment(session, comment.authored_by_user_id)) {
+        throw new Error("Only comment authors and admins can delete comments.");
+      }
+
+      const taskRows = (await db
+        .select({ cycle_id: tasks.cycle_id })
+        .from(tasks)
+        .where(and(eq(tasks.id, comment.task_id), eq(tasks.church_id, args.church_id)))) as Array<{
+        readonly cycle_id: string | null;
+      }>;
+      const now = new Date();
+      await db
+        .update(task_comments)
+        .set({
+          deleted_at: now,
+          deleted_by: session.user_id,
+          updated_at: now,
+          updated_by: session.user_id,
+        })
+        .where(
+          and(eq(task_comments.id, args.comment_id), eq(task_comments.church_id, args.church_id)),
+        );
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        cycle_id: taskRows[0]?.cycle_id ?? null,
+        entity_id: comment.task_id,
+        entity_type: "task",
+        event_type: "comment_deleted",
+        metadata: { comment_id: args.comment_id, parent_comment_id: comment.parent_comment_id },
+        occurred_at: now,
+      });
+    }),
+    update: defineChurchTaskMutator(UpdateTaskCommentArgs, async ({ args, ctx, tx }) => {
+      const db = serverDb(tx);
+      if (!db) return;
+
+      const session = requireActiveChurchAccess(ctx, args.church_id);
+      const body = args.body.trimEnd();
+      if (!body.trim()) throw new Error("Comment body is required.");
+      const rows = (await db
+        .select({
+          authored_by_user_id: task_comments.authored_by_user_id,
+          deleted_at: task_comments.deleted_at,
+          parent_comment_id: task_comments.parent_comment_id,
+          task_id: task_comments.task_id,
+        })
+        .from(task_comments)
+        .where(
+          and(eq(task_comments.id, args.comment_id), eq(task_comments.church_id, args.church_id)),
+        )) as Array<{
+        readonly authored_by_user_id: string;
+        readonly deleted_at: Date | null;
+        readonly parent_comment_id: string | null;
+        readonly task_id: string;
+      }>;
+      const comment = rows[0];
+      if (!comment) throw new Error("Task Comment not found.");
+      if (comment.deleted_at) throw new Error("Deleted comments cannot be edited.");
+      if (!canModerateTaskComment(session, comment.authored_by_user_id)) {
+        throw new Error("Only comment authors and admins can edit comments.");
+      }
+
+      const taskRows = (await db
+        .select({ cycle_id: tasks.cycle_id })
+        .from(tasks)
+        .where(and(eq(tasks.id, comment.task_id), eq(tasks.church_id, args.church_id)))) as Array<{
+        readonly cycle_id: string | null;
+      }>;
+      const now = new Date();
+      await db
+        .update(task_comments)
+        .set({ body, updated_at: now, updated_by: session.user_id })
+        .where(
+          and(eq(task_comments.id, args.comment_id), eq(task_comments.church_id, args.church_id)),
+        );
+      await writeActivity(db, {
+        actor_id: session.user_id,
+        church_id: args.church_id,
+        cycle_id: taskRows[0]?.cycle_id ?? null,
+        entity_id: comment.task_id,
+        entity_type: "task",
+        event_type: "comment_updated",
+        metadata: { comment_id: args.comment_id, parent_comment_id: comment.parent_comment_id },
         occurred_at: now,
       });
     }),

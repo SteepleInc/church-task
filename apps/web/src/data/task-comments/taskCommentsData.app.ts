@@ -38,3 +38,29 @@ export function useCreateTaskCommentMutation(params: {
     );
   };
 }
+
+export function useUpdateTaskCommentMutation(params: { readonly churchId: string | null }) {
+  const zero = useZero();
+
+  return async (commentId: string, body: string) => {
+    if (params.churchId === null) throw new Error("Church is required to edit comments.");
+    await zero.mutate(
+      mutators.task_comments.update({
+        body,
+        church_id: params.churchId,
+        comment_id: commentId,
+      }),
+    );
+  };
+}
+
+export function useDeleteTaskCommentMutation(params: { readonly churchId: string | null }) {
+  const zero = useZero();
+
+  return async (commentId: string) => {
+    if (params.churchId === null) throw new Error("Church is required to delete comments.");
+    await zero.mutate(
+      mutators.task_comments.delete({ church_id: params.churchId, comment_id: commentId }),
+    );
+  };
+}

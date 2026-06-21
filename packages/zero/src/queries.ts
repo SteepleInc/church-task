@@ -156,7 +156,6 @@ export const queries = defineQueries({
       return zql.task_comments
         .where("church_id", args.church_id)
         .where("task_id", args.task_id)
-        .where("deleted_at", "IS", null)
         .orderBy("created_at", "asc");
     }),
   },

@@ -48,4 +48,20 @@ describe("TaskActivityFeed task comments", () => {
     expect(source).toContain('event.key === "Escape"');
     expect(source).toContain("onClick={onCancel}");
   });
+
+  test("renders edited markers and tombstones without exposing deleted bodies", () => {
+    expect(source).toContain("comment.deleted_at !== null");
+    expect(source).toContain("reply.deleted_at !== null");
+    expect(source).toContain("This comment was deleted.");
+    expect(source).toContain("This reply was deleted.");
+    expect(source).toContain(">edited</span>");
+  });
+
+  test("wires author edit and delete actions through Zero mutations", () => {
+    expect(source).toContain("useUpdateTaskCommentMutation");
+    expect(source).toContain("useDeleteTaskCommentMutation");
+    expect(source).toContain("currentUserId === comment.authored_by_user_id && !isDeleted");
+    expect(source).toContain("currentUserId === reply.authored_by_user_id && !isDeleted");
+    expect(source).toContain('window.prompt("Edit comment", body)');
+  });
 });
