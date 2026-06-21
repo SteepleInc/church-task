@@ -381,6 +381,7 @@ function TaskCommentReplyComposer({
 }) {
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [focused, setFocused] = useState(false);
   const trimmed = body.trim();
   const canReply = currentUserId !== null;
   const canSubmit = canReply && trimmed.length > 0 && !submitting;
@@ -406,13 +407,20 @@ function TaskCommentReplyComposer({
           userId={currentUserId}
         />
       ) : null}
-      <div className="min-w-0 flex-1 rounded-md border bg-background/60 px-2 py-1.5">
+      <div
+        className={cn(
+          "min-w-0 flex-1 rounded-md border bg-background/60 px-2 py-1.5 transition-colors",
+          focused && "border-ring ring-3 ring-ring/50",
+        )}
+      >
         <Textarea
           aria-label="Add a reply"
           autoFocus
           className="min-h-9 resize-y border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
           disabled={!canReply}
+          onBlur={() => setFocused(false)}
           onChange={(event) => setBody(event.target.value)}
+          onFocus={() => setFocused(true)}
           onKeyDown={(event) => {
             if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
               event.preventDefault();
