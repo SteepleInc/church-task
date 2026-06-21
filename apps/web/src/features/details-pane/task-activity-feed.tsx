@@ -71,8 +71,8 @@ type ActivityFeedProps = {
  * The read-only Activity Feed shown at the bottom of the Task Details Pane.
  * Renders one reverse-chronological line per Activity, leading with the actor's
  * avatar, an event glyph, the human-readable phrase, and a compact relative
- * timestamp (absolute time in the line's `title`). Comments, replies, and
- * subscriptions are deferred.
+ * timestamp (absolute time in the line's `title`). Task Comments render inline
+ * as cards; replies and subscriptions are deferred.
  */
 export function TaskActivityFeed(props: ActivityFeedProps) {
   const { activitiesCollection, loading } = useActivitiesForEntityCollection({
@@ -90,6 +90,10 @@ export function TaskActivityFeed(props: ActivityFeedProps) {
   });
 
   const now = Date.now();
+  const commentsById = useMemo(
+    () => new Map(taskCommentsCollection.map((comment) => [comment.id, comment])),
+    [taskCommentsCollection],
+  );
 
   // The query returns newest-first; the feed reads oldest-first like Linear.
   const ordered = useMemo(() => [...activitiesCollection].reverse(), [activitiesCollection]);
@@ -120,7 +124,7 @@ export function TaskActivityFeed(props: ActivityFeedProps) {
               activity={activity}
               key={activity.id}
               now={now}
-              comments={taskCommentsCollection}
+              commentsById={commentsById}
               resolveActorName={props.resolveActorName}
               resolvers={props.resolvers}
             />
@@ -154,23 +158,20 @@ function ActivityFeedEmpty() {
 function ActivityRow({
   activity,
   now,
-  comments,
+  commentsById,
   resolvers,
   resolveActorName,
 }: {
   readonly activity: ActivityCollectionItem;
-  readonly comments: readonly TaskCommentCollectionItem[];
+  readonly commentsById: ReadonlyMap<string, TaskCommentCollectionItem>;
   readonly now: number;
   readonly resolvers: ActivityResolvers;
   readonly resolveActorName: (userId: string) => string | null;
 }) {
   const metadata = parseMetadata(activity.metadata);
   if (activity.event_type === "comment_created") {
-    const commentId =
-      metadata !== null && typeof metadata === "object"
-        ? ((metadata as { readonly comment_id?: unknown }).comment_id as string | undefined)
-        : undefined;
-    const comment = comments.find((item) => item.id === commentId);
+    const commentId = getCommentId(metadata);
+    const comment = commentId ? commentsById.get(commentId) : undefined;
     if (!comment) return null;
 
     return (
@@ -207,6 +208,13 @@ function ActivityRow({
       </p>
     </li>
   );
+}
+
+function getCommentId(metadata: unknown): string | null {
+  if (metadata === null || typeof metadata !== "object") return null;
+
+  const commentId = (metadata as { readonly comment_id?: unknown }).comment_id;
+  return typeof commentId === "string" ? commentId : null;
 }
 
 function TaskCommentCard({
