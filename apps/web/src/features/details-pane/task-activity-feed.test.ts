@@ -179,8 +179,10 @@ describe("TaskActivityFeed task comments", () => {
     expect(source).toContain("TASK_COMMENT_PREFILL_TITLE_MAX_LENGTH = 80");
     expect(source).toContain("firstLine.slice(0, TASK_COMMENT_PREFILL_TITLE_MAX_LENGTH - 1)");
     expect(source).toContain("@${actorName} said in ${sourceTask.identifier} ${sourceTask.title}");
-    expect(source).toContain("parentTaskId: sourceTask.id");
-    expect(source).toContain("parentTaskId: null");
+    expect(source).toContain("createTaskFromComment(sourceTask.id)");
+    expect(source).toContain("createTaskFromReply(sourceTask.id)");
+    expect(source).toContain("createTaskFromComment(null)");
+    expect(source).toContain("createTaskFromReply(null)");
   });
 
   test("attaches a parent reference only when creating a Subtask", () => {

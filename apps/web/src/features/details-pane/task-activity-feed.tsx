@@ -146,9 +146,6 @@ export type TaskCommentTaskPrefill = {
   readonly labelIds: readonly string[];
   readonly dueDate: string | null;
   readonly parentTaskId: string | null;
-  // Human-readable parent reference (Identifier + title) shown in the create
-  // dialog header so a Subtask-from-comment makes its lineage obvious; null for
-  // top-level Tasks.
   readonly parentTaskLabel: {
     readonly identifier: string;
     readonly title: string;
@@ -193,7 +190,7 @@ export function buildTaskPrefillFromComment({
     teamId: sourceTask.teamId,
     priority: sourceTask.priority,
     estimate: sourceTask.estimate,
-    labelIds: sourceTask.labelIds,
+    labelIds: [...sourceTask.labelIds],
     dueDate: sourceTask.dueDate,
     parentTaskId,
     parentTaskLabel: parentTaskId
@@ -529,6 +526,15 @@ function TaskCommentCard({
     });
   const isEdited =
     !isDeleted && comment.updated_at !== null && comment.updated_at !== comment.created_at;
+  const createTaskFromComment = (parentTaskId: string | null) => {
+    const prefill = buildTaskPrefillFromComment({
+      actorName,
+      body: comment.body,
+      parentTaskId,
+      sourceTask,
+    });
+    if (prefill) onCreateTaskFromComment(prefill);
+  };
 
   return (
     <li
@@ -562,24 +568,8 @@ function TaskCommentCard({
               subscribed={subscribed}
               onCopyMarkdown={() => copyCommentMarkdown(comment.body)}
               onCopyLink={() => copyTaskCommentLink(comment.id)}
-              onNewTask={() => {
-                const prefill = buildTaskPrefillFromComment({
-                  actorName,
-                  body: comment.body,
-                  parentTaskId: null,
-                  sourceTask,
-                });
-                if (prefill) onCreateTaskFromComment(prefill);
-              }}
-              onNewSubtask={() => {
-                const prefill = buildTaskPrefillFromComment({
-                  actorName,
-                  body: comment.body,
-                  parentTaskId: sourceTask.id,
-                  sourceTask,
-                });
-                if (prefill) onCreateTaskFromComment(prefill);
-              }}
+              onNewTask={() => createTaskFromComment(null)}
+              onNewSubtask={() => createTaskFromComment(sourceTask.id)}
               onDelete={() => onDelete(comment.id)}
               onStartEdit={() => setEditing(true)}
               onSubscribe={onSubscribeThread}
@@ -695,6 +685,15 @@ function TaskCommentReply({
       authoredByUserId: reply.authored_by_user_id,
     });
   const isEdited = !isDeleted && reply.updated_at !== null && reply.updated_at !== reply.created_at;
+  const createTaskFromReply = (parentTaskId: string | null) => {
+    const prefill = buildTaskPrefillFromComment({
+      actorName,
+      body: reply.body,
+      parentTaskId,
+      sourceTask,
+    });
+    if (prefill) onCreateTaskFromComment(prefill);
+  };
 
   return (
     <li
@@ -726,24 +725,8 @@ function TaskCommentReply({
               isEditing={editing}
               onCopyMarkdown={onCopyMarkdown}
               onCopyLink={onCopyLink}
-              onNewTask={() => {
-                const prefill = buildTaskPrefillFromComment({
-                  actorName,
-                  body: reply.body,
-                  parentTaskId: null,
-                  sourceTask,
-                });
-                if (prefill) onCreateTaskFromComment(prefill);
-              }}
-              onNewSubtask={() => {
-                const prefill = buildTaskPrefillFromComment({
-                  actorName,
-                  body: reply.body,
-                  parentTaskId: sourceTask.id,
-                  sourceTask,
-                });
-                if (prefill) onCreateTaskFromComment(prefill);
-              }}
+              onNewTask={() => createTaskFromReply(null)}
+              onNewSubtask={() => createTaskFromReply(sourceTask.id)}
               onDelete={() => onDelete(reply.id)}
               onStartEdit={() => setEditing(true)}
               canModerate={canModerate}

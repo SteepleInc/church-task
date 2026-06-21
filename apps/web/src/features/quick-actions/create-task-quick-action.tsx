@@ -65,8 +65,6 @@ export type CreateTaskQuickActionState = {
   readonly teamId?: string | null;
   // Creating a subtask: openers pass the parent Task plus its Team preset.
   readonly parentTaskId?: string | null;
-  // Human-readable parent reference (Identifier + title) shown in the header
-  // so a Subtask makes its lineage obvious; null/absent for top-level Tasks.
   readonly parentTaskLabel?: {
     readonly identifier: string;
     readonly title: string;
@@ -138,13 +136,6 @@ function TargetWeekPill({
   );
 }
 
-/**
- * A compact, read-only cue that this Task is being created as a Subtask of an
- * existing Task — surfaced when the dialog opens from a Task Comment's "New
- * Subtask" action. It mirrors the parent breadcrumb shown in the Details Pane
- * (muted Identifier + truncated title) so the lineage is unmistakable before
- * the User commits.
- */
 function ParentTaskPill({
   parentTaskLabel,
 }: {
@@ -166,6 +157,7 @@ function ParentTaskPill({
 
 export function CreateTaskQuickAction() {
   const [state, setState] = useAtom(createTaskQuickActionStateAtom);
+  const isCreatingSubtask = Boolean(state?.parentTaskLabel);
   const search = useSearch({ strict: false }) as { readonly week?: WeekShortcut };
   const [expanded, setExpanded] = useAtom(createTaskDialogExpandedAtom);
   const [createMore, setCreateMore] = useAtom(createTaskCreateMoreAtom);
@@ -525,7 +517,7 @@ export function CreateTaskQuickAction() {
                 }}
               </form.Subscribe>
               <ChevronRight className="size-3.5 text-muted-foreground" />
-              <span>{state?.parentTaskLabel ? "New Subtask" : "New Task"}</span>
+              <span>{isCreatingSubtask ? "New Subtask" : "New Task"}</span>
               {state?.parentTaskLabel ? (
                 <ParentTaskPill parentTaskLabel={state.parentTaskLabel} />
               ) : null}
@@ -761,7 +753,7 @@ export function CreateTaskQuickAction() {
                   }}
                   type="submit"
                 >
-                  {state?.parentTaskLabel ? "Create Subtask" : "Create Task"}
+                  {isCreatingSubtask ? "Create Subtask" : "Create Task"}
                   <Kbd>mod enter</Kbd>
                 </Button>
               )}
