@@ -12,6 +12,7 @@ import {
 
 import { cn } from "@/lib/utils";
 
+import { isEditableTarget } from "./task-kanban-board-utils";
 import { resolveTaskFieldShortcut, type TaskShortcutField } from "./task-surface-keyboard-utils";
 
 export type DraftTaskPickerRefs = Partial<
@@ -66,6 +67,7 @@ export function DraftTaskPropertySurface({
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!armedRef.current) return;
+      if (isEditableTarget(event.target)) return;
       const intent = resolveTaskFieldShortcut(event);
       if (intent.kind !== "field") return;
       const opener = pickerRefs[intent.field]?.current;
