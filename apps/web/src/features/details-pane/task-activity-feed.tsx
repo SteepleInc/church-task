@@ -191,9 +191,11 @@ export function TaskActivityFeed(props: ActivityFeedProps) {
 
       setHighlightedCommentId(commentId);
       window.requestAnimationFrame(() => {
-        document
-          .getElementById(getTaskCommentFragment(commentId))
-          ?.scrollIntoView({ block: "center" });
+        const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        document.getElementById(getTaskCommentFragment(commentId))?.scrollIntoView({
+          behavior: prefersReducedMotion ? "auto" : "smooth",
+          block: "center",
+        });
       });
       timeoutId = window.setTimeout(() => setHighlightedCommentId(null), TASK_COMMENT_HIGHLIGHT_MS);
     };
@@ -437,8 +439,9 @@ function TaskCommentCard({
       />
       <article
         className={cn(
-          "min-w-0 flex-1 rounded-lg border bg-card shadow-xs transition-shadow",
-          highlighted && "ring-2 ring-primary/45 ring-offset-2 ring-offset-background",
+          "min-w-0 flex-1 rounded-lg border bg-card shadow-xs transition-[box-shadow,background-color] duration-500",
+          highlighted &&
+            "border-primary/40 bg-primary/5 ring-2 ring-primary/45 ring-offset-2 ring-offset-background",
         )}
       >
         <header className="flex items-center gap-2 border-b px-3 py-1.5 text-sm">
@@ -492,7 +495,7 @@ function TaskCommentCard({
                 onDelete={onDelete}
                 onUpdate={onUpdate}
                 onCopyMarkdown={() => copyCommentMarkdown(reply.body)}
-                onCopyLink={() => copyTaskCommentLink(reply.id)}
+                onCopyLink={() => copyTaskCommentLink(reply.id, "reply")}
                 resolveActorName={resolveActorName}
                 highlighted={highlightedCommentId === reply.id}
               />
@@ -569,8 +572,8 @@ function TaskCommentReply({
   return (
     <li
       className={cn(
-        "group/reply flex items-start gap-2.5 px-3 py-2 transition-shadow not-last:border-b",
-        highlighted && "ring-2 ring-primary/45 ring-inset",
+        "group/reply flex items-start gap-2.5 px-3 py-2 transition-[box-shadow,background-color] duration-500 not-last:border-b",
+        highlighted && "bg-primary/5 ring-2 ring-primary/45 ring-inset",
       )}
       id={getTaskCommentFragment(reply.id)}
     >
@@ -695,14 +698,14 @@ async function copyCommentMarkdown(body: string) {
   }
 }
 
-async function copyTaskCommentLink(commentId: string) {
+async function copyTaskCommentLink(commentId: string, entity: "comment" | "reply" = "comment") {
   try {
     const url = new URL(window.location.href);
     url.hash = getTaskCommentFragment(commentId);
     await navigator.clipboard.writeText(url.toString());
-    toast.success("Copied comment link.");
+    toast.success(`Copied ${entity} link.`);
   } catch (error) {
-    toast.error(error instanceof Error ? error.message : "Could not copy comment link.");
+    toast.error(error instanceof Error ? error.message : `Could not copy ${entity} link.`);
   }
 }
 
