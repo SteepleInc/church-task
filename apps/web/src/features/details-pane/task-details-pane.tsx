@@ -50,6 +50,8 @@ import {
 } from "@/components/tasks/task-kanban-board-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { TaskActivityFeed } from "./task-activity-feed";
+import type { ActivityResolvers } from "./task-activity-feed-utils";
 
 /**
  * Linear-style property pill used in the Task pane's fixed property band. The
@@ -419,6 +421,20 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
     return result.data.labels[0]?.id ?? null;
   };
 
+  // Name resolvers for the Activity Feed: prefer the live record's current name,
+  // letting the feed fall back to the snapshot label in metadata when an id no
+  // longer resolves (renamed/deleted records).
+  const activityResolvers: ActivityResolvers = {
+    label: (id) => labels.labelsCollection.find((entry) => entry.id === id)?.name ?? null,
+    status: (id) =>
+      workflowStatuses.workflowStatusesCollection.find((entry) => entry.id === id)?.name ?? null,
+    team: (id) => teams.teamsCollection.find((entry) => entry.id === id)?.name ?? null,
+    user: (id) => {
+      const found = users.usersCollection.find((entry) => entry.id === id);
+      return found ? getUserDisplayName(found) : null;
+    },
+  };
+
   return (
     <DetailsShell
       topBarButtons={
@@ -644,6 +660,17 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
               archivedAt: status.archivedAt,
             }))}
           />
+
+          {/* Activity Feed (read-only history). Projected Tasks have no real
+              Activity rows yet, so the feed is only shown for real Tasks. */}
+          {task.isProjected ? null : (
+            <TaskActivityFeed
+              churchId={churchId}
+              resolveActorName={activityResolvers.user}
+              resolvers={activityResolvers}
+              taskEntityId={task.id}
+            />
+          )}
         </>
       }
     />

@@ -13,6 +13,7 @@ const newStackTestMatch = [
   /labels-new-stack\.spec\.ts$/,
   /onboarding-new-stack\.spec\.ts$/,
   /sub-tasks-new-stack\.spec\.ts$/,
+  /task-activity-feed-new-stack\.spec\.ts$/,
   /task-details-pickers-new-stack\.spec\.ts$/,
   /task-hover-keybindings\.spec\.ts$/,
   /tasks-boards-new-stack\.spec\.ts$/,
