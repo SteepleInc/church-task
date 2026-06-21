@@ -16,7 +16,6 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { TeamAvatar } from "@/components/avatars/teamAvatar";
 import { useOpenTaskDetailsPaneUrl } from "@/components/details-pane/details-pane-helpers";
 import { useAppForm } from "@/components/form/ts-form";
 import {
@@ -31,6 +30,7 @@ import {
   LabelsComboboxSelector,
   PriorityComboboxSelector,
   StatusComboboxSelector,
+  TaskPropertyPill,
   TeamComboboxSelector,
   WorkflowStatusIcon,
   type TaskEstimate,
@@ -113,29 +113,6 @@ const CreateTaskSchema = Schema.Struct({
   // Label ids; persisted on the created Task.
   labels: Schema.Array(Schema.String),
 });
-
-/** The Linear-style property pill used along the bottom of the dialog body. */
-function FieldPill({
-  children,
-  muted = false,
-  className,
-}: {
-  readonly children: React.ReactNode;
-  readonly muted?: boolean;
-  readonly className?: string;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-md border bg-background px-2 font-medium text-xs transition-colors hover:bg-accent",
-        muted && "text-muted-foreground",
-        className,
-      )}
-    >
-      {children}
-    </span>
-  );
-}
 
 /**
  * A compact, read-only cue that this Task will attach to the Week currently in
@@ -501,14 +478,14 @@ export function CreateTaskQuickAction() {
                       }}
                       options={teamPickerOptions}
                       trigger={
-                        <FieldPill className="gap-2">
+                        <TaskPropertyPill className="gap-2">
                           <TeamAvatar
                             color={effectiveTeam.color}
                             name={effectiveTeam.name}
                             size={18}
                           />
                           <span className="max-w-32 truncate">{effectiveTeam.name}</span>
-                        </FieldPill>
+                        </TaskPropertyPill>
                       }
                       value={effectiveTeamId}
                     />
@@ -617,7 +594,7 @@ export function CreateTaskQuickAction() {
                       openRef={statusOpenRef}
                       options={options}
                       trigger={
-                        <FieldPill>
+                        <TaskPropertyPill>
                           {effectiveStatus ? (
                             <>
                               <WorkflowStatusIcon
@@ -629,7 +606,7 @@ export function CreateTaskQuickAction() {
                           ) : (
                             "Status"
                           )}
-                        </FieldPill>
+                        </TaskPropertyPill>
                       }
                       value={effectiveStatus?.id ?? null}
                     />
@@ -646,10 +623,10 @@ export function CreateTaskQuickAction() {
                       onValueChange={(next) => field.handleChange(next)}
                       openRef={priorityOpenRef}
                       trigger={
-                        <FieldPill muted={field.state.value === "no_priority"}>
+                        <TaskPropertyPill muted={field.state.value === "no_priority"}>
                           <Icon className={cn("size-3.5", meta.className)} />
                           {field.state.value === "no_priority" ? "Priority" : meta.label}
-                        </FieldPill>
+                        </TaskPropertyPill>
                       }
                       value={field.state.value}
                     />
@@ -682,10 +659,10 @@ export function CreateTaskQuickAction() {
                       options={assigneeOptions}
                       teamMemberIds={teamMemberUserIds}
                       trigger={
-                        <FieldPill muted={selectedAssignee === null}>
+                        <TaskPropertyPill muted={selectedAssignee === null}>
                           <AssigneeAvatar assignee={selectedAssignee} size={14} />
                           {selectedAssignee?.label ?? "Assignee"}
-                        </FieldPill>
+                        </TaskPropertyPill>
                       }
                       value={assignedUserId}
                     />
@@ -701,10 +678,10 @@ export function CreateTaskQuickAction() {
                       onValueChange={(next) => field.handleChange(next)}
                       openRef={estimateOpenRef}
                       trigger={
-                        <FieldPill muted={field.state.value === "no_estimate"}>
+                        <TaskPropertyPill muted={field.state.value === "no_estimate"}>
                           <Triangle className="size-3.5" />
                           {field.state.value === "no_estimate" ? "Estimate" : meta.label}
-                        </FieldPill>
+                        </TaskPropertyPill>
                       }
                       value={field.state.value}
                     />
@@ -734,7 +711,7 @@ export function CreateTaskQuickAction() {
                       openRef={labelsOpenRef}
                       options={labelOptions}
                       trigger={
-                        <FieldPill muted={selected.length === 0}>
+                        <TaskPropertyPill muted={selected.length === 0}>
                           {selected.length === 0 ? (
                             <>
                               <Tag className="size-3.5" />
@@ -758,7 +735,7 @@ export function CreateTaskQuickAction() {
                                 : `${selected.length} labels`}
                             </>
                           )}
-                        </FieldPill>
+                        </TaskPropertyPill>
                       }
                       value={labels}
                     />
@@ -774,10 +751,10 @@ export function CreateTaskQuickAction() {
                       onValueChange={(next) => field.handleChange(next)}
                       openRef={dueDateOpenRef}
                       trigger={
-                        <FieldPill muted={dueDateLabel === null}>
+                        <TaskPropertyPill muted={dueDateLabel === null}>
                           <CalendarIcon className="size-3.5" />
                           {dueDateLabel ?? "Due date"}
-                        </FieldPill>
+                        </TaskPropertyPill>
                       }
                       value={field.state.value}
                     />
@@ -821,3 +798,4 @@ export function CreateTaskQuickAction() {
     </QuickActionsWrapper>
   );
 }
+import { TeamAvatar } from "@/components/avatars/teamAvatar";

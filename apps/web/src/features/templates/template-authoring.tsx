@@ -34,6 +34,7 @@ import {
   LabelsComboboxSelector,
   labelDotClassName,
   PriorityComboboxSelector,
+  TaskPropertyPill,
   TeamComboboxSelector,
   type TaskEstimate,
   type TaskPriority,
@@ -2461,7 +2462,7 @@ function TemplateTaskCard({
           onValueChange={changeTeam}
           options={teamPickerOptions}
           trigger={
-            <FieldPill muted={selectedTeam === null}>
+            <TaskPropertyPill muted={selectedTeam === null}>
               {selectedTeam ? (
                 <>
                   <TeamAvatar color={selectedTeam.color} name={selectedTeam.name} size={14} />
@@ -2470,7 +2471,7 @@ function TemplateTaskCard({
               ) : (
                 "Team"
               )}
-            </FieldPill>
+            </TaskPropertyPill>
           }
           value={task.teamId || null}
         />
@@ -2482,10 +2483,10 @@ function TemplateTaskCard({
           options={assigneeOptions}
           teamMemberIds={teamMemberUserIds}
           trigger={
-            <FieldPill muted={selectedAssignee === null}>
+            <TaskPropertyPill muted={selectedAssignee === null}>
               <AssigneeAvatar assignee={selectedAssignee} size={14} />
               {selectedAssignee?.label ?? "Assignee"}
-            </FieldPill>
+            </TaskPropertyPill>
           }
           value={task.assigneeId}
         />
@@ -2493,10 +2494,10 @@ function TemplateTaskCard({
         <EstimateComboboxSelector
           onValueChange={(next) => onChange({ estimate: next })}
           trigger={
-            <FieldPill muted={task.estimate === "no_estimate"}>
+            <TaskPropertyPill muted={task.estimate === "no_estimate"}>
               <Triangle className="size-3.5" />
               {task.estimate === "no_estimate" ? "Estimate" : estimateMeta.label}
-            </FieldPill>
+            </TaskPropertyPill>
           }
           value={task.estimate}
         />
@@ -2504,10 +2505,10 @@ function TemplateTaskCard({
         <PriorityComboboxSelector
           onValueChange={(next) => onChange({ priority: next })}
           trigger={
-            <FieldPill muted={task.priority === "no_priority"}>
+            <TaskPropertyPill muted={task.priority === "no_priority"}>
               <PriorityIcon className={cn("size-3.5", priorityMeta.className)} />
               {task.priority === "no_priority" ? "Priority" : priorityMeta.label}
-            </FieldPill>
+            </TaskPropertyPill>
           }
           value={task.priority}
         />
@@ -2516,7 +2517,7 @@ function TemplateTaskCard({
           onValueChange={(next) => onChange({ labelIds: next })}
           options={labelOptions}
           trigger={
-            <FieldPill muted={selectedLabels.length === 0}>
+            <TaskPropertyPill muted={selectedLabels.length === 0}>
               {selectedLabels.length === 0 ? (
                 "Labels"
               ) : (
@@ -2537,7 +2538,7 @@ function TemplateTaskCard({
                     : `${selectedLabels.length} labels`}
                 </>
               )}
-            </FieldPill>
+            </TaskPropertyPill>
           }
           value={task.labelIds}
         />
@@ -2575,10 +2576,10 @@ function WeekdaySelector({
         className="inline-flex cursor-pointer items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         type="button"
       >
-        <FieldPill>
+        <TaskPropertyPill>
           <CalendarDays className="size-3.5" />
           {WEEKDAY_SHORT[weekday]}
-        </FieldPill>
+        </TaskPropertyPill>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-1.5">
         <div className="flex gap-1">
@@ -2604,26 +2605,6 @@ function WeekdaySelector({
         </div>
       </PopoverContent>
     </Popover>
-  );
-}
-
-/** The Linear-style property pill used as picker triggers. */
-function FieldPill({
-  children,
-  muted = false,
-}: {
-  readonly children: ReactNode;
-  readonly muted?: boolean;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-md border bg-background px-2 font-medium text-xs transition-colors hover:bg-accent",
-        muted && "text-muted-foreground",
-      )}
-    >
-      {children}
-    </span>
   );
 }
 
