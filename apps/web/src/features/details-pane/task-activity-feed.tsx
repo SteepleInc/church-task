@@ -463,7 +463,6 @@ function TaskCommentCard({
           {isEdited ? <EditedMarker editedAt={comment.updated_at} now={now} /> : null}
           {!isDeleted ? (
             <CommentActions
-              body={comment.body}
               entity="comment"
               isEditing={editing}
               subscribed={subscribed}
@@ -605,7 +604,6 @@ function TaskCommentReply({
           {isEdited ? <EditedMarker editedAt={reply.updated_at} now={now} /> : null}
           {!isDeleted ? (
             <CommentActions
-              body={reply.body}
               entity="reply"
               isEditing={editing}
               onCopyMarkdown={onCopyMarkdown}
@@ -776,7 +774,6 @@ function CommentActions({
   onUnsubscribe,
   subscribed,
 }: {
-  readonly body: string;
   readonly canModerate: boolean;
   readonly entity: "comment" | "reply";
   readonly isEditing: boolean;
