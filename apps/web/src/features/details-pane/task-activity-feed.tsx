@@ -259,7 +259,8 @@ function ActivityCommentComposer({
   const [submitting, setSubmitting] = useState(false);
   const [focused, setFocused] = useState(false);
   const trimmed = body.trim();
-  const canSubmit = trimmed.length > 0 && !submitting;
+  const canComment = currentUserId !== null;
+  const canSubmit = canComment && trimmed.length > 0 && !submitting;
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -285,12 +286,13 @@ function ActivityCommentComposer({
       <div
         className={cn(
           "min-w-0 flex-1 rounded-lg border bg-card p-2 transition-colors",
-          focused && "border-ring ring-3 ring-ring/20",
+          focused && "border-ring ring-3 ring-ring/50",
         )}
       >
         <Textarea
           aria-label="Add a comment"
           className="min-h-20 resize-y border-0 bg-transparent p-1 shadow-none focus-visible:ring-0"
+          disabled={!canComment}
           onBlur={() => setFocused(false)}
           onChange={(event) => setBody(event.target.value)}
           onFocus={() => setFocused(true)}
@@ -300,7 +302,7 @@ function ActivityCommentComposer({
               void submit();
             }
           }}
-          placeholder="Leave a comment..."
+          placeholder={canComment ? "Leave a comment..." : "Sign in to leave a comment"}
           value={body}
         />
         <div className="mt-2 flex items-center justify-end gap-2">

@@ -11,7 +11,7 @@ describe("TaskActivityFeed task comments", () => {
   });
 
   test("submits multiline comments with either platform keyboard shortcut", () => {
-    expect(source).toContain('placeholder="Leave a comment..."');
+    expect(source).toContain('"Leave a comment..."');
     expect(source).toContain("event.metaKey || event.ctrlKey");
     expect(source).toContain('event.key === "Enter"');
     // The composer surfaces the shortcut via the shared, platform-aware Kbd
