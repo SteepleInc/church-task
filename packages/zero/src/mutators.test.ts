@@ -1024,6 +1024,115 @@ describe("Zero Task mutators", () => {
     expect(insertCalls).toEqual([]);
   });
 
+  test("lets Task Comment authors edit comments and logs hidden audit Activity", async () => {
+    const { insertCalls, tx, updateCalls } = createServerTx([
+      [
+        {
+          authored_by_user_id: "user_test",
+          deleted_at: null,
+          parent_comment_id: null,
+          task_id: "task_test",
+        },
+      ],
+      [{ cycle_id: "cycle_test" }],
+    ]);
+
+    await mustGetMutator(mutators, "task_comments.update").fn({
+      args: { body: "Edited body", church_id: "org_test", comment_id: "taskcomment_root" },
+      ctx: signedInContext,
+      tx,
+    });
+
+    expect(updateCalls[0]?.table).toBe(task_comments);
+    expect(updateCalls[0]?.set).toMatchObject({ body: "Edited body", updated_by: "user_test" });
+    const activityInsert = insertCalls.find((call) => call.table === activities)?.values as {
+      readonly event_type: string;
+      readonly metadata: string;
+    };
+    expect(activityInsert.event_type).toBe("comment_updated");
+    expect(JSON.parse(activityInsert.metadata)).toMatchObject({ comment_id: "taskcomment_root" });
+  });
+
+  test("soft-deletes Task Comment replies as tombstones and logs hidden audit Activity", async () => {
+    const { insertCalls, tx, updateCalls } = createServerTx([
+      [
+        {
+          authored_by_user_id: "user_test",
+          deleted_at: null,
+          parent_comment_id: "taskcomment_root",
+          task_id: "task_test",
+        },
+      ],
+      [{ cycle_id: "cycle_test" }],
+    ]);
+
+    await mustGetMutator(mutators, "task_comments.delete").fn({
+      args: { church_id: "org_test", comment_id: "taskcomment_reply" },
+      ctx: signedInContext,
+      tx,
+    });
+
+    expect(updateCalls[0]?.table).toBe(task_comments);
+    expect(updateCalls[0]?.set).toMatchObject({ deleted_by: "user_test", updated_by: "user_test" });
+    const commentUpdate = updateCalls[0]?.set as { readonly deleted_at?: unknown } | undefined;
+    expect(commentUpdate?.deleted_at).toBeInstanceOf(Date);
+    const activityInsert = insertCalls.find((call) => call.table === activities)?.values as {
+      readonly event_type: string;
+      readonly metadata: string;
+    };
+    expect(activityInsert.event_type).toBe("comment_deleted");
+    expect(JSON.parse(activityInsert.metadata)).toMatchObject({
+      comment_id: "taskcomment_reply",
+      parent_comment_id: "taskcomment_root",
+    });
+  });
+
+  test("denies Task Comment edits by non-author non-admin Users", async () => {
+    const { insertCalls, tx, updateCalls } = createServerTx([
+      [
+        {
+          authored_by_user_id: "user_other",
+          deleted_at: null,
+          parent_comment_id: null,
+          task_id: "task_test",
+        },
+      ],
+    ]);
+
+    await expect(
+      mustGetMutator(mutators, "task_comments.update").fn({
+        args: { body: "Bad edit", church_id: "org_test", comment_id: "taskcomment_root" },
+        ctx: { ...signedInContext, church_role: "member" },
+        tx,
+      }),
+    ).rejects.toThrow("Only comment authors and admins can edit comments.");
+
+    expect(updateCalls).toEqual([]);
+    expect(insertCalls).toEqual([]);
+  });
+
+  test("lets Church admins delete any Task Comment", async () => {
+    const { updateCalls, tx } = createServerTx([
+      [
+        {
+          authored_by_user_id: "user_other",
+          deleted_at: null,
+          parent_comment_id: null,
+          task_id: "task_test",
+        },
+      ],
+      [{ cycle_id: "cycle_test" }],
+    ]);
+
+    await mustGetMutator(mutators, "task_comments.delete").fn({
+      args: { church_id: "org_test", comment_id: "taskcomment_root" },
+      ctx: { ...signedInContext, church_role: "admin" },
+      tx,
+    });
+
+    expect(updateCalls[0]?.set).toMatchObject({ deleted_by: "user_test" });
+  });
+
   test("creates Week-context Tasks in an existing Cycle", async () => {
     const { insertCalls, tx } = createServerTx([
       [{ id: "workflowstatus_todo", task_state: "todo", workflow_id: "workflow_production" }],

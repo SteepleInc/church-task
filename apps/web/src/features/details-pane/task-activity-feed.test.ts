@@ -48,4 +48,50 @@ describe("TaskActivityFeed task comments", () => {
     expect(source).toContain('event.key === "Escape"');
     expect(source).toContain("onClick={onCancel}");
   });
+
+  test("renders edited markers and tombstones without exposing deleted bodies", () => {
+    expect(source).toContain("comment.deleted_at !== null");
+    expect(source).toContain("reply.deleted_at !== null");
+    expect(source).toContain("This comment was deleted.");
+    expect(source).toContain("This reply was deleted.");
+    // The edited marker is a quiet "(edited)" affordance with an absolute-time
+    // tooltip rather than a bare label.
+    expect(source).toContain("function EditedMarker");
+    expect(source).toContain("(edited)");
+  });
+
+  test("wires edit and delete actions through Zero mutations", () => {
+    expect(source).toContain("useUpdateTaskCommentMutation");
+    expect(source).toContain("useDeleteTaskCommentMutation");
+  });
+
+  test("gates edit/delete affordances on the shared moderation check", () => {
+    // Authors and Church moderators (owners/admins/app admins) see the kebab,
+    // mirroring the server-side canModerateTaskComment gate.
+    expect(source).toContain("useTaskCommentModerationViewer");
+    expect(source).toContain("canModerateTaskComment({");
+  });
+
+  test("edits comments inline instead of using a native prompt", () => {
+    expect(source).not.toContain("window.prompt");
+    expect(source).toContain("function CommentEditComposer");
+    expect(source).toContain('aria-label="Edit comment"');
+    // The inline editor only saves a genuinely changed body.
+    expect(source).toContain("const isUnchanged = trimmed === initialBody.trim()");
+  });
+
+  test("confirms deletes behind an AlertDialog with a tombstone-friendly warning", () => {
+    expect(source).toContain("<AlertDialog");
+    expect(source).toContain("Delete this {entity}?");
+    expect(source).toContain("setConfirmingDelete(true)");
+    // Errors surface as a toast rather than failing silently.
+    expect(source).toContain("toast.error(");
+  });
+
+  test("hides moderation actions behind a hover-revealed kebab menu", () => {
+    expect(source).toContain("<DropdownMenu");
+    expect(source).toContain("<MoreHorizontal");
+    expect(source).toContain("group-hover/comment:opacity-100");
+    expect(source).toContain("group-hover/reply:opacity-100");
+  });
 });
