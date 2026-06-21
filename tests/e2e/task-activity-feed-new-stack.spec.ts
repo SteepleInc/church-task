@@ -128,6 +128,56 @@ test.describe("Task details Activity Feed", () => {
     await expect(activityFeed(page).getByText(commentBody)).toBeVisible({ timeout: 20_000 });
   });
 
+  test("supports Task Comment menu actions and thread subscriptions", async ({
+    context,
+    page,
+  }, testInfo) => {
+    const suffix = `${Date.now()}-${testInfo.workerIndex}`;
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await startAuthenticatedSession(page, {
+      churchName: `E2E Activity Menu Church ${suffix}`,
+      email: `activity-menu-${suffix}@example.com`,
+      userName: "E2E Menu Owner",
+    });
+
+    const pane = await openTaskDetails(page, `Activity Menu Task ${suffix}`, "Worship");
+    const commentBody = `Comment with **Markdown** menu actions ${suffix}`;
+
+    await pane.getByRole("textbox", { name: "Add a comment" }).fill(commentBody);
+    await pane.getByRole("button", { name: "Comment" }).click();
+
+    const commentCard = activityFeed(page).getByRole("listitem").filter({ hasText: commentBody });
+    await expect(commentCard).toBeVisible({ timeout: 20_000 });
+
+    await commentCard.hover();
+    await commentCard.getByLabel("Comment actions").click();
+    await page.getByRole("menuitem", { name: "Copy content as Markdown" }).click();
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(commentBody);
+
+    await commentCard.hover();
+    await commentCard.getByLabel("Comment actions").click();
+    await page.getByRole("menuitem", { name: "Subscribe to thread" }).click();
+    await expect(commentCard.getByLabel("Subscribed to this thread")).toBeVisible({
+      timeout: 20_000,
+    });
+
+    await page.reload();
+    const reloadedCard = activityFeed(page).getByRole("listitem").filter({ hasText: commentBody });
+    await expect(reloadedCard.getByLabel("Subscribed to this thread")).toBeVisible({
+      timeout: 20_000,
+    });
+
+    await reloadedCard.hover();
+    await reloadedCard.getByLabel("Comment actions").click();
+    await page.getByRole("menuitem", { name: "Unsubscribe from thread" }).click();
+    await expect(reloadedCard.getByLabel("Subscribed to this thread")).not.toBeVisible({
+      timeout: 20_000,
+    });
+
+    await pane.getByLabel("Attach file to comment").click();
+    await expect(page.getByText("Attachments are coming soon.")).toBeVisible();
+  });
+
   test("adds one-level replies inside a Task Comment card", async ({ page }, testInfo) => {
     const suffix = `${Date.now()}-${testInfo.workerIndex}`;
     await startAuthenticatedSession(page, {
