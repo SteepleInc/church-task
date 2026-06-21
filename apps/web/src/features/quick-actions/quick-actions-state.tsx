@@ -1,6 +1,7 @@
 import { atom, useSetAtom } from "jotai";
 import { useMemo } from "react";
 
+import type { TaskEstimate, TaskPriority } from "@/components/tasks/task-card-fields";
 import { inviteMemberDialogSourceAtom } from "@/features/settings/invite-member";
 import { createKeyDateQuickActionStateAtom } from "@/features/quick-actions/create-key-date-quick-action";
 import { createTaskQuickActionStateAtom } from "@/features/quick-actions/create-task-quick-action";
@@ -30,6 +31,18 @@ export function useQuickActionOpeners() {
           // Subtask openers pass the parent Task and preset its Team
           // (ADR 0013: subtasks inherit the parent's Team by default).
           readonly parentTaskId?: string | null;
+          // Optional human-readable parent reference shown in the dialog
+          // header so a Subtask makes its lineage obvious.
+          readonly parentTaskLabel?: {
+            readonly identifier: string;
+            readonly title: string;
+          } | null;
+          readonly title?: string;
+          readonly description?: string;
+          readonly priority?: TaskPriority;
+          readonly estimate?: TaskEstimate;
+          readonly labelIds?: readonly string[];
+          readonly dueDate?: string | null;
         } = {},
       ) =>
         setCreateTaskQuickActionState({
@@ -37,6 +50,13 @@ export function useQuickActionOpeners() {
           workflowStatusId: options.workflowStatusId ?? null,
           teamId: options.teamId ?? null,
           parentTaskId: options.parentTaskId ?? null,
+          parentTaskLabel: options.parentTaskLabel ?? null,
+          title: options.title,
+          description: options.description,
+          priority: options.priority,
+          estimate: options.estimate,
+          labelIds: options.labelIds,
+          dueDate: options.dueDate,
         }),
       openCreateKeyDate: (options: { readonly churchId: string }) =>
         setCreateKeyDateQuickActionState({ churchId: options.churchId }),

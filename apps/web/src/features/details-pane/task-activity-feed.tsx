@@ -7,6 +7,7 @@ import {
   CirclePlus,
   CornerDownRight,
   Copy,
+  ListPlus,
   Link as LinkIcon,
   MessageSquare,
   MoreHorizontal,
@@ -42,6 +43,7 @@ import {
   type TaskCommentModerationViewer,
 } from "@/data/task-comments/taskCommentModeration-utils";
 import { UserAvatar } from "@/components/avatars/userAvatar";
+import type { TaskEstimate, TaskPriority } from "@/components/tasks/task-card-fields";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -116,9 +118,86 @@ type ActivityFeedProps = {
   readonly currentUserId: string | null;
   readonly taskEntityId: string;
   readonly resolvers: ActivityResolvers;
+  readonly sourceTask: TaskCommentSourceTask;
+  readonly onCreateTaskFromComment: (prefill: TaskCommentTaskPrefill) => void;
   /** Resolves an actor user id to a display name; null when the user is gone. */
   readonly resolveActorName: (userId: string) => string | null;
 };
+
+type TaskCommentSourceTask = {
+  readonly id: string;
+  readonly identifier: string;
+  readonly title: string;
+  readonly assignedUserId: string | null;
+  readonly teamId: string;
+  readonly priority: TaskPriority;
+  readonly estimate: TaskEstimate;
+  readonly labelIds: readonly string[];
+  readonly dueDate: string | null;
+};
+
+export type TaskCommentTaskPrefill = {
+  readonly title: string;
+  readonly description: string;
+  readonly assignedUserId: string | null;
+  readonly teamId: string;
+  readonly priority: TaskPriority;
+  readonly estimate: TaskEstimate;
+  readonly labelIds: readonly string[];
+  readonly dueDate: string | null;
+  readonly parentTaskId: string | null;
+  readonly parentTaskLabel: {
+    readonly identifier: string;
+    readonly title: string;
+  } | null;
+};
+
+const TASK_COMMENT_PREFILL_TITLE_MAX_LENGTH = 80;
+
+export function buildTaskPrefillFromComment({
+  actorName,
+  body,
+  parentTaskId,
+  sourceTask,
+}: {
+  readonly actorName: string;
+  readonly body: string;
+  readonly parentTaskId: string | null;
+  readonly sourceTask: TaskCommentSourceTask;
+}): TaskCommentTaskPrefill | null {
+  const trimmedBody = body.trim();
+  if (!trimmedBody) return null;
+
+  const firstLine = trimmedBody
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+  if (!firstLine) return null;
+
+  const title =
+    firstLine.length > TASK_COMMENT_PREFILL_TITLE_MAX_LENGTH
+      ? `${firstLine.slice(0, TASK_COMMENT_PREFILL_TITLE_MAX_LENGTH - 1).trimEnd()}…`
+      : firstLine;
+  const quoted = trimmedBody
+    .split(/\r?\n/)
+    .map((line) => `> ${line}`)
+    .join("\n");
+
+  return {
+    title,
+    description: `@${actorName} said in ${sourceTask.identifier} ${sourceTask.title}:\n\n${quoted}`,
+    assignedUserId: sourceTask.assignedUserId,
+    teamId: sourceTask.teamId,
+    priority: sourceTask.priority,
+    estimate: sourceTask.estimate,
+    labelIds: [...sourceTask.labelIds],
+    dueDate: sourceTask.dueDate,
+    parentTaskId,
+    parentTaskLabel: parentTaskId
+      ? { identifier: sourceTask.identifier, title: sourceTask.title }
+      : null,
+  };
+}
 
 /**
  * The read-only Activity Feed shown at the bottom of the Task Details Pane.
@@ -258,9 +337,11 @@ export function TaskActivityFeed(props: ActivityFeedProps) {
               deleteComment={deleteComment}
               highlightedCommentId={highlightedCommentId}
               moderationViewer={moderationViewer}
+              onCreateTaskFromComment={props.onCreateTaskFromComment}
               resolveActorName={props.resolveActorName}
               repliesByParentCommentId={repliesByParentCommentId}
               resolvers={props.resolvers}
+              sourceTask={props.sourceTask}
               subscribedRootCommentIds={subscribedRootCommentIds}
               subscribeThread={subscribeThread}
               unsubscribeThread={unsubscribeThread}
@@ -302,10 +383,12 @@ function ActivityRow({
   deleteComment,
   highlightedCommentId,
   moderationViewer,
+  onCreateTaskFromComment,
   resolvers,
   resolveActorName,
   repliesByParentCommentId,
   subscribedRootCommentIds,
+  sourceTask,
   subscribeThread,
   unsubscribeThread,
   updateComment,
@@ -317,12 +400,14 @@ function ActivityRow({
   readonly deleteComment: (commentId: string) => Promise<void>;
   readonly highlightedCommentId: string | null;
   readonly moderationViewer: TaskCommentModerationViewer;
+  readonly onCreateTaskFromComment: (prefill: TaskCommentTaskPrefill) => void;
   readonly now: number;
   readonly resolvers: ActivityResolvers;
   readonly resolveActorName: (userId: string) => string | null;
   readonly repliesByParentCommentId: ReadonlyMap<string, readonly TaskCommentCollectionItem[]>;
   readonly updateComment: (commentId: string, body: string) => Promise<void>;
   readonly subscribedRootCommentIds: ReadonlySet<string>;
+  readonly sourceTask: TaskCommentSourceTask;
   readonly subscribeThread: (rootCommentId: string) => Promise<void>;
   readonly unsubscribeThread: (rootCommentId: string) => Promise<void>;
 }) {
@@ -342,12 +427,14 @@ function ActivityRow({
         moderationViewer={moderationViewer}
         now={now}
         onReply={(body) => createComment(body, comment.id)}
+        onCreateTaskFromComment={onCreateTaskFromComment}
         onSubscribeThread={() => subscribeThread(comment.id)}
         onUnsubscribeThread={() => unsubscribeThread(comment.id)}
         onDelete={deleteComment}
         onUpdate={updateComment}
         replies={repliesByParentCommentId.get(comment.id) ?? []}
         resolveActorName={resolveActorName}
+        sourceTask={sourceTask}
         subscribed={subscribedRootCommentIds.has(comment.id)}
         title={new Date(activity.occurred_at).toLocaleString()}
       />
@@ -396,11 +483,13 @@ function TaskCommentCard({
   now,
   onDelete,
   onReply,
+  onCreateTaskFromComment,
   onSubscribeThread,
   onUnsubscribeThread,
   onUpdate,
   replies,
   resolveActorName,
+  sourceTask,
   subscribed,
   title,
 }: {
@@ -411,12 +500,14 @@ function TaskCommentCard({
   readonly moderationViewer: TaskCommentModerationViewer;
   readonly now: number;
   readonly onReply: (body: string) => Promise<void>;
+  readonly onCreateTaskFromComment: (prefill: TaskCommentTaskPrefill) => void;
   readonly onDelete: (commentId: string) => Promise<void>;
   readonly onUpdate: (commentId: string, body: string) => Promise<void>;
   readonly onSubscribeThread: () => Promise<void>;
   readonly onUnsubscribeThread: () => Promise<void>;
   readonly replies: readonly TaskCommentCollectionItem[];
   readonly resolveActorName: (userId: string) => string | null;
+  readonly sourceTask: TaskCommentSourceTask;
   readonly subscribed: boolean;
   readonly title: string;
 }) {
@@ -435,6 +526,15 @@ function TaskCommentCard({
     });
   const isEdited =
     !isDeleted && comment.updated_at !== null && comment.updated_at !== comment.created_at;
+  const createTaskFromComment = (parentTaskId: string | null) => {
+    const prefill = buildTaskPrefillFromComment({
+      actorName,
+      body: comment.body,
+      parentTaskId,
+      sourceTask,
+    });
+    if (prefill) onCreateTaskFromComment(prefill);
+  };
 
   return (
     <li
@@ -468,6 +568,8 @@ function TaskCommentCard({
               subscribed={subscribed}
               onCopyMarkdown={() => copyCommentMarkdown(comment.body)}
               onCopyLink={() => copyTaskCommentLink(comment.id)}
+              onNewTask={() => createTaskFromComment(null)}
+              onNewSubtask={() => createTaskFromComment(sourceTask.id)}
               onDelete={() => onDelete(comment.id)}
               onStartEdit={() => setEditing(true)}
               onSubscribe={onSubscribeThread}
@@ -505,7 +607,9 @@ function TaskCommentCard({
                 onUpdate={onUpdate}
                 onCopyMarkdown={() => copyCommentMarkdown(reply.body)}
                 onCopyLink={() => copyTaskCommentLink(reply.id, "reply")}
+                onCreateTaskFromComment={onCreateTaskFromComment}
                 resolveActorName={resolveActorName}
+                sourceTask={sourceTask}
                 highlighted={highlightedCommentId === reply.id}
               />
             ))}
@@ -551,10 +655,12 @@ function TaskCommentReply({
   now,
   onCopyLink,
   onCopyMarkdown,
+  onCreateTaskFromComment,
   onDelete,
   onUpdate,
   reply,
   resolveActorName,
+  sourceTask,
 }: {
   readonly now: number;
   readonly reply: TaskCommentCollectionItem;
@@ -563,7 +669,9 @@ function TaskCommentReply({
   readonly onUpdate: (commentId: string, body: string) => Promise<void>;
   readonly onCopyMarkdown: () => Promise<void>;
   readonly onCopyLink: () => Promise<void>;
+  readonly onCreateTaskFromComment: (prefill: TaskCommentTaskPrefill) => void;
   readonly resolveActorName: (userId: string) => string | null;
+  readonly sourceTask: TaskCommentSourceTask;
   readonly highlighted: boolean;
 }) {
   const actorName = resolveActorName(reply.authored_by_user_id) ?? "Unknown user";
@@ -577,6 +685,15 @@ function TaskCommentReply({
       authoredByUserId: reply.authored_by_user_id,
     });
   const isEdited = !isDeleted && reply.updated_at !== null && reply.updated_at !== reply.created_at;
+  const createTaskFromReply = (parentTaskId: string | null) => {
+    const prefill = buildTaskPrefillFromComment({
+      actorName,
+      body: reply.body,
+      parentTaskId,
+      sourceTask,
+    });
+    if (prefill) onCreateTaskFromComment(prefill);
+  };
 
   return (
     <li
@@ -608,6 +725,8 @@ function TaskCommentReply({
               isEditing={editing}
               onCopyMarkdown={onCopyMarkdown}
               onCopyLink={onCopyLink}
+              onNewTask={() => createTaskFromReply(null)}
+              onNewSubtask={() => createTaskFromReply(sourceTask.id)}
               onDelete={() => onDelete(reply.id)}
               onStartEdit={() => setEditing(true)}
               canModerate={canModerate}
@@ -769,6 +888,8 @@ function CommentActions({
   onCopyMarkdown,
   onCopyLink,
   onDelete,
+  onNewSubtask,
+  onNewTask,
   onStartEdit,
   onSubscribe,
   onUnsubscribe,
@@ -780,6 +901,8 @@ function CommentActions({
   readonly onCopyMarkdown: () => Promise<void>;
   readonly onCopyLink: () => Promise<void>;
   readonly onDelete: () => Promise<void>;
+  readonly onNewSubtask: () => void;
+  readonly onNewTask: () => void;
   readonly onStartEdit: () => void;
   readonly onSubscribe?: () => Promise<void>;
   readonly onUnsubscribe?: () => Promise<void>;
@@ -851,6 +974,15 @@ function CommentActions({
           <DropdownMenuItem onClick={() => void onCopyMarkdown()}>
             <Copy />
             Copy content as Markdown
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onNewTask}>
+            <CirclePlus />
+            New Task from {entity}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onNewSubtask}>
+            <ListPlus />
+            New Subtask from {entity}
           </DropdownMenuItem>
           {entity === "comment" ? (
             <DropdownMenuItem

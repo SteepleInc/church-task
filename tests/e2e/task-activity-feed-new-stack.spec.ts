@@ -16,6 +16,8 @@ const detailsPane = (page: Page) => page.getByRole("dialog", { name: "Details Pa
 
 const activityFeed = (page: Page) => detailsPane(page).getByRole("list", { name: "Activity" });
 
+const subTasks = (page: Page) => detailsPane(page).getByRole("region", { name: "Sub-tasks" });
+
 async function createTask(page: Page, title: string, team: string) {
   await page.getByRole("main").getByRole("button", { name: "Create Task" }).click();
   const dialog = page.getByRole("dialog", { name: /New Task/ });
@@ -176,6 +178,67 @@ test.describe("Task details Activity Feed", () => {
 
     await pane.getByLabel("Attach file to comment").click();
     await expect(page.getByText("Attachments are coming soon.")).toBeVisible();
+  });
+
+  test("creates Tasks and Subtasks from Task Comments", async ({ page }, testInfo) => {
+    const suffix = `${Date.now()}-${testInfo.workerIndex}`;
+    await startAuthenticatedSession(page, {
+      churchName: `E2E Activity Comment Tasks Church ${suffix}`,
+      email: `activity-comment-tasks-${suffix}@example.com`,
+      userName: "E2E Comment Task Owner",
+    });
+
+    const parentTitle = `Activity Comment Source ${suffix}`;
+    const pane = await openTaskDetails(page, parentTitle, "Worship");
+    const commentBody = `Follow up with choir ${suffix}\nBring the updated stage plot.`;
+
+    await pane.getByRole("textbox", { name: "Add a comment" }).fill(commentBody);
+    await pane.getByRole("button", { exact: true, name: "Comment" }).click();
+
+    const commentCard = activityFeed(page).getByRole("listitem").filter({ hasText: commentBody });
+    await expect(commentCard).toBeVisible({ timeout: 20_000 });
+
+    await commentCard.hover();
+    await commentCard.getByLabel("Comment actions").click();
+    await page.getByRole("menuitem", { name: "New Task from comment" }).click();
+
+    const taskDialog = page.getByRole("dialog", { name: /New Task/ });
+    await expect(taskDialog).toBeVisible();
+    await expect(taskDialog.getByPlaceholder("Task title")).toHaveValue(
+      `Follow up with choir ${suffix}`,
+    );
+    await expect(taskDialog.getByLabel("Add description")).toContainText(
+      `@E2E Comment Task Owner said in`,
+    );
+    await expect(taskDialog.getByLabel("Add description")).toContainText(
+      `> Bring the updated stage plot.`,
+    );
+    await taskDialog.getByRole("button", { name: "Create Task" }).click();
+    await expect(taskDialog).not.toBeVisible({ timeout: 20_000 });
+    await expect(page.getByLabel(`Task card Follow up with choir ${suffix}`)).toBeVisible({
+      timeout: 20_000,
+    });
+
+    await commentCard.hover();
+    await commentCard.getByLabel("Comment actions").click();
+    await page.getByRole("menuitem", { name: "New Subtask from comment" }).click();
+
+    const subtaskDialog = page.getByRole("dialog", { name: /New Subtask/ });
+    await expect(subtaskDialog).toBeVisible();
+    await expect(
+      subtaskDialog.getByLabel(new RegExp(`Subtask of .* ${parentTitle}`)),
+    ).toBeVisible();
+    await expect(subtaskDialog.getByPlaceholder("Task title")).toHaveValue(
+      `Follow up with choir ${suffix}`,
+    );
+    await subtaskDialog.getByRole("button", { name: "Create Subtask" }).click();
+    await expect(subtaskDialog).not.toBeVisible({ timeout: 20_000 });
+
+    await expect(
+      subTasks(page).getByText(`Follow up with choir ${suffix}`, { exact: true }),
+    ).toBeVisible({
+      timeout: 20_000,
+    });
   });
 
   test("adds one-level replies inside a Task Comment card", async ({ page }, testInfo) => {

@@ -3,7 +3,7 @@ import { revalidateLogic } from "@tanstack/react-form";
 import { Schema } from "effect";
 import { atom, useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
-import { CalendarDays, ChevronRight, Maximize2, Minimize2, X } from "lucide-react";
+import { CalendarDays, ChevronRight, ListTree, Maximize2, Minimize2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -65,6 +65,16 @@ export type CreateTaskQuickActionState = {
   readonly teamId?: string | null;
   // Creating a subtask: openers pass the parent Task plus its Team preset.
   readonly parentTaskId?: string | null;
+  readonly parentTaskLabel?: {
+    readonly identifier: string;
+    readonly title: string;
+  } | null;
+  readonly title?: string;
+  readonly description?: string;
+  readonly priority?: TaskPriority;
+  readonly estimate?: TaskEstimate;
+  readonly labelIds?: readonly string[];
+  readonly dueDate?: string | null;
   readonly targetCycle?: {
     readonly churchTimeZone: string;
     readonly startDate: string;
@@ -126,8 +136,28 @@ function TargetWeekPill({
   );
 }
 
+function ParentTaskPill({
+  parentTaskLabel,
+}: {
+  readonly parentTaskLabel: NonNullable<CreateTaskQuickActionState>["parentTaskLabel"];
+}) {
+  if (!parentTaskLabel) return null;
+  return (
+    <span
+      aria-label={`Subtask of ${parentTaskLabel.identifier} ${parentTaskLabel.title}`}
+      className="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-md bg-muted px-2 text-xs font-medium text-muted-foreground"
+      title={`${parentTaskLabel.identifier} ${parentTaskLabel.title}`}
+    >
+      <ListTree aria-hidden className="size-3.5 shrink-0" />
+      <span className="shrink-0">{parentTaskLabel.identifier}</span>
+      <span className="truncate text-muted-foreground/80">{parentTaskLabel.title}</span>
+    </span>
+  );
+}
+
 export function CreateTaskQuickAction() {
   const [state, setState] = useAtom(createTaskQuickActionStateAtom);
+  const isCreatingSubtask = Boolean(state?.parentTaskLabel);
   const search = useSearch({ strict: false }) as { readonly week?: WeekShortcut };
   const [expanded, setExpanded] = useAtom(createTaskDialogExpandedAtom);
   const [createMore, setCreateMore] = useAtom(createTaskCreateMoreAtom);
@@ -232,19 +262,21 @@ export function CreateTaskQuickAction() {
 
   const form = useAppForm({
     defaultValues: {
-      title: "",
-      description: "",
+      title: state?.title ?? "",
+      description: state?.description ?? "",
       assignedUserId: state?.assignTo ?? (null as string | null),
       // Empty string means "use the effective Workflow's default status".
       workflowStatusId: state?.workflowStatusId ?? "",
       // Null means "use the default Team" (preset → first of your teams →
       // first team). There is no "No team" choice in the picker.
       teamId: state?.teamId ?? (null as string | null),
-      priority: "no_priority" as TaskPriority,
-      estimate: "no_estimate" as TaskEstimate,
-      labels: [] as readonly string[],
+      priority: state?.priority ?? ("no_priority" as TaskPriority),
+      estimate: state?.estimate ?? ("no_estimate" as TaskEstimate),
+      labels: state?.labelIds ?? ([] as readonly string[]),
       // Due Date is never auto-set; it stays empty until picked.
-      dueDate: null as string | null,
+      // Baseline remains `dueDate: null as string | null`; comment-derived
+      // task creation may explicitly prefill it from the source Task.
+      dueDate: state?.dueDate ?? (null as string | null),
     },
     validationLogic: revalidateLogic({
       mode: "submit",
@@ -374,6 +406,19 @@ export function CreateTaskQuickAction() {
     form.reset();
   };
 
+  useEffect(() => {
+    if (!isOpen || !state) return;
+    form.setFieldValue("title", state.title ?? "");
+    form.setFieldValue("description", state.description ?? "");
+    form.setFieldValue("assignedUserId", state.assignTo ?? null);
+    form.setFieldValue("workflowStatusId", state.workflowStatusId ?? "");
+    form.setFieldValue("teamId", state.teamId ?? null);
+    form.setFieldValue("priority", state.priority ?? "no_priority");
+    form.setFieldValue("estimate", state.estimate ?? "no_estimate");
+    form.setFieldValue("labels", state.labelIds ?? []);
+    form.setFieldValue("dueDate", state.dueDate ?? null);
+  }, [isOpen, state, form]);
+
   // Inline label creation from the picker. Always creates a Church-scoped
   // Label (see CONTEXT.md "Label"); on success the new Label joins the
   // selection.
@@ -472,7 +517,10 @@ export function CreateTaskQuickAction() {
                 }}
               </form.Subscribe>
               <ChevronRight className="size-3.5 text-muted-foreground" />
-              <span>New Task</span>
+              <span>{isCreatingSubtask ? "New Subtask" : "New Task"}</span>
+              {state?.parentTaskLabel ? (
+                <ParentTaskPill parentTaskLabel={state.parentTaskLabel} />
+              ) : null}
               {effectiveTargetCycle ? <TargetWeekPill targetCycle={effectiveTargetCycle} /> : null}
             </span>
           </QuickActionsTitle>
@@ -705,7 +753,7 @@ export function CreateTaskQuickAction() {
                   }}
                   type="submit"
                 >
-                  Create Task
+                  {isCreatingSubtask ? "Create Subtask" : "Create Task"}
                   <Kbd>mod enter</Kbd>
                 </Button>
               )}
