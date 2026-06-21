@@ -42,12 +42,8 @@ import {
   type TaskEstimate,
   type TaskPriority,
 } from "@/components/tasks/task-card-fields";
-import {
-  isEditableTarget,
-  matchPickerHotkey,
-  statusOptions,
-  type PickerHotkey,
-} from "@/components/tasks/task-kanban-board-utils";
+import { isEditableTarget, statusOptions } from "@/components/tasks/task-kanban-board-utils";
+import { resolveTaskFieldShortcut } from "@/components/tasks/task-surface-keyboard-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { TaskActivityFeed } from "./task-activity-feed";
@@ -144,16 +140,16 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
   const dueDateOpenRef = useRef<(() => void) | null>(null);
   const teamOpenRef = useRef<(() => void) | null>(null);
 
-  const pickerHotkeys = useMemo<readonly PickerHotkey[]>(
-    () => [
-      { key: "s", openRef: statusOpenRef },
-      { key: "p", openRef: priorityOpenRef },
-      { key: "a", openRef: assigneeOpenRef },
-      { key: "l", openRef: labelsOpenRef },
-      { key: "e", shift: true, openRef: estimateOpenRef },
-      { key: "d", openRef: dueDateOpenRef },
-      { key: "t", openRef: teamOpenRef },
-    ],
+  const pickerOpenRefs = useMemo(
+    () => ({
+      status: statusOpenRef,
+      priority: priorityOpenRef,
+      assignee: assigneeOpenRef,
+      labels: labelsOpenRef,
+      estimate: estimateOpenRef,
+      dueDate: dueDateOpenRef,
+      team: teamOpenRef,
+    }),
     [],
   );
 
@@ -167,8 +163,9 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
       // Defer to a hovered sub-task row: the same field keys edit that row, not
       // the parent Task, while the pointer is over it (see sub-task-row-shortcuts).
       if (isSubTaskRowArmed()) return;
-      const match = matchPickerHotkey(event, pickerHotkeys);
-      const opener = match?.openRef.current;
+      const intent = resolveTaskFieldShortcut(event);
+      if (intent.kind !== "field") return;
+      const opener = pickerOpenRefs[intent.field]?.current;
       if (!opener) return;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -176,7 +173,7 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
     };
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [pickerHotkeys]);
+  }, [pickerOpenRefs]);
 
   // URL normalization (ADR 0013): a lowercase or retired identifier resolves,
   // then the URL state is rewritten to the canonical current uppercase

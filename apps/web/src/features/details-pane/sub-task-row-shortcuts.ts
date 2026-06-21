@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, type MutableRefObject } f
 
 import { isEditableTarget } from "@/components/tasks/task-kanban-board-utils";
 import {
-  matchFieldKey,
+  resolveTaskFieldShortcut,
   type ShortcutKeyEvent,
   type TaskShortcutField,
 } from "@/components/tasks/task-surface-keyboard-utils";
@@ -19,11 +19,10 @@ export type SubTaskHoverIntent =
  * (Cmd/Ctrl/Alt) are left for the browser/app. Kept DOM-free for unit tests.
  */
 export function resolveSubTaskHoverShortcut(event: ShortcutKeyEvent): SubTaskHoverIntent {
-  if (event.metaKey || event.ctrlKey || event.altKey) return { kind: "none" };
-  const key = event.key;
-  if ((key === "Enter" || key === "o" || key === "O") && !event.shiftKey) return { kind: "open" };
-  const field = matchFieldKey(event);
-  return field ? { kind: "field", field } : { kind: "none" };
+  const intent = resolveTaskFieldShortcut(event);
+  if (intent.kind === "open") return { kind: "open" };
+  if (intent.kind === "field") return { kind: "field", field: intent.field };
+  return { kind: "none" };
 }
 
 /**

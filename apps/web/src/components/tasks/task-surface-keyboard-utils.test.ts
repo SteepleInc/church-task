@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   matchFieldKey,
   nextFocusIndex,
+  resolveTaskFieldShortcut,
   resolveSurfaceShortcut,
   selectionRange,
   type ShortcutKeyEvent,
@@ -25,6 +26,8 @@ describe("matchFieldKey", () => {
     expect(matchFieldKey(keyEvent({ key: "a" }))).toBe("assignee");
     expect(matchFieldKey(keyEvent({ key: "p" }))).toBe("priority");
     expect(matchFieldKey(keyEvent({ key: "l" }))).toBe("labels");
+    expect(matchFieldKey(keyEvent({ key: "d" }))).toBe("dueDate");
+    expect(matchFieldKey(keyEvent({ key: "t" }))).toBe("team");
   });
 
   test("is case-insensitive only via Shift-less letters, but Shift+E is estimate", () => {
@@ -44,6 +47,57 @@ describe("matchFieldKey", () => {
 
   test("returns null for unmapped keys", () => {
     expect(matchFieldKey(keyEvent({ key: "z" }))).toBeNull();
+  });
+});
+
+describe("resolveTaskFieldShortcut", () => {
+  test("maps shared field and open vocabulary", () => {
+    expect(resolveTaskFieldShortcut(keyEvent({ key: "s" }))).toEqual({
+      kind: "field",
+      field: "status",
+    });
+    expect(resolveTaskFieldShortcut(keyEvent({ key: "A" }))).toEqual({
+      kind: "field",
+      field: "assignee",
+    });
+    expect(resolveTaskFieldShortcut(keyEvent({ key: "p" }))).toEqual({
+      kind: "field",
+      field: "priority",
+    });
+    expect(resolveTaskFieldShortcut(keyEvent({ key: "E", shiftKey: true }))).toEqual({
+      kind: "field",
+      field: "estimate",
+    });
+    expect(resolveTaskFieldShortcut(keyEvent({ key: "l" }))).toEqual({
+      kind: "field",
+      field: "labels",
+    });
+    expect(resolveTaskFieldShortcut(keyEvent({ key: "d" }))).toEqual({
+      kind: "field",
+      field: "dueDate",
+    });
+    expect(resolveTaskFieldShortcut(keyEvent({ key: "t" }))).toEqual({
+      kind: "field",
+      field: "team",
+    });
+    expect(resolveTaskFieldShortcut(keyEvent({ key: "Enter" }))).toEqual({ kind: "open" });
+    expect(resolveTaskFieldShortcut(keyEvent({ key: "o" }))).toEqual({ kind: "open" });
+  });
+
+  test("suppresses modifier combos and editable targets", () => {
+    expect(resolveTaskFieldShortcut(keyEvent({ key: "s", metaKey: true }))).toEqual({
+      kind: "none",
+    });
+    expect(resolveTaskFieldShortcut(keyEvent({ key: "s", ctrlKey: true }))).toEqual({
+      kind: "none",
+    });
+    expect(resolveTaskFieldShortcut(keyEvent({ key: "s", altKey: true }))).toEqual({
+      kind: "none",
+    });
+    const input = { tagName: "INPUT" } as unknown as EventTarget;
+    expect(resolveTaskFieldShortcut({ ...keyEvent({ key: "s" }), target: input })).toEqual({
+      kind: "none",
+    });
   });
 });
 

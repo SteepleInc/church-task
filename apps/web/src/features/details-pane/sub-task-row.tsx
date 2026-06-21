@@ -122,10 +122,11 @@ function SubTaskRow({
   const priorityOpenRef = useRef<(() => void) | null>(null);
   const labelsOpenRef = useRef<(() => void) | null>(null);
   const estimateOpenRef = useRef<(() => void) | null>(null);
+  const dueDateOpenRef = useRef<(() => void) | null>(null);
   const pickers = useMemo<
     Partial<
       Record<
-        "status" | "assignee" | "priority" | "labels" | "estimate",
+        "status" | "assignee" | "priority" | "labels" | "estimate" | "dueDate",
         MutableRefObject<(() => void) | null>
       >
     >
@@ -136,6 +137,7 @@ function SubTaskRow({
       priority: priorityOpenRef,
       labels: labelsOpenRef,
       estimate: estimateOpenRef,
+      dueDate: dueDateOpenRef,
     }),
     [],
   );
@@ -252,6 +254,7 @@ function SubTaskRow({
         {show("due_date") && dueDateLabel ? (
           <DueDateSelector
             onValueChange={(next) => context.onEdit(task.id, { dueDate: next })}
+            openRef={dueDateOpenRef}
             trigger={
               <RowPill>
                 <span className="text-muted-foreground text-xs">{dueDateLabel}</span>
