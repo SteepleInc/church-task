@@ -133,7 +133,7 @@ test.describe("Task details pane pickers", () => {
     const pane = await openTaskDetails(page, `Details Status Task ${suffix}`, "Worship");
 
     // New Tasks start in the Worship Workflow's default status ("To Do").
-    const statusChip = pane.getByRole("combobox", { name: "Change status" });
+    const statusChip = pane.getByTestId("task-details-status-trigger");
     await expect(statusChip).toContainText("To Do");
 
     // Open via shortcut, pick "In Progress", and confirm the chip updates. The
@@ -145,7 +145,7 @@ test.describe("Task details pane pickers", () => {
     // Reopening the pane from a fresh navigation keeps the committed status.
     await page.reload();
     await expect(detailsPane(page)).toBeVisible();
-    await expect(detailsPane(page).getByRole("combobox", { name: "Change status" })).toContainText(
+    await expect(detailsPane(page).getByTestId("task-details-status-trigger")).toContainText(
       "In Progress",
     );
   });
@@ -162,7 +162,7 @@ test.describe("Task details pane pickers", () => {
 
     const pane = await openTaskDetails(page, `Details Team Task ${suffix}`, "Worship");
 
-    const teamChip = pane.getByRole("combobox", { name: "Change team" });
+    const teamChip = pane.getByTestId("task-details-team-trigger");
     await expect(teamChip).toContainText("Worship");
 
     // Move it to a different Team via the pane's team picker. Server-side the
@@ -171,6 +171,6 @@ test.describe("Task details pane pickers", () => {
     await page.keyboard.press("KeyT");
     await page.getByRole("option", { name: "Production" }).click();
     await expect(teamChip).toContainText("Production");
-    await expect(pane.getByRole("combobox", { name: "Change status" })).toContainText("To Do");
+    await expect(pane.getByTestId("task-details-status-trigger")).toContainText("To Do");
   });
 });

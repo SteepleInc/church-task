@@ -182,6 +182,7 @@ export function SubTaskSection({
       identifier: task.identifier,
       labelIds: task.labelIds,
       workflowStatusId: task.workflowStatusId,
+      workflowId: task.workflowId,
       teamId: task.teamId,
     };
   };
@@ -194,6 +195,24 @@ export function SubTaskSection({
           .map((membership) => membership.teamId),
       ),
     [teamMemberships, currentUserId],
+  );
+
+  const teamMemberIdsByTeamId = useMemo(
+    () =>
+      new Map(
+        teams.map(
+          (team) =>
+            [
+              team.id,
+              new Set(
+                teamMemberships
+                  .filter((membership) => membership.teamId === team.id)
+                  .map((membership) => membership.userId),
+              ),
+            ] as const,
+        ),
+      ),
+    [teams, teamMemberships],
   );
 
   return (
@@ -242,6 +261,11 @@ export function SubTaskSection({
                 currentUserId,
                 teamMemberIdsForTask: (task) => teamMemberIdsForTeam(task.teamId),
                 labelOptionsForTask: (task) => labelOptionsForTeam(task.teamId),
+                allLabelOptions: labels,
+                workflowStatuses,
+                teamOptions: teams,
+                memberTeamIds,
+                teamMemberIdsByTeamId,
                 teamForTask: (task) => {
                   const team = teams.find((candidate) => candidate.id === task.teamId);
                   return team ? { name: team.name, color: team.color } : null;
