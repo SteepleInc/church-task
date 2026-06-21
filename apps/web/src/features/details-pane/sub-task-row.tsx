@@ -226,7 +226,10 @@ function SubTaskRow({
     >
       <div
         className={cn(
-          "flex items-center gap-2 rounded-lg border bg-background/60 px-3 py-2 text-sm transition-colors hover:bg-accent",
+          // Hovering a row arms its field/open keyboard shortcuts (S/A/P/L/⇧E/
+          // D, O/Enter). The subtle ring mirrors the Board card's hover-focus
+          // affordance so the armed state reads the same across surfaces.
+          "flex items-center gap-2 rounded-lg border bg-background/60 px-3 py-2 text-sm ring-foreground/10 transition-colors hover:bg-accent hover:ring-1 hover:ring-foreground/20",
           isContext && "opacity-60",
         )}
         data-sub-task-row=""
@@ -314,14 +317,21 @@ function SubTaskRow({
             <span className="hidden text-muted-foreground text-xs sm:inline">{weekLabel}</span>
           ) : null}
 
-          {show("due_date") && dueDateLabel ? (
+          {show("due_date") ? (
             <DueDateSelector
               onValueChange={(next) => context.onEdit(task.id, { dueDate: next })}
               openRef={dueDateOpenRef}
               trigger={
-                <RowPill>
-                  <span className="text-muted-foreground text-xs">{dueDateLabel}</span>
-                </RowPill>
+                // The pill only shows when a due date is set; when empty the
+                // trigger is a zero-size anchor so the `D` hover shortcut can
+                // still open it (matching the labels/estimate triggers).
+                dueDateLabel ? (
+                  <RowPill>
+                    <span className="text-muted-foreground text-xs">{dueDateLabel}</span>
+                  </RowPill>
+                ) : (
+                  <span className="sr-only" />
+                )
               }
               value={task.dueDate}
             />

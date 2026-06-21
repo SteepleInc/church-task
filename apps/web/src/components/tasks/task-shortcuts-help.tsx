@@ -65,6 +65,8 @@ const SHORTCUT_SECTIONS: readonly ShortcutSection[] = [
       { label: "Set priority", keys: ["P"] },
       { label: "Add labels", keys: ["L"] },
       { label: "Set estimate", keys: ["⇧", "E"] },
+      { label: "Set due date", keys: ["D"] },
+      { label: "Change Team", keys: ["T"] },
     ],
   },
   {
