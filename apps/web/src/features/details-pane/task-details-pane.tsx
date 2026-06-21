@@ -284,8 +284,20 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
 
   const transitionTask = (taskId: string, transition: TaskStateTransition) => {
     if (!activeChurch) return;
-    const mutate =
-      transition === "complete" ? completeTask : transition === "cancel" ? cancelTask : reopenTask;
+
+    let mutate: typeof completeTask;
+    switch (transition) {
+      case "complete":
+        mutate = completeTask;
+        break;
+      case "cancel":
+        mutate = cancelTask;
+        break;
+      case "reopen":
+        mutate = reopenTask;
+        break;
+    }
+
     void mutate({ churchId: activeChurch.id, actorUserId: activeChurch.currentUserId, taskId });
   };
 
