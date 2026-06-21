@@ -73,8 +73,8 @@ describe("Task field target builders", () => {
     expect(target.actions.open).toBeUndefined();
     expect(target.actions.copyId).toBeUndefined();
     expect(target.actions.copyLink).toBeUndefined();
-    expect(target.actions.copyTitle).toBeUndefined();
-    expect(target.actions.copyMarkdown).toBeUndefined();
+    expect(target.actions.copyTitle?.()).toBe("Prepare service");
+    expect(target.actions.copyMarkdown?.()).toBe("# Prepare service\n");
     expect(target.actions.transition).toBeUndefined();
     expect(target.fields.team.set).toBeFunction();
   });

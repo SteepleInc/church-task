@@ -199,8 +199,8 @@ function buildTaskFieldTarget(
         args.kind === "persisted" && args.buildTaskUrl
           ? () => args.buildTaskUrl?.(task.identifier) ?? ""
           : undefined,
-      copyTitle: args.kind === "persisted" ? () => task.title : undefined,
-      copyMarkdown: args.kind === "persisted" ? () => taskToMarkdown(task) : undefined,
+      copyTitle: () => task.title,
+      copyMarkdown: () => taskToMarkdown(task),
     },
   };
 }
