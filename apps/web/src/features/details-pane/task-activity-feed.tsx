@@ -305,7 +305,7 @@ function ActivityCommentComposer({
         <div className="mt-2 flex items-center justify-between gap-2">
           <span className="text-muted-foreground/70 text-xs">
             <kbd className="rounded border bg-muted px-1 py-0.5 font-medium font-sans text-[10px] text-muted-foreground">
-              ⌘
+              ⌘/Ctrl
             </kbd>
             <kbd className="ml-0.5 rounded border bg-muted px-1 py-0.5 font-medium font-sans text-[10px] text-muted-foreground">
               ↵
