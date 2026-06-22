@@ -90,7 +90,7 @@ export function SettingsSidebar() {
   const { currentOrgOpt: activeChurch } = useCurrentOrgOpt();
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col gap-1 bg-sidebar px-2 py-3">
+    <aside className="flex h-full w-72 shrink-0 flex-col gap-1 bg-sidebar px-2 py-3">
       <Link
         className={cn(
           "flex h-8 items-center gap-2 rounded-md px-2 text-muted-foreground text-sm transition-colors",
