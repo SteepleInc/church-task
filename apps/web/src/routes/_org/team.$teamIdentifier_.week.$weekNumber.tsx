@@ -2,7 +2,7 @@ import { createFileRoute, retainSearchParams } from "@tanstack/react-router";
 import { Schema } from "effect";
 
 import { ChurchWorkSearchSchema } from "@/components/tasks/task-view-options";
-import { DashboardPage } from "@/routes/-dashboard";
+import { WorkPage } from "@/routes/-work-page";
 
 export const Route = createFileRoute("/_org/team/$teamIdentifier_/week/$weekNumber")({
   validateSearch: Schema.toStandardSchemaV1(ChurchWorkSearchSchema),
@@ -17,7 +17,7 @@ function RouteComponent() {
   const parsedWeekNumber = Number.parseInt(weekNumber, 10);
 
   return (
-    <DashboardPage
+    <WorkPage
       activePanel={{
         kind: "team",
         teamIdentifier,

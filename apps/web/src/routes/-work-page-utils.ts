@@ -7,7 +7,7 @@ import type { TaskViewSearch } from "@/components/tasks/task-view-options";
 import { FilterKeys } from "@/shared/global-state";
 import { lenientSearchField } from "@/shared/lenient-search";
 
-export const DashboardSearchSchema = Schema.Struct({
+export const WorkSearchSchema = Schema.Struct({
   taskState: lenientSearchField(Schema.Literals(["todo", "in_progress", "done", "canceled"])),
   workflowStatusId: lenientSearchField(Schema.NonEmptyString),
   "details-pane": lenientSearchField(DetailsPaneParams),
@@ -21,25 +21,25 @@ export const DashboardSearchSchema = Schema.Struct({
  * The `_org` layout search. Task routes layer `tab`/`view` on top of this via
  * their own route schemas (`MyWorkSearchSchema` / `ChurchWorkSearchSchema`).
  */
-export type DashboardPanelSearch = typeof DashboardSearchSchema.Type;
-export type DashboardSearch = DashboardPanelSearch & TaskViewSearch;
+export type WorkPanelSearch = typeof WorkSearchSchema.Type;
+export type WorkSearch = WorkPanelSearch & TaskViewSearch;
 
-export const validateDashboardSearch = Schema.toStandardSchemaV1(DashboardSearchSchema);
+export const validateWorkSearch = Schema.toStandardSchemaV1(WorkSearchSchema);
 
-export const decodeDashboardSearch = Schema.decodeUnknownSync(DashboardSearchSchema);
+export const decodeWorkSearch = Schema.decodeUnknownSync(WorkSearchSchema);
 
 type TaskExecutionFilters = {
-  readonly taskState?: DashboardSearch["taskState"];
+  readonly taskState?: WorkSearch["taskState"];
   readonly workflowStatusId?: string;
 };
 
-type DashboardTeamSummary = {
+type WorkTeamSummary = {
   readonly id: string;
   readonly identifier: string;
   readonly previousIdentifiers?: readonly string[];
 };
 
-type DashboardTeamMembershipSummary = {
+type WorkTeamMembershipSummary = {
   readonly teamId: string;
   readonly userId: string;
 };
@@ -51,7 +51,7 @@ export function getUnavailableTeamBoardActions() {
   ];
 }
 
-function getDashboardFilterSearch(search: DashboardSearch): DashboardPanelSearch {
+function getWorkFilterSearch(search: WorkSearch): WorkPanelSearch {
   return {
     ...(search.taskState ? { taskState: search.taskState } : {}),
     ...(search.workflowStatusId ? { workflowStatusId: search.workflowStatusId } : {}),
@@ -66,26 +66,24 @@ function getDashboardFilterSearch(search: DashboardSearch): DashboardPanelSearch
  * Options are intentionally dropped: they belong to the surface they were set
  * on (the team route retains them across `$teamId` switches separately).
  */
-export function getDashboardSearchForPanel(
-  currentSearch: DashboardSearch = {},
-): DashboardPanelSearch {
-  return getDashboardFilterSearch(currentSearch);
+export function getWorkSearchForPanel(currentSearch: WorkSearch = {}): WorkPanelSearch {
+  return getWorkFilterSearch(currentSearch);
 }
 
-export function getDashboardSearchForExecutionFilters(
-  search: DashboardSearch,
+export function getWorkSearchForExecutionFilters(
+  search: WorkSearch,
   filters: TaskExecutionFilters,
-): DashboardSearch {
+): WorkSearch {
   return {
-    ...getDashboardFilterSearch(search),
+    ...getWorkFilterSearch(search),
     taskState: filters.taskState,
     workflowStatusId: filters.workflowStatusId,
   };
 }
 
-export function getMemberTeams<Team extends DashboardTeamSummary>(
+export function getMemberTeams<Team extends WorkTeamSummary>(
   teams: readonly Team[],
-  memberships: readonly DashboardTeamMembershipSummary[],
+  memberships: readonly WorkTeamMembershipSummary[],
   currentUserId: string | null,
 ): Team[] {
   const currentUserTeamIds = new Set(
@@ -97,7 +95,7 @@ export function getMemberTeams<Team extends DashboardTeamSummary>(
   return teams.filter((team) => currentUserTeamIds.has(team.id));
 }
 
-export function resolveTeamByRouteIdentifier<Team extends DashboardTeamSummary>(
+export function resolveTeamByRouteIdentifier<Team extends WorkTeamSummary>(
   teams: readonly Team[],
   routeIdentifier: string,
 ): Team | null {

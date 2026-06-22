@@ -29,7 +29,7 @@ import { useTeamMembershipsCollection, useTeamsCollection } from "@/data/teams/t
 import { useIsAppAdmin } from "@/data/users/adminData.app";
 import { GlobalSearchToggle } from "@/features/global-search/global-search-toggle";
 import { QuickActionsToggle } from "@/features/quick-actions/quick-actions-toggle";
-import { getMemberTeams } from "@/routes/-dashboard-utils";
+import { getMemberTeams } from "@/routes/-work-page-utils";
 
 type AppSidebarProps = ComponentProps<typeof Sidebar>;
 
