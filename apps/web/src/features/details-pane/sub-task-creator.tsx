@@ -42,7 +42,7 @@ export type SubTaskCreateInput = {
   readonly dueDate: string | null;
 };
 
-type SubTaskCreatorFormValues = {
+export type SubTaskCreatorFormValues = {
   readonly title: string;
   readonly description: string;
   readonly assignedUserId: string | null;
@@ -53,7 +53,7 @@ type SubTaskCreatorFormValues = {
   readonly dueDate: string | null;
 };
 
-function initialFormValues(defaults: SubTaskCreatorDefaults): SubTaskCreatorFormValues {
+export function initialFormValues(defaults: SubTaskCreatorDefaults): SubTaskCreatorFormValues {
   return {
     title: "",
     description: "",
@@ -63,6 +63,24 @@ function initialFormValues(defaults: SubTaskCreatorDefaults): SubTaskCreatorForm
     estimate: "no_estimate",
     labelIds: [],
     dueDate: null,
+  };
+}
+
+export function buildSubTaskCreateInput(
+  values: SubTaskCreatorFormValues,
+  title: string,
+): SubTaskCreateInput {
+  const description = values.description.trim();
+
+  return {
+    title,
+    description: description === "" ? null : description,
+    assignedUserId: values.assignedUserId,
+    teamId: values.teamId,
+    priority: values.priority,
+    estimate: values.estimate,
+    labelIds: values.labelIds,
+    dueDate: values.dueDate,
   };
 }
 
@@ -162,17 +180,6 @@ export function SubTaskCreator({
       return touched;
     });
 
-  const buildInput = (values: SubTaskCreatorFormValues, title: string): SubTaskCreateInput => ({
-    title,
-    description: values.description.trim() === "" ? null : values.description.trim(),
-    assignedUserId: values.assignedUserId,
-    teamId: values.teamId,
-    priority: values.priority,
-    estimate: values.estimate,
-    labelIds: values.labelIds,
-    dueDate: values.dueDate,
-  });
-
   const resetAfterCreate = (preserveProperties: boolean) => {
     if (preserveProperties) {
       form.setFieldValue("title", "");
@@ -186,7 +193,7 @@ export function SubTaskCreator({
   const submit = async (values: SubTaskCreatorFormValues, preserveProperties: boolean) => {
     const trimmed = values.title.trim();
     if (trimmed === "") return;
-    const ok = await onCreate(buildInput(values, trimmed));
+    const ok = await onCreate(buildSubTaskCreateInput(values, trimmed));
     if (ok) {
       resetAfterCreate(preserveProperties);
       titleRef.current?.focus();
@@ -209,7 +216,7 @@ export function SubTaskCreator({
       toast.error(`Paste up to ${MAX_PASTE_SUB_TASKS} sub-tasks at a time.`);
       return;
     }
-    const ok = await onCreateMany(lines.map((line) => buildInput(values, line)));
+    const ok = await onCreateMany(lines.map((line) => buildSubTaskCreateInput(values, line)));
     if (ok) {
       resetAfterCreate(false);
       titleRef.current?.focus();

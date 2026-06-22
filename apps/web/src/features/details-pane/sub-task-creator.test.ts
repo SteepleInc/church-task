@@ -1,31 +1,58 @@
 import { describe, expect, test } from "bun:test";
 
-const subTaskCreatorSource = await Bun.file(
-  new URL("./sub-task-creator.tsx", import.meta.url),
-).text();
+import {
+  buildSubTaskCreateInput,
+  initialFormValues,
+  type SubTaskCreatorDefaults,
+} from "./sub-task-creator";
 
-describe("sub-task creator form wiring", () => {
-  test("keeps submitted draft fields in TanStack Form instead of local object state", () => {
-    expect(subTaskCreatorSource).toContain(
-      'import { useAppForm } from "@/components/form/ts-form"',
-    );
-    expect(subTaskCreatorSource).toContain("const form = useAppForm({");
-    expect(subTaskCreatorSource).toContain('<form.Field name="title">');
-    expect(subTaskCreatorSource).toContain('<form.Field name="description">');
-    expect(subTaskCreatorSource).toContain('<form.Field name="priority">');
-    expect(subTaskCreatorSource).toContain('<form.Field name="teamId">');
-    expect(subTaskCreatorSource).toContain('<form.Field name="assignedUserId">');
-    expect(subTaskCreatorSource).toContain('<form.Field name="labelIds">');
-    expect(subTaskCreatorSource).not.toContain("const [state, setState]");
+const defaults: SubTaskCreatorDefaults = {
+  assignedUserId: "user-1",
+  teamId: "team-1",
+  priority: "medium",
+};
+
+describe("sub-task creator form values", () => {
+  test("initializes from inherited defaults", () => {
+    expect(initialFormValues(defaults)).toEqual({
+      title: "",
+      description: "",
+      assignedUserId: "user-1",
+      teamId: "team-1",
+      priority: "medium",
+      estimate: "no_estimate",
+      labelIds: [],
+      dueDate: null,
+    });
   });
 
-  test("preserves special inline creator behaviors around paste, team labels, and submit reset", () => {
-    expect(subTaskCreatorSource).toContain("onPaste={handleTitlePaste}");
-    expect(subTaskCreatorSource).toContain(
-      "form.state.values.labelIds.filter((id) => labelAppliesToTeam(id, next))",
+  test("builds create input while trimming optional description", () => {
+    expect(
+      buildSubTaskCreateInput(
+        {
+          ...initialFormValues(defaults),
+          description: "  prep slides  ",
+          estimate: "s",
+          labelIds: ["label-1"],
+          dueDate: "2026-06-22",
+        },
+        "Follow up",
+      ),
+    ).toEqual({
+      title: "Follow up",
+      description: "prep slides",
+      assignedUserId: "user-1",
+      teamId: "team-1",
+      priority: "medium",
+      estimate: "s",
+      labelIds: ["label-1"],
+      dueDate: "2026-06-22",
+    });
+  });
+
+  test("normalizes blank descriptions to null", () => {
+    expect(buildSubTaskCreateInput(initialFormValues(defaults), "Follow up").description).toBe(
+      null,
     );
-    expect(subTaskCreatorSource).toContain('form.setFieldValue("title", "")');
-    expect(subTaskCreatorSource).toContain('form.setFieldValue("description", "")');
-    expect(subTaskCreatorSource).toContain("titleRef.current?.focus()");
   });
 });
