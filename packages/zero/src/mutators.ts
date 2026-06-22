@@ -65,6 +65,7 @@ import { toZeroSchema } from "./effect-schema";
 import { buildNotificationPlans } from "./notification-triggers";
 
 import type { OptionalZeroSessionContext } from "./session-context";
+import type { PlannedNotification } from "./notification-triggers";
 import type { Schema as ZeroSchema } from "./zero-schema.gen";
 
 const CreateDemoItemArgs = toZeroSchema(Schema.Struct({ name: Schema.String }));
@@ -797,12 +798,12 @@ const writeActivity = async (
 };
 
 const writeNotifications = async (
-  db: any,
+  db: ServerTx["dbTransaction"]["wrappedTransaction"],
   args: {
     readonly church_id: string;
     readonly actor_user_id: string;
     readonly occurred_at: Date;
-    readonly plans: ReturnType<typeof buildNotificationPlans>;
+    readonly plans: readonly PlannedNotification[];
   },
 ) => {
   for (const plan of args.plans) {

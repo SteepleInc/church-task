@@ -30,26 +30,50 @@ export type PlannedNotification = {
   readonly display_metadata: Record<string, string>;
 };
 
+const COMMENT_EXCERPT_MAX_LENGTH = 160;
+
 const unique = (values: readonly string[]) => [...new Set(values.filter(Boolean))];
 
 const excerpt = (body: string | null | undefined) => {
   const normalized = (body ?? "").trim().replaceAll(/\s+/g, " ");
-  return normalized.length > 160 ? `${normalized.slice(0, 157)}...` : normalized || null;
+  if (!normalized) return null;
+  if (normalized.length <= COMMENT_EXCERPT_MAX_LENGTH) return normalized;
+
+  return `${normalized.slice(0, COMMENT_EXCERPT_MAX_LENGTH - 3)}...`;
 };
 
-const recipientsForTrigger = (input: NotificationPlanInput) =>
-  input.type === "mention_explicit_target"
-    ? (input.explicit_target_user_ids ?? [])
-    : (input.subscribed_user_ids ?? []);
+const recipientsForTrigger = (input: NotificationPlanInput) => {
+  switch (input.type) {
+    case "mention_explicit_target":
+      return input.explicit_target_user_ids ?? [];
+    case "task_comment_reply":
+      return input.subscribed_user_ids ?? [];
+  }
+};
+
+const titleSubjectForInput = (input: NotificationPlanInput) => {
+  if (!input.task_identifier) return input.task_title ?? "Task";
+  if (!input.task_title) return input.task_identifier;
+
+  return `${input.task_identifier} ${input.task_title}`;
+};
+
+const displayTitleForInput = (input: NotificationPlanInput, titleSubject: string) => {
+  switch (input.type) {
+    case "mention_explicit_target":
+      return `Mentioned you on ${titleSubject}`;
+    case "task_comment_reply":
+      return `New reply on ${titleSubject}`;
+  }
+};
 
 export const buildNotificationPlans = (
   input: NotificationPlanInput,
 ): readonly PlannedNotification[] => {
   const activeMembers = new Set(input.active_member_user_ids);
   const commentExcerpt = excerpt(input.comment_excerpt);
-  const titleSubject = input.task_identifier
-    ? `${input.task_identifier}${input.task_title ? ` ${input.task_title}` : ""}`
-    : (input.task_title ?? "Task");
+  const titleSubject = titleSubjectForInput(input);
+  const displayTitle = displayTitleForInput(input, titleSubject);
 
   return unique(recipientsForTrigger(input))
     .filter((recipient_user_id) => recipient_user_id !== input.actor_user_id)
@@ -63,10 +87,7 @@ export const buildNotificationPlans = (
         ...(input.task_title ? { task_title: input.task_title } : {}),
         ...(commentExcerpt ? { comment_excerpt: commentExcerpt } : {}),
       },
-      display_title:
-        input.type === "mention_explicit_target"
-          ? `Mentioned you on ${titleSubject}`
-          : `New reply on ${titleSubject}`,
+      display_title: displayTitle,
       idempotency_key: [
         input.type,
         input.church_id,
