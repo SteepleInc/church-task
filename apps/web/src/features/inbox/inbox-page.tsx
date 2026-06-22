@@ -6,7 +6,9 @@ import {
   MailIcon,
   MailOpenIcon,
   MessageSquareTextIcon,
+  SearchIcon,
   SlidersHorizontalIcon,
+  XIcon,
   Trash2Icon,
 } from "lucide-react";
 import { useState, type ComponentType } from "react";
@@ -45,6 +47,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -125,13 +128,54 @@ export function isNotificationSnoozed(
 
 export function filterInboxNotifications(
   notifications: readonly NotificationCollectionItem[],
-  options: { readonly showRead: boolean; readonly showSnoozed: boolean; readonly now: Date },
+  options: {
+    readonly getActorName?: (notification: NotificationCollectionItem) => string | null;
+    readonly searchQuery?: string;
+    readonly showRead: boolean;
+    readonly showSnoozed: boolean;
+    readonly now: Date;
+  },
 ) {
+  const normalizedQuery = normalizeInboxSearchQuery(options.searchQuery ?? "");
   return notifications.filter((notification) => {
     if (!options.showRead && notification.read_at != null) return false;
     if (!options.showSnoozed && isNotificationSnoozed(notification, options.now)) return false;
+    if (
+      normalizedQuery &&
+      !getInboxSearchText(notification, options.getActorName?.(notification) ?? null).includes(
+        normalizedQuery,
+      )
+    ) {
+      return false;
+    }
     return true;
   });
+}
+
+function normalizeInboxSearchQuery(value: string) {
+  return value.trim().toLocaleLowerCase();
+}
+
+export function getInboxSearchText(
+  notification: NotificationCollectionItem,
+  actorName: string | null,
+) {
+  const metadata = parseDisplayMetadata(notification.display_metadata);
+  return [
+    notification.display_title,
+    notification.display_body,
+    notification.task_id,
+    notification.type,
+    kindForNotification(notification.type).label,
+    actionLabelForType(notification.type),
+    actorName,
+    metadata.comment_excerpt,
+    metadata.task_identifier,
+    metadata.task_title,
+  ]
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .join(" ")
+    .toLocaleLowerCase();
 }
 
 function snoozeInOneHour(): Date {
@@ -203,6 +247,7 @@ export function InboxPage() {
   ).length;
   const hasReadNotifications = readCount > 0;
   const [deleteReadOpen, setDeleteReadOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [showRead, setShowRead] = useState(true);
   const [showSnoozed, setShowSnoozed] = useState(false);
   const now = new Date();
@@ -210,15 +255,20 @@ export function InboxPage() {
     isNotificationSnoozed(notification, now),
   ).length;
   const hasSnoozedNotifications = snoozedCount > 0;
-  const visibleNotifications = filterInboxNotifications(notificationsCollection, {
-    now,
-    showRead,
-    showSnoozed,
-  });
-
   const membersByUserId = new Map<string, MemberItem>(
     membersCollection.map((member) => [member.userId, member]),
   );
+  const visibleNotifications = filterInboxNotifications(notificationsCollection, {
+    getActorName: (notification) =>
+      notification.actor_user_id
+        ? (membersByUserId.get(notification.actor_user_id)?.name ?? null)
+        : null,
+    now,
+    searchQuery,
+    showRead,
+    showSnoozed,
+  });
+  const hasSearchQuery = searchQuery.trim().length > 0;
 
   const handleMarkAllRead = () => {
     if (!activeChurch || unreadCount === 0) return;
@@ -313,6 +363,30 @@ export function InboxPage() {
           ) : null}
         </div>
         <p className="text-balance text-muted-foreground text-sm">{PAGE_DESCRIPTION}</p>
+        {!loading && hasNotifications ? (
+          <div className="relative max-w-md">
+            <SearchIcon className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2.5 size-4 text-muted-foreground" />
+            <Input
+              aria-label="Search Inbox"
+              className="pr-8 pl-8"
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search task, actor, type, or comment…"
+              type="search"
+              value={searchQuery}
+            />
+            {hasSearchQuery ? (
+              <Button
+                aria-label="Clear Inbox search"
+                className="-translate-y-1/2 absolute top-1/2 right-1 size-6"
+                onClick={() => setSearchQuery("")}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <XIcon />
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <AlertDialog onOpenChange={setDeleteReadOpen} open={deleteReadOpen}>
@@ -374,12 +448,21 @@ export function InboxPage() {
               <EmptyMedia variant="icon">
                 {hasSnoozedNotifications && !showSnoozed ? <ClockIcon /> : <InboxIcon />}
               </EmptyMedia>
-              <EmptyTitle>Nothing left to read</EmptyTitle>
+              <EmptyTitle>
+                {hasSearchQuery ? "No matching notifications" : "Nothing left to read"}
+              </EmptyTitle>
               <EmptyDescription>
-                {emptyFilteredDescription({ snoozedCount, showSnoozed })}
+                {hasSearchQuery
+                  ? "Clear search or adjust Display to widen this view."
+                  : emptyFilteredDescription({ snoozedCount, showSnoozed })}
               </EmptyDescription>
             </EmptyHeader>
-            {hasSnoozedNotifications && !showSnoozed ? (
+            {hasSearchQuery ? (
+              <Button onClick={() => setSearchQuery("")} size="sm" variant="outline">
+                <XIcon />
+                Clear search
+              </Button>
+            ) : hasSnoozedNotifications && !showSnoozed ? (
               <Button onClick={() => setShowSnoozed(true)} size="sm" variant="outline">
                 <ClockIcon />
                 Show snoozed
