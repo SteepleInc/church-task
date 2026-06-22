@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-import { startAuthenticatedSession } from "./helpers";
+import { getE2eApiUrl, startAuthenticatedSession } from "./helpers";
 
 test.skip(
   process.env.CHURCH_TASK_E2E_ONBOARDING_STACK !== "1",
@@ -205,6 +205,27 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
   await expect(taskCard(page, sharedTaskTitle)).toBeVisible({ timeout: 20_000 });
   await expect(taskCard(page, sharedTaskTitle)).toContainText(/[A-Z0-9]+-\d+/);
   await expect(taskCard(page, sharedTaskTitle).getByLabel("Priority: High")).toBeVisible();
+
+  const notificationResponse = await page.request.post(`${getE2eApiUrl()}/api/test/notifications`, {
+    data: { taskTitle: sharedTaskTitle },
+  });
+  expect(notificationResponse.ok()).toBe(true);
+
+  await page.locator('[data-sidebar="sidebar"]').getByRole("link", { name: "Inbox" }).click();
+  await expect(page).toHaveURL(/\/inbox$/);
+  await expect(page.getByRole("button", { name: /Open notification/ })).toContainText(
+    sharedTaskTitle,
+    { timeout: 20_000 },
+  );
+  await page.getByRole("button", { name: /Open notification/ }).click();
+  const detailsPane = page.getByRole("dialog", { name: "Details Pane" });
+  await expect(detailsPane).toBeVisible({ timeout: 20_000 });
+  await expect(detailsPane.getByRole("heading", { name: sharedTaskTitle })).toBeVisible();
+  await expect(page.getByText("1 unread", { exact: true })).not.toBeVisible({ timeout: 20_000 });
+  await page.keyboard.press("Escape");
+
+  await worshipTeamItem.getByRole("link", { name: "Current" }).click();
+  await expect(page).toHaveURL(teamPathPattern);
 
   await page.reload();
   await expect(taskCard(page, sharedTaskTitle).getByLabel("Priority: High")).toBeVisible({
