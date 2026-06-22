@@ -134,12 +134,10 @@ export function filterInboxNotifications(
   });
 }
 
-/** An hour from now, for a quick "later today" snooze. */
 function snoozeInOneHour(): Date {
   return new Date(Date.now() + 60 * 60 * 1000);
 }
 
-/** Tomorrow at 9am local time, matching the common "start of day" snooze. */
 function snoozeUntilTomorrowMorning(): Date {
   const target = new Date();
   target.setDate(target.getDate() + 1);
@@ -147,7 +145,6 @@ function snoozeUntilTomorrowMorning(): Date {
   return target;
 }
 
-/** A week from now at 9am local time. */
 function snoozeUntilNextWeek(): Date {
   const target = new Date();
   target.setDate(target.getDate() + 7);
@@ -165,6 +162,26 @@ function actionLabelForType(type: string): string {
     default:
       return "sent an update";
   }
+}
+
+function hiddenSnoozedDescription(snoozedCount: number): string {
+  if (snoozedCount === 1) {
+    return "1 notification is snoozed for later. Turn on Snoozed in Display to see it.";
+  }
+
+  return `${snoozedCount} notifications are snoozed for later. Turn on Snoozed in Display to see them.`;
+}
+
+function emptyFilteredDescription({
+  snoozedCount,
+  showSnoozed,
+}: {
+  readonly snoozedCount: number;
+  readonly showSnoozed: boolean;
+}): string {
+  if (snoozedCount > 0 && !showSnoozed) return hiddenSnoozedDescription(snoozedCount);
+
+  return "Everything matching your Display options is cleared. Adjust Display to widen this view.";
 }
 
 export function InboxPage() {
@@ -359,11 +376,7 @@ export function InboxPage() {
               </EmptyMedia>
               <EmptyTitle>Nothing left to read</EmptyTitle>
               <EmptyDescription>
-                {hasSnoozedNotifications && !showSnoozed
-                  ? snoozedCount === 1
-                    ? "1 notification is snoozed for later. Turn on Snoozed in Display to see it."
-                    : `${snoozedCount} notifications are snoozed for later. Turn on Snoozed in Display to see them.`
-                  : "Everything matching your Display options is cleared. Adjust Display to widen this view."}
+                {emptyFilteredDescription({ snoozedCount, showSnoozed })}
               </EmptyDescription>
             </EmptyHeader>
             {hasSnoozedNotifications && !showSnoozed ? (
@@ -587,7 +600,9 @@ function NotificationRow({
                 <ClockIcon className="text-muted-foreground" />
                 Tomorrow morning
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => snoozeUntil(snoozeUntilNextWeek(), "until next week")}>
+              <DropdownMenuItem
+                onClick={() => snoozeUntil(snoozeUntilNextWeek(), "until next week")}
+              >
                 <ClockIcon className="text-muted-foreground" />
                 Next week
               </DropdownMenuItem>

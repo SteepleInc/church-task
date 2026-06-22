@@ -237,7 +237,7 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
     sharedTaskTitle,
     { timeout: 20_000 },
   );
-  await expect(page.getByText("Snoozed", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Snoozed in about 1 hour/)).toBeVisible();
   await page.getByRole("button", { name: "Mark all read" }).click();
   await expect(page.getByText("1 unread", { exact: true })).not.toBeVisible({ timeout: 20_000 });
 
