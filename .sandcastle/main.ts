@@ -53,7 +53,7 @@ const planSchema = z.object({
 const MAX_ITERATIONS = 10;
 const MAX_PARALLEL = 4;
 const AUTO_MERGE_PRS = process.env.SANDCASTLE_AUTO_MERGE !== "false";
-const BASE_BRANCH = process.env.SANDCASTLE_BASE_BRANCH ?? currentBranch();
+const BASE_BRANCH = process.env.SANDCASTLE_BASE_BRANCH ?? defaultBranch() ?? currentBranch();
 const PR_CHECK_REPAIR = process.env.SANDCASTLE_REPAIR_FAILED_CHECKS !== "false";
 const MAX_REPAIR_ATTEMPTS = Number(process.env.SANDCASTLE_MAX_REPAIR_ATTEMPTS ?? "3");
 const CHECK_POLL_INTERVAL_MS = Number(process.env.SANDCASTLE_CHECK_POLL_INTERVAL_MS ?? "30000");
@@ -409,6 +409,14 @@ console.log("\nAll done.");
 
 function currentBranch() {
   return sh("git branch --show-current").trim();
+}
+
+function defaultBranch() {
+  return (
+    safeSh("gh repo view --json defaultBranchRef --jq .defaultBranchRef.name").trim() ||
+    safeSh("git remote show origin | rg 'HEAD branch' | cut -d ':' -f 2").trim() ||
+    undefined
+  );
 }
 
 function refreshBaseBranch() {
