@@ -11,7 +11,7 @@ import {
   XIcon,
   Trash2Icon,
 } from "lucide-react";
-import { useEffect, useRef, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
@@ -252,28 +252,33 @@ export function InboxPage() {
   const [showRead, setShowRead] = useState(true);
   const [showSnoozed, setShowSnoozed] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const trimmedSearchQuery = searchQuery.trim();
   const now = new Date();
   const snoozedCount = notificationsCollection.filter((notification) =>
     isNotificationSnoozed(notification, now),
   ).length;
   const hasSnoozedNotifications = snoozedCount > 0;
-  const membersByUserId = new Map<string, MemberItem>(
-    membersCollection.map((member) => [member.userId, member]),
+  const membersByUserId = useMemo(
+    () => new Map<string, MemberItem>(membersCollection.map((member) => [member.userId, member])),
+    [membersCollection],
   );
+  const getNotificationActorName = (notification: NotificationCollectionItem) =>
+    notification.actor_user_id
+      ? (membersByUserId.get(notification.actor_user_id)?.name ?? null)
+      : null;
   const visibleNotifications = filterInboxNotifications(notificationsCollection, {
-    getActorName: (notification) =>
-      notification.actor_user_id
-        ? (membersByUserId.get(notification.actor_user_id)?.name ?? null)
-        : null,
+    getActorName: getNotificationActorName,
     now,
     searchQuery,
     showRead,
     showSnoozed,
   });
-  const hasSearchQuery = searchQuery.trim().length > 0;
+  const hasSearchQuery = trimmedSearchQuery.length > 0;
   const isFiltering = hasSearchQuery || !showRead || !showSnoozed;
   const totalNotifications = notificationsCollection.length;
   const visibleCount = visibleNotifications.length;
+
+  const clearSearch = () => setSearchQuery("");
 
   useEffect(() => {
     if (!hasNotifications) return;
@@ -331,7 +336,7 @@ export function InboxPage() {
                   onKeyDown={(event) => {
                     if (event.key === "Escape" && hasSearchQuery) {
                       event.preventDefault();
-                      setSearchQuery("");
+                      clearSearch();
                     }
                   }}
                   placeholder="Search Inbox…"
@@ -344,7 +349,7 @@ export function InboxPage() {
                     aria-label="Clear Inbox search"
                     className="-translate-y-1/2 absolute top-1/2 right-1 size-6 rounded-full text-muted-foreground"
                     onClick={() => {
-                      setSearchQuery("");
+                      clearSearch();
                       searchInputRef.current?.focus();
                     }}
                     size="icon-sm"
@@ -496,7 +501,7 @@ export function InboxPage() {
                   <>
                     Nothing in your Inbox matches{" "}
                     <span className="font-medium text-foreground">
-                      &ldquo;{searchQuery.trim()}&rdquo;
+                      &ldquo;{trimmedSearchQuery}&rdquo;
                     </span>
                     . Clear search or adjust Display to widen this view.
                   </>
@@ -506,7 +511,7 @@ export function InboxPage() {
               </EmptyDescription>
             </EmptyHeader>
             {hasSearchQuery ? (
-              <Button onClick={() => setSearchQuery("")} size="sm" variant="outline">
+              <Button onClick={clearSearch} size="sm" variant="outline">
                 <XIcon />
                 Clear search
               </Button>
