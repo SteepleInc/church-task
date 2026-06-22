@@ -50,7 +50,7 @@ test("manages Labels and applies them to Tasks on the local Postgres and Zero st
 
   await page
     .getByRole("row", { name: new RegExp(`${labelName}.*—`) })
-    .getByRole("button", { name: labelName })
+    .getByRole("button", { name: labelName, exact: true })
     .click();
   await page.getByPlaceholder("Label name").fill(renamedLabelName);
   await page.keyboard.press("Enter");

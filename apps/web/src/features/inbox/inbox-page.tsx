@@ -286,10 +286,11 @@ export function InboxPage() {
       if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
       if (isEditableShortcutTarget(event.target)) return;
       event.preventDefault();
+      event.stopImmediatePropagation();
       searchInputRef.current?.focus();
     };
-    document.addEventListener("keydown", focusSearch);
-    return () => document.removeEventListener("keydown", focusSearch);
+    document.addEventListener("keydown", focusSearch, { capture: true });
+    return () => document.removeEventListener("keydown", focusSearch, { capture: true });
   }, [hasNotifications]);
 
   const handleMarkAllRead = () => {
