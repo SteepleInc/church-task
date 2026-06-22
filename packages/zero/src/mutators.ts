@@ -34,7 +34,7 @@ import {
   getWorkflowStatusId,
 } from "@church-task/shared/get-ids";
 import { defineMutatorWithType, defineMutators } from "@rocicorp/zero";
-import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, isNull, lte } from "drizzle-orm";
 import { Schema } from "effect";
 
 import {
@@ -69,9 +69,10 @@ import type { PlannedNotification } from "./notification-triggers";
 import type { Schema as ZeroSchema } from "./zero-schema.gen";
 
 const CreateDemoItemArgs = toZeroSchema(Schema.Struct({ name: Schema.String }));
-const MarkNotificationReadArgs = toZeroSchema(
+const NotificationIdArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, notification_id: Schema.String }),
 );
+const NotificationChurchArgs = toZeroSchema(Schema.Struct({ church_id: Schema.String }));
 const CreateTeamArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, name: Schema.String }),
 );
@@ -1647,7 +1648,7 @@ export const mutators = defineMutators({
     }),
   },
   notifications: {
-    mark_read: defineChurchTaskMutator(MarkNotificationReadArgs, async ({ args, ctx, tx }) => {
+    mark_read: defineChurchTaskMutator(NotificationIdArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -1668,6 +1669,102 @@ export const mutators = defineMutators({
             eq(notifications.church_id, args.church_id),
             eq(notifications.recipient_user_id, session.user_id),
             isNull(notifications.deleted_at),
+          ),
+        );
+    }),
+    mark_unread: defineChurchTaskMutator(NotificationIdArgs, async ({ args, ctx, tx }) => {
+      const db = serverDb(tx);
+      if (!db) return;
+
+      const session = requireActiveChurchAccess(ctx, args.church_id);
+      const now = new Date();
+
+      await db
+        .update(notifications)
+        .set({
+          read_at: null,
+          read_by: null,
+          updated_at: now,
+          updated_by: session.user_id,
+        })
+        .where(
+          and(
+            eq(notifications.id, args.notification_id),
+            eq(notifications.church_id, args.church_id),
+            eq(notifications.recipient_user_id, session.user_id),
+            isNull(notifications.deleted_at),
+          ),
+        );
+    }),
+    mark_all_read: defineChurchTaskMutator(NotificationChurchArgs, async ({ args, ctx, tx }) => {
+      const db = serverDb(tx);
+      if (!db) return;
+
+      const session = requireActiveChurchAccess(ctx, args.church_id);
+      const now = new Date();
+
+      await db
+        .update(notifications)
+        .set({
+          read_at: now,
+          read_by: session.user_id,
+          updated_at: now,
+          updated_by: session.user_id,
+        })
+        .where(
+          and(
+            eq(notifications.church_id, args.church_id),
+            eq(notifications.recipient_user_id, session.user_id),
+            isNull(notifications.deleted_at),
+            isNull(notifications.read_at),
+          ),
+        );
+    }),
+    delete: defineChurchTaskMutator(NotificationIdArgs, async ({ args, ctx, tx }) => {
+      const db = serverDb(tx);
+      if (!db) return;
+
+      const session = requireActiveChurchAccess(ctx, args.church_id);
+      const now = new Date();
+
+      await db
+        .update(notifications)
+        .set({
+          deleted_at: now,
+          deleted_by: session.user_id,
+          updated_at: now,
+          updated_by: session.user_id,
+        })
+        .where(
+          and(
+            eq(notifications.id, args.notification_id),
+            eq(notifications.church_id, args.church_id),
+            eq(notifications.recipient_user_id, session.user_id),
+            isNull(notifications.deleted_at),
+          ),
+        );
+    }),
+    delete_read: defineChurchTaskMutator(NotificationChurchArgs, async ({ args, ctx, tx }) => {
+      const db = serverDb(tx);
+      if (!db) return;
+
+      const session = requireActiveChurchAccess(ctx, args.church_id);
+      const now = new Date();
+
+      await db
+        .update(notifications)
+        .set({
+          deleted_at: now,
+          deleted_by: session.user_id,
+          updated_at: now,
+          updated_by: session.user_id,
+        })
+        .where(
+          and(
+            eq(notifications.church_id, args.church_id),
+            eq(notifications.recipient_user_id, session.user_id),
+            isNull(notifications.deleted_at),
+            isNotNull(notifications.read_at),
           ),
         );
     }),
