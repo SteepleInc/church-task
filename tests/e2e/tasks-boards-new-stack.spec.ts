@@ -224,6 +224,19 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
   await expect(page.getByText("1 unread", { exact: true })).not.toBeVisible({ timeout: 20_000 });
   await page.keyboard.press("Escape");
 
+  await page.getByRole("button", { name: "Mark notification unread" }).click();
+  await expect(page.getByText("1 unread", { exact: true })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: "Mark all read" }).click();
+  await expect(page.getByText("1 unread", { exact: true })).not.toBeVisible({ timeout: 20_000 });
+
+  await page.getByRole("button", { name: "Delete read" }).click();
+  const deleteReadDialog = page.getByRole("alertdialog", { name: "Delete 1 read notification?" });
+  await expect(deleteReadDialog).toBeVisible();
+  await deleteReadDialog.getByRole("button", { name: "Delete read" }).click();
+  await expect(page.getByRole("button", { name: /Open notification/ })).not.toBeVisible({
+    timeout: 20_000,
+  });
+
   await worshipTeamItem.getByRole("link", { name: "Current" }).click();
   await expect(page).toHaveURL(teamPathPattern);
 
