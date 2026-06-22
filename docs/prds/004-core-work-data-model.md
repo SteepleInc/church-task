@@ -1,10 +1,10 @@
 # Core Work Data Model
 
-> Historical PRD note: this PRD predated the Postgres/Drizzle/Zero migration in PRD #164. Keep its Church Task domain decisions, invariants, and workflow language, but implement persistence and operations through the current Postgres/Drizzle/Zero/Better Auth/Effect architecture. Old-stack references below are historical context, not current implementation guidance.
+> Historical PRD note: this PRD predated the Postgres/Drizzle/Zero migration in PRD #164. Keep its Church Work domain decisions, invariants, and workflow language, but implement persistence and operations through the current Postgres/Drizzle/Zero/Better Auth/Effect architecture. Old-stack references below are historical context, not current implementation guidance.
 
 ## Problem Statement
 
-Church Task has Church onboarding and agent-facing foundations, but it does not yet have the durable work model that the rest of the product can safely build on. Without a precise model for Cycles, Tasks, Templates, Scheduling Rules, Key Dates, Workflows, Activities, and Team membership, later UI and agent workflows would each invent their own semantics for recurring work, unfinished rollover, cancellation, and week-specific changes. Church leaders need the product to treat church weeks, recurring preparation, team workflows, and audit history consistently before deeper task execution, weekly planning, template authoring, and saved boards are built.
+Church Work has Church onboarding and agent-facing foundations, but it does not yet have the durable work model that the rest of the product can safely build on. Without a precise model for Cycles, Tasks, Templates, Scheduling Rules, Key Dates, Workflows, Activities, and Team membership, later UI and agent workflows would each invent their own semantics for recurring work, unfinished rollover, cancellation, and week-specific changes. Church leaders need the product to treat church weeks, recurring preparation, team workflows, and audit history consistently before deeper task execution, weekly planning, template authoring, and saved boards are built.
 
 ## Solution
 
@@ -41,10 +41,10 @@ Build the Postgres/Drizzle/Zero-backed Core Work Data Model and prove it with te
 27. As a Church leader, I want Task movement between Teams to remap Workflow Status safely, so that a Task keeps its general state when it moves to another Team's Workflow.
 28. As a Church leader, I want Workflow Statuses with active Tasks to be archived only after affected Tasks are moved, so that Tasks are not stranded in missing statuses.
 29. As a Church leader, I want default Church Workflow Statuses of To Do, In Progress, and Done, so that every new Church can create valid Tasks immediately.
-30. As a Church leader, I want Better Auth Teams to be the Team membership substrate, so that Church Task does not duplicate membership infrastructure unnecessarily.
+30. As a Church leader, I want Better Auth Teams to be the Team membership substrate, so that Church Work does not duplicate membership infrastructure unnecessarily.
 31. As a Church leader, I want Team product fields such as archive state, ordering, and default Workflow to live on the Better Auth Team model, so that Team settings are reactive and not shadowed elsewhere.
-32. As a Church leader, I want Better Auth Team membership changes to create product Activity where practical, so that Team history appears in Church Task.
-33. As a Church leader, I want Church Task domain updates to use Zero mutators or typed Drizzle-backed server operations, so that product settings do not need to go through non-reactive Better Auth APIs when no hard auth mutation is required.
+32. As a Church leader, I want Better Auth Team membership changes to create product Activity where practical, so that Team history appears in Church Work.
+33. As a Church leader, I want Church Work domain updates to use Zero mutators or typed Drizzle-backed server operations, so that product settings do not need to go through non-reactive Better Auth APIs when no hard auth mutation is required.
 34. As a Church leader, I want Activities for important changes, so that I can see what happened to Tasks, Templates, Cycles, Teams, and Workflows.
 35. As a Church leader, I want Activity history to be visible wherever I can see the underlying entity, so that history follows permissions.
 36. As a Church leader, I want Activities to support targeted restore for cancellation, so that reopening can return work to its prior status without cluttering Task rows with extra fields.
@@ -99,9 +99,9 @@ Build the Postgres/Drizzle/Zero-backed Core Work Data Model and prove it with te
 - Parent Task completion remains independent from Subtask completion.
 - Enable Better Auth Teams for Team identity and Team Membership rather than duplicating Team membership tables.
 - Do not rely on Better Auth Teams for product workflow semantics, task visibility semantics, or team-specific roles.
-- Extend the Better Auth Team schema with Church Task product fields such as `archivedAt`, `sortOrder`, `defaultWorkflowId`, and any minimal descriptive field needed soon.
+- Extend the Better Auth Team schema with Church Work product fields such as `archivedAt`, `sortOrder`, `defaultWorkflowId`, and any minimal descriptive field needed soon.
 - Keep Better Auth as the authority for auth-sensitive operations: create Church, accept/reject/cancel invitations, add/remove Church Members, update Church Member Role, create Team identity, add/remove Team Members, and invitation-to-Team behavior.
-- Use Church Task Zero mutators and typed Drizzle-backed domain operations for product updates such as Team archive, Team ordering, Team default Workflow, Workflow changes, Task changes, Template changes, Key Date changes, and Activity writes.
+- Use Church Work Zero mutators and typed Drizzle-backed domain operations for product updates such as Team archive, Team ordering, Team default Workflow, Workflow changes, Task changes, Template changes, Key Date changes, and Activity writes.
 - Allow direct domain updates to explicitly approved Better Auth additional fields and display/product fields, but do not directly patch membership rows, roles, invitations, sessions, credentials, or auth plugin internal invariants.
 - Use Better Auth `organizationHooks` to emit best-effort Activities for Better Auth-owned lifecycle changes such as organization, member, invitation, team, and team-member changes.
 - Better Auth hook Activity failures should be logged/observable but should not intentionally fail user-facing auth/team operations.

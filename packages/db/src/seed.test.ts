@@ -1,4 +1,4 @@
-import { getIdType } from "@church-task/shared/get-ids";
+import { getIdType } from "@church-work/shared/get-ids";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
@@ -29,7 +29,7 @@ describe("seed and reset harness", () => {
       const appItem = app.demo_items[0];
 
       expect(appUser).toMatchObject({
-        email: "avery.member@church-task.test",
+        email: "avery.member@church-work.test",
         name: "Avery Member",
         slug: "avery-member",
       });
@@ -46,12 +46,12 @@ describe("seed and reset harness", () => {
       const items = await db.select().from(demo_items);
 
       expect(admin.users.map((seedUser) => seedUser.email)).toEqual([
-        "avery.member@church-task.test",
-        "ada.admin@church-task.test",
+        "avery.member@church-work.test",
+        "ada.admin@church-work.test",
       ]);
       expect(users.map((seedUser) => ({ email: seedUser.email, role: seedUser.role }))).toEqual([
-        { email: "avery.member@church-task.test", role: null },
-        { email: "ada.admin@church-task.test", role: "admin" },
+        { email: "avery.member@church-work.test", role: null },
+        { email: "ada.admin@church-work.test", role: "admin" },
       ]);
       expect(admin.demo_items.map((item) => item.slug)).toEqual([
         "app-profile-demo-item",

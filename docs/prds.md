@@ -1,12 +1,12 @@
 # Product Requirements Roadmap
 
-This document lists the first high-level PRDs for Church Task and the current implementation state as of June 18, 2026. The original entries are intentionally compact; the `Implementation now` notes below are the current repo truth for what has landed versus what remains roadmap scope.
+This document lists the first high-level PRDs for Church Work and the current implementation state as of June 18, 2026. The original entries are intentionally compact; the `Implementation now` notes below are the current repo truth for what has landed versus what remains roadmap scope.
 
-Current-truth architecture is defined by [PRD #164](https://github.com/SteepleInc/church-task/issues/164) and the ADRs in `docs/adr/`: Postgres/Drizzle is the source-of-truth data layer, Zero backs product data and Collections, Better Auth uses Postgres, TanStack Start owns the web/runtime shell, and Effect owns typed server/CLI/MCP/scheduled work. Earlier PRDs below may preserve historical scope language, but old-stack persistence/runtime, starter billing, and old package references are not implementation guidance for new work.
+Current-truth architecture is defined by [PRD #164](https://github.com/SteepleInc/church-work/issues/164) and the ADRs in `docs/adr/`: Postgres/Drizzle is the source-of-truth data layer, Zero backs product data and Collections, Better Auth uses Postgres, TanStack Start owns the web/runtime shell, and Effect owns typed server/CLI/MCP/scheduled work. Earlier PRDs below may preserve historical scope language, but old-stack persistence/runtime, starter billing, and old package references are not implementation guidance for new work.
 
 ## 1. Agent CLI and MCP Foundation
 
-Status: Implemented on the current Postgres/Zero/TanStack Start stack; migration follow-up [#179](https://github.com/SteepleInc/church-task/issues/179) is closed.
+Status: Implemented on the current Postgres/Zero/TanStack Start stack; migration follow-up [#179](https://github.com/SteepleInc/church-work/issues/179) is closed.
 
 Implementation now: `packages/cli`, `packages/domain/src/agent-contracts.ts`, and `backend/server/src/agent-operations.ts` provide the CLI/agent operation spine, with tests in `packages/cli/src/cli.test.ts` and server tests. The foundation is real enough for health/current-user/church/task-oriented smoke paths, but the product-level MCP surface is still intentionally compact rather than a complete UI-equivalent automation API.
 
@@ -14,15 +14,15 @@ Agent CLI and MCP Foundation establishes the reusable agent-facing product inter
 
 ## 2. Testing Foundation for Postgres/Zero-Backed UI
 
-Status: Implemented and expanded for the new stack; high-fidelity E2E migration follow-up [#181](https://github.com/SteepleInc/church-task/issues/181) is closed.
+Status: Implemented and expanded for the new stack; high-fidelity E2E migration follow-up [#181](https://github.com/SteepleInc/church-work/issues/181) is closed.
 
 Implementation now: the repo has Vitest coverage across db/auth/zero/server/web data helpers plus Playwright specs for onboarding, invitations, tasks/boards, teams/workflows, labels, auth OTP, app shell, admin collections, tracer, and legacy UI flows. The root scripts now expose focused E2E commands for onboarding, labels, tasks boards, teams workflows, and invitations.
 
-Testing Foundation for Postgres/Zero-Backed UI establishes local-first confidence before Church Task moves beyond boilerplate into authenticated Church and Task workflows. It uses Playwright for browser workflow tests against the TanStack Start app, Testcontainers Postgres, Drizzle migrations/seeds, Better Auth, and Zero where needed; Vitest covers backend public-interface and package tests. It proves auth/dashboard and backend behavior without introducing React component tests as a default layer; production deployment and future Church/Task domain tests remain separate scope.
+Testing Foundation for Postgres/Zero-Backed UI establishes local-first confidence before Church Work moves beyond boilerplate into authenticated Church and Task workflows. It uses Playwright for browser workflow tests against the TanStack Start app, Testcontainers Postgres, Drizzle migrations/seeds, Better Auth, and Zero where needed; Vitest covers backend public-interface and package tests. It proves auth/dashboard and backend behavior without introducing React component tests as a default layer; production deployment and future Church/Task domain tests remain separate scope.
 
 ## 3. Church Onboarding and Membership
 
-Status: Implemented on the new stack; migration follow-ups [#171](https://github.com/SteepleInc/church-task/issues/171) and [#178](https://github.com/SteepleInc/church-task/issues/178) are closed.
+Status: Implemented on the new stack; migration follow-ups [#171](https://github.com/SteepleInc/church-work/issues/171) and [#178](https://github.com/SteepleInc/church-work/issues/178) are closed.
 
 Implementation now: Better Auth organization membership/invitation flows are wired through the TanStack Start UI, onboarding routes, org switcher, settings/member surfaces, and app data helpers. Users can create/switch Churches, complete onboarding, invite members, and accept invitations; custom roles and billing remain out of scope.
 
@@ -30,7 +30,7 @@ Church Onboarding and Membership lets a new User create their first Church, acce
 
 ## 4. Core Work Data Model
 
-Status: Implemented as the current schema foundation; migration follow-ups [#167](https://github.com/SteepleInc/church-task/issues/167), [#170](https://github.com/SteepleInc/church-task/issues/170), and [#175](https://github.com/SteepleInc/church-task/issues/175) are closed.
+Status: Implemented as the current schema foundation; migration follow-ups [#167](https://github.com/SteepleInc/church-work/issues/167), [#170](https://github.com/SteepleInc/church-work/issues/170), and [#175](https://github.com/SteepleInc/church-work/issues/175) are closed.
 
 Implementation now: `packages/db/src/schema.ts` contains durable tables for teams, tasks, workflows, labels, cycles, templates, activities, and supporting auth/org data, with Zero schema/query/mutator support in `packages/zero`. Template projection and cycle behavior have package-level tests, and scheduled cycle maintenance has been ported to Effect-backed server code.
 
@@ -38,7 +38,7 @@ Core Work Data Model establishes the durable Postgres/Drizzle/Zero-backed domain
 
 ## 5. Team and Workflow Setup
 
-Status: Implemented for default setup, team/workflow management, navigation, and settings; migration follow-up [#172](https://github.com/SteepleInc/church-task/issues/172) is closed.
+Status: Implemented for default setup, team/workflow management, navigation, and settings; migration follow-up [#172](https://github.com/SteepleInc/church-work/issues/172) is closed.
 
 Implementation now: onboarding bootstraps default Teams/Workflows, the app has team routes and team navigation, settings pages cover team general/members surfaces, and the data layer has Teams/Workflows helpers. Later ADR work also made Team ownership mandatory for Tasks and added team-scoped Task Identifiers.
 
@@ -46,7 +46,7 @@ Team and Workflow Setup gives every new Church a useful starting set of default 
 
 ## 6. Task Execution and Assignment
 
-Status: Implemented for the first real task execution surface; migration follow-up [#173](https://github.com/SteepleInc/church-task/issues/173) and original execution slices through [#71](https://github.com/SteepleInc/church-task/issues/71) are closed.
+Status: Implemented for the first real task execution surface; migration follow-up [#173](https://github.com/SteepleInc/church-work/issues/173) and original execution slices through [#71](https://github.com/SteepleInc/church-work/issues/71) are closed.
 
 Implementation now: My Work, Our Work, and Team board routes use the shared task execution surface with create/update/batch update behavior, workflow movement, assignments, due dates, labels, details panes, quick actions, and E2E smoke coverage. Some newer card controls may still be local/stubbed until wired through the data model, so each field should be checked before treating it as fully persisted product semantics.
 
@@ -62,7 +62,7 @@ Weekly Cycle Planning gives Churches a week-by-week planning surface for past, c
 
 ## 8. Template Library and Scheduling
 
-Status: Partially implemented. Template/key-date/cycle schema, projection logic, and app data helpers have landed via migration follow-up [#175](https://github.com/SteepleInc/church-task/issues/175), but the complete authoring library UI is still roadmap scope.
+Status: Partially implemented. Template/key-date/cycle schema, projection logic, and app data helpers have landed via migration follow-up [#175](https://github.com/SteepleInc/church-work/issues/175), but the complete authoring library UI is still roadmap scope.
 
 Implementation now: `packages/domain/src/template-projection.ts`, db schema, Zero integration tests, and web template data files provide the persistence/projection foundation. Remaining work is the end-user Template Library authoring and scheduling experience across all Focus Window cases.
 

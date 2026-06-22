@@ -1,4 +1,4 @@
-import type { KeyDateRule } from "@church-task/domain";
+import type { KeyDateRule } from "@church-work/domain";
 import { revalidateLogic } from "@tanstack/react-form";
 import { Schema } from "effect";
 import { atom, useAtom } from "jotai";

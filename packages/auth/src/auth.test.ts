@@ -1,4 +1,4 @@
-import { createDb } from "@church-task/db";
+import { createDb } from "@church-work/db";
 import {
   labels,
   member,
@@ -6,9 +6,9 @@ import {
   team_memberships,
   teams,
   user,
-} from "@church-task/db/schema";
-import { STARTER_LABELS, STARTER_TEAM_NAMES } from "@church-task/domain";
-import { getOrgId, getOrgUserId, getSessionId, getUserId } from "@church-task/shared/get-ids";
+} from "@church-work/db/schema";
+import { STARTER_LABELS, STARTER_TEAM_NAMES } from "@church-work/domain";
+import { getOrgId, getOrgUserId, getSessionId, getUserId } from "@church-work/shared/get-ids";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { createAuthClient } from "better-auth/client";
 import { organizationClient } from "better-auth/client/plugins";
@@ -33,20 +33,20 @@ describe("Better Auth Postgres foundation", () => {
       const otpStore = createLocalOtpStore({ logOtps: true });
 
       await otpStore.sendVerificationOTP({
-        email: "local-dev@church-task.test",
+        email: "local-dev@church-work.test",
         otp: "654321",
         type: "sign-in",
       });
 
       expect(info).toHaveBeenCalledWith(
-        "[local-otp] sign-in code for local-dev@church-task.test: 654321",
+        "[local-otp] sign-in code for local-dev@church-work.test: 654321",
       );
     } finally {
       info.mockRestore();
     }
   });
 
-  test("wires the Church Task auth plugin set and local OTP capture", async () => {
+  test("wires the Church Work auth plugin set and local OTP capture", async () => {
     const container = await new PostgreSqlContainer("postgres:16-alpine").start();
     const { db, pool } = createDb(container.getConnectionUri());
 
@@ -70,13 +70,13 @@ describe("Better Auth Postgres foundation", () => {
       ]);
 
       await otpStore.sendVerificationOTP({
-        email: "avery.member@church-task.test",
+        email: "avery.member@church-work.test",
         otp: "123456",
         type: "sign-in",
       });
 
-      expect(otpStore.getLatestOtp("avery.member@church-task.test", "sign-in")).toEqual({
-        email: "avery.member@church-task.test",
+      expect(otpStore.getLatestOtp("avery.member@church-work.test", "sign-in")).toEqual({
+        email: "avery.member@church-work.test",
         otp: "123456",
         type: "sign-in",
       });
@@ -99,7 +99,7 @@ describe("Better Auth Postgres foundation", () => {
       const orgId = getOrgId();
 
       await db.insert(user).values({
-        email: "ada.admin@church-task.test",
+        email: "ada.admin@church-work.test",
         emailVerified: true,
         id: userId,
         name: "Ada App Administrator",
@@ -189,7 +189,7 @@ describe("Better Auth Postgres foundation", () => {
       });
 
       await authClient.signUp.email({
-        email: "founder@church-task.test",
+        email: "founder@church-work.test",
         fetchOptions: {
           onSuccess: (context) => {
             const cookies = parseSetCookieHeader(context.response.headers.get("set-cookie") ?? "");
@@ -263,7 +263,7 @@ describe("Better Auth Postgres foundation", () => {
       });
 
       await authClient.signUp.email({
-        email: "owner@church-task.test",
+        email: "owner@church-work.test",
         fetchOptions: {
           onSuccess: (context) => {
             const cookies = parseSetCookieHeader(context.response.headers.get("set-cookie") ?? "");
@@ -292,7 +292,7 @@ describe("Better Auth Postgres foundation", () => {
       const memberUserId = getUserId();
       const memberId = getOrgUserId();
       await db.insert(user).values({
-        email: "member@church-task.test",
+        email: "member@church-work.test",
         emailVerified: true,
         id: memberUserId,
         name: "Member",

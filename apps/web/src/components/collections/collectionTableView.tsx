@@ -1,7 +1,7 @@
 /** biome-ignore-all lint/suspicious/noExplicitAny: lib code */
 "use client";
 
-import { noOp, nullOp } from "@church-task/shared/noOps";
+import { noOp, nullOp } from "@church-work/shared/noOps";
 import type { Column, Row, Table } from "@tanstack/react-table";
 import { flexRender } from "@tanstack/react-table";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";

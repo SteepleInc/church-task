@@ -2,7 +2,7 @@
 
 ## Repo Overview
 
-`church-task` is a private Bun + Turborepo TypeScript monorepo using a PreachX-style architecture with TanStack Start, Postgres, Drizzle, Zero, Better Auth, Effect, shared UI primitives, and shared config/env packages.
+`church-work` is a private Bun + Turborepo TypeScript monorepo using a PreachX-style architecture with TanStack Start, Postgres, Drizzle, Zero, Better Auth, Effect, shared UI primitives, and shared config/env packages.
 
 Primary verification commands from the repo root:
 
@@ -15,7 +15,7 @@ The package manager is Bun (`bun@1.3.13`). Prefer Bun commands for this repo unl
 
 ## Project Structure
 
-- `apps/web` is the TanStack Start frontend app, preserving the existing Church Task UI.
+- `apps/web` is the TanStack Start frontend app, preserving the existing Church Work UI.
 - `backend/server` is the target Effect API/server package imported by the web app, following the PreachX pattern.
 - `packages/db`, `packages/auth`, and `packages/zero` are the target Postgres/Better Auth/Zero packages.
 - `packages/config` contains shared TypeScript/tooling config.
@@ -52,7 +52,7 @@ Because `.reference/` is ignored, files added or changed there will not appear i
 
 ### Issue tracker
 
-Issues and PRDs are tracked in GitHub Issues for `SteepleInc/church-task`. See `docs/agents/issue-tracker.md`.
+Issues and PRDs are tracked in GitHub Issues for `SteepleInc/church-work`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

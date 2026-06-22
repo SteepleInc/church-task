@@ -1,5 +1,5 @@
 {
-  "name": "@church-task/db",
+  "name": "@church-work/db",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -15,14 +15,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@church-task/domain": "workspace:*",
-    "@church-task/shared": "workspace:*",
+    "@church-work/domain": "workspace:*",
+    "@church-work/shared": "workspace:*",
     "drizzle-orm": "catalog:",
     "effect": "catalog:",
     "pg": "catalog:"
   },
   "devDependencies": {
-    "@church-task/config": "workspace:*",
+    "@church-work/config": "workspace:*",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
     "drizzle-kit": "catalog:",

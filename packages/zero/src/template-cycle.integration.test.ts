@@ -1,4 +1,4 @@
-import { startPostgresHarness } from "@church-task/test-harness";
+import { startPostgresHarness } from "@church-work/test-harness";
 import { mustGetMutator } from "@rocicorp/zero";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
@@ -14,7 +14,7 @@ import {
   templates,
   workflow_statuses,
   workflows,
-} from "@church-task/db/schema";
+} from "@church-work/db/schema";
 
 import { mutators } from "./mutators";
 

@@ -2,10 +2,10 @@ import {
   addLocalDateDays,
   assertValidTimeZone,
   localMidnightToUtcInstant,
-} from "@church-task/domain";
+} from "@church-work/domain";
 import { and, eq, isNull, ne, sql } from "drizzle-orm";
 
-import type { ChurchTaskDb } from "./client";
+import type { ChurchWorkDb } from "./client";
 import { cycles } from "./schema";
 
 type CycleBoundary = {
@@ -17,8 +17,8 @@ type CycleBoundary = {
   readonly starts_at: Date;
 };
 
-type DbTransaction = Parameters<Parameters<ChurchTaskDb["transaction"]>[0]>[0];
-type DbExecutor = ChurchTaskDb | DbTransaction;
+type DbTransaction = Parameters<Parameters<ChurchWorkDb["transaction"]>[0]>[0];
+type DbExecutor = ChurchWorkDb | DbTransaction;
 
 export type CycleTimeZoneAdjustment = CycleBoundary;
 
@@ -73,7 +73,7 @@ export const buildCycleTimeZoneAdjustments = (args: {
 };
 
 export const adjustChurchCyclesForTimeZone = async (
-  db: ChurchTaskDb,
+  db: ChurchWorkDb,
   args: {
     readonly church_id: string;
     readonly newChurchTimeZone: string;

@@ -3,8 +3,8 @@ import {
   KEY_DATE_PRESETS,
   type KeyDatePreset,
   type KeyDateRule,
-} from "@church-task/domain";
-import { mutators, queries } from "@church-task/zero";
+} from "@church-work/domain";
+import { mutators, queries } from "@church-work/zero";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useCallback } from "react";
 

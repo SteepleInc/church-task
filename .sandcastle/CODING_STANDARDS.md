@@ -7,7 +7,7 @@ The reviewer agent loads this file during Sandcastle review.
 - Use Bun commands in this repo.
 - Keep changes small and scoped to the issue.
 - Prefer named exports and existing repo patterns.
-- Preserve Church Task domain language from `CONTEXT.md`.
+- Preserve Church Work domain language from `CONTEXT.md`.
 - Avoid `any`, unsafe casts, and broad rewrites unless the issue requires them.
 - Do not introduce secrets or commit `.env` files.
 
@@ -33,4 +33,4 @@ The reviewer agent loads this file during Sandcastle review.
 - `backend/server` is the Effect API/server package imported by the web app.
 - `packages/db`, `packages/auth`, and `packages/zero` own persistence, auth, and sync concerns.
 - Follow existing PreachX-style architecture and ADRs.
-- Keep UI design aligned with existing Church Task screens and shared primitives.
+- Keep UI design aligned with existing Church Work screens and shared primitives.

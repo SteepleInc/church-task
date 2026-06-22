@@ -18,4 +18,4 @@ export const createDb = (connectionString: string) => {
   return { db, pool };
 };
 
-export type ChurchTaskDb = ReturnType<typeof createDb>["db"];
+export type ChurchWorkDb = ReturnType<typeof createDb>["db"];

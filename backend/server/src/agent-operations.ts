@@ -12,7 +12,7 @@ import {
   type CoreWorkBatchReadResponse,
   type CoreWorkBatchWriteResponse,
   type CurrentUserResponse,
-} from "@church-task/domain";
+} from "@church-work/domain";
 import {
   getActivityId,
   getCycleAdjustmentId,
@@ -22,7 +22,7 @@ import {
   getTemplateScheduleId,
   getTemplateTaskId,
   getTemplateTeamId,
-} from "@church-task/shared/get-ids";
+} from "@church-work/shared/get-ids";
 import { and, asc, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -43,16 +43,16 @@ import {
   user,
   workflow_statuses,
   workflows,
-} from "@church-task/db/schema";
-import type { ChurchTaskAuth } from "@church-task/auth";
-import type { ChurchTaskDb } from "@church-task/db";
+} from "@church-work/db/schema";
+import type { ChurchWorkAuth } from "@church-work/auth";
+import type { ChurchWorkDb } from "@church-work/db";
 
-type AuthSession = Awaited<ReturnType<ChurchTaskAuth["api"]["getSession"]>>;
+type AuthSession = Awaited<ReturnType<ChurchWorkAuth["api"]["getSession"]>>;
 type AuthenticatedSession = NonNullable<AuthSession>;
 
 type AgentServices = {
-  readonly auth: ChurchTaskAuth;
-  readonly db: ChurchTaskDb;
+  readonly auth: ChurchWorkAuth;
+  readonly db: ChurchWorkDb;
 };
 
 const json = (body: unknown, init?: ResponseInit) => Response.json(body, init);
@@ -80,7 +80,7 @@ const getRequestedChurchId = (body: Record<string, unknown>) => {
 };
 
 const ensureChurchMembership = (
-  db: ChurchTaskDb,
+  db: ChurchWorkDb,
   session: AuthenticatedSession,
   churchId: string,
 ) =>
@@ -122,7 +122,7 @@ const toTaskDto = (
 });
 
 const recordTaskActivity = (
-  db: ChurchTaskDb,
+  db: ChurchWorkDb,
   args: {
     readonly actorId: string;
     readonly churchId: string;
@@ -148,7 +148,7 @@ const recordTaskActivity = (
       }),
   });
 
-const resolveTask = (db: ChurchTaskDb, body: Record<string, unknown>) =>
+const resolveTask = (db: ChurchWorkDb, body: Record<string, unknown>) =>
   Effect.tryPromise({
     catch: (cause) => cause,
     try: async () => {
@@ -200,14 +200,14 @@ const resolveTask = (db: ChurchTaskDb, body: Record<string, unknown>) =>
     },
   });
 
-const listTeams = (db: ChurchTaskDb, churchId: string) =>
+const listTeams = (db: ChurchWorkDb, churchId: string) =>
   db
     .select()
     .from(teams)
     .where(and(eq(teams.church_id, churchId), isNull(teams.deleted_at)))
     .orderBy(asc(teams.sort_order));
 
-const listWorkflowStatuses = (db: ChurchTaskDb, churchId: string, workflowId?: string) =>
+const listWorkflowStatuses = (db: ChurchWorkDb, churchId: string, workflowId?: string) =>
   db
     .select()
     .from(workflow_statuses)
@@ -274,7 +274,7 @@ const requireString = (body: Record<string, unknown>, key: string) => {
 };
 
 const recordActivity = (
-  db: ChurchTaskDb,
+  db: ChurchWorkDb,
   args: {
     readonly actorId: string;
     readonly churchId: string;

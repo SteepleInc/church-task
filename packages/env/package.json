@@ -1,5 +1,5 @@
 {
-  "name": "@church-task/env",
+  "name": "@church-work/env",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -17,7 +17,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@church-task/config": "workspace:*",
+    "@church-work/config": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:"
   }

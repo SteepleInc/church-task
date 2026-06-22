@@ -2,7 +2,7 @@ import {
   isValidTeamIdentifier,
   normalizeTeamIdentifier,
   TEAM_IDENTIFIER_MAX_LENGTH,
-} from "@church-task/domain";
+} from "@church-work/domain";
 import { revalidateLogic } from "@tanstack/react-form";
 import { Schema } from "effect";
 import { atom, useAtom } from "jotai";

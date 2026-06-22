@@ -1,4 +1,4 @@
-import type { KeyDateRule } from "@church-task/domain";
+import type { KeyDateRule } from "@church-work/domain";
 import type { ColumnDef } from "@tanstack/react-table";
 import { CalendarDays, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";

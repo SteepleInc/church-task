@@ -1,7 +1,7 @@
 "use client";
 
-import { env } from "@church-task/env/web";
-import { mutators, schema, type OptionalZeroSessionContext } from "@church-task/zero";
+import { env } from "@church-work/env/web";
+import { mutators, schema, type OptionalZeroSessionContext } from "@church-work/zero";
 import { ZeroProvider } from "@rocicorp/zero/react";
 import { useRef } from "react";
 

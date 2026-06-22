@@ -1,5 +1,5 @@
 {
-  "name": "@church-task/auth",
+  "name": "@church-work/auth",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,13 +12,13 @@
   },
   "dependencies": {
     "@better-auth/api-key": "catalog:",
-    "@church-task/db": "workspace:*",
-    "@church-task/shared": "workspace:*",
+    "@church-work/db": "workspace:*",
+    "@church-work/shared": "workspace:*",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:"
   },
   "devDependencies": {
-    "@church-task/config": "workspace:*",
+    "@church-work/config": "workspace:*",
     "@testcontainers/postgresql": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:",

@@ -1,4 +1,4 @@
-import { nullOp } from "@church-task/shared/noOps";
+import { nullOp } from "@church-work/shared/noOps";
 import type { ReactNode } from "react";
 
 import { recordFromCollection } from "@/data/collection-query-state";

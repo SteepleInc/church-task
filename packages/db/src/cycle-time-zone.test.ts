@@ -1,4 +1,4 @@
-import { localMidnightToUtcInstant } from "@church-task/domain";
+import { localMidnightToUtcInstant } from "@church-work/domain";
 import { describe, expect, test } from "vitest";
 
 import { buildCycleTimeZoneAdjustments } from "./cycle-time-zone";

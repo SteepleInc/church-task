@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
     "paths": {
-      "@church-task/shared/*": ["./*"]
+      "@church-work/shared/*": ["./*"]
     }
   },
-  "extends": "@church-task/config/tsconfig.base.json",
+  "extends": "@church-work/config/tsconfig.base.json",
   "include": ["."]
 }

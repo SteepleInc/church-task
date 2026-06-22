@@ -1,1 +1,1 @@
-export { serverEnv } from "@church-task/env/server";
+export { serverEnv } from "@church-work/env/server";

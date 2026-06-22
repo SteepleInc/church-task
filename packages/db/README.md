@@ -1,11 +1,11 @@
-# Church Task Database Schema
+# Church Work Database Schema
 
 This package owns the canonical Drizzle/Postgres schema and generated migrations.
 
 Schema conventions for product tables:
 
 - Table names, column names, and TypeScript row fields use `snake_case`.
-- IDs are TypeID strings generated through `@church-task/shared/get-ids`; multi-word prefixes are concatenated lowercase, such as `workflowstatus`.
+- IDs are TypeID strings generated through `@church-work/shared/get-ids`; multi-word prefixes are concatenated lowercase, such as `workflowstatus`.
 - Soft-deletable product tables use the slim base entity fields from `baseEntityFields`: `_tag`, `created_at`, `created_by`, `updated_at`, `updated_by`, `deleted_at`, and `deleted_by`.
 - Do not add generic `status`, `inactivated_at`, or `inactivated_by` fields to base entities.
 - Do not add database foreign keys by default. Relationship cleanup is application/service logic.
@@ -16,6 +16,6 @@ Better Auth-owned tables may keep Better Auth-compatible TypeScript field names 
 
 ## Seed And Reset Helpers
 
-`seedDatabase`, `resetSeededData`, and `resetAndSeedDatabase` provide the shared Drizzle seed primitives for local dev scripts and E2E harness code. The current profiles are `empty`, `app`, and `admin`; they use deterministic names, emails, and slugs while generating TypeIDs through `@church-task/shared/get-ids`.
+`seedDatabase`, `resetSeededData`, and `resetAndSeedDatabase` provide the shared Drizzle seed primitives for local dev scripts and E2E harness code. The current profiles are `empty`, `app`, and `admin`; they use deterministic names, emails, and slugs while generating TypeIDs through `@church-work/shared/get-ids`.
 
 Resets truncate the current migrated tables directly through Drizzle. This keeps local/E2E reset independent from domain service code and lets a running Zero process continue watching the same Postgres database across reset/reseed cycles.

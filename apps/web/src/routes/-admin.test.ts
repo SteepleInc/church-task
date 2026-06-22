@@ -48,7 +48,7 @@ describe("admin route fidelity", () => {
     expect(appNavigationSource).not.toContain("<SidebarGroupLabel>App Admin</SidebarGroupLabel>");
   });
 
-  it("keeps Church Task admin collections in copied feature paths and free of excluded PreachX product surfaces", () => {
+  it("keeps Church Work admin collections in copied feature paths and free of excluded PreachX product surfaces", () => {
     const collectionSource = readFileSync(
       new URL("../components/collections/collection.tsx", import.meta.url),
       "utf8",

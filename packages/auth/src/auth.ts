@@ -2,7 +2,7 @@ import {
   adjustChurchCyclesForTimeZone,
   bootstrapChurchOnboarding,
   createDb,
-} from "@church-task/db";
+} from "@church-work/db";
 import {
   getAccountId,
   getApiKeyId,
@@ -12,7 +12,7 @@ import {
   getSessionId,
   getUserId,
   getVerificationId,
-} from "@church-task/shared/get-ids";
+} from "@church-work/shared/get-ids";
 import { apiKey } from "@better-auth/api-key";
 import { and, eq } from "drizzle-orm";
 import type { BetterAuthOptions } from "better-auth";
@@ -28,8 +28,8 @@ import {
   session,
   user,
   verification,
-} from "@church-task/db/schema";
-import type { ChurchTaskDb } from "@church-task/db";
+} from "@church-work/db/schema";
+import type { ChurchWorkDb } from "@church-work/db";
 
 import { clearOrgForOnboarding, completeOnboarding } from "./plugins";
 
@@ -86,7 +86,7 @@ const getTrustedOrigins = () =>
 
 type SessionCreateHookInput = typeof session.$inferInsert;
 
-export const enrichNewSession = async (db: ChurchTaskDb, newSession: SessionCreateHookInput) => {
+export const enrichNewSession = async (db: ChurchWorkDb, newSession: SessionCreateHookInput) => {
   const [userRow] = await db
     .select({ role: user.role })
     .from(user)
@@ -115,7 +115,7 @@ export const enrichNewSession = async (db: ChurchTaskDb, newSession: SessionCrea
 };
 
 export const enrichActiveOrganizationSession = async (
-  db: ChurchTaskDb,
+  db: ChurchWorkDb,
   updatedSession: Partial<typeof session.$inferInsert>,
   userId: string | null | undefined,
 ) => {
@@ -153,7 +153,7 @@ export const enrichActiveOrganizationSession = async (
 };
 
 export const createAuthOptions = (
-  db: ChurchTaskDb,
+  db: ChurchWorkDb,
   otpStore: LocalOtpStore = createLocalOtpStore(),
 ) => {
   const options = {
@@ -162,7 +162,7 @@ export const createAuthOptions = (
         generateId: ({ model }) => modelIds[model as keyof typeof modelIds]?.() ?? false,
       },
     },
-    appName: "Church Task",
+    appName: "Church Work",
     database: drizzleAdapter(db, {
       provider: "pg",
       schema: {
@@ -314,4 +314,4 @@ export const createAuth = (databaseUrl: string, otpStore?: LocalOtpStore) => {
   return { auth, db, pool };
 };
 
-export type ChurchTaskAuth = ReturnType<typeof createAuth>["auth"];
+export type ChurchWorkAuth = ReturnType<typeof createAuth>["auth"];

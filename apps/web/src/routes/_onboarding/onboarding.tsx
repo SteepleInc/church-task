@@ -381,7 +381,7 @@ function InitialTeamsStepCard(props: {
             </Button>
           </CardAction>
           <CardDescription className="col-span-2 col-start-2 sm:col-span-1">
-            Review the starting Teams Church Task created for your Church.
+            Review the starting Teams Church Work created for your Church.
           </CardDescription>
         </CardHeader>
 
@@ -494,7 +494,7 @@ function FinishedStepCard(props: { readonly churchId: string }) {
           onClick={() => void completeOnboarding()}
           type="button"
         >
-          Enter Church Task
+          Enter Church Work
           <ArrowRight />
         </Button>
       </ActionRow>

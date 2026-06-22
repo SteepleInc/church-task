@@ -1,4 +1,4 @@
-import { nullOp } from "@church-task/shared/noOps";
+import { nullOp } from "@church-work/shared/noOps";
 import type { Row } from "@tanstack/react-table";
 import { flexRender } from "@tanstack/react-table";
 import { Array, Option, pipe } from "effect";

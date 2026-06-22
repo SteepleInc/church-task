@@ -1,4 +1,4 @@
-const INTENTIONAL_SIGN_OUT_KEY = "church-task:intentional-sign-out";
+const INTENTIONAL_SIGN_OUT_KEY = "church-work:intentional-sign-out";
 
 export function markIntentionalSignOut() {
   window.sessionStorage.setItem(INTENTIONAL_SIGN_OUT_KEY, "true");

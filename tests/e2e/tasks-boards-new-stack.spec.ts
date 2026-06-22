@@ -5,7 +5,7 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import { getE2eApiUrl, startAuthenticatedSession } from "./helpers";
 
 test.skip(
-  process.env.CHURCH_TASK_E2E_ONBOARDING_STACK !== "1",
+  process.env.CHURCH_WORK_E2E_ONBOARDING_STACK !== "1",
   "Run with bun run test:e2e:tasks-boards to boot the local Postgres/Zero onboarding stack.",
 );
 
@@ -226,7 +226,7 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
   );
   await expect(page.getByText("Showing 1 of 1")).toBeVisible();
   await inboxSearch.fill("no matching inbox notification");
-  await expect(page.getByRole("heading", { name: "No matching notifications" })).toBeVisible();
+  await expect(page.getByText("No matching notifications")).toBeVisible();
   await page.getByRole("button", { name: "Clear search" }).click();
   await expect(page.getByRole("button", { name: /Open notification/ })).toContainText(
     sharedTaskTitle,
@@ -234,7 +234,9 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
   await page.getByRole("button", { name: /Open notification/ }).click();
   const detailsPane = page.getByRole("dialog", { name: "Details Pane" });
   await expect(detailsPane).toBeVisible({ timeout: 20_000 });
-  await expect(detailsPane.getByRole("heading", { name: sharedTaskTitle })).toBeVisible();
+  await expect(detailsPane.getByRole("textbox", { name: "Task title" })).toHaveValue(
+    sharedTaskTitle,
+  );
   await expect(page.getByText("1 unread", { exact: true })).not.toBeVisible({ timeout: 20_000 });
   await page.keyboard.press("Escape");
 

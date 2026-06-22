@@ -1,4 +1,4 @@
-import * as drizzleSchema from "@church-task/db/schema";
+import * as drizzleSchema from "@church-work/db/schema";
 import { drizzleZeroConfig } from "drizzle-zero";
 
 export default drizzleZeroConfig(drizzleSchema, {

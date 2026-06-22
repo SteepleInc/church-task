@@ -3,8 +3,8 @@ import { expect, type Page, test } from "@playwright/test";
 import { getE2eApiUrl, waitForOtp } from "./helpers";
 
 test.skip(
-  process.env.CHURCH_TASK_E2E_READY !== "1",
-  process.env.CHURCH_TASK_E2E_SKIP_REASON ?? "E2E environment is not configured.",
+  process.env.CHURCH_WORK_E2E_READY !== "1",
+  process.env.CHURCH_WORK_E2E_SKIP_REASON ?? "E2E environment is not configured.",
 );
 
 async function signInWithOtp(page: Page, email: string) {
@@ -70,8 +70,8 @@ async function finishOnboardingFromTeamsStep(page: Page) {
   // Substring name match: the button's accessible name includes the
   // Button component's screen-reader "Loading" status prefix.
   await page.getByRole("button", { name: "Next" }).click();
-  await expect(page.getByRole("button", { name: "Enter Church Task" })).toBeEnabled();
-  await page.getByRole("button", { name: "Enter Church Task" }).click();
+  await expect(page.getByRole("button", { name: "Enter Church Work" })).toBeEnabled();
+  await page.getByRole("button", { name: "Enter Church Work" }).click();
   await expect(page).toHaveURL(/\/my-work$/, { timeout: 20_000 });
 }
 
@@ -447,7 +447,7 @@ test("settings navigation exposes profile, Church, members, and invitation actio
 
   await sidebar.getByRole("link", { exact: true, name: "Profile" }).click();
   await expect(page).toHaveURL(/\/settings\/profile$/);
-  await expect(page.getByText("Manage your Church Task account details.")).toBeVisible();
+  await expect(page.getByText("Manage your Church Work account details.")).toBeVisible();
   await expect(page.getByText(email).first()).toBeVisible();
   await page.getByLabel("Name").fill(profileName);
   await page.getByRole("button", { name: "Update Profile" }).click();

@@ -10,7 +10,7 @@ import {
   filterGlobalSearchResults,
   GLOBAL_SEARCH_SHORTCUT,
 } from "@/features/global-search/global-search-utils";
-import { buildChurchTaskQuickActions } from "@/features/quick-actions/quick-actions-utils";
+import { buildChurchWorkQuickActions } from "@/features/quick-actions/quick-actions-utils";
 import { ListTodoIcon, UsersIcon } from "lucide-react";
 import { getAvatarInitials } from "@/components/ui/avatar";
 
@@ -85,11 +85,11 @@ describe("app shell route behavior", () => {
     expect(getBreadcrumbLabel("/admin/orgs")).toBe("App Admin Churches");
   });
 
-  test("renders app breadcrumbs without a Church Task root crumb", () => {
+  test("renders app breadcrumbs without a Church Work root crumb", () => {
     expect(appShellSource).toContain(
       "<BreadcrumbPage>{getBreadcrumbLabel(pathname)}</BreadcrumbPage>",
     );
-    expect(appShellSource).not.toContain("<BreadcrumbPage>Church Task</BreadcrumbPage>");
+    expect(appShellSource).not.toContain("<BreadcrumbPage>Church Work</BreadcrumbPage>");
     expect(appShellSource).not.toContain("<BreadcrumbSeparator />");
   });
 
@@ -244,8 +244,8 @@ describe("app shell route behavior", () => {
 });
 
 describe("quick action route behavior", () => {
-  test("renders Church Task big actions and quick actions without PreachX product surfaces", () => {
-    const actions = buildChurchTaskQuickActions({
+  test("renders Church Work big actions and quick actions without PreachX product surfaces", () => {
+    const actions = buildChurchWorkQuickActions({
       canInviteMembers: true,
       canManageKeyDates: true,
       canManageTeams: true,
@@ -272,7 +272,7 @@ describe("quick action route behavior", () => {
   });
 
   test("disables Invite Member when the active Church role cannot invite", () => {
-    const actions = buildChurchTaskQuickActions({
+    const actions = buildChurchWorkQuickActions({
       canInviteMembers: false,
       canManageKeyDates: false,
       canManageTeams: false,
@@ -384,7 +384,7 @@ describe("global search behavior", () => {
     expect(GLOBAL_SEARCH_SHORTCUT).toBe("/");
   });
 
-  test("filters Church Task entities without PreachX product surfaces", () => {
+  test("filters Church Work entities without PreachX product surfaces", () => {
     const results = filterGlobalSearchResults(
       [
         {

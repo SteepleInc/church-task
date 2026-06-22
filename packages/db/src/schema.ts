@@ -591,7 +591,7 @@ export const task_comment_subscriptions = pgTable(
     user_id: text("user_id").notNull(),
   },
   (table) => [
-    index("task_comment_subscriptions_church_task_idx").on(table.church_id, table.task_id),
+    index("task_comment_subscriptions_church_work_idx").on(table.church_id, table.task_id),
     uniqueIndex("task_comment_subscriptions_user_thread_live_idx")
       .on(table.church_id, table.root_comment_id, table.user_id)
       .where(sql`${table.deleted_at} IS NULL`),

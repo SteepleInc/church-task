@@ -1,10 +1,10 @@
-# Church Task
+# Church Work
 
-Church Task is the context for coordinating recurring and project-based work in a church. It covers the language of tasks, templates, teams, and church rhythms; real-time service execution is adjacent future language, not part of this context yet.
+Church Work is the context for coordinating recurring and project-based work in a church. It covers the language of tasks, templates, teams, and church rhythms; real-time service execution is adjacent future language, not part of this context yet.
 
 ## Language
 
-**Church Task Management**:
+**Church Work Management**:
 The bounded context for planning and tracking church work that needs to be assigned, scheduled, and completed. It includes recurring cadence-driven work and project-based work.
 _Avoid_: Planning Center clone, Trello clone
 
@@ -17,7 +17,7 @@ The local time zone used to determine a Church's weekly Cycle boundaries. It is 
 _Avoid_: User time zone, browser time zone
 
 **Org**:
-The top-level tenant domain model in Church Task. An Org is presented to users as a Church, but code, authentication, internal implementation language, and route structure may use Org.
+The top-level tenant domain model in Church Work. An Org is presented to users as a Church, but code, authentication, internal implementation language, and route structure may use Org.
 _Avoid_: Organization as a user-facing label, Workspace, account
 
 **Live Event Execution**:
@@ -207,7 +207,7 @@ The relationship between a User and a Church. A Church Membership has one access
 _Avoid_: Account membership, workspace membership
 
 **Active Church**:
-The Church currently selected for a User's session. Church Task shows work, Teams, Templates, and Boards inside the Active Church by default. On login, the Active Church is restored from the User's previous session when possible; a User with Churches but no restorable selection gets their most recently joined Church, and a User with no Churches has no Active Church and is taken to Onboarding.
+The Church currently selected for a User's session. Church Work shows work, Teams, Templates, and Boards inside the Active Church by default. On login, the Active Church is restored from the User's previous session when possible; a User with Churches but no restorable selection gets their most recently joined Church, and a User with no Churches has no Active Church and is taken to Onboarding.
 _Avoid_: Current org, selected workspace
 
 **Onboarding**:
@@ -247,7 +247,7 @@ A built-in Board presentation of a System Saved View, such as My Work, a default
 _Avoid_: Hard-coded page, special board
 
 **System Saved View**:
-A built-in Saved View created or maintained by Church Task, such as My Work, a default Team view, or Our Work for all visible Church work. A System Saved View behaves like a Saved View but is permanent in product navigation and cannot be deleted by Users.
+A built-in Saved View created or maintained by Church Work, such as My Work, a default Team view, or Our Work for all visible Church work. A System Saved View behaves like a Saved View but is permanent in product navigation and cannot be deleted by Users.
 _Avoid_: Hard-coded view, special view
 
 **Default Team View**:
@@ -341,7 +341,7 @@ The canonical category of a Task's Workflow Status: To Do, In Progress, Done, or
 _Avoid_: Percent complete, story status
 
 **App Administration**:
-The cross-Church support surface for operating Church Task itself, reached under the `/admin` route. App Administration lists every Church and every User across all tenants, unlike normal product surfaces which are scoped to the Active Church.
+The cross-Church support surface for operating Church Work itself, reached under the `/admin` route. App Administration lists every Church and every User across all tenants, unlike normal product surfaces which are scoped to the Active Church.
 _Avoid_: Internal tools as the canonical name, super admin area, back office
 
 **App Administrator**:

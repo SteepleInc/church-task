@@ -26,7 +26,7 @@ import {
   useQuickActionOpeners,
 } from "@/features/quick-actions/quick-actions-state";
 import {
-  buildChurchTaskQuickActions,
+  buildChurchWorkQuickActions,
   canManageChurchTeams,
 } from "@/features/quick-actions/quick-actions-utils";
 import type { QuickActionDefinition } from "@/features/quick-actions/quick-actions-types";
@@ -83,7 +83,7 @@ export function QuickActions() {
   const activeChurchId = activeChurch?.id ?? null;
   const actions = useMemo(
     () =>
-      buildChurchTaskQuickActions({
+      buildChurchWorkQuickActions({
         canInviteMembers: canInviteChurchMembers(activeChurch?.role),
         canManageKeyDates: activeChurchId !== null && canManageChurchTeams(activeChurch?.role),
         canManageTeams: activeChurchId !== null && canManageChurchTeams(activeChurch?.role),
@@ -113,7 +113,7 @@ export function QuickActions() {
   return (
     <>
       <CommandDialog
-        description="A menu that lets you quickly execute actions within Church Task."
+        description="A menu that lets you quickly execute actions within Church Work."
         onOpenChange={setQuickActionsIsOpen}
         open={quickActionsIsOpen}
         title="Quick Actions Menu"

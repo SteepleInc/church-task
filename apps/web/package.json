@@ -1,5 +1,5 @@
 {
-  "name": "@church-task/web",
+  "name": "@church-work/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,11 +12,11 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
-    "@church-task/auth": "workspace:*",
-    "@church-task/domain": "workspace:*",
-    "@church-task/env": "workspace:*",
-    "@church-task/server": "workspace:*",
-    "@church-task/zero": "workspace:*",
+    "@church-work/auth": "workspace:*",
+    "@church-work/domain": "workspace:*",
+    "@church-work/env": "workspace:*",
+    "@church-work/server": "workspace:*",
+    "@church-work/zero": "workspace:*",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -60,7 +60,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@church-task/config": "workspace:*",
+    "@church-work/config": "workspace:*",
     "@tanstack/react-router-devtools": "^1.167.0",
     "@tanstack/router-plugin": "^1.168.18",
     "@types/bun": "catalog:",

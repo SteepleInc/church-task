@@ -2,7 +2,7 @@ import {
   addLocalDateDays,
   cycleStartDateForLocalDate,
   localMidnightToUtcInstant,
-} from "@church-task/domain";
+} from "@church-work/domain";
 
 import { formatWeekDateRange } from "@/data/cycles/cyclesData.app";
 

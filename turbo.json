@@ -39,20 +39,20 @@
     },
     "web#dev": {
       "cache": false,
-      "dependsOn": ["@church-task/infra-db#health-check", "@church-task/zero#health-check"],
+      "dependsOn": ["@church-work/infra-db#health-check", "@church-work/zero#health-check"],
       "persistent": true
     },
-    "@church-task/zero#infra": {
+    "@church-work/zero#infra": {
       "cache": false,
-      "dependsOn": ["@church-task/infra-db#health-check"],
+      "dependsOn": ["@church-work/infra-db#health-check"],
       "persistent": true
     },
-    "@church-task/db#dev": {
+    "@church-work/db#dev": {
       "cache": false,
-      "dependsOn": ["@church-task/infra-db#health-check"],
+      "dependsOn": ["@church-work/infra-db#health-check"],
       "persistent": true
     },
-    "@church-task/zero#health-check": {
+    "@church-work/zero#health-check": {
       "cache": false
     },
     "dev": {

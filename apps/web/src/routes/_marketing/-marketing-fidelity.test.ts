@@ -29,7 +29,7 @@ describe("marketing PreachX fidelity guards", () => {
     expect(mobileMarketingNavigationSource).toContain("Toggle Menu");
   });
 
-  test("keeps the copied PreachX marketing layout classes with Church Task copy", () => {
+  test("keeps the copied PreachX marketing layout classes with Church Work copy", () => {
     expect(homeSource).toContain("bg-cream px-6 py-34 sm:px-12");
     expect(homeSource).toContain("hidden min-h-[calc(100vh-168px)] lg:flex");
     expect(homeSource).toContain("Workflows For Churches");

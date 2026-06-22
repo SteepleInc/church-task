@@ -1,5 +1,5 @@
 {
-  "name": "@church-task/infra-db",
+  "name": "@church-work/infra-db",
   "version": "0.0.0",
   "private": true,
   "type": "module",

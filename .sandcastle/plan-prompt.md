@@ -26,7 +26,7 @@ For each unblocked issue, assign a branch name using the exact format `sandcastl
 
 Also classify whether the issue needs a dedicated UI phase.
 
-Set `needsUi: true` when the issue includes meaningful user-facing UI design, layout, component composition, interaction polish, or design-language judgment. The UI phase exists because Opus is much better at making Church Task UI beautiful and consistent with the app's design language.
+Set `needsUi: true` when the issue includes meaningful user-facing UI design, layout, component composition, interaction polish, or design-language judgment. The UI phase exists because Opus is much better at making Church Work UI beautiful and consistent with the app's design language.
 
 Set `needsUi: false` when the issue is mostly backend, database, auth, Zero, domain logic, infrastructure, tests, or frontend plumbing/data wiring. The all-around builder should own plumbing and data setup. If a feature needs both data plumbing and UI, keep one branch for the issue and set `needsUi: true`; the all-around builder will do the plumbing first, the UI builder will build/polish the UI, and the all-around verify/fixer will make tests and integration pass afterward.
 
@@ -37,7 +37,7 @@ When `needsUi` is true, include a short `uiBrief` telling the UI builder what pr
 Output your plan as a JSON object wrapped in `<plan>` tags:
 
 <plan>
-{"issues": [{"id": "42", "title": "Build onboarding team editor", "branch": "sandcastle/issue-42", "needsUi": true, "uiBrief": "Make the Initial Teams editor feel native to Church Task while keeping the flow fast and clear."}]}
+{"issues": [{"id": "42", "title": "Build onboarding team editor", "branch": "sandcastle/issue-42", "needsUi": true, "uiBrief": "Make the Initial Teams editor feel native to Church Work while keeping the flow fast and clear."}]}
 </plan>
 
 Include only unblocked issues. If every issue is blocked, include the single highest-priority candidate (the one with the fewest or weakest dependencies).

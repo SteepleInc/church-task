@@ -1,7 +1,7 @@
-import { getDemoItemId, getUserId } from "@church-task/shared/get-ids";
+import { getDemoItemId, getUserId } from "@church-work/shared/get-ids";
 import { sql } from "drizzle-orm";
 
-import type { ChurchTaskDb } from "./client";
+import type { ChurchWorkDb } from "./client";
 import { demo_items, user } from "./schema";
 
 export type SeedProfile = "empty" | "app" | "admin";
@@ -52,26 +52,26 @@ const tableNames = [
   "user",
 ] as const;
 
-export const resetSeededData = async (db: ChurchTaskDb) => {
+export const resetSeededData = async (db: ChurchWorkDb) => {
   await db.execute(sql.raw(`truncate table ${tableNames.map((table) => `"${table}"`).join(", ")}`));
 };
 
 const appUserFixture = {
-  email: "avery.member@church-task.test",
+  email: "avery.member@church-work.test",
   name: "Avery Member",
   role: null,
   slug: "avery-member",
 } as const;
 
 const adminUserFixture = {
-  email: "ada.admin@church-task.test",
+  email: "ada.admin@church-work.test",
   name: "Ada App Administrator",
   role: "admin",
   slug: "ada-app-administrator",
 } as const;
 
 const insertSeedUser = async (
-  db: ChurchTaskDb,
+  db: ChurchWorkDb,
   fixture: typeof appUserFixture | typeof adminUserFixture,
 ) => {
   const id = getUserId();
@@ -88,7 +88,7 @@ const insertSeedUser = async (
 };
 
 const insertSeedDemoItem = async (
-  db: ChurchTaskDb,
+  db: ChurchWorkDb,
   args: {
     readonly name: string;
     readonly owner_user_id: string | null;
@@ -109,7 +109,7 @@ const insertSeedDemoItem = async (
   return { ...args, id } satisfies SeededDemoItemReference;
 };
 
-export const seedDatabase = async (db: ChurchTaskDb, profile: SeedProfile): Promise<SeedResult> => {
+export const seedDatabase = async (db: ChurchWorkDb, profile: SeedProfile): Promise<SeedResult> => {
   if (profile === "empty") {
     return { demo_items: [], profile, users: [] };
   }
@@ -135,7 +135,7 @@ export const seedDatabase = async (db: ChurchTaskDb, profile: SeedProfile): Prom
   return { demo_items: [appItem, adminItem], profile, users: [appUser, adminUser] };
 };
 
-export const resetAndSeedDatabase = async (db: ChurchTaskDb, profile: SeedProfile) => {
+export const resetAndSeedDatabase = async (db: ChurchWorkDb, profile: SeedProfile) => {
   await resetSeededData(db);
   return seedDatabase(db, profile);
 };

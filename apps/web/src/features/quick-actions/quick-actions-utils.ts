@@ -17,7 +17,7 @@ export function canManageChurchTeams(currentRole: CurrentMemberRole) {
     : currentRole === "owner" || currentRole === "admin";
 }
 
-type BuildChurchTaskQuickActionsInput = {
+type BuildChurchWorkQuickActionsInput = {
   readonly canInviteMembers: boolean;
   readonly canManageKeyDates: boolean;
   readonly canManageTeams: boolean;
@@ -29,7 +29,7 @@ type BuildChurchTaskQuickActionsInput = {
   readonly openInviteMember: () => void;
 };
 
-export function buildChurchTaskQuickActions({
+export function buildChurchWorkQuickActions({
   canInviteMembers,
   canManageKeyDates,
   canManageTeams,
@@ -39,7 +39,7 @@ export function buildChurchTaskQuickActions({
   openCreateTeam,
   navigateToSettings,
   openInviteMember,
-}: BuildChurchTaskQuickActionsInput): QuickActionDefinition[] {
+}: BuildChurchWorkQuickActionsInput): QuickActionDefinition[] {
   const selectAndClose = (action: () => void | Promise<void>) => async () => {
     await action();
     closeQuickActions();

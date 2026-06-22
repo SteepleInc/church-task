@@ -1,4 +1,4 @@
-import type { TaskStatus } from "@church-task/domain";
+import type { TaskStatus } from "@church-work/domain";
 
 import type {
   SubTaskCompletedFilter,

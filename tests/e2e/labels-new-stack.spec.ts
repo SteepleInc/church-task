@@ -3,7 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { startAuthenticatedSession } from "./helpers";
 
 test.skip(
-  process.env.CHURCH_TASK_E2E_ONBOARDING_STACK !== "1",
+  process.env.CHURCH_WORK_E2E_ONBOARDING_STACK !== "1",
   "Run with bun run test:e2e:labels to boot the local Postgres/Zero onboarding stack.",
 );
 
@@ -50,7 +50,7 @@ test("manages Labels and applies them to Tasks on the local Postgres and Zero st
 
   await page
     .getByRole("row", { name: new RegExp(`${labelName}.*—`) })
-    .getByRole("button", { name: labelName })
+    .getByRole("button", { name: labelName, exact: true })
     .click();
   await page.getByPlaceholder("Label name").fill(renamedLabelName);
   await page.keyboard.press("Enter");

@@ -158,7 +158,7 @@ function SchedulingForm({ activeChurch }: { readonly activeChurch: CurrentOrg })
     <>
       <SettingsSection
         card
-        description="How far ahead Church Task turns scheduled Template work into real, actionable Tasks."
+        description="How far ahead Church Work turns scheduled Template work into real, actionable Tasks."
         title="Materialization"
       >
         <SettingsFieldRow

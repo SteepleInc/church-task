@@ -8,7 +8,7 @@ import {
 } from "./internal-navigation";
 
 describe("internal navigation", () => {
-  test("keeps dev and app-admin routes focused on Church Task internals", () => {
+  test("keeps dev and app-admin routes focused on Church Work internals", () => {
     expect(devNavItems).toEqual([
       { label: "Session", to: "/dev/session", matchPath: "/dev/session" },
       { label: "Data Adapters", to: "/dev/data", matchPath: "/dev/data" },

@@ -1,4 +1,4 @@
-import { queries, type Member, type Organization, type Team } from "@church-task/zero";
+import { queries, type Member, type Organization, type Team } from "@church-work/zero";
 import { useQuery as useZeroQuery } from "@rocicorp/zero/react";
 
 import { authClient } from "@/lib/auth-client";

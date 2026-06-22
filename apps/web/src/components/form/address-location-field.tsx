@@ -1,4 +1,4 @@
-import { env } from "@church-task/env/web";
+import { env } from "@church-work/env/web";
 import type { ComponentProps, ReactNode } from "react";
 import { useEffect, useId, useState } from "react";
 

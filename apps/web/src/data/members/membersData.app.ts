@@ -1,4 +1,4 @@
-import { queries } from "@church-task/zero";
+import { queries } from "@church-work/zero";
 import { useQuery } from "@rocicorp/zero/react";
 
 import { authClient } from "@/lib/auth-client";

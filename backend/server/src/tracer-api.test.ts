@@ -1,4 +1,4 @@
-import { createAuth } from "@church-task/auth";
+import { createAuth } from "@church-work/auth";
 import {
   activities,
   cycles,
@@ -9,8 +9,8 @@ import {
   templates,
   teams,
   workflow_statuses,
-} from "@church-task/db/schema";
-import { startPostgresHarness } from "@church-task/test-harness";
+} from "@church-work/db/schema";
+import { startPostgresHarness } from "@church-work/test-harness";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 
@@ -32,7 +32,7 @@ describe("tracer API", () => {
     const api = createTracerApi(harness.connectionString);
 
     try {
-      const email = "new-stack-otp@church-task.test";
+      const email = "new-stack-otp@church-work.test";
       const sendResponse = await api.fetch(
         new Request("http://127.0.0.1/api/auth/email-otp/send-verification-otp", {
           body: JSON.stringify({ email, type: "sign-in" }),
@@ -65,7 +65,7 @@ describe("tracer API", () => {
       const signUp = await authRuntime.auth.api.signUpEmail({
         asResponse: true,
         body: {
-          email: "zero-foundation@church-task.test",
+          email: "zero-foundation@church-work.test",
           name: "Zero Foundation User",
           password: "correct horse battery staple",
         },
@@ -159,7 +159,7 @@ describe("tracer API", () => {
       const signUp = await authRuntime.auth.api.signUpEmail({
         asResponse: true,
         body: {
-          email: "inviter@church-task.test",
+          email: "inviter@church-work.test",
           name: "Invitation Test User",
           password: "correct horse battery staple",
         },
@@ -179,7 +179,7 @@ describe("tracer API", () => {
 
       const response = await api.fetch(
         new Request("http://127.0.0.1/api/test/invitations", {
-          body: JSON.stringify({ email: "Invitee@Church-Task.test", role: "admin" }),
+          body: JSON.stringify({ email: "Invitee@Church-Work.test", role: "admin" }),
           headers: {
             "content-type": "application/json",
             cookie,
@@ -194,7 +194,7 @@ describe("tracer API", () => {
       expect(body.invitation?.id).toMatch(/^churchinvitation_/);
       await expect(authRuntime.db.select().from(invitation)).resolves.toMatchObject([
         {
-          email: "invitee@church-task.test",
+          email: "invitee@church-work.test",
           id: body.invitation?.id,
           organizationId: org?.id,
           role: "admin",
@@ -217,7 +217,7 @@ describe("tracer API", () => {
         new Request("http://127.0.0.1/api/test/session", {
           body: JSON.stringify({
             churchName: "Fast Session Church",
-            email: "fast-session@church-task.test",
+            email: "fast-session@church-work.test",
             userName: "Fast Session User",
           }),
           headers: { "content-type": "application/json" },
@@ -238,7 +238,7 @@ describe("tracer API", () => {
       };
 
       expect(sessionBody.user).toMatchObject({
-        email: "fast-session@church-task.test",
+        email: "fast-session@church-work.test",
         name: "Fast Session User",
       });
       expect(sessionBody.session?.activeOrganizationId).toMatch(/^org_/);
@@ -258,7 +258,7 @@ describe("tracer API", () => {
       const signUp = await authRuntime.auth.api.signUpEmail({
         asResponse: true,
         body: {
-          email: "agent-api@church-task.test",
+          email: "agent-api@church-work.test",
           name: "Agent API User",
           password: "correct horse battery staple",
         },
@@ -279,7 +279,7 @@ describe("tracer API", () => {
         new Request("http://127.0.0.1/api/agent/current-user", { headers: { cookie } }),
       );
       await expect(currentUserResponse.json()).resolves.toMatchObject({
-        data: { user: { email: "agent-api@church-task.test", name: "Agent API User" } },
+        data: { user: { email: "agent-api@church-work.test", name: "Agent API User" } },
         ok: true,
         operation: "currentUser",
       });
@@ -302,7 +302,7 @@ describe("tracer API", () => {
         }),
       );
       await expect(apiKeyCurrentUserResponse.json()).resolves.toMatchObject({
-        data: { user: { email: "agent-api@church-task.test", name: "Agent API User" } },
+        data: { user: { email: "agent-api@church-work.test", name: "Agent API User" } },
         ok: true,
         operation: "currentUser",
       });

@@ -23,11 +23,11 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       {
-        title: "church-task",
+        title: "church-work",
       },
       {
         name: "description",
-        content: "church-task is a web application",
+        content: "church-work is a web application",
       },
     ],
     links: [

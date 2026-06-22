@@ -1,4 +1,4 @@
-import { parseTaskIdentifier } from "@church-task/domain";
+import { parseTaskIdentifier } from "@church-work/domain";
 
 import { type TaskCollectionItem } from "@/data/tasks/tasksData.app";
 import { useTasksCollection } from "@/data/tasks/tasksData.app";

@@ -3,7 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { startAuthenticatedSession } from "./helpers";
 
 test.skip(
-  process.env.CHURCH_TASK_E2E_ONBOARDING_STACK !== "1",
+  process.env.CHURCH_WORK_E2E_ONBOARDING_STACK !== "1",
   "Run with bun run test:e2e:teams-workflows to boot the local Postgres/Zero onboarding stack.",
 );
 

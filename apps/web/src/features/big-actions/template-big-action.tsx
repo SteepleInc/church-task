@@ -1,6 +1,6 @@
 "use client";
 
-import { noOp } from "@church-task/shared/noOps";
+import { noOp } from "@church-work/shared/noOps";
 import { useLocation } from "@tanstack/react-router";
 import { Boolean, pipe } from "effect";
 import { useAtom, useAtomValue } from "jotai";

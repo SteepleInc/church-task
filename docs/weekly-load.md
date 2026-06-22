@@ -1,6 +1,6 @@
 # Weekly Load
 
-Church Task should keep planning simple while still helping teams avoid overloaded weeks.
+Church Work should keep planning simple while still helping teams avoid overloaded weeks.
 
 This note captures a small Pivotal Tracker-inspired idea that fits our scheduling and template model: use recent completion history to show whether a week looks light, normal, or heavy.
 
@@ -12,7 +12,7 @@ The useful idea from Pivotal Tracker is not the exact language of stories, point
 
 > Look at what a team actually completed recently, then use that as a simple guide for what probably fits in an upcoming week.
 
-For Church Task, this should be a quiet helper rather than a full planning system.
+For Church Work, this should be a quiet helper rather than a full planning system.
 
 ## User-facing concept
 
@@ -88,4 +88,4 @@ If unscheduled work needs a home, use a plain term like **Unscheduled**, **Later
 
 Templates generate work. Weekly Load tells teams when the generated work is becoming unrealistic.
 
-Keep it simple: one small signal that helps churches plan weeks without turning Church Task into a project-management methodology.
+Keep it simple: one small signal that helps churches plan weeks without turning Church Work into a project-management methodology.

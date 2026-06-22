@@ -3,15 +3,15 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "church-task",
+      "name": "church-work",
       "dependencies": {
-        "@church-task/auth": "workspace:*",
-        "@church-task/db": "workspace:*",
-        "@church-task/domain": "workspace:*",
-        "@church-task/env": "workspace:*",
-        "@church-task/server": "workspace:*",
-        "@church-task/shared": "workspace:*",
-        "@church-task/zero": "workspace:*",
+        "@church-work/auth": "workspace:*",
+        "@church-work/db": "workspace:*",
+        "@church-work/domain": "workspace:*",
+        "@church-work/env": "workspace:*",
+        "@church-work/server": "workspace:*",
+        "@church-work/shared": "workspace:*",
+        "@church-work/zero": "workspace:*",
         "@opentelemetry/api": "^1.9.1",
         "@opentelemetry/api-logs": "^0.218.0",
         "@opentelemetry/auto-instrumentations-node": "^0.76.0",
@@ -34,8 +34,8 @@
       },
       "devDependencies": {
         "@ai-hero/sandcastle": "^0.10.0",
-        "@church-task/config": "workspace:*",
-        "@church-task/test-harness": "workspace:*",
+        "@church-work/config": "workspace:*",
+        "@church-work/test-harness": "workspace:*",
         "@playwright/test": "^1.60.0",
         "oxfmt": "^0.46.0",
         "oxlint": "^1.61.0",
@@ -45,15 +45,15 @@
       },
     },
     "apps/web": {
-      "name": "@church-task/web",
+      "name": "@church-work/web",
       "version": "0.0.0",
       "dependencies": {
         "@base-ui/react": "^1.5.0",
-        "@church-task/auth": "workspace:*",
-        "@church-task/domain": "workspace:*",
-        "@church-task/env": "workspace:*",
-        "@church-task/server": "workspace:*",
-        "@church-task/zero": "workspace:*",
+        "@church-work/auth": "workspace:*",
+        "@church-work/domain": "workspace:*",
+        "@church-work/env": "workspace:*",
+        "@church-work/server": "workspace:*",
+        "@church-work/zero": "workspace:*",
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
@@ -97,7 +97,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
-        "@church-task/config": "workspace:*",
+        "@church-work/config": "workspace:*",
         "@tanstack/react-router-devtools": "^1.167.0",
         "@tanstack/router-plugin": "^1.168.18",
         "@types/bun": "catalog:",
@@ -112,22 +112,22 @@
       },
     },
     "backend/server": {
-      "name": "@church-task/server",
+      "name": "@church-work/server",
       "version": "0.0.0",
       "dependencies": {
-        "@church-task/auth": "workspace:*",
-        "@church-task/db": "workspace:*",
-        "@church-task/domain": "workspace:*",
-        "@church-task/shared": "workspace:*",
-        "@church-task/zero": "workspace:*",
+        "@church-work/auth": "workspace:*",
+        "@church-work/db": "workspace:*",
+        "@church-work/domain": "workspace:*",
+        "@church-work/shared": "workspace:*",
+        "@church-work/zero": "workspace:*",
         "@rocicorp/zero": "catalog:",
         "dotenv": "catalog:",
         "drizzle-orm": "catalog:",
         "effect": "catalog:",
       },
       "devDependencies": {
-        "@church-task/config": "workspace:*",
-        "@church-task/test-harness": "workspace:*",
+        "@church-work/config": "workspace:*",
+        "@church-work/test-harness": "workspace:*",
         "@types/node": "catalog:",
         "tsx": "catalog:",
         "typescript": "catalog:",
@@ -135,21 +135,21 @@
       },
     },
     "infra/db": {
-      "name": "@church-task/infra-db",
+      "name": "@church-work/infra-db",
       "version": "0.0.0",
     },
     "packages/auth": {
-      "name": "@church-task/auth",
+      "name": "@church-work/auth",
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/api-key": "catalog:",
-        "@church-task/db": "workspace:*",
-        "@church-task/shared": "workspace:*",
+        "@church-work/db": "workspace:*",
+        "@church-work/shared": "workspace:*",
         "better-auth": "catalog:",
         "drizzle-orm": "catalog:",
       },
       "devDependencies": {
-        "@church-task/config": "workspace:*",
+        "@church-work/config": "workspace:*",
         "@testcontainers/postgresql": "catalog:",
         "@types/node": "catalog:",
         "typescript": "catalog:",
@@ -157,38 +157,38 @@
       },
     },
     "packages/cli": {
-      "name": "@church-task/cli",
+      "name": "@church-work/cli",
       "version": "0.0.0",
       "bin": {
-        "church-task": "./src/bin.ts",
+        "church-work": "./src/bin.ts",
       },
       "dependencies": {
-        "@church-task/domain": "workspace:*",
+        "@church-work/domain": "workspace:*",
         "effect": "catalog:",
       },
       "devDependencies": {
-        "@church-task/config": "workspace:*",
+        "@church-work/config": "workspace:*",
         "@types/node": "catalog:",
         "typescript": "catalog:",
         "vitest": "catalog:",
       },
     },
     "packages/config": {
-      "name": "@church-task/config",
+      "name": "@church-work/config",
       "version": "0.0.0",
     },
     "packages/db": {
-      "name": "@church-task/db",
+      "name": "@church-work/db",
       "version": "0.0.0",
       "dependencies": {
-        "@church-task/domain": "workspace:*",
-        "@church-task/shared": "workspace:*",
+        "@church-work/domain": "workspace:*",
+        "@church-work/shared": "workspace:*",
         "drizzle-orm": "catalog:",
         "effect": "catalog:",
         "pg": "catalog:",
       },
       "devDependencies": {
-        "@church-task/config": "workspace:*",
+        "@church-work/config": "workspace:*",
         "@types/node": "catalog:",
         "@types/pg": "catalog:",
         "drizzle-kit": "catalog:",
@@ -198,16 +198,16 @@
       },
     },
     "packages/domain": {
-      "name": "@church-task/domain",
+      "name": "@church-work/domain",
       "version": "0.0.0",
       "devDependencies": {
-        "@church-task/config": "workspace:*",
+        "@church-work/config": "workspace:*",
         "@types/node": "catalog:",
         "typescript": "catalog:",
       },
     },
     "packages/env": {
-      "name": "@church-task/env",
+      "name": "@church-work/env",
       "version": "0.0.0",
       "dependencies": {
         "@t3-oss/env-core": "catalog:",
@@ -215,57 +215,57 @@
         "zod": "catalog:",
       },
       "devDependencies": {
-        "@church-task/config": "workspace:*",
+        "@church-work/config": "workspace:*",
         "@types/node": "catalog:",
         "typescript": "catalog:",
       },
     },
     "packages/shared": {
-      "name": "@church-task/shared",
+      "name": "@church-work/shared",
       "version": "0.0.0",
       "dependencies": {
-        "@church-task/env": "workspace:*",
+        "@church-work/env": "workspace:*",
         "typeid-js": "catalog:",
       },
       "devDependencies": {
-        "@church-task/config": "workspace:*",
+        "@church-work/config": "workspace:*",
         "@types/node": "catalog:",
         "typescript": "catalog:",
       },
     },
     "packages/test-harness": {
-      "name": "@church-task/test-harness",
+      "name": "@church-work/test-harness",
       "version": "0.0.0",
       "dependencies": {
-        "@church-task/db": "workspace:*",
-        "@church-task/shared": "workspace:*",
+        "@church-work/db": "workspace:*",
+        "@church-work/shared": "workspace:*",
         "@rocicorp/zero": "catalog:",
         "@testcontainers/postgresql": "catalog:",
         "drizzle-orm": "catalog:",
         "testcontainers": "catalog:",
       },
       "devDependencies": {
-        "@church-task/config": "workspace:*",
+        "@church-work/config": "workspace:*",
         "@types/node": "catalog:",
         "typescript": "catalog:",
         "vitest": "catalog:",
       },
     },
     "packages/zero": {
-      "name": "@church-task/zero",
+      "name": "@church-work/zero",
       "version": "0.0.0",
       "dependencies": {
-        "@church-task/db": "workspace:*",
-        "@church-task/domain": "workspace:*",
-        "@church-task/shared": "workspace:*",
+        "@church-work/db": "workspace:*",
+        "@church-work/domain": "workspace:*",
+        "@church-work/shared": "workspace:*",
         "@rocicorp/zero": "catalog:",
         "drizzle-orm": "catalog:",
         "drizzle-zero": "catalog:",
         "effect": "catalog:",
       },
       "devDependencies": {
-        "@church-task/config": "workspace:*",
-        "@church-task/test-harness": "workspace:*",
+        "@church-work/config": "workspace:*",
+        "@church-work/test-harness": "workspace:*",
         "@types/node": "catalog:",
         "typescript": "catalog:",
         "vitest": "catalog:",
@@ -395,29 +395,29 @@
 
     "@better-fetch/fetch": ["@better-fetch/fetch@1.3.1", "", {}, "sha512-ABkD1WhyfPZprKRQI3bhATjeiFuNWC9PXhfGWqL+sg/gKrM977oFrYkdb4msM3hgUGonr7KlOsOFT5TU2rht9g=="],
 
-    "@church-task/auth": ["@church-task/auth@workspace:packages/auth"],
+    "@church-work/auth": ["@church-work/auth@workspace:packages/auth"],
 
-    "@church-task/cli": ["@church-task/cli@workspace:packages/cli"],
+    "@church-work/cli": ["@church-work/cli@workspace:packages/cli"],
 
-    "@church-task/config": ["@church-task/config@workspace:packages/config"],
+    "@church-work/config": ["@church-work/config@workspace:packages/config"],
 
-    "@church-task/db": ["@church-task/db@workspace:packages/db"],
+    "@church-work/db": ["@church-work/db@workspace:packages/db"],
 
-    "@church-task/domain": ["@church-task/domain@workspace:packages/domain"],
+    "@church-work/domain": ["@church-work/domain@workspace:packages/domain"],
 
-    "@church-task/env": ["@church-task/env@workspace:packages/env"],
+    "@church-work/env": ["@church-work/env@workspace:packages/env"],
 
-    "@church-task/infra-db": ["@church-task/infra-db@workspace:infra/db"],
+    "@church-work/infra-db": ["@church-work/infra-db@workspace:infra/db"],
 
-    "@church-task/server": ["@church-task/server@workspace:backend/server"],
+    "@church-work/server": ["@church-work/server@workspace:backend/server"],
 
-    "@church-task/shared": ["@church-task/shared@workspace:packages/shared"],
+    "@church-work/shared": ["@church-work/shared@workspace:packages/shared"],
 
-    "@church-task/test-harness": ["@church-task/test-harness@workspace:packages/test-harness"],
+    "@church-work/test-harness": ["@church-work/test-harness@workspace:packages/test-harness"],
 
-    "@church-task/web": ["@church-task/web@workspace:apps/web"],
+    "@church-work/web": ["@church-work/web@workspace:apps/web"],
 
-    "@church-task/zero": ["@church-task/zero@workspace:packages/zero"],
+    "@church-work/zero": ["@church-work/zero@workspace:packages/zero"],
 
     "@clack/core": ["@clack/core@1.4.1", "", { "dependencies": { "fast-wrap-ansi": "^0.2.0", "sisteransi": "^1.0.5" } }, "sha512-FILJa1gGKEFTGZAJE9RpVhrjKz3c3h4ar60dSv6cGuDqufQ84YEIS3GAGvZiN+H6yaLbbvTFNejjCC4tXpZEuw=="],
 
@@ -2411,7 +2411,7 @@
 
     "@base-ui/utils/reselect": ["reselect@5.2.0", "", {}, "sha512-AgZ3UOZm3YndfrJ4OYjgrT7bmCm/1iqkjvEfH/oYjzh6PD2qw4QuT3jjnXIrpdt4MTpMXclMT3lXbmRY+XRakw=="],
 
-    "@church-task/web/jotai": ["jotai@2.20.1", "", { "peerDependencies": { "@babel/core": ">=7.0.0", "@babel/template": ">=7.0.0", "@types/react": ">=17.0.0", "react": ">=17.0.0" }, "optionalPeers": ["@babel/core", "@babel/template", "@types/react", "react"] }, "sha512-dnuKfU/GLi8B28RRMjQ3AfoN7kfzP8o41+AX2FmITZqEMY8PHnjABq+VkEooomLwYaGjda+pgy0yFSjaHX/ZPg=="],
+    "@church-work/web/jotai": ["jotai@2.20.1", "", { "peerDependencies": { "@babel/core": ">=7.0.0", "@babel/template": ">=7.0.0", "@types/react": ">=17.0.0", "react": ">=17.0.0" }, "optionalPeers": ["@babel/core", "@babel/template", "@types/react", "react"] }, "sha512-dnuKfU/GLi8B28RRMjQ3AfoN7kfzP8o41+AX2FmITZqEMY8PHnjABq+VkEooomLwYaGjda+pgy0yFSjaHX/ZPg=="],
 
     "@dotenvx/dotenvx/commander": ["commander@11.1.0", "", {}, "sha512-yPVavfyCcRhmorC7rWlkHn15b4wDVgVmBA7kV4QVBsF7kv/9TKJAbAXVTxvTnwP8HHKjRCJDClKbciiYS7p0DQ=="],
 

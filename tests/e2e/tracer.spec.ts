@@ -7,7 +7,7 @@ test("tracer API creates a demo item through TanStack Start", async ({ request }
   const response = await request.post("/api/tracer/demo-items", {
     data: { name: "Playwright tracer item" },
     headers: {
-      "x-church-task-user-id": "user_00000000000000000000000000",
+      "x-church-work-user-id": "user_00000000000000000000000000",
     },
   });
 

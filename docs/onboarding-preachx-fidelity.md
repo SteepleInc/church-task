@@ -11,7 +11,7 @@ Canonical PreachX sources reviewed:
 - `/Users/izakfilmalter/Projects/PreachX/preach-x/apps/web/src/features/onboarding/preachersStep.tsx`
 - `/Users/izakfilmalter/Projects/PreachX/preach-x/apps/web/src/features/onboarding/onboardingState.ts`
 
-Church Task files checked:
+Church Work files checked:
 
 - `apps/web/src/routes/_onboarding/route.tsx`
 - `apps/web/src/routes/_onboarding/onboarding.tsx`
@@ -24,7 +24,7 @@ Repairs confirmed:
 
 - The authenticated onboarding shell uses the copied PreachX black/cream split frame, mobile-only top controls, left-panel org switcher placement, and right-panel card host.
 - The onboarding shell mounts `QuickActions` as a shell-level sibling after the outlet, matching the cited PreachX route placement.
-- The left welcome block now matches PreachX spacing (`mt-4 ... md:mt-24`) while retaining Church Task copy.
+- The left welcome block now matches PreachX spacing (`mt-4 ... md:mt-24`) while retaining Church Work copy.
 - The onboarding page uses the copied PreachX centered progress-plus-card frame, rounded card, separator, and shadow treatment.
 - The generated `Step 1 of 2` / `Step 2 of 2` labels and `Next up` card are absent.
 - Church Profile starts with the Google Maps lookup as the primary interaction; manual profile fields stay behind `Enter manually`.
@@ -32,9 +32,9 @@ Repairs confirmed:
 
 Intentional differences:
 
-- PreachX has five onboarding steps for church organizations. Church Task intentionally has three: Church Profile, Initial Teams, and Finished; billing is deferred and is not implied by the Finished step.
-- Church Task adopts PreachX's persist-early data flow: the Church is created on Church Profile submit, the Initial Teams step is a live editor over persisted Teams, and the step is derived from URL plus Church state (`resolveOnboardingStep`). See `docs/adr/0008-persist-early-onboarding-with-derived-steps.md`.
-- PreachX copy mentions sermon royalty and preacher setup. Church Task copy uses Church, Teams, and work setup language.
+- PreachX has five onboarding steps for church organizations. Church Work intentionally has three: Church Profile, Initial Teams, and Finished; billing is deferred and is not implied by the Finished step.
+- Church Work adopts PreachX's persist-early data flow: the Church is created on Church Profile submit, the Initial Teams step is a live editor over persisted Teams, and the step is derived from URL plus Church state (`resolveOnboardingStep`). See `docs/adr/0008-persist-early-onboarding-with-derived-steps.md`.
+- PreachX copy mentions sermon royalty and preacher setup. Church Work copy uses Church, Teams, and work setup language.
 - The onboarding shell now renders PreachX's desktop theme/user controls (`ModeToggle` + `UserMenu`) floating in the top-right of the right panel, matching PreachX exactly so the user avatar and theme toggle are reachable on desktop.
 
 Screenshot/visual acceptance checklist:

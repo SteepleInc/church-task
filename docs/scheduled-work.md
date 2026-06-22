@@ -10,7 +10,7 @@ The migrated equivalent of the old `Sunday Cycle maintenance` cron (`0 8 * * 0`)
 DATABASE_URL=postgres://... bun run scheduled:cycle-maintenance
 ```
 
-It calls `runScheduledCycleMaintenance` from `@church-task/server`, which:
+It calls `runScheduledCycleMaintenance` from `@church-work/server`, which:
 
 - Ensures the current Cycle and next two weekly Cycles for each Church.
 - Rolls unfinished Tasks from closed Cycles into the following Cycle.
@@ -21,6 +21,6 @@ Production hosting for the scheduler is still a deployment-topology decision. Lo
 
 ## Historical Scheduled/Background Inventory
 
-- Old-stack `Sunday Cycle maintenance` called `internal.cycleMaintenance.internalRunForAllChurches`. This is ported to `runScheduledCycleMaintenance` in `@church-task/server`.
+- Old-stack `Sunday Cycle maintenance` called `internal.cycleMaintenance.internalRunForAllChurches`. This is ported to `runScheduledCycleMaintenance` in `@church-work/server`.
 - Old starter Polar/billing background work was obsolete rather than ported because billing is outside the current architecture.
 - Other old internal mutations were invoked by product, onboarding, or agent operations rather than registered background schedules. Those paths were handled by the feature-specific migration issues.

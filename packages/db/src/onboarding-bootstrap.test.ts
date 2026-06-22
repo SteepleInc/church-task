@@ -6,8 +6,8 @@ import {
   addLocalDateDays,
   cycleStartDateForLocalDate,
   localDateForInstant,
-} from "@church-task/domain";
-import { getIdType, getOrgId, getUserId } from "@church-task/shared/get-ids";
+} from "@church-work/domain";
+import { getIdType, getOrgId, getUserId } from "@church-work/shared/get-ids";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";

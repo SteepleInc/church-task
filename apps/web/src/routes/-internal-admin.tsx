@@ -197,7 +197,7 @@ function AppAdminUsersContent() {
         <CardHeader>
           <CardTitle>Active Church Users</CardTitle>
           <CardDescription>
-            Church Task user administration without PreachX product surfaces.
+            Church Work user administration without PreachX product surfaces.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm">

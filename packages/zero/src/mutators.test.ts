@@ -1,5 +1,5 @@
-import { DEFAULT_WORKFLOW_STATUSES, formatTaskIdentifier } from "@church-task/domain";
-import { getIdType } from "@church-task/shared/get-ids";
+import { DEFAULT_WORKFLOW_STATUSES, formatTaskIdentifier } from "@church-work/domain";
+import { getIdType } from "@church-work/shared/get-ids";
 import { mustGetMutator } from "@rocicorp/zero";
 import { describe, expect, test } from "vitest";
 
@@ -22,7 +22,7 @@ import {
   template_tasks,
   template_teams,
   templates,
-} from "@church-task/db/schema";
+} from "@church-work/db/schema";
 
 import {
   buildTemplateCycleTaskInserts,

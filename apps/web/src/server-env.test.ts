@@ -15,7 +15,7 @@ const viteConfigSource = await Bun.file(new URL("../vite.config.ts", import.meta
 
 describe("web dev server environment", () => {
   test("creates the API runtime from validated server env", () => {
-    expect(apiRuntimeSource).toContain('from "@church-task/env/server"');
+    expect(apiRuntimeSource).toContain('from "@church-work/env/server"');
     expect(apiRuntimeSource).toContain("createTracerApi(serverEnv.DATABASE_URL)");
   });
 
@@ -42,7 +42,7 @@ describe("web dev server environment", () => {
   test("keeps the web server entry delegated to TanStack Start", () => {
     expect(serverSource).toContain("createServerEntry");
     expect(serverSource).toContain("handler.fetch(request)");
-    expect(serverSource).not.toContain("@church-task/server");
+    expect(serverSource).not.toContain("@church-work/server");
     expect(serverSource).not.toContain("createTracerApi");
   });
 

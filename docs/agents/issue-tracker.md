@@ -1,6 +1,6 @@
 # Issue tracker: GitHub
 
-Issues and PRDs for this repo live as GitHub issues in `SteepleInc/church-task`. Use the `gh` CLI for all operations.
+Issues and PRDs for this repo live as GitHub issues in `SteepleInc/church-work`. Use the `gh` CLI for all operations.
 
 ## Conventions
 

@@ -1,5 +1,5 @@
 {
-  "name": "@church-task/server",
+  "name": "@church-work/server",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,19 +13,19 @@
     "scheduled:cycle-maintenance": "bun src/run-scheduled-work.ts"
   },
   "dependencies": {
-    "@church-task/auth": "workspace:*",
-    "@church-task/db": "workspace:*",
-    "@church-task/domain": "workspace:*",
-    "@church-task/shared": "workspace:*",
-    "@church-task/zero": "workspace:*",
+    "@church-work/auth": "workspace:*",
+    "@church-work/db": "workspace:*",
+    "@church-work/domain": "workspace:*",
+    "@church-work/shared": "workspace:*",
+    "@church-work/zero": "workspace:*",
     "@rocicorp/zero": "catalog:",
     "dotenv": "catalog:",
     "drizzle-orm": "catalog:",
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@church-task/config": "workspace:*",
-    "@church-task/test-harness": "workspace:*",
+    "@church-work/config": "workspace:*",
+    "@church-work/test-harness": "workspace:*",
     "@types/node": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",

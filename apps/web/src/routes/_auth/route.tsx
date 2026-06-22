@@ -18,7 +18,7 @@ function AuthLayoutComponent() {
 
       <div className="m-auto flex flex-col items-start">
         <Link className="mb-8 text-3xl font-semibold tracking-tight" preload="intent" to="/">
-          Church Task
+          Church Work
         </Link>
 
         <Outlet />

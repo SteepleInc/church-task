@@ -10,7 +10,7 @@ import {
   STARTER_LABELS,
   STARTER_KEY_DATES,
   STARTER_TEAM_NAMES,
-} from "@church-task/domain";
+} from "@church-work/domain";
 import {
   getLabelId,
   getCycleId,
@@ -19,10 +19,10 @@ import {
   getTeamMembershipId,
   getWorkflowId,
   getWorkflowStatusId,
-} from "@church-task/shared/get-ids";
+} from "@church-work/shared/get-ids";
 import { and, eq, isNull, sql } from "drizzle-orm";
 
-import type { ChurchTaskDb } from "./client";
+import type { ChurchWorkDb } from "./client";
 import {
   cycles,
   key_dates,
@@ -66,7 +66,7 @@ export type BootstrapChurchOnboardingArgs = {
 };
 
 export const bootstrapChurchOnboarding = async (
-  db: ChurchTaskDb,
+  db: ChurchWorkDb,
   args: BootstrapChurchOnboardingArgs,
 ) => {
   await db.transaction(async (tx) => {

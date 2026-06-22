@@ -1,4 +1,4 @@
-import { queries, type Invitation } from "@church-task/zero";
+import { queries, type Invitation } from "@church-work/zero";
 import { useQuery } from "@rocicorp/zero/react";
 import { useEffect, useState } from "react";
 

@@ -1,5 +1,5 @@
-import { mutators, queries } from "@church-task/zero";
-import type { TemplateScheduleContract, TemplateScheduleRule } from "@church-task/domain";
+import { mutators, queries } from "@church-work/zero";
+import type { TemplateScheduleContract, TemplateScheduleRule } from "@church-work/domain";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 import { useCallback } from "react";
 

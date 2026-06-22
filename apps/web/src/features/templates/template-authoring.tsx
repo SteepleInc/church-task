@@ -1,4 +1,4 @@
-import type { KeyDateRule } from "@church-task/domain";
+import type { KeyDateRule } from "@church-work/domain";
 import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { Link } from "@tanstack/react-router";
 import { Schema } from "effect";
@@ -23,7 +23,7 @@ import {
   resolvePeriodPlacementDueDate,
   type PeriodPlacementFrame,
   type PeriodTemplatePlacementShape,
-} from "@church-task/domain";
+} from "@church-work/domain";
 
 import {
   AssigneeComboboxSelector,
@@ -296,7 +296,7 @@ type TemplateShape = "key_date" | TemplateAuthoringShape;
 /**
  * The Template authoring surface. Picks the Template Placement Shape, then
  * renders the matching guided flow: a weekly service Cycle, or a Key Date
- * anchored flow. Both flows mirror Church Task's planning language and produce
+ * anchored flow. Both flows mirror Church Work's planning language and produce
  * Template Tasks that carry planning fields only — no Workflow Status or Task
  * State (see CONTEXT.md "Template Task").
  */
@@ -432,7 +432,7 @@ export function TemplateAuthoringFlow({
 
 /**
  * The weekly service Template authoring flow. A single guided surface that
- * mirrors Church Task's planning language: choose the service weekday, place
+ * mirrors Church Work's planning language: choose the service weekday, place
  * Template Tasks on a vertical Monday–Sunday Cycle calendar, preview the first
  * projected Week, and save (optionally creating a repeating weekly Template
  * Schedule). Template Tasks carry planning fields only — no Workflow Status or
