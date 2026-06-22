@@ -1,17 +1,17 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  decodeDashboardSearch,
-  getDashboardSearchForExecutionFilters,
-  getDashboardSearchForPanel,
+  decodeWorkSearch,
+  getWorkSearchForExecutionFilters,
+  getWorkSearchForPanel,
   getMemberTeams,
   getUnavailableTeamBoardActions,
   resolveTeamByRouteIdentifier,
-} from "./-dashboard-utils";
+} from "./-work-page-utils";
 
-describe("dashboard execution route search", () => {
+describe("work page execution route search", () => {
   test("uses completed session org state instead of gating on active org loading", async () => {
-    const source = await Bun.file(new URL("./-dashboard.tsx", import.meta.url)).text();
+    const source = await Bun.file(new URL("./-work-page.tsx", import.meta.url)).text();
 
     expect(source).toContain("sessionHasCompletedActiveChurch");
     expect(source).toContain("activeChurchLoading && !sessionHasCompletedActiveChurch");
@@ -20,9 +20,21 @@ describe("dashboard execution route search", () => {
     expect(source).toContain("activeChurch?.currentUserId ?? sessionData?.user?.id ?? null");
   });
 
-  test("keeps page identity out of dashboard search state", () => {
+  test("names the shared surface as WorkPage and does not expose stale settings panels", async () => {
+    const source = await Bun.file(new URL("./-work-page.tsx", import.meta.url)).text();
+
+    expect(source).toContain("export function WorkPage");
+    expect(source).toContain("type ActiveWorkPanel");
+    expect(source).not.toContain("DashboardPage");
+    expect(source).not.toContain("ActiveDashboardPanel");
+    expect(source).not.toContain("ActiveChurchSettings");
+    expect(source).not.toContain("WorkflowSettingsCard");
+    expect(source).not.toContain('activePanel === "settings"');
+  });
+
+  test("keeps page identity out of work page search state", () => {
     expect(
-      decodeDashboardSearch({
+      decodeWorkSearch({
         work: "team",
         teamId: "team-1",
         taskState: "todo",
@@ -36,7 +48,7 @@ describe("dashboard execution route search", () => {
 
   test("drops invalid temporary execution filters", () => {
     expect(
-      decodeDashboardSearch({
+      decodeWorkSearch({
         taskState: "blocked",
         workflowStatusId: "",
       }),
@@ -48,20 +60,20 @@ describe("dashboard execution route search", () => {
 
   test("preserves temporary execution filters while switching execution pages", () => {
     expect(
-      getDashboardSearchForPanel({ taskState: "in_progress", workflowStatusId: "status-1" }),
+      getWorkSearchForPanel({ taskState: "in_progress", workflowStatusId: "status-1" }),
     ).toEqual({
       taskState: "in_progress",
       workflowStatusId: "status-1",
     });
 
-    expect(getDashboardSearchForPanel({ taskState: "done" })).toEqual({
+    expect(getWorkSearchForPanel({ taskState: "done" })).toEqual({
       taskState: "done",
     });
   });
 
   test("does not carry View Tabs or View Options between My Work and Our Work by default", () => {
     expect(
-      getDashboardSearchForPanel({
+      getWorkSearchForPanel({
         tab: "created",
         view: { mode: "list" },
         taskState: "todo",
@@ -71,7 +83,7 @@ describe("dashboard execution route search", () => {
 
   test("preserves details pane state while switching execution pages", () => {
     expect(
-      getDashboardSearchForPanel({
+      getWorkSearchForPanel({
         taskState: "todo",
         "details-pane": [{ _tag: "task", id: "task-1", tab: "details" }],
       }),
@@ -83,7 +95,7 @@ describe("dashboard execution route search", () => {
 
   test("encodes temporary execution filters as route search state", () => {
     expect(
-      getDashboardSearchForExecutionFilters(
+      getWorkSearchForExecutionFilters(
         {},
         { taskState: "in_progress", workflowStatusId: "status-1" },
       ),
@@ -93,16 +105,13 @@ describe("dashboard execution route search", () => {
     });
 
     expect(
-      getDashboardSearchForExecutionFilters(
-        { taskState: "done", workflowStatusId: "status-1" },
-        {},
-      ),
+      getWorkSearchForExecutionFilters({ taskState: "done", workflowStatusId: "status-1" }, {}),
     ).toEqual({ taskState: undefined, workflowStatusId: undefined });
   });
 
   test("does not encode Team board identity while changing temporary execution filters", () => {
     expect(
-      getDashboardSearchForExecutionFilters(
+      getWorkSearchForExecutionFilters(
         { taskState: "todo" },
         { taskState: "done", workflowStatusId: "status-1" },
       ),

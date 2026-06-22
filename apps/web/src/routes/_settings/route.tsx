@@ -1,7 +1,7 @@
 import { createFileRoute, retainSearchParams } from "@tanstack/react-router";
 
 import { SettingsShell } from "@/features/settings/settings-shell";
-import { validateDashboardSearch } from "@/routes/-dashboard-utils";
+import { validateWorkSearch } from "@/routes/-work-page-utils";
 import { FilterKeys } from "@/shared/global-state";
 
 export const Route = createFileRoute("/_settings")({
@@ -9,5 +9,5 @@ export const Route = createFileRoute("/_settings")({
   search: {
     middlewares: [retainSearchParams(["details-pane", FilterKeys.Orgs, FilterKeys.Users])],
   },
-  validateSearch: validateDashboardSearch,
+  validateSearch: validateWorkSearch,
 });

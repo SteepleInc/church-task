@@ -58,9 +58,7 @@ const globalSearchToggleSource = await Bun.file(
 const globalSearchFooterSource = await Bun.file(
   new URL("../features/global-search/global-search-footer.tsx", import.meta.url),
 ).text();
-const dashboardRouteSource = await Bun.file(
-  new URL("../routes/-dashboard.tsx", import.meta.url),
-).text();
+const workPageSource = await Bun.file(new URL("../routes/-work-page.tsx", import.meta.url)).text();
 const appShellSource = await Bun.file(new URL("./app-shell.tsx", import.meta.url)).text();
 
 describe("app shell route behavior", () => {
@@ -117,17 +115,17 @@ describe("app shell route behavior", () => {
   });
 
   test("keeps work pages scrolling inside the copied PreachX page frame", () => {
-    expect(dashboardRouteSource).toContain(
+    expect(workPageSource).toContain(
       'import { MainContainer, PageContainer, PageWrapper } from "@/components/pageComponents";',
     );
-    expect(dashboardRouteSource).toContain("<MainContainer>");
-    expect(dashboardRouteSource).toContain('<PageContainer wrapperClassName="gap-6">');
-    expect(dashboardRouteSource).not.toContain(
+    expect(workPageSource).toContain("<MainContainer>");
+    expect(workPageSource).toContain('<PageContainer wrapperClassName="gap-6">');
+    expect(workPageSource).not.toContain(
       '<main className="flex flex-1 flex-col gap-6 overflow-auto p-4 sm:p-6">',
     );
     // Board panels opt out of the page ScrollArea: each Board Column scrolls
     // its own cards, so the board fills the viewport instead of the page.
-    expect(dashboardRouteSource).toContain('<PageWrapper variant="noPageContainer"');
+    expect(workPageSource).toContain('<PageWrapper variant="noPageContainer"');
   });
 
   test("keeps the PreachX bottom sidebar dev menu before feedback and home", () => {

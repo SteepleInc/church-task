@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Schema } from "effect";
 
 import { ChurchWorkSearchSchema } from "@/components/tasks/task-view-options";
-import { DashboardPage } from "@/routes/-dashboard";
+import { WorkPage } from "@/routes/-work-page";
 
 export const Route = createFileRoute("/_org/our-work")({
   validateSearch: Schema.toStandardSchemaV1(ChurchWorkSearchSchema),
@@ -10,5 +10,5 @@ export const Route = createFileRoute("/_org/our-work")({
 });
 
 function RouteComponent() {
-  return <DashboardPage activePanel="our_work" />;
+  return <WorkPage activePanel="our_work" />;
 }
