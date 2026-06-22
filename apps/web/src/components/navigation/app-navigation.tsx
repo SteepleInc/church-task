@@ -98,7 +98,6 @@ function AppNavigationBody() {
         scrollAreaViewportClassName="pl-2 pr-1"
       >
         <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarMenu>
             <InboxSidebarItem />
             {workspaceNavItems.map((item) => (
