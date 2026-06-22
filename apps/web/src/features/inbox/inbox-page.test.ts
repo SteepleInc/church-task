@@ -91,9 +91,10 @@ describe("Inbox navigation plumbing", () => {
     ).text();
 
     expect(pageSource).toContain("Snooze notification");
-    expect(pageSource).toContain("Snooze 1 hour");
-    expect(pageSource).toContain("Snooze until tomorrow");
-    expect(pageSource).toContain("Show read");
+    expect(pageSource).toContain("In 1 hour");
+    expect(pageSource).toContain("Tomorrow morning");
+    expect(pageSource).toContain("Next week");
+    expect(pageSource).toContain("Show in Inbox");
     expect(pageSource).toContain("Show snoozed");
     expect(pageSource).toContain("filterInboxNotifications(notificationsCollection");
     expect(dataSource).toContain("mutators.notifications.snooze");

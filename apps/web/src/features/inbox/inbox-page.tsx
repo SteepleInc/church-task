@@ -6,6 +6,7 @@ import {
   MailIcon,
   MailOpenIcon,
   MessageSquareTextIcon,
+  SlidersHorizontalIcon,
   Trash2Icon,
 } from "lucide-react";
 import { useState, type ComponentType } from "react";
@@ -30,8 +31,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -59,7 +62,6 @@ import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { cn } from "@/lib/utils";
 
 const PAGE_DESCRIPTION = "Replies, mentions, and other updates that need your attention.";
-const DEFAULT_SNOOZE_HOURS = 24;
 
 type NotificationKind = {
   readonly icon: ComponentType<{ readonly className?: string }>;
@@ -132,6 +134,27 @@ export function filterInboxNotifications(
   });
 }
 
+/** An hour from now, for a quick "later today" snooze. */
+function snoozeInOneHour(): Date {
+  return new Date(Date.now() + 60 * 60 * 1000);
+}
+
+/** Tomorrow at 9am local time, matching the common "start of day" snooze. */
+function snoozeUntilTomorrowMorning(): Date {
+  const target = new Date();
+  target.setDate(target.getDate() + 1);
+  target.setHours(9, 0, 0, 0);
+  return target;
+}
+
+/** A week from now at 9am local time. */
+function snoozeUntilNextWeek(): Date {
+  const target = new Date();
+  target.setDate(target.getDate() + 7);
+  target.setHours(9, 0, 0, 0);
+  return target;
+}
+
 /** The leading verb that describes what the actor did, paired with the type glyph. */
 function actionLabelForType(type: string): string {
   switch (type) {
@@ -165,8 +188,13 @@ export function InboxPage() {
   const [deleteReadOpen, setDeleteReadOpen] = useState(false);
   const [showRead, setShowRead] = useState(true);
   const [showSnoozed, setShowSnoozed] = useState(false);
+  const now = new Date();
+  const snoozedCount = notificationsCollection.filter((notification) =>
+    isNotificationSnoozed(notification, now),
+  ).length;
+  const hasSnoozedNotifications = snoozedCount > 0;
   const visibleNotifications = filterInboxNotifications(notificationsCollection, {
-    now: new Date(),
+    now,
     showRead,
     showSnoozed,
   });
@@ -208,24 +236,44 @@ export function InboxPage() {
             ) : null}
           </div>
           {!loading && hasNotifications ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                aria-pressed={showRead}
-                onClick={() => setShowRead((value) => !value)}
-                size="sm"
-                variant={showRead ? "secondary" : "outline"}
-              >
-                Show read
-              </Button>
-              <Button
-                aria-pressed={showSnoozed}
-                onClick={() => setShowSnoozed((value) => !value)}
-                size="sm"
-                variant={showSnoozed ? "secondary" : "outline"}
-              >
-                <ClockIcon />
-                Show snoozed
-              </Button>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button size="sm" variant="outline">
+                      <SlidersHorizontalIcon />
+                      Display
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Show in Inbox</DropdownMenuLabel>
+                  <DropdownMenuCheckboxItem
+                    checked={showRead}
+                    onCheckedChange={(checked) => setShowRead(checked === true)}
+                  >
+                    <MailOpenIcon className="text-muted-foreground" />
+                    <span className="flex-1">Read</span>
+                    {readCount > 0 ? (
+                      <span className="text-muted-foreground text-xs tabular-nums">
+                        {readCount}
+                      </span>
+                    ) : null}
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={showSnoozed}
+                    onCheckedChange={(checked) => setShowSnoozed(checked === true)}
+                  >
+                    <ClockIcon className="text-muted-foreground" />
+                    <span className="flex-1">Snoozed</span>
+                    {snoozedCount > 0 ? (
+                      <span className="text-muted-foreground text-xs tabular-nums">
+                        {snoozedCount}
+                      </span>
+                    ) : null}
+                  </DropdownMenuCheckboxItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 disabled={unreadCount === 0}
                 onClick={handleMarkAllRead}
@@ -307,13 +355,23 @@ export function InboxPage() {
           <Empty className="min-h-72 rounded-xl border bg-card">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <InboxIcon />
+                {hasSnoozedNotifications && !showSnoozed ? <ClockIcon /> : <InboxIcon />}
               </EmptyMedia>
-              <EmptyTitle>No notifications match these filters</EmptyTitle>
+              <EmptyTitle>Nothing left to read</EmptyTitle>
               <EmptyDescription>
-                Show read or snoozed notifications to widen this view.
+                {hasSnoozedNotifications && !showSnoozed
+                  ? snoozedCount === 1
+                    ? "1 notification is snoozed for later. Turn on Snoozed in Display to see it."
+                    : `${snoozedCount} notifications are snoozed for later. Turn on Snoozed in Display to see them.`
+                  : "Everything matching your Display options is cleared. Adjust Display to widen this view."}
               </EmptyDescription>
             </EmptyHeader>
+            {hasSnoozedNotifications && !showSnoozed ? (
+              <Button onClick={() => setShowSnoozed(true)} size="sm" variant="outline">
+                <ClockIcon />
+                Show snoozed
+              </Button>
+            ) : null}
           </Empty>
         ) : (
           <ul className="flex flex-col overflow-hidden rounded-xl border bg-card">
@@ -346,6 +404,11 @@ function NotificationRow({
   readonly notification: NotificationCollectionItem;
 }) {
   const isUnread = notification.read_at == null;
+  const isSnoozed = isNotificationSnoozed(notification, new Date());
+  const snoozedUntilLabel =
+    isSnoozed && notification.snoozed_until != null
+      ? formatDistanceToNow(notification.snoozed_until, { addSuffix: true })
+      : null;
   const kind = kindForNotification(notification.type);
   const KindIcon = kind.icon;
   const navigate = useNavigate();
@@ -376,8 +439,7 @@ function NotificationRow({
     void navigate({ to: url.to, search: url.search });
   };
 
-  const snoozeForHours = (hours: number, label: string) => {
-    const snoozedUntil = new Date(Date.now() + hours * 60 * 60 * 1000);
+  const snoozeUntil = (snoozedUntil: Date, label: string) => {
     void snoozeNotification({
       churchId: notification.church_id,
       notificationId: notification.id,
@@ -387,7 +449,14 @@ function NotificationRow({
   };
 
   return (
-    <li className={cn("group relative", !isFirst && "border-t", isUnread && "bg-primary/[0.03]")}>
+    <li
+      className={cn(
+        "group relative",
+        !isFirst && "border-t",
+        isUnread && "bg-primary/[0.03]",
+        isSnoozed && "opacity-70 transition-opacity hover:opacity-100 focus-within:opacity-100",
+      )}
+    >
       {isUnread ? (
         <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-primary" />
       ) : null}
@@ -436,14 +505,26 @@ function NotificationRow({
                 <span className={cn(isUnread ? "font-semibold" : "font-medium")}>{actorName}</span>{" "}
                 <span className="text-muted-foreground">{actionLabel}</span>
               </p>
-              <Badge
-                className="shrink-0 gap-1 text-muted-foreground"
-                data-icon="inline-start"
-                variant="outline"
-              >
-                <KindIcon />
-                {kind.label}
-              </Badge>
+              {snoozedUntilLabel ? (
+                <Badge
+                  className="shrink-0 gap-1"
+                  data-icon="inline-start"
+                  title={`Snoozed, returns ${snoozedUntilLabel}`}
+                  variant="secondary"
+                >
+                  <ClockIcon />
+                  Snoozed
+                </Badge>
+              ) : (
+                <Badge
+                  className="shrink-0 gap-1 text-muted-foreground"
+                  data-icon="inline-start"
+                  variant="outline"
+                >
+                  <KindIcon />
+                  {kind.label}
+                </Badge>
+              )}
               {notification.created_at ? (
                 <time className="mt-0.5 shrink-0 text-muted-foreground text-xs tabular-nums">
                   {formatDistanceToNow(notification.created_at, { addSuffix: true })}
@@ -480,26 +561,35 @@ function NotificationRow({
                 render={
                   <DropdownMenuTrigger
                     render={
-                      <Button aria-label="Snooze notification" size="icon-sm" variant="ghost">
+                      <Button
+                        aria-label="Snooze notification"
+                        className={cn(isSnoozed && "text-foreground")}
+                        size="icon-sm"
+                        variant="ghost"
+                      >
                         <ClockIcon />
                       </Button>
                     }
                   />
                 }
               />
-              <TooltipContent>Snooze</TooltipContent>
+              <TooltipContent>{isSnoozed ? "Reschedule snooze" : "Snooze"}</TooltipContent>
             </Tooltip>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => snoozeForHours(1, "for 1 hour")}>
-                Snooze 1 hour
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>Snooze until</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => snoozeUntil(snoozeInOneHour(), "for 1 hour")}>
+                <ClockIcon className="text-muted-foreground" />
+                In 1 hour
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => snoozeForHours(DEFAULT_SNOOZE_HOURS, "until tomorrow")}
+                onClick={() => snoozeUntil(snoozeUntilTomorrowMorning(), "until tomorrow")}
               >
-                Snooze until tomorrow
+                <ClockIcon className="text-muted-foreground" />
+                Tomorrow morning
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => snoozeForHours(24 * 7, "for 1 week")}>
-                Snooze 1 week
+              <DropdownMenuItem onClick={() => snoozeUntil(snoozeUntilNextWeek(), "for 1 week")}>
+                <ClockIcon className="text-muted-foreground" />
+                Next week
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
