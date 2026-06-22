@@ -4,11 +4,15 @@ import {
   demo_items,
   invitation,
   member,
+  notifications,
   organization,
   session as sessionTable,
+  tasks,
+  teams,
   user,
 } from "@church-task/db/schema";
-import { getChurchInvitationId } from "@church-task/shared/get-ids";
+import { formatTaskIdentifier } from "@church-task/domain";
+import { getChurchInvitationId, getNotificationId } from "@church-task/shared/get-ids";
 import { anonymousServerContext, mutators, queries, schema } from "@church-task/zero";
 import { handleMutateRequest, handleQueryRequest } from "@rocicorp/zero/server";
 import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
@@ -296,6 +300,67 @@ export const createTracerApi = (databaseUrl: string) => {
       },
     });
 
+  const handleCreateTestNotification = (request: Request) =>
+    Effect.tryPromise({
+      catch: (cause) => cause,
+      try: async () => {
+        const authSession = await authRuntime.auth.api.getSession({ headers: request.headers });
+
+        if (!authSession) {
+          return Response.json({ error: "Authentication required" }, { status: 401 });
+        }
+
+        const body = (await request.json()) as { taskTitle?: string };
+        const taskTitle = body.taskTitle?.trim();
+        const session = authSession.session as typeof authSession.session & {
+          readonly activeOrganizationId?: string | null;
+        };
+        const churchId = session.activeOrganizationId;
+
+        if (!churchId || !taskTitle) {
+          return Response.json({ error: "Church id and Task title are required" }, { status: 400 });
+        }
+
+        const [taskRow] = await db
+          .select({ id: tasks.id, number: tasks.number, teamIdentifier: teams.identifier })
+          .from(tasks)
+          .innerJoin(teams, eq(teams.id, tasks.team_id))
+          .where(and(eq(tasks.church_id, churchId), eq(tasks.title, taskTitle)))
+          .limit(1);
+
+        if (!taskRow) {
+          return Response.json({ error: "Task not found" }, { status: 404 });
+        }
+
+        const now = new Date();
+        const taskIdentifier = formatTaskIdentifier(taskRow.teamIdentifier, taskRow.number);
+        const notificationId = getNotificationId();
+
+        await db.insert(notifications).values({
+          _tag: "notification",
+          actor_user_id: authSession.user.id,
+          church_id: churchId,
+          created_at: now,
+          created_by: authSession.user.id,
+          display_body: `Please review ${taskTitle}.`,
+          display_metadata: JSON.stringify({
+            task_identifier: taskIdentifier,
+            task_title: taskTitle,
+          }),
+          display_title: `${authSession.user.name} mentioned you`,
+          id: notificationId,
+          idempotency_key: `e2e:${notificationId}`,
+          recipient_user_id: authSession.user.id,
+          task_id: taskRow.id,
+          type: "mention_explicit_target",
+          updated_at: now,
+          updated_by: authSession.user.id,
+        });
+
+        return Response.json({ id: notificationId, taskIdentifier });
+      },
+    });
+
   const handleCreateTestInvitation = (request: Request) =>
     Effect.tryPromise({
       catch: (cause) => cause,
@@ -449,21 +514,25 @@ export const createTracerApi = (databaseUrl: string) => {
           ? handlePromoteCurrentUserToAppAdmin(request)
           : url.pathname === "/api/test/session" && request.method === "POST"
             ? handleCreateTestSession(request)
-            : url.pathname === "/api/test/invitations" && request.method === "POST"
-              ? handleCreateTestInvitation(request)
-              : url.pathname === "/api/tracer" && request.method === "GET"
-                ? handleHealth()
-                : url.pathname === "/api/tracer/demo-items" && request.method === "POST"
-                  ? handleCreateDemoItem(request)
-                  : url.pathname === "/api/admin/users/update" && request.method === "POST"
-                    ? handleUpdateAdminUser(request)
-                    : url.pathname === "/api/admin/orgs/update" && request.method === "POST"
-                      ? handleUpdateAdminOrg(request)
-                      : url.pathname === "/api/zero/query" && request.method === "POST"
-                        ? handleZeroQuery(request)
-                        : url.pathname === "/api/zero/mutate" && request.method === "POST"
-                          ? handleZeroMutate(request)
-                          : Effect.succeed(Response.json({ error: "Not found" }, { status: 404 }));
+            : url.pathname === "/api/test/notifications" && request.method === "POST"
+              ? handleCreateTestNotification(request)
+              : url.pathname === "/api/test/invitations" && request.method === "POST"
+                ? handleCreateTestInvitation(request)
+                : url.pathname === "/api/tracer" && request.method === "GET"
+                  ? handleHealth()
+                  : url.pathname === "/api/tracer/demo-items" && request.method === "POST"
+                    ? handleCreateDemoItem(request)
+                    : url.pathname === "/api/admin/users/update" && request.method === "POST"
+                      ? handleUpdateAdminUser(request)
+                      : url.pathname === "/api/admin/orgs/update" && request.method === "POST"
+                        ? handleUpdateAdminOrg(request)
+                        : url.pathname === "/api/zero/query" && request.method === "POST"
+                          ? handleZeroQuery(request)
+                          : url.pathname === "/api/zero/mutate" && request.method === "POST"
+                            ? handleZeroMutate(request)
+                            : Effect.succeed(
+                                Response.json({ error: "Not found" }, { status: 404 }),
+                              );
 
     return Effect.runPromise(effect).catch((cause) =>
       Response.json(

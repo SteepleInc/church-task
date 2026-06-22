@@ -70,6 +70,7 @@ describe("app shell route behavior", () => {
 
   test("renders the primary _org navigation paths", () => {
     expect(getPrimaryAppShellNavItems()).toEqual([
+      { label: "Inbox", to: "/inbox", matchPath: "/inbox" },
       { label: "My Work", to: "/my-work", matchPath: "/my-work" },
       { label: "Our Work", to: "/our-work", matchPath: "/our-work" },
       { label: "Templates", to: "/templates", matchPath: "/templates" },
