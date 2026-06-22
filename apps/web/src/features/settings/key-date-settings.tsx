@@ -1,7 +1,7 @@
 import type { KeyDateRule } from "@church-task/domain";
 import type { ColumnDef } from "@tanstack/react-table";
 import { CalendarDays, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 
 import { SettingsColumnHeader, SettingsTable } from "@/components/collections/settingsTable";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -37,6 +37,8 @@ import {
 import { CreateKeyDateQuickAction } from "@/features/quick-actions/create-key-date-quick-action";
 import { useQuickActionOpeners } from "@/features/quick-actions/quick-actions-state";
 import { cn } from "@/lib/utils";
+
+import { InlineNameFormInput } from "./inline-name-form-input";
 
 // Re-exported so Key Date collection surfaces can import schedule helpers from a
 // single module. The implementations live in key-date-schedule.tsx, which has
@@ -313,7 +315,6 @@ export function KeyDateNameInput({
   onCancel,
   placeholder = "Key Date name",
   autoFocus = true,
-  value,
   onValueChange,
 }: {
   readonly defaultValue: string;
@@ -321,45 +322,16 @@ export function KeyDateNameInput({
   readonly onCancel: () => void;
   readonly placeholder?: string;
   readonly autoFocus?: boolean;
-  readonly value?: string;
   readonly onValueChange?: (value: string) => void;
 }) {
-  const [internal, setInternal] = useState(defaultValue);
-  const committed = useRef(false);
-  const current = value ?? internal;
-
-  const setCurrent = (next: string) => {
-    if (onValueChange) onValueChange(next);
-    else setInternal(next);
-  };
-
-  const commit = () => {
-    if (committed.current) return;
-    committed.current = true;
-    const trimmed = current.trim();
-    if (trimmed) onSubmit(trimmed);
-    else onCancel();
-  };
-
   return (
-    <Input
-      // biome-ignore lint/a11y/noAutofocus: inline edit affordance
+    <InlineNameFormInput
       autoFocus={autoFocus}
-      className="h-8 w-56"
-      onBlur={commit}
-      onChange={(event) => setCurrent(event.currentTarget.value)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          commit();
-        } else if (event.key === "Escape") {
-          event.preventDefault();
-          committed.current = true;
-          onCancel();
-        }
-      }}
+      defaultValue={defaultValue}
+      onCancel={onCancel}
+      onSubmit={onSubmit}
+      onValueChange={onValueChange}
       placeholder={placeholder}
-      value={current}
     />
   );
 }
