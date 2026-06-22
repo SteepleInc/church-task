@@ -506,33 +506,43 @@ export const createTracerApi = (databaseUrl: string) => {
     const agentResponse = await handleAgentRequest({ auth: authRuntime.auth, db }, request);
     if (agentResponse) return agentResponse;
 
-    const effect = url.pathname.startsWith("/api/auth/")
-      ? Effect.promise(() => authRuntime.auth.handler(request))
-      : url.pathname === "/api/test/otp" && request.method === "GET"
-        ? handleTestOtp(request)
-        : url.pathname === "/api/test/app-admin" && request.method === "POST"
-          ? handlePromoteCurrentUserToAppAdmin(request)
-          : url.pathname === "/api/test/session" && request.method === "POST"
-            ? handleCreateTestSession(request)
-            : url.pathname === "/api/test/notifications" && request.method === "POST"
-              ? handleCreateTestNotification(request)
-              : url.pathname === "/api/test/invitations" && request.method === "POST"
-                ? handleCreateTestInvitation(request)
-                : url.pathname === "/api/tracer" && request.method === "GET"
-                  ? handleHealth()
-                  : url.pathname === "/api/tracer/demo-items" && request.method === "POST"
-                    ? handleCreateDemoItem(request)
-                    : url.pathname === "/api/admin/users/update" && request.method === "POST"
-                      ? handleUpdateAdminUser(request)
-                      : url.pathname === "/api/admin/orgs/update" && request.method === "POST"
-                        ? handleUpdateAdminOrg(request)
-                        : url.pathname === "/api/zero/query" && request.method === "POST"
-                          ? handleZeroQuery(request)
-                          : url.pathname === "/api/zero/mutate" && request.method === "POST"
-                            ? handleZeroMutate(request)
-                            : Effect.succeed(
-                                Response.json({ error: "Not found" }, { status: 404 }),
-                              );
+    const effect = (() => {
+      if (url.pathname.startsWith("/api/auth/")) {
+        return Effect.promise(() => authRuntime.auth.handler(request));
+      }
+      if (url.pathname === "/api/test/otp" && request.method === "GET")
+        return handleTestOtp(request);
+      if (url.pathname === "/api/test/app-admin" && request.method === "POST") {
+        return handlePromoteCurrentUserToAppAdmin(request);
+      }
+      if (url.pathname === "/api/test/session" && request.method === "POST") {
+        return handleCreateTestSession(request);
+      }
+      if (url.pathname === "/api/test/notifications" && request.method === "POST") {
+        return handleCreateTestNotification(request);
+      }
+      if (url.pathname === "/api/test/invitations" && request.method === "POST") {
+        return handleCreateTestInvitation(request);
+      }
+      if (url.pathname === "/api/tracer" && request.method === "GET") return handleHealth();
+      if (url.pathname === "/api/tracer/demo-items" && request.method === "POST") {
+        return handleCreateDemoItem(request);
+      }
+      if (url.pathname === "/api/admin/users/update" && request.method === "POST") {
+        return handleUpdateAdminUser(request);
+      }
+      if (url.pathname === "/api/admin/orgs/update" && request.method === "POST") {
+        return handleUpdateAdminOrg(request);
+      }
+      if (url.pathname === "/api/zero/query" && request.method === "POST") {
+        return handleZeroQuery(request);
+      }
+      if (url.pathname === "/api/zero/mutate" && request.method === "POST") {
+        return handleZeroMutate(request);
+      }
+
+      return Effect.succeed(Response.json({ error: "Not found" }, { status: 404 }));
+    })();
 
     return Effect.runPromise(effect).catch((cause) =>
       Response.json(

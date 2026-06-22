@@ -46,8 +46,9 @@ describe("Inbox navigation plumbing", () => {
     expect(pageSource).toContain("useOpenTaskDetailsPaneUrl");
     expect(pageSource).toContain("useMarkNotificationReadMutation");
     expect(pageSource).toContain(
-      "openTaskDetailsPaneUrl({ id: getNotificationTaskReference(notification) })",
+      "const taskReference = getNotificationTaskReference(notification)",
     );
+    expect(pageSource).toContain("openTaskDetailsPaneUrl({ id: taskReference })");
     expect(pageSource).toContain("markNotificationRead({");
     expect(dataSource).toContain("mutators.notifications.mark_read");
   });

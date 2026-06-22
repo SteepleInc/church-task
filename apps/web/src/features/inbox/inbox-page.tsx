@@ -43,11 +43,32 @@ function kindForNotification(type: string): NotificationKind {
   return NOTIFICATION_KINDS[type] ?? FALLBACK_KIND;
 }
 
-function parseDisplayMetadata(metadata: string | null | undefined): Record<string, string> {
+type NotificationDisplayMetadata = {
+  readonly comment_excerpt?: string;
+  readonly task_identifier?: string;
+  readonly task_title?: string;
+};
+
+function getStringMetadataValue(
+  metadata: Record<string, unknown>,
+  key: keyof NotificationDisplayMetadata,
+) {
+  const value = metadata[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function parseDisplayMetadata(metadata: string | null | undefined): NotificationDisplayMetadata {
   if (!metadata) return {};
   try {
     const parsed = JSON.parse(metadata) as unknown;
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, string>) : {};
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+
+    const parsedMetadata = parsed as Record<string, unknown>;
+    return {
+      comment_excerpt: getStringMetadataValue(parsedMetadata, "comment_excerpt"),
+      task_identifier: getStringMetadataValue(parsedMetadata, "task_identifier"),
+      task_title: getStringMetadataValue(parsedMetadata, "task_title"),
+    };
   } catch {
     return {};
   }
@@ -177,7 +198,7 @@ function NotificationRow({
       churchId: notification.church_id,
       notificationId: notification.id,
     });
-    const url = openTaskDetailsPaneUrl({ id: getNotificationTaskReference(notification) });
+    const url = openTaskDetailsPaneUrl({ id: taskReference });
     void navigate({ to: url.to, search: url.search });
   };
 
