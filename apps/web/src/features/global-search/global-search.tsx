@@ -192,7 +192,7 @@ export function GlobalSearch() {
       <div className="sr-only">
         <QuickActionsTitle>Global Search</QuickActionsTitle>
         <QuickActionsDescription>
-          A menu that lets you search Church Task entities and routes.
+          A menu that lets you search Church Work entities and routes.
         </QuickActionsDescription>
       </div>
       <GlobalSearchWindow results={results} setOpenState={setGlobalSearchIsOpen} />

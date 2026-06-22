@@ -4,10 +4,10 @@ import { startAuthenticatedSession } from "./helpers";
 
 // Sub-task creation and inline edits persist through Zero, so this needs the
 // local Postgres/Zero stack booted by the onboarding-stack e2e run
-// (CHURCH_TASK_E2E_ONBOARDING_STACK=1, set in .env.e2e).
+// (CHURCH_WORK_E2E_ONBOARDING_STACK=1, set in .env.e2e).
 test.skip(
-  process.env.CHURCH_TASK_E2E_ONBOARDING_STACK !== "1",
-  "Run with the onboarding stack (CHURCH_TASK_E2E_ONBOARDING_STACK=1) to boot the local Postgres/Zero stack.",
+  process.env.CHURCH_WORK_E2E_ONBOARDING_STACK !== "1",
+  "Run with the onboarding stack (CHURCH_WORK_E2E_ONBOARDING_STACK=1) to boot the local Postgres/Zero stack.",
 );
 
 test.setTimeout(120_000);

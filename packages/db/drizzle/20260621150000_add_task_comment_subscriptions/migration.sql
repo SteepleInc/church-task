@@ -13,5 +13,5 @@ CREATE TABLE "task_comment_subscriptions" (
   "user_id" text NOT NULL
 );
 
-CREATE INDEX "task_comment_subscriptions_church_task_idx" ON "task_comment_subscriptions" USING btree ("church_id", "task_id");
+CREATE INDEX "task_comment_subscriptions_church_work_idx" ON "task_comment_subscriptions" USING btree ("church_id", "task_id");
 CREATE UNIQUE INDEX "task_comment_subscriptions_user_thread_live_idx" ON "task_comment_subscriptions" USING btree ("church_id", "root_comment_id", "user_id") WHERE "task_comment_subscriptions"."deleted_at" IS NULL;

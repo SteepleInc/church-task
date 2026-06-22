@@ -33,7 +33,7 @@ function OnboardingLayout() {
               <span className="flex size-10 items-center justify-center rounded-xl bg-cream text-black dark:bg-black dark:text-cream">
                 <Church className="size-5" />
               </span>
-              Church Task
+              Church Work
             </div>
             <div className="flex flex-row items-center gap-2 md:hidden">
               <ModeToggle />
@@ -44,7 +44,7 @@ function OnboardingLayout() {
           <div className="mt-4 flex flex-col gap-4 pb-2 md:mt-24 md:pb-0">
             <p className="font-serif text-5xl font-bold tracking-tight">Welcome!</p>
             <p className="hidden text-cream text-md md:block dark:text-black/70">
-              Set up your Church profile so Church Task can build work around the right local time,
+              Set up your Church profile so Church Work can build work around the right local time,
               teams, and ministry context.
             </p>
           </div>

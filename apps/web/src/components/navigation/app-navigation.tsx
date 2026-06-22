@@ -166,7 +166,7 @@ function AppNavigationBody() {
             <SidebarMenuButton
               render={
                 <a
-                  href="https://github.com/SteepleInc/church-task/issues"
+                  href="https://github.com/SteepleInc/church-work/issues"
                   rel="noopener"
                   target="_blank"
                 />

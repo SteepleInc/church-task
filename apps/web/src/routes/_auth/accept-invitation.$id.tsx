@@ -146,7 +146,7 @@ function InvitationPage() {
               {invitationStatus === "pending" ? (
                 <div className="space-y-4">
                   <p>
-                    <strong>{invitation.inviterEmail ?? "A Church Task member"}</strong> invited you
+                    <strong>{invitation.inviterEmail ?? "A Church Work member"}</strong> invited you
                     to join <strong>{invitation.organizationName}</strong>.
                   </p>
                   <p>
@@ -163,7 +163,7 @@ function InvitationPage() {
                     Welcome to {invitation.organizationName}!
                   </h2>
                   <p className="text-center text-muted-foreground">
-                    You have joined this Church. Church Task is switching your active Church now.
+                    You have joined this Church. Church Work is switching your active Church now.
                   </p>
                 </div>
               ) : null}

@@ -5,7 +5,7 @@ import {
   type KeyDateRule,
   type TaskEstimate,
   type TaskStatus,
-} from "@church-task/domain";
+} from "@church-work/domain";
 import {
   mutators,
   queries,
@@ -20,7 +20,7 @@ import {
   type TemplateTeam,
   type Workflow,
   type WorkflowStatus,
-} from "@church-task/zero";
+} from "@church-work/zero";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 
 export type TaskCollectionFilters = {

@@ -23,7 +23,7 @@ describe("invite member settings helpers", () => {
     ]);
   });
 
-  it("keeps Church Task invitation roles focused on active member roles", () => {
+  it("keeps Church Work invitation roles focused on active member roles", () => {
     expect(inviteMemberRoleOptions).toEqual([
       { label: "Member", value: "member" },
       { label: "Admin", value: "admin" },

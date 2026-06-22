@@ -327,7 +327,7 @@ function HomePage() {
           </div>
 
           <p className="mt-8 text-center font-light text-[16px] text-cream/50 lg:text-black/50">
-            Church Task is being shaped with churches before public pricing is finalized.
+            Church Work is being shaped with churches before public pricing is finalized.
           </p>
 
           <div className="mt-12 flex justify-center">

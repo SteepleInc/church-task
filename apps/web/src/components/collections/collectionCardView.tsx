@@ -1,6 +1,6 @@
 "use client";
 
-import { noOp, nullOp } from "@church-task/shared/noOps";
+import { noOp, nullOp } from "@church-work/shared/noOps";
 import type { Row, Table } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Array, Boolean, Option, Result, pipe } from "effect";

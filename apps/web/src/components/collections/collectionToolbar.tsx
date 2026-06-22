@@ -1,4 +1,4 @@
-import { nullOp } from "@church-task/shared/noOps";
+import { nullOp } from "@church-work/shared/noOps";
 import type { Table } from "@tanstack/react-table";
 import { Boolean, Option, pipe } from "effect";
 import type { ReactNode } from "react";

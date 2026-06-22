@@ -1,6 +1,6 @@
-# church-task
+# church-work
 
-Church Task is a Bun + Turborepo TypeScript monorepo for church work management. The current architecture uses TanStack Start, Postgres, Drizzle, Zero, Better Auth, Effect, shared UI primitives, and shared config/env packages.
+Church Work is a Bun + Turborepo TypeScript monorepo for church work management. The current architecture uses TanStack Start, Postgres, Drizzle, Zero, Better Auth, Effect, shared UI primitives, and shared config/env packages.
 
 ## Features
 
@@ -30,7 +30,7 @@ Prepare the local server/database stack:
 bun run dev:setup
 ```
 
-`bun run dev:setup` is served by `@church-task/server` and should prepare the local Drizzle/Postgres-backed development state for the current stack.
+`bun run dev:setup` is served by `@church-work/server` and should prepare the local Drizzle/Postgres-backed development state for the current stack.
 
 Then, run the development server:
 
@@ -66,7 +66,7 @@ React web apps in this stack share UI primitives through `apps/web/src/component
 ## Project Structure
 
 ```
-church-task/
+church-work/
 ├── apps/
 │   └── web/              # TanStack Start web app
 ├── backend/

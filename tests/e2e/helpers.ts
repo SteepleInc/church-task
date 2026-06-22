@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { STARTER_KEY_DATES, STARTER_TEAM_NAMES } from "@church-task/domain";
+import { STARTER_KEY_DATES, STARTER_TEAM_NAMES } from "@church-work/domain";
 
 export const getE2eApiUrl = () => {
   if (process.env.DATABASE_URL) {
@@ -196,8 +196,8 @@ export async function completeOnboarding(page: Page, churchName: string) {
     page.getByLabel("Starter Key Dates").getByText("Christmas", { exact: true }),
   ).toBeVisible();
 
-  await expect(page.getByRole("button", { name: "Enter Church Task" })).toBeEnabled();
-  await page.getByRole("button", { name: "Enter Church Task" }).click();
+  await expect(page.getByRole("button", { name: "Enter Church Work" })).toBeEnabled();
+  await page.getByRole("button", { name: "Enter Church Work" }).click();
   await expect(page).toHaveURL(/\/my-work$/, { timeout: 20_000 });
 }
 

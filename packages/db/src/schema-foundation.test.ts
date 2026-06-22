@@ -1,4 +1,4 @@
-import { getDemoItemId, getUserId } from "@church-task/shared/get-ids";
+import { getDemoItemId, getUserId } from "@church-work/shared/get-ids";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";

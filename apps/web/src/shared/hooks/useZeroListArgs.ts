@@ -1,4 +1,4 @@
-import type { ListArgs } from "@church-task/zero";
+import type { ListArgs } from "@church-work/zero";
 import { getRouteApi } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 

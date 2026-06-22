@@ -1,9 +1,9 @@
 {
-  "name": "@church-task/cli",
+  "name": "@church-work/cli",
   "version": "0.0.0",
   "private": true,
   "bin": {
-    "church-task": "./src/bin.ts"
+    "church-work": "./src/bin.ts"
   },
   "type": "module",
   "scripts": {
@@ -11,11 +11,11 @@
     "test:cli": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@church-task/domain": "workspace:*",
+    "@church-work/domain": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@church-task/config": "workspace:*",
+    "@church-work/config": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

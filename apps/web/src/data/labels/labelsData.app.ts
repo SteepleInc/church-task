@@ -1,6 +1,6 @@
-import { getLabelColorForName } from "@church-task/domain";
-import { getLabelId } from "@church-task/shared/get-ids";
-import { mutators, queries, type Label, type Task } from "@church-task/zero";
+import { getLabelColorForName } from "@church-work/domain";
+import { getLabelId } from "@church-work/shared/get-ids";
+import { mutators, queries, type Label, type Task } from "@church-work/zero";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 
 export type LabelItem = {

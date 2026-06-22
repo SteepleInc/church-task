@@ -22,10 +22,10 @@ function superlogHeaders(token: string): Record<string, string> {
 }
 
 const resource = resourceFromAttributes({
-  [ATTR_SERVICE_NAME]: "church-task.cli",
+  [ATTR_SERVICE_NAME]: "church-work.cli",
   [ATTR_SERVICE_VERSION]: "0.0.0",
   [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: process.env.NODE_ENV ?? "development",
-  "vcs.repository.url.full": "https://github.com/SteepleInc/church-task",
+  "vcs.repository.url.full": "https://github.com/SteepleInc/church-work",
   ...(process.env.GITHUB_SHA || process.env.VERCEL_GIT_COMMIT_SHA
     ? { "vcs.ref.head.revision": process.env.GITHUB_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA }
     : {}),
@@ -57,9 +57,9 @@ export const telemetrySdk = new NodeSDK({
 
 telemetrySdk.start();
 
-export const cliTracer = trace.getTracer("church-task.cli");
-export const cliMeter = metrics.getMeter("church-task.cli");
-export const cliLogger = logs.getLogger("church-task.cli");
+export const cliTracer = trace.getTracer("church-work.cli");
+export const cliMeter = metrics.getMeter("church-work.cli");
+export const cliLogger = logs.getLogger("church-work.cli");
 
 export const cliCommandCounter = cliMeter.createCounter("cli.commands", {
   description: "CLI command executions",

@@ -4,10 +4,10 @@ import { startAuthenticatedSession } from "./helpers";
 
 // Same gating as the other onboarding-stack specs: the Task details pickers
 // persist through Zero, so this needs the local Postgres/Zero stack booted by
-// `bun run test:e2e` with CHURCH_TASK_E2E_ONBOARDING_STACK=1.
+// `bun run test:e2e` with CHURCH_WORK_E2E_ONBOARDING_STACK=1.
 test.skip(
-  process.env.CHURCH_TASK_E2E_ONBOARDING_STACK !== "1",
-  "Run with the onboarding stack (CHURCH_TASK_E2E_ONBOARDING_STACK=1) to boot the local Postgres/Zero stack.",
+  process.env.CHURCH_WORK_E2E_ONBOARDING_STACK !== "1",
+  "Run with the onboarding stack (CHURCH_WORK_E2E_ONBOARDING_STACK=1) to boot the local Postgres/Zero stack.",
 );
 
 test.setTimeout(120_000);

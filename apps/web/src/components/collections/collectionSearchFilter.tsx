@@ -1,4 +1,4 @@
-import { nullOp } from "@church-task/shared/noOps";
+import { nullOp } from "@church-work/shared/noOps";
 import { Array, Boolean, Option, pipe, String } from "effect";
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";

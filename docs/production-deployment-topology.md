@@ -1,6 +1,6 @@
 # Production Deployment Topology
 
-Issue: [#184](https://github.com/SteepleInc/church-task/issues/184)
+Issue: [#184](https://github.com/SteepleInc/church-work/issues/184)
 
 ## Status
 

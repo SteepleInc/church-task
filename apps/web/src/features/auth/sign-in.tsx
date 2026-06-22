@@ -43,7 +43,7 @@ export function SignIn({ defaultEmail, invitationId: passedInvitationId, redirec
       <CardHeader>
         <CardTitle className="font-medium text-4xl">
           {Match.value(signInState).pipe(
-            Match.tag("email", () => "Sign in to Church Task"),
+            Match.tag("email", () => "Sign in to Church Work"),
             Match.tag("otp", () => "Check your email"),
             Match.exhaustive,
           )}

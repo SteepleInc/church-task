@@ -1,4 +1,4 @@
-import type { KeyDatePreset, KeyDateRule } from "@church-task/domain";
+import type { KeyDatePreset, KeyDateRule } from "@church-work/domain";
 import { Check } from "lucide-react";
 
 import { Input } from "@/components/ui/input";

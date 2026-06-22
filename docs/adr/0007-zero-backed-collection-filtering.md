@@ -1,6 +1,6 @@
 # Zero-backed Collection filtering, sorting, and pagination
 
-Collections push their URL-synced filter, sort, and pagination state into Zero queries rather than fetching unbounded data and filtering in React components. The shared list-query helper pattern is copied from PreachX and adapted to Church Task's snake_case Postgres/Zero data contract.
+Collections push their URL-synced filter, sort, and pagination state into Zero queries rather than fetching unbounded data and filtering in React components. The shared list-query helper pattern is copied from PreachX and adapted to Church Work's snake_case Postgres/Zero data contract.
 
 The helper layer lives in `packages/zero` and translates Collection list args into Zero query operations. Product Collections and App Administration Collections both use Zero-backed query shapes. UI sorting and filtering, including timestamp sorting, happen against Zero data.
 

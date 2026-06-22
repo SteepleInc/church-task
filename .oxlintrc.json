@@ -22,15 +22,15 @@
           {
             "paths": [
               {
-                "name": "@church-task/backend-old",
+                "name": "@church-work/backend-old",
                 "message": "Old backend code is reference-only during the migration; target packages must not import it."
               },
               {
-                "name": "@church-task/domain-old",
+                "name": "@church-work/domain-old",
                 "message": "Old domain code is reference-only during the migration; target packages must not import it."
               }
             ],
-            "patterns": ["@church-task/backend-old/*", "@church-task/domain-old/*"]
+            "patterns": ["@church-work/backend-old/*", "@church-work/domain-old/*"]
           }
         ]
       }

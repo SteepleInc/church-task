@@ -22,10 +22,10 @@ function superlogHeaders(token: string): Record<string, string> {
 }
 
 const resource = resourceFromAttributes({
-  [ATTR_SERVICE_NAME]: "church-task.web",
+  [ATTR_SERVICE_NAME]: "church-work.web",
   [ATTR_SERVICE_VERSION]: "0.0.0",
   [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: import.meta.env.MODE,
-  "vcs.repository.url.full": "https://github.com/SteepleInc/church-task",
+  "vcs.repository.url.full": "https://github.com/SteepleInc/church-work",
   ...(import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA
     ? { "vcs.ref.head.revision": import.meta.env.VITE_VERCEL_GIT_COMMIT_SHA }
     : {}),
@@ -71,9 +71,9 @@ logs.setGlobalLoggerProvider(loggerProvider);
 
 registerInstrumentations({ instrumentations: [] });
 
-const tracer = trace.getTracer("church-task.web");
-const meter = metrics.getMeter("church-task.web");
-const logger = logs.getLogger("church-task.web");
+const tracer = trace.getTracer("church-work.web");
+const meter = metrics.getMeter("church-work.web");
+const logger = logs.getLogger("church-work.web");
 const startupCounter = meter.createCounter("app.startups", {
   description: "Browser application startups",
 });

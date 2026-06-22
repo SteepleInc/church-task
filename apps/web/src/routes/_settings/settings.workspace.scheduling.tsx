@@ -11,7 +11,7 @@ function RouteComponent() {
   return (
     <SettingsPage>
       <SettingsPageHeader
-        description="Control how Church Task turns scheduled Template work into real Tasks."
+        description="Control how Church Work turns scheduled Template work into real Tasks."
         title="Scheduling"
       />
       <SettingsSchedulingPanel />

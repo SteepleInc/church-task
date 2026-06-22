@@ -1,9 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const onboardingStackE2e = process.env.CHURCH_TASK_E2E_ONBOARDING_STACK === "1";
+const onboardingStackE2e = process.env.CHURCH_WORK_E2E_ONBOARDING_STACK === "1";
 
-process.env.CHURCH_TASK_E2E_READY = "1";
-process.env.CHURCH_TASK_E2E_SKIP_REASON = "";
+process.env.CHURCH_WORK_E2E_READY = "1";
+process.env.CHURCH_WORK_E2E_SKIP_REASON = "";
 
 const e2ePort = Number(process.env.E2E_WEB_PORT ?? 32101);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${e2ePort}`;

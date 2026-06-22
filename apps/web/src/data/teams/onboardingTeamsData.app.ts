@@ -1,4 +1,4 @@
-import { queries, mutators } from "@church-task/zero";
+import { queries, mutators } from "@church-work/zero";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 
 export type OnboardingTeamCollectionItem = {

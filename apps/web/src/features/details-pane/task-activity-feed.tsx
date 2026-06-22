@@ -447,7 +447,7 @@ function ActivityRow({
   const Icon = GLYPH_ICON[line.glyph];
   const actorId = activity.actor_id ?? null;
   const isUserActor = activity.actor_type === "user" && actorId !== null;
-  const actorName = isUserActor ? (resolveActorName(actorId) ?? "Unknown user") : "Church Task";
+  const actorName = isUserActor ? (resolveActorName(actorId) ?? "Unknown user") : "Church Work";
   const occurredAt = activity.occurred_at;
   const absolute = new Date(occurredAt).toLocaleString();
 

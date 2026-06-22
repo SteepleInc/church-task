@@ -4,7 +4,7 @@ import {
   type Team,
   type Workflow,
   type WorkflowStatus,
-} from "@church-task/zero";
+} from "@church-work/zero";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 
 type TaskStatus = "todo" | "in_progress" | "done" | "canceled";

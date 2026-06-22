@@ -4,9 +4,9 @@ import {
   cycleStartDateForLocalDate,
   localDateForInstant,
   localMidnightToUtcInstant,
-} from "@church-task/domain";
-import { getActivityId, getCycleId } from "@church-task/shared/get-ids";
-import { buildTemplateCycleTaskInserts } from "@church-task/zero";
+} from "@church-work/domain";
+import { getActivityId, getCycleId } from "@church-work/shared/get-ids";
+import { buildTemplateCycleTaskInserts } from "@church-work/zero";
 import { and, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -25,14 +25,14 @@ import {
   templates,
   workflow_statuses,
   workflows,
-} from "@church-task/db/schema";
+} from "@church-work/db/schema";
 
-import type { ChurchTaskDb } from "@church-task/db";
+import type { ChurchWorkDb } from "@church-work/db";
 
 export const sundayCycleMaintenanceCron = "0 8 * * 0";
 
-type DbTransaction = Parameters<Parameters<ChurchTaskDb["transaction"]>[0]>[0];
-type DbExecutor = ChurchTaskDb | DbTransaction;
+type DbTransaction = Parameters<Parameters<ChurchWorkDb["transaction"]>[0]>[0];
+type DbExecutor = ChurchWorkDb | DbTransaction;
 const MATERIALIZATION_WINDOW_MIN_CYCLES = 1;
 const MATERIALIZATION_WINDOW_MAX_CYCLES = 52;
 const MATERIALIZATION_WINDOW_DEFAULT_CYCLES = 3;
@@ -615,7 +615,7 @@ const materializeScheduledTemplateTasksForWindow = async (
 };
 
 export const maintainCyclesForChurch = Effect.fn("maintainCyclesForChurch")(function* (
-  db: ChurchTaskDb,
+  db: ChurchWorkDb,
   args: {
     readonly church_id: string;
     readonly church_time_zone: string;
@@ -786,7 +786,7 @@ export const maintainCyclesForChurch = Effect.fn("maintainCyclesForChurch")(func
 });
 
 export const runScheduledCycleMaintenance = Effect.fn("runScheduledCycleMaintenance")(function* (
-  db: ChurchTaskDb,
+  db: ChurchWorkDb,
   args: { readonly now?: Date | string } = {},
 ) {
   const churches = yield* Effect.tryPromise({

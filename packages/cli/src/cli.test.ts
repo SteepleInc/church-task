@@ -70,7 +70,7 @@ const fakeCredentialStorage = (overrides: Partial<CredentialStorageService>) =>
     ...overrides,
   });
 
-describe("church-task health", () => {
+describe("church-work health", () => {
   it("prints machine-readable success when the backend health operation succeeds", async () => {
     const result = await runCli(["health"], {
       env: {},
@@ -93,7 +93,7 @@ describe("church-task health", () => {
       ok: false,
       error: {
         code: "missing_backend_config",
-        message: "Set CHURCH_TASK_API_URL or CHURCH_TASK_SITE_URL to your Church Task server URL.",
+        message: "Set CHURCH_WORK_API_URL or CHURCH_WORK_SITE_URL to your Church Work server URL.",
       },
     });
   });
@@ -101,7 +101,7 @@ describe("church-task health", () => {
   it("does not print secrets from environment or backend failures", async () => {
     const secret = "super-secret-token";
     const result = await runCli(["health"], {
-      env: { CHURCH_TASK_API_URL: "https://church-task.test", TOKEN: secret },
+      env: { CHURCH_WORK_API_URL: "https://church-work.test", TOKEN: secret },
       backendLayer: fakeBackend({
         healthCheck: Effect.fail(
           new BackendError({
@@ -124,10 +124,10 @@ describe("church-task health", () => {
   });
 });
 
-describe("church-task active-church", () => {
+describe("church-work active-church", () => {
   it("prints a clear no Active Church result through the CLI path", async () => {
     const result = await runCli(["active-church"], {
-      env: { CHURCH_TASK_AUTH_TOKEN: "env-token" },
+      env: { CHURCH_WORK_AUTH_TOKEN: "env-token" },
       backendLayer: fakeBackend({
         activeChurchWithToken: () => Effect.succeed(noActiveChurch),
       }),
@@ -158,7 +158,7 @@ describe("church-task active-church", () => {
     let requested: { readonly token: string; readonly churchId: string | null } | null = null;
 
     const result = await runCli(["active-church", "--church-id", "church_123"], {
-      env: { CHURCH_TASK_AUTH_TOKEN: "env-token" },
+      env: { CHURCH_WORK_AUTH_TOKEN: "env-token" },
       backendLayer: fakeBackend({
         activeChurchWithToken: (args) => {
           requested = args;
@@ -182,7 +182,7 @@ describe("church-task active-church", () => {
     } as const;
 
     const result = await runCli(["active-church", "--church-id", "church_without_membership"], {
-      env: { CHURCH_TASK_AUTH_TOKEN: "env-token" },
+      env: { CHURCH_WORK_AUTH_TOKEN: "env-token" },
       backendLayer: fakeBackend({
         activeChurchWithToken: () => Effect.succeed(authorizationError),
       }),
@@ -194,7 +194,7 @@ describe("church-task active-church", () => {
   });
 });
 
-describe("church-task setup read", () => {
+describe("church-work setup read", () => {
   it("lists setup records through one compact agent-facing CLI command", async () => {
     const setupRead = {
       ok: true,
@@ -244,7 +244,7 @@ describe("church-task setup read", () => {
     } | null = null;
 
     const result = await runCli(["setup", "read", "--church-id", "church_123"], {
-      env: { CHURCH_TASK_AUTH_TOKEN: "env-token" },
+      env: { CHURCH_WORK_AUTH_TOKEN: "env-token" },
       backendLayer: fakeBackend({
         setupBatchRead: (args) => {
           request = args;
@@ -278,7 +278,7 @@ describe("church-task setup read", () => {
   });
 });
 
-describe("church-task setup write", () => {
+describe("church-work setup write", () => {
   it("runs setup mutations through one compact agent-facing CLI command", async () => {
     const setupWrite = {
       ok: true,
@@ -320,7 +320,7 @@ describe("church-task setup write", () => {
         }),
       ],
       {
-        env: { CHURCH_TASK_AUTH_TOKEN: "env-token" },
+        env: { CHURCH_WORK_AUTH_TOKEN: "env-token" },
         backendLayer: fakeBackend({
           setupBatchWrite: (args) => {
             request = args;
@@ -344,14 +344,14 @@ describe("church-task setup write", () => {
   });
 });
 
-describe("church-task task execution", () => {
+describe("church-work task execution", () => {
   it("maps Template Library CLI commands to MCP tools", async () => {
     const requests: Array<{
       readonly token: string;
       readonly tool: string;
       readonly body: Record<string, unknown>;
     }> = [];
-    const env = { CHURCH_TASK_AUTH_TOKEN: "env-token" };
+    const env = { CHURCH_WORK_AUTH_TOKEN: "env-token" };
     const backendLayer = fakeBackend({
       taskTool: (args) =>
         Effect.sync(() => {
@@ -464,7 +464,7 @@ describe("church-task task execution", () => {
         "user_123",
       ],
       {
-        env: { CHURCH_TASK_AUTH_TOKEN: "env-token" },
+        env: { CHURCH_WORK_AUTH_TOKEN: "env-token" },
         backendLayer: fakeBackend({
           taskTool: (args) =>
             Effect.sync(() => {
@@ -496,7 +496,7 @@ describe("church-task task execution", () => {
     const listResult = await runCli(
       ["task", "list", "--church-id", "church_123", "--surface", "my_work"],
       {
-        env: { CHURCH_TASK_AUTH_TOKEN: "env-token" },
+        env: { CHURCH_WORK_AUTH_TOKEN: "env-token" },
         backendLayer: fakeBackend({
           taskTool: (args) =>
             Effect.sync(() => {
@@ -532,7 +532,7 @@ describe("church-task task execution", () => {
           return taskToolResponse(args.tool.replaceAll("-", "_"), {});
         }),
     });
-    const env = { CHURCH_TASK_AUTH_TOKEN: "env-token" };
+    const env = { CHURCH_WORK_AUTH_TOKEN: "env-token" };
 
     const commands = [
       [
@@ -689,7 +689,7 @@ describe("church-task task execution", () => {
   });
 });
 
-describe("church-task current-user", () => {
+describe("church-work current-user", () => {
   it("prints the shared typed currentUser operation response", async () => {
     const result = await runCli(["current-user"], {
       env: {},
@@ -714,7 +714,7 @@ describe("church-task current-user", () => {
     let storageReads = 0;
 
     const result = await runCli(["current-user"], {
-      env: { CHURCH_TASK_AUTH_TOKEN: secret },
+      env: { CHURCH_WORK_AUTH_TOKEN: secret },
       backendLayer: fakeBackend({
         currentUserWithToken: (token) => {
           tokenUsed = token;
@@ -738,7 +738,7 @@ describe("church-task current-user", () => {
   });
 });
 
-describe("church-task auth status", () => {
+describe("church-work auth status", () => {
   it("shows authenticated User identity and safe credential metadata without printing the token", async () => {
     const storedToken = "stored-cli-token";
     const currentUser = {
@@ -805,7 +805,7 @@ describe("church-task auth status", () => {
   });
 });
 
-describe("church-task auth logout", () => {
+describe("church-work auth logout", () => {
   it("revokes the server credential and removes local credential material", async () => {
     const storedToken = "stored-cli-token";
     let revoked: { readonly credentialId: string; readonly token: string } | null = null;
@@ -847,7 +847,7 @@ describe("church-task auth logout", () => {
   });
 });
 
-describe("church-task login", () => {
+describe("church-work login", () => {
   it("creates a named CLI credential and stores the local secret without printing it", async () => {
     const bootstrapToken = "bootstrap-session-token";
     const createdCredential = {
@@ -859,7 +859,7 @@ describe("church-task login", () => {
     let storedCredential: CliCredential | null = null;
 
     const result = await runCli(["login", "--name", "Izak MacBook"], {
-      env: { CHURCH_TASK_AUTH_TOKEN: bootstrapToken },
+      env: { CHURCH_WORK_AUTH_TOKEN: bootstrapToken },
       backendLayer: fakeBackend({
         createCliCredential: ({ name, sessionToken }) => {
           expect(name).toBe("Izak MacBook");
@@ -908,7 +908,7 @@ describe("church-task login", () => {
       ok: false,
       error: {
         code: "missing_login_token",
-        message: "Set CHURCH_TASK_AUTH_TOKEN to create a named CLI credential.",
+        message: "Set CHURCH_WORK_AUTH_TOKEN to create a named CLI credential.",
       },
     });
   });

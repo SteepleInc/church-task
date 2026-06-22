@@ -3,7 +3,7 @@ import {
   queries,
   type TaskComment,
   type TaskCommentSubscription,
-} from "@church-task/zero";
+} from "@church-work/zero";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 
 import { authClient } from "@/lib/auth-client";

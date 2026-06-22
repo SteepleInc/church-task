@@ -1,1 +1,1 @@
-export * from "@church-task/shared/get-ids";
+export * from "@church-work/shared/get-ids";

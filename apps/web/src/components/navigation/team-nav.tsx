@@ -90,7 +90,7 @@ export const teamNavChildren: readonly TeamChild[] = [
   },
 ];
 
-const EXPANSION_STORAGE_KEY = "church-task:sidebar:team-expansion";
+const EXPANSION_STORAGE_KEY = "church-work:sidebar:team-expansion";
 
 // Per-team and per-child expansion is a local UI preference (not shareable
 // state), so it lives in local storage rather than the URL.

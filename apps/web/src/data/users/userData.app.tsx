@@ -1,5 +1,5 @@
-import { nullOp } from "@church-task/shared/noOps";
-import { queries } from "@church-task/zero";
+import { nullOp } from "@church-work/shared/noOps";
+import { queries } from "@church-work/zero";
 import { useQuery } from "@rocicorp/zero/react";
 import type { ReactNode } from "react";
 

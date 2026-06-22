@@ -1,4 +1,4 @@
-import type { TaskEstimate, TaskStatus } from "@church-task/domain";
+import type { TaskEstimate, TaskStatus } from "@church-work/domain";
 
 /**
  * Minimal shape of a serialized Task as returned inside `mcpListTasks`.

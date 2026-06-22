@@ -5,7 +5,7 @@ import type {
   CoreWorkBatchWriteResponse,
   ActiveChurchResponse,
   CurrentUserResponse,
-} from "@church-task/domain";
+} from "@church-work/domain";
 import { Context, Data, Effect, Layer } from "effect";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -101,24 +101,24 @@ class UnknownCommandError extends Data.TaggedError("UnknownCommandError")<{
 }> {}
 
 export class BackendClient extends Context.Service<BackendClient, BackendClientService>()(
-  "@church-task/cli/BackendClient",
+  "@church-work/cli/BackendClient",
 ) {}
 
 export class CredentialStorage extends Context.Service<
   CredentialStorage,
   CredentialStorageService
->()("@church-task/cli/CredentialStorage") {}
+>()("@church-work/cli/CredentialStorage") {}
 
 const readBackendUrl = (env: CliEnv) =>
-  Effect.sync(() => env.CHURCH_TASK_API_URL?.trim() ?? env.CHURCH_TASK_SITE_URL?.trim()).pipe(
+  Effect.sync(() => env.CHURCH_WORK_API_URL?.trim() ?? env.CHURCH_WORK_SITE_URL?.trim()).pipe(
     Effect.flatMap((url) =>
       url ? Effect.succeed(url.replace(/\/$/, "")) : Effect.fail(new MissingBackendConfigError()),
     ),
   );
 
 const credentialPathFromEnv = (env: CliEnv) =>
-  env.CHURCH_TASK_CREDENTIAL_FILE?.trim() ??
-  join(env.HOME ?? ".", ".church-task", "credential.json");
+  env.CHURCH_WORK_CREDENTIAL_FILE?.trim() ??
+  join(env.HOME ?? ".", ".church-work", "credential.json");
 
 const makeFileCredentialStorageLayer = (env: CliEnv) =>
   Layer.succeed(CredentialStorage, {
@@ -340,7 +340,7 @@ const addTaskReference = (
   });
 
 const readEnvToken = (env: CliEnv) => {
-  const token = env.CHURCH_TASK_AUTH_TOKEN?.trim();
+  const token = env.CHURCH_WORK_AUTH_TOKEN?.trim();
   return token ? Effect.succeed(token) : Effect.fail(new MissingLoginTokenError());
 };
 
@@ -665,7 +665,7 @@ const runLogout = Effect.gen(function* () {
 });
 
 class CurrentEnvToken extends Context.Service<CurrentEnvToken, string | null>()(
-  "@church-task/cli/CurrentEnvToken",
+  "@church-work/cli/CurrentEnvToken",
 ) {}
 
 const runLogin = (args: ReadonlyArray<string>, env: CliEnv) =>
@@ -815,12 +815,12 @@ const formatError = (error: CliError) => {
     case "MissingBackendConfigError":
       return failure({
         code: "missing_backend_config",
-        message: "Set CHURCH_TASK_API_URL or CHURCH_TASK_SITE_URL to your Church Task server URL.",
+        message: "Set CHURCH_WORK_API_URL or CHURCH_WORK_SITE_URL to your Church Work server URL.",
       });
     case "MissingLoginTokenError":
       return failure({
         code: "missing_login_token",
-        message: "Set CHURCH_TASK_AUTH_TOKEN to create a named CLI credential.",
+        message: "Set CHURCH_WORK_AUTH_TOKEN to create a named CLI credential.",
       });
     case "MissingOptionError":
       return failure({
@@ -831,7 +831,7 @@ const formatError = (error: CliError) => {
       return failure({
         code: "unknown_command",
         message:
-          "Run `church-task health`, `church-task login --name <name>`, `church-task current-user`, `church-task active-church`, `church-task setup read --church-id <id>`, `church-task setup write --json <batch>`, `church-task task <list|get|create|update|complete|cancel|reopen>`, `church-task lookup <users|teams|cycles|workflow-statuses>`, `church-task auth status`, or `church-task auth logout`.",
+          "Run `church-work health`, `church-work login --name <name>`, `church-work current-user`, `church-work active-church`, `church-work setup read --church-id <id>`, `church-work setup write --json <batch>`, `church-work task <list|get|create|update|complete|cancel|reopen>`, `church-work lookup <users|teams|cycles|workflow-statuses>`, `church-work auth status`, or `church-work auth logout`.",
       });
   }
 };
@@ -852,7 +852,7 @@ export const runCli = (
     options.credentialStorageLayer ?? makeFileCredentialStorageLayer(options.env);
   const currentEnvTokenLayer = Layer.succeed(
     CurrentEnvToken,
-    options.env.CHURCH_TASK_AUTH_TOKEN?.trim() || null,
+    options.env.CHURCH_WORK_AUTH_TOKEN?.trim() || null,
   );
   const layer = Layer.mergeAll(backendLayer, credentialStorageLayer, currentEnvTokenLayer);
   const program: Effect.Effect<CliResult, CliError, never> = runCliEffect(args, options.env).pipe(

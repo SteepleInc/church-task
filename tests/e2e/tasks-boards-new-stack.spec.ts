@@ -5,7 +5,7 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import { getE2eApiUrl, startAuthenticatedSession } from "./helpers";
 
 test.skip(
-  process.env.CHURCH_TASK_E2E_ONBOARDING_STACK !== "1",
+  process.env.CHURCH_WORK_E2E_ONBOARDING_STACK !== "1",
   "Run with bun run test:e2e:tasks-boards to boot the local Postgres/Zero onboarding stack.",
 );
 

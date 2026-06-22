@@ -3,15 +3,15 @@
 Issue: #97  
 Parent PRD: #74
 
-This audit compares Church Task's copied PreachX surfaces against the canonical local PreachX repository at `/Users/izakfilmalter/Projects/PreachX/preach-x`.
+This audit compares Church Work's copied PreachX surfaces against the canonical local PreachX repository at `/Users/izakfilmalter/Projects/PreachX/preach-x`.
 
 Current-truth note: this audit predates PRD #164's Postgres/Drizzle/Zero migration. Visual and product-language comparisons remain useful, but old-stack data/auth notes below are historical and are not current implementation guidance.
 
 Verdict summary:
 
 - Complete enough for this audit slice: the required audit report now exists and covers every #97 surface.
-- Complete enough to close #97: every remaining source-level mismatch is now either documented as an intentional Church Task difference or delegated to a focused open blocker issue.
-- Repair already made in an earlier #97 slice: Church Task now preloads the copied PreachX marketing font files from the root route.
+- Complete enough to close #97: every remaining source-level mismatch is now either documented as an intentional Church Work difference or delegated to a focused open blocker issue.
+- Repair already made in an earlier #97 slice: Church Work now preloads the copied PreachX marketing font files from the root route.
 - Remaining implementation work belongs to focused issues #98, #99, #100, #101, and #102 rather than another broad audit loop.
 
 ## Onboarding
@@ -25,7 +25,7 @@ Canonical PreachX files:
 - `apps/web/src/features/onboarding/preachersStep.tsx`
 - `apps/web/src/features/onboarding/onboardingState.ts`
 
-Church Task files:
+Church Work files:
 
 - `apps/web/src/routes/_onboarding/route.tsx`
 - `apps/web/src/routes/_onboarding/onboarding.tsx`
@@ -45,8 +45,8 @@ Fidelity verdict: pass for the repaired #91 onboarding scope.
 
 Intentional differences:
 
-- Church Task has two onboarding steps instead of PreachX's five.
-- PreachX preacher/sermon copy and data have been replaced by Church/Team setup copy and Church Task's current data stack.
+- Church Work has two onboarding steps instead of PreachX's five.
+- PreachX preacher/sermon copy and data have been replaced by Church/Team setup copy and Church Work's current data stack.
 
 ## Auth, Sign-In, And Invitation Accept
 
@@ -57,7 +57,7 @@ Canonical PreachX files:
 - `apps/web/src/features/auth/signInEmailForm.tsx`
 - `apps/web/src/app/_auth/accept-invitation.$id.tsx`
 
-Church Task files:
+Church Work files:
 
 - `apps/web/src/routes/_auth/sign-in.tsx`
 - `apps/web/src/components/sign-in-form.tsx`
@@ -70,12 +70,12 @@ Repairs confirmed:
 
 - Sign-in search params include `email` and `invitation-id`.
 - The human auth UI is OTP-based and preserves invitation context through sign-in.
-- Invitation accept/reject states are implemented with Church Task data behavior.
+- Invitation accept/reject states are implemented with Church Work data behavior.
 
 Remaining mismatches:
 
-- Church Task passes route search params into `SignInForm`; PreachX `SignIn` owns the `useSearch` read and session/refetch redirect effect.
-- Church Task does not match PreachX `autoSubmit={!!passedOtpEmail}` behavior for a passed email.
+- Church Work passes route search params into `SignInForm`; PreachX `SignIn` owns the `useSearch` read and session/refetch redirect effect.
+- Church Work does not match PreachX `autoSubmit={!!passedOtpEmail}` behavior for a passed email.
 - The invitation accept outer layout diverges from PreachX's white/dark masked auth page frame.
 
 Delegated blocker:
@@ -84,7 +84,7 @@ Delegated blocker:
 
 Intentional differences:
 
-- Better Auth, Active Church switching, and Church Task's current data stack replace PreachX's auth/data internals.
+- Better Auth, Active Church switching, and Church Work's current data stack replace PreachX's auth/data internals.
 
 ## Org App Shell And Frame
 
@@ -94,7 +94,7 @@ Canonical PreachX files:
 - `apps/web/src/components/navigation/appNavigation.tsx`
 - `apps/web/src/components/ui/sidebar.tsx`
 
-Church Task files:
+Church Work files:
 
 - `apps/web/src/routes/_org/route.tsx`
 - `apps/web/src/components/app-shell.tsx`
@@ -112,8 +112,8 @@ Repairs confirmed:
 
 Intentional differences:
 
-- Church Task auth/onboarding gating uses Active Church/session state rather than PreachX `useAuthGuard`.
-- Church Task breadcrumbs are local route labels rather than PreachX's breadcrumbs context.
+- Church Work auth/onboarding gating uses Active Church/session state rather than PreachX `useAuthGuard`.
+- Church Work breadcrumbs are local route labels rather than PreachX's breadcrumbs context.
 
 ## Sidebar, Navigation, Org Switcher, And User Menu
 
@@ -126,7 +126,7 @@ Canonical PreachX files:
 - `apps/web/src/components/navigation/sidebarItem.tsx`
 - `apps/web/src/components/navigation/mobileSidebarContent.tsx`
 
-Church Task files:
+Church Work files:
 
 - `apps/web/src/components/navigation/app-navigation.tsx`
 - `apps/web/src/components/org-switcher.tsx`
@@ -146,8 +146,8 @@ Repairs confirmed:
 
 Intentional differences:
 
-- Church Task nav surfaces are My Work, Our Work, Team Work, Settings, App Admin, and Dev rather than PreachX chat/studio/collections/preachers.
-- Mobile sidebar omits PreachX chat-specific view switching because Church Task has no copied chat list.
+- Church Work nav surfaces are My Work, Our Work, Team Work, Settings, App Admin, and Dev rather than PreachX chat/studio/collections/preachers.
+- Mobile sidebar omits PreachX chat-specific view switching because Church Work has no copied chat list.
 - Base UI primitives use `render` and `--anchor-width` adaptations where PreachX uses Radix `asChild` and Radix CSS variables.
 
 ## Page Containers And Scroll Behavior
@@ -157,7 +157,7 @@ Canonical PreachX files:
 - `apps/web/src/components/pageComponents.tsx`
 - `apps/web/src/app/_org/route.tsx`
 
-Church Task files:
+Church Work files:
 
 - `apps/web/src/components/pageComponents.tsx`
 - `apps/web/src/routes/-dashboard.tsx`
@@ -188,7 +188,7 @@ Canonical PreachX files:
 - `apps/web/src/features/settings/profileForm.tsx`
 - `apps/web/src/features/settings/inviteMemberForm.tsx`
 
-Church Task files:
+Church Work files:
 
 - `apps/web/src/routes/-settings.tsx`
 - `apps/web/src/routes/_org/settings.tsx`
@@ -215,11 +215,11 @@ Repairs confirmed:
 
 Form primitive decisions for #102:
 
-- Active requirement: `CardForm`, because Profile and Church settings are active Church Task settings surfaces.
+- Active requirement: `CardForm`, because Profile and Church settings are active Church Work settings surfaces.
 - Active requirement: `TagInputField`, because Invite Member is active in Settings and Quick Actions and needs PreachX pasted-email tag entry.
 - Active requirement: `FormErrorDisplay`, because copied form composition renders it through the shared `Form` primitive.
-- Intentional exclusion: avatar/file upload fields, because Church Task has no active profile avatar or Church logo flow in this PRD slice.
-- Intentional exclusion: markdown fields, because no active Church Task settings or invite flow needs PreachX markdown input.
+- Intentional exclusion: avatar/file upload fields, because Church Work has no active profile avatar or Church logo flow in this PRD slice.
+- Intentional exclusion: markdown fields, because no active Church Work settings or invite flow needs PreachX markdown input.
 
 ## Admin
 
@@ -233,7 +233,7 @@ Canonical PreachX files:
 - `apps/web/src/components/navigation/navShared.tsx`
 - `apps/web/src/components/pageComponents.tsx`
 
-Church Task files:
+Church Work files:
 
 - `apps/web/src/routes/_org/admin.tsx`
 - `apps/web/src/routes/_org/admin.orgs.tsx`
@@ -245,7 +245,7 @@ Church Task files:
 - `apps/web/src/components/navigation/nav-shared.tsx`
 - `apps/web/src/components/navigation/app-navigation.tsx`
 
-Fidelity verdict: pass for available admin surfaces, with global app-admin gating documented as an intentional Church Task difference.
+Fidelity verdict: pass for available admin surfaces, with global app-admin gating documented as an intentional Church Work difference.
 
 Repairs confirmed:
 
@@ -255,7 +255,7 @@ Repairs confirmed:
 
 Intentional difference:
 
-- PreachX gates admin with global `session.user.role === "admin"` and `requireAdmin`; Church Task gates App Administration through the App Administrator role and `useIsAppAdmin`-style helpers, separate from Church Membership admin roles.
+- PreachX gates admin with global `session.user.role === "admin"` and `requireAdmin`; Church Work gates App Administration through the App Administrator role and `useIsAppAdmin`-style helpers, separate from Church Membership admin roles.
 
 Delegated blocker status:
 
@@ -273,7 +273,7 @@ Canonical PreachX files:
 - `apps/web/src/features/bigAction/bigActionComponents.tsx`
 - `apps/web/src/features/bigAction/bigActionState.tsx`
 
-Church Task files:
+Church Work files:
 
 - `apps/web/src/features/quick-actions/quick-actions.tsx`
 - `apps/web/src/features/quick-actions/quick-actions-toggle.tsx`
@@ -285,14 +285,14 @@ Fidelity verdict: quick actions and Invite Member pass for #94; big-action chrom
 
 Repairs confirmed:
 
-- Quick Actions uses a single `Quick Action` command group adapted to Church Task actions.
+- Quick Actions uses a single `Quick Action` command group adapted to Church Work actions.
 - Sidebar quick-action toggle matches PreachX collapsed behavior and `mod K` treatment.
-- Invite Member uses the copied/adapted `QuickActionsWrapper`, `QuickActionsHeader`, `QuickActionsTitle`, `QuickActionForm`, action-row footer, and PreachX shortcut rendering while preserving Church Task invitation roles and mutations.
+- Invite Member uses the copied/adapted `QuickActionsWrapper`, `QuickActionsHeader`, `QuickActionsTitle`, `QuickActionForm`, action-row footer, and PreachX shortcut rendering while preserving Church Work invitation roles and mutations.
 - BigActions is mounted at the PreachX shell level and quick actions open big-action state rather than navigating.
 
 Remaining mismatch:
 
-- Church Task big actions use a small `DialogContent className="sm:max-w-xl"` create-task modal. PreachX uses a `BigActionWrapper` with mobile `Drawer` and desktop `FullScreenModal`. This source-level chrome repair is tracked separately by #100 and is no longer a blocker for #94.
+- Church Work big actions use a small `DialogContent className="sm:max-w-xl"` create-task modal. PreachX uses a `BigActionWrapper` with mobile `Drawer` and desktop `FullScreenModal`. This source-level chrome repair is tracked separately by #100 and is no longer a blocker for #94.
 
 Delegated blocker:
 
@@ -300,7 +300,7 @@ Delegated blocker:
 
 Intentional difference:
 
-- Church Task uses TanStack Hotkeys instead of PreachX `react-hotkeys-hook` as required by #74.
+- Church Work uses TanStack Hotkeys instead of PreachX `react-hotkeys-hook` as required by #74.
 
 ## Global Search
 
@@ -311,7 +311,7 @@ Canonical PreachX files:
 - `apps/web/src/features/globalSearch/globalSearchToggle.tsx`
 - `apps/web/src/features/globalSearch/globalSearchFooter.tsx`
 
-Church Task files:
+Church Work files:
 
 - `apps/web/src/features/global-search/global-search.tsx`
 - `apps/web/src/features/global-search/global-search-toggle.tsx`
@@ -324,12 +324,12 @@ Repairs confirmed:
 
 - `GlobalSearch` is mounted at the PreachX shell level after `BigActions`.
 - The `/` shortcut opens search and disables quick actions as expected.
-- Church Task indexes tasks, teams, members, and routes instead of PreachX product entities.
+- Church Work indexes tasks, teams, members, and routes instead of PreachX product entities.
 
 Remaining mismatches:
 
 - PreachX uses a `QuickActionsWrapper`, Downshift, react-virtual, two-column results/detail panel, and footer keyboard/action row.
-- Church Task currently uses a simpler `CommandDialog`/cmdk one-column list.
+- Church Work currently uses a simpler `CommandDialog`/cmdk one-column list.
 - `GlobalSearchToggle` includes visible `Search` text and a generic icon, while PreachX's toggle is icon plus `/` kbd with specific `bg-l2` treatment.
 
 Delegated blocker:
@@ -346,7 +346,7 @@ Canonical PreachX files:
 - `apps/web/src/components/detailsPane/detailsShell.tsx`
 - `apps/web/src/components/detailsPane/detailsPaneTypes.ts`
 
-Church Task files:
+Church Work files:
 
 - `apps/web/src/components/details-pane/details-pane.tsx`
 - `apps/web/src/components/details-pane/details-pane-helpers.ts`
@@ -367,8 +367,8 @@ Repairs confirmed:
 
 Remaining mismatches:
 
-- Church Task renders a fixed `aside`; PreachX uses responsive mobile `Drawer`, desktop `Dialog`, sticky mode, `ToggleDetailsPaneButton`, `DetailsPaneHistory`, and animated Radix content.
-- Church Task `DetailsShell` omits PreachX `MainContainer`, `PageHeaderContainer`, `Divider`, and `tabBar` slot structure.
+- Church Work renders a fixed `aside`; PreachX uses responsive mobile `Drawer`, desktop `Dialog`, sticky mode, `ToggleDetailsPaneButton`, `DetailsPaneHistory`, and animated Radix content.
+- Church Work `DetailsShell` omits PreachX `MainContainer`, `PageHeaderContainer`, `Divider`, and `tabBar` slot structure.
 - `useChangeDetailsPaneId` lacks PreachX ctrl/meta click behavior.
 
 Delegated blocker:
@@ -385,7 +385,7 @@ Canonical PreachX files:
 - `apps/web/src/app/__root.tsx`
 - PreachX marketing font files under `public/fonts`
 
-Church Task files:
+Church Work files:
 
 - `apps/web/src/routes/_marketing/route.tsx`
 - `apps/web/src/routes/_marketing/index.tsx`
@@ -400,11 +400,11 @@ Fidelity verdict: pass after this slice's font preload repair.
 Repairs confirmed:
 
 - Marketing shell, navigation treatment, and PP Neue Montreal / PP Pangaia font files are copied/adapted.
-- Church Task now preloads `/fonts/neueMontreal/PPNeueMontreal-Variable.woff2` and `/fonts/pangaia/PPPangaia-Variable.woff2` from the root route like PreachX.
+- Church Work now preloads `/fonts/neueMontreal/PPNeueMontreal-Variable.woff2` and `/fonts/pangaia/PPPangaia-Variable.woff2` from the root route like PreachX.
 
 Intentional differences:
 
-- Marketing copy and calls to action are Church Task-specific.
+- Marketing copy and calls to action are Church Work-specific.
 - PreachX canonical/productlane/analytics/root document wiring is not copied because it depends on PreachX runtime/product integrations.
 
 ## Form System
@@ -419,7 +419,7 @@ Canonical PreachX files:
 - `apps/web/src/components/form/*Field.tsx`
 - `apps/web/src/features/settings/inviteMemberForm.tsx`
 
-Church Task files:
+Church Work files:
 
 - `apps/web/src/components/form/form.tsx`
 - `apps/web/src/components/form/form-error-display.tsx`
@@ -435,7 +435,7 @@ Repairs confirmed:
 
 - Core `Form`/submit behavior is close to PreachX.
 - Button loading overlay behavior is present and tested.
-- Address, select, combobox, date, switch, textarea, OTP, and entity selection fields exist for active Church Task flows.
+- Address, select, combobox, date, switch, textarea, OTP, and entity selection fields exist for active Church Work flows.
 
 Remaining mismatches:
 
@@ -449,7 +449,7 @@ Delegated blocker:
 
 Intentional differences:
 
-- Omitted file/avatar/markdown fields appear tied to excluded PreachX product surfaces unless a future Church Task flow needs them.
+- Omitted file/avatar/markdown fields appear tied to excluded PreachX product surfaces unless a future Church Work flow needs them.
 
 ## Primitives
 
@@ -462,7 +462,7 @@ Canonical PreachX files:
 - `apps/web/src/components/ui/sidebar.tsx`
 - `apps/web/src/components/ui/scroll-area.tsx`
 
-Church Task files:
+Church Work files:
 
 - `apps/web/src/components/ui/button.tsx`
 - `apps/web/src/components/ui/command.tsx`
@@ -475,7 +475,7 @@ Fidelity verdict: sidebar/scroll-area mostly pass; command mostly pass; dialog/k
 
 Repairs confirmed:
 
-- Sidebar and scroll-area behavior have been repaired toward PreachX while preserving Church Task's Base UI direction.
+- Sidebar and scroll-area behavior have been repaired toward PreachX while preserving Church Work's Base UI direction.
 - Command menu classes and grouping are close to PreachX.
 - Button supports loading without layout shift.
 
@@ -487,7 +487,7 @@ Remaining mismatches:
 
 Intentional differences:
 
-- #74 explicitly says not to wholesale migrate Church Task primitives to Radix; Base UI-backed primitives are retained unless a copied component needs a surgical compatibility extension.
+- #74 explicitly says not to wholesale migrate Church Work primitives to Radix; Base UI-backed primitives are retained unless a copied component needs a surgical compatibility extension.
 
 ## Dev And App-Admin Navigation
 
@@ -499,7 +499,7 @@ Canonical PreachX files:
 - `apps/web/src/components/navigation/devMenuContent.tsx`
 - `apps/web/src/components/navigation/navShared.tsx`
 
-Church Task files:
+Church Work files:
 
 - `apps/web/src/components/navigation/app-navigation.tsx`
 - `apps/web/src/components/navigation/dev-menu.tsx`
@@ -518,8 +518,8 @@ Repairs confirmed:
 
 - Dev menu sits in the copied PreachX bottom-sidebar position.
 - Admin and Dev groups have copied sidebar group styling and active states.
-- Dev pages expose Church Task session/data debugging surfaces rather than PreachX product surfaces.
-- Admin is intentionally scoped to active-Church owner/admin access until Church Task has a global app-admin role source of truth.
+- Dev pages expose Church Work session/data debugging surfaces rather than PreachX product surfaces.
+- Admin is intentionally scoped to active-Church owner/admin access until Church Work has a global app-admin role source of truth.
 
 Remaining question:
 

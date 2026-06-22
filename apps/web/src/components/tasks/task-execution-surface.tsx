@@ -51,7 +51,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { mapTaskFilterValuesForZero } from "@/components/tasks/task-filters";
 import { FilterKeys } from "@/shared/global-state";
 import { useZeroListArgs } from "@/shared/hooks/useZeroListArgs";
-import type { ListArgs } from "@church-task/zero";
+import type { ListArgs } from "@church-work/zero";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { TaskInsightsPanel } from "@/components/tasks/task-insights-panel";

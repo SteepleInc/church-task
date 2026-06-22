@@ -1,5 +1,5 @@
 {
-  "name": "@church-task/test-harness",
+  "name": "@church-work/test-harness",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,15 +11,15 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@church-task/db": "workspace:*",
-    "@church-task/shared": "workspace:*",
+    "@church-work/db": "workspace:*",
+    "@church-work/shared": "workspace:*",
     "@rocicorp/zero": "catalog:",
     "@testcontainers/postgresql": "catalog:",
     "drizzle-orm": "catalog:",
     "testcontainers": "catalog:"
   },
   "devDependencies": {
-    "@church-task/config": "workspace:*",
+    "@church-work/config": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

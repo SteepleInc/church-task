@@ -1,4 +1,4 @@
-import { mutators, queries, type Cycle } from "@church-task/zero";
+import { mutators, queries, type Cycle } from "@church-work/zero";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 
 export type CycleCollectionItem = {

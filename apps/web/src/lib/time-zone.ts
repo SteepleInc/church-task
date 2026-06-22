@@ -1,4 +1,4 @@
-import { env } from "@church-task/env/web";
+import { env } from "@church-work/env/web";
 
 export function detectedTimeZone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";

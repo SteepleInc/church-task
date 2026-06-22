@@ -237,7 +237,7 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
                 BRANCH: issue.branch,
                 UI_BRIEF:
                   issue.uiBrief ??
-                  "Make the UI excellent and consistent with Church Task's design language.",
+                  "Make the UI excellent and consistent with Church Work's design language.",
               },
             });
             commits = [...commits, ...ui.commits];

@@ -1,4 +1,4 @@
-import { createDb } from "@church-task/db";
+import { createDb } from "@church-work/db";
 import { Effect } from "effect";
 
 import { runScheduledCycleMaintenance } from "./scheduled-work";

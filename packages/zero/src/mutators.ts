@@ -10,7 +10,7 @@ import {
   getTeamColorForName,
   normalizeTeamIdentifier,
   TEAM_IDENTIFIER_MAX_LENGTH,
-} from "@church-task/domain";
+} from "@church-work/domain";
 import {
   getActivityId,
   getCycleAdjustmentId,
@@ -32,7 +32,7 @@ import {
   getTeamMembershipId,
   getWorkflowId,
   getWorkflowStatusId,
-} from "@church-task/shared/get-ids";
+} from "@church-work/shared/get-ids";
 import { defineMutatorWithType, defineMutators } from "@rocicorp/zero";
 import { and, eq, gte, inArray, isNotNull, isNull, lte } from "drizzle-orm";
 import { Schema } from "effect";
@@ -59,7 +59,7 @@ import {
   templates,
   workflow_statuses,
   workflows,
-} from "@church-task/db/schema";
+} from "@church-work/db/schema";
 import { requireActiveChurchAccess, requireSignedInSession } from "./session-context";
 import { toZeroSchema } from "./effect-schema";
 import { buildNotificationPlans } from "./notification-triggers";
@@ -493,7 +493,7 @@ const DeleteTemplateScheduleArgs = toZeroSchema(
   }),
 );
 
-const defineChurchTaskMutator = defineMutatorWithType<
+const defineChurchWorkMutator = defineMutatorWithType<
   ZeroSchema,
   OptionalZeroSessionContext,
   unknown
@@ -1628,7 +1628,7 @@ const taskPatchForFields = async (
 
 export const mutators = defineMutators({
   demo_items: {
-    create: defineChurchTaskMutator(CreateDemoItemArgs, async ({ args, ctx, tx }) => {
+    create: defineChurchWorkMutator(CreateDemoItemArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
         throw new Error("demo_items.create must run on the server");
       }
@@ -1655,7 +1655,7 @@ export const mutators = defineMutators({
     }),
   },
   notifications: {
-    mark_read: defineChurchTaskMutator(NotificationIdArgs, async ({ args, ctx, tx }) => {
+    mark_read: defineChurchWorkMutator(NotificationIdArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -1679,7 +1679,7 @@ export const mutators = defineMutators({
           ),
         );
     }),
-    mark_unread: defineChurchTaskMutator(NotificationIdArgs, async ({ args, ctx, tx }) => {
+    mark_unread: defineChurchWorkMutator(NotificationIdArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -1703,7 +1703,7 @@ export const mutators = defineMutators({
           ),
         );
     }),
-    mark_all_read: defineChurchTaskMutator(NotificationChurchArgs, async ({ args, ctx, tx }) => {
+    mark_all_read: defineChurchWorkMutator(NotificationChurchArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -1727,7 +1727,7 @@ export const mutators = defineMutators({
           ),
         );
     }),
-    delete: defineChurchTaskMutator(NotificationIdArgs, async ({ args, ctx, tx }) => {
+    delete: defineChurchWorkMutator(NotificationIdArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -1751,7 +1751,7 @@ export const mutators = defineMutators({
           ),
         );
     }),
-    delete_read: defineChurchTaskMutator(NotificationChurchArgs, async ({ args, ctx, tx }) => {
+    delete_read: defineChurchWorkMutator(NotificationChurchArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -1775,7 +1775,7 @@ export const mutators = defineMutators({
           ),
         );
     }),
-    snooze: defineChurchTaskMutator(SnoozeNotificationArgs, async ({ args, ctx, tx }) => {
+    snooze: defineChurchWorkMutator(SnoozeNotificationArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -1802,7 +1802,7 @@ export const mutators = defineMutators({
     }),
   },
   teams: {
-    create: defineChurchTaskMutator(CreateTeamArgs, async ({ args, ctx, tx }) => {
+    create: defineChurchWorkMutator(CreateTeamArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
         return;
       }
@@ -1909,7 +1909,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    rename: defineChurchTaskMutator(RenameTeamArgs, async ({ args, ctx, tx }) => {
+    rename: defineChurchWorkMutator(RenameTeamArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
         return;
       }
@@ -1944,7 +1944,7 @@ export const mutators = defineMutators({
         metadata: { name },
       });
     }),
-    set_identifier: defineChurchTaskMutator(SetTeamIdentifierArgs, async ({ args, ctx, tx }) => {
+    set_identifier: defineChurchWorkMutator(SetTeamIdentifierArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
         return;
       }
@@ -2026,7 +2026,7 @@ export const mutators = defineMutators({
         metadata: { identifier, previous_identifier: previousIdentifier },
       });
     }),
-    delete: defineChurchTaskMutator(DeleteTeamArgs, async ({ args, ctx, tx }) => {
+    delete: defineChurchWorkMutator(DeleteTeamArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
         return;
       }
@@ -2109,7 +2109,7 @@ export const mutators = defineMutators({
         event_type: "team.deleted",
       });
     }),
-    reorder: defineChurchTaskMutator(ReorderTeamsArgs, async ({ args, ctx, tx }) => {
+    reorder: defineChurchWorkMutator(ReorderTeamsArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
         return;
       }
@@ -2150,7 +2150,7 @@ export const mutators = defineMutators({
         ),
       );
     }),
-    add_member: defineChurchTaskMutator(TeamMemberArgs, async ({ args, ctx, tx }) => {
+    add_member: defineChurchWorkMutator(TeamMemberArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
         return;
       }
@@ -2200,7 +2200,7 @@ export const mutators = defineMutators({
         metadata: { member_user_id: args.user_id },
       });
     }),
-    remove_member: defineChurchTaskMutator(TeamMemberArgs, async ({ args, ctx, tx }) => {
+    remove_member: defineChurchWorkMutator(TeamMemberArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
         return;
       }
@@ -2233,7 +2233,7 @@ export const mutators = defineMutators({
     }),
   },
   labels: {
-    create: defineChurchTaskMutator(CreateLabelArgs, async ({ args, ctx, tx }) => {
+    create: defineChurchWorkMutator(CreateLabelArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -2284,7 +2284,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    update: defineChurchTaskMutator(UpdateLabelArgs, async ({ args, ctx, tx }) => {
+    update: defineChurchWorkMutator(UpdateLabelArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -2325,7 +2325,7 @@ export const mutators = defineMutators({
         metadata: { updated_fields: Object.keys(patch).filter((key) => !key.endsWith("_at")) },
       });
     }),
-    delete: defineChurchTaskMutator(DeleteLabelArgs, async ({ args, ctx, tx }) => {
+    delete: defineChurchWorkMutator(DeleteLabelArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -2368,7 +2368,7 @@ export const mutators = defineMutators({
     }),
   },
   cycles: {
-    upsert: defineChurchTaskMutator(UpsertCycleArgs, async ({ args, ctx, tx }) => {
+    upsert: defineChurchWorkMutator(UpsertCycleArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -2435,7 +2435,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    updateDetails: defineChurchTaskMutator(UpdateCycleDetailsArgs, async ({ args, ctx, tx }) => {
+    updateDetails: defineChurchWorkMutator(UpdateCycleDetailsArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -2469,7 +2469,7 @@ export const mutators = defineMutators({
     }),
   },
   key_dates: {
-    create: defineChurchTaskMutator(CreateKeyDateArgs, async ({ args, ctx, tx }) => {
+    create: defineChurchWorkMutator(CreateKeyDateArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -2498,7 +2498,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    update: defineChurchTaskMutator(UpdateKeyDateArgs, async ({ args, ctx, tx }) => {
+    update: defineChurchWorkMutator(UpdateKeyDateArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -2531,7 +2531,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    delete: defineChurchTaskMutator(DeleteKeyDateArgs, async ({ args, ctx, tx }) => {
+    delete: defineChurchWorkMutator(DeleteKeyDateArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -2558,7 +2558,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    create_occurrence: defineChurchTaskMutator(
+    create_occurrence: defineChurchWorkMutator(
       CreateKeyDateOccurrenceArgs,
       async ({ args, ctx, tx }) => {
         const db = serverDb(tx);
@@ -2582,7 +2582,7 @@ export const mutators = defineMutators({
     ),
   },
   templates: {
-    create: defineChurchTaskMutator(CreateTemplateArgs, async ({ args, ctx, tx }) => {
+    create: defineChurchWorkMutator(CreateTemplateArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -2738,7 +2738,7 @@ export const mutators = defineMutators({
         ),
       );
     }),
-    duplicate: defineChurchTaskMutator(DuplicateTemplateArgs, async ({ args, ctx, tx }) => {
+    duplicate: defineChurchWorkMutator(DuplicateTemplateArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
       const session = requireTemplateManager(ctx, args.church_id);
@@ -3021,7 +3021,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    delete: defineChurchTaskMutator(TemplateEntityMutationArgs, async ({ args, ctx, tx }) => {
+    delete: defineChurchWorkMutator(TemplateEntityMutationArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
       const session = requireTemplateManager(ctx, args.church_id);
@@ -3044,7 +3044,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    restore: defineChurchTaskMutator(TemplateEntityMutationArgs, async ({ args, ctx, tx }) => {
+    restore: defineChurchWorkMutator(TemplateEntityMutationArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
       const session = requireTemplateManager(ctx, args.church_id);
@@ -3067,7 +3067,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    project_cycle: defineChurchTaskMutator(ProjectTemplateCycleArgs, async ({ args, ctx, tx }) => {
+    project_cycle: defineChurchWorkMutator(ProjectTemplateCycleArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -3247,7 +3247,7 @@ export const mutators = defineMutators({
     }),
   },
   template_tasks: {
-    delete: defineChurchTaskMutator(TemplateEntityMutationArgs, async ({ args, ctx, tx }) => {
+    delete: defineChurchWorkMutator(TemplateEntityMutationArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
       const session = requireTemplateManager(ctx, args.church_id);
@@ -3270,7 +3270,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    restore: defineChurchTaskMutator(TemplateEntityMutationArgs, async ({ args, ctx, tx }) => {
+    restore: defineChurchWorkMutator(TemplateEntityMutationArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
       const session = requireTemplateManager(ctx, args.church_id);
@@ -3295,7 +3295,7 @@ export const mutators = defineMutators({
     }),
   },
   template_schedules: {
-    delete: defineChurchTaskMutator(DeleteTemplateScheduleArgs, async ({ args, ctx, tx }) => {
+    delete: defineChurchWorkMutator(DeleteTemplateScheduleArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
       const session = requireTemplateManager(ctx, args.church_id);
@@ -3356,7 +3356,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    restore: defineChurchTaskMutator(TemplateEntityMutationArgs, async ({ args, ctx, tx }) => {
+    restore: defineChurchWorkMutator(TemplateEntityMutationArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
       const session = requireTemplateManager(ctx, args.church_id);
@@ -3381,7 +3381,7 @@ export const mutators = defineMutators({
     }),
   },
   cycle_adjustments: {
-    set: defineChurchTaskMutator(SetCycleAdjustmentsArgs, async ({ args, ctx, tx }) => {
+    set: defineChurchWorkMutator(SetCycleAdjustmentsArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -3472,7 +3472,7 @@ export const mutators = defineMutators({
     }),
   },
   task_comments: {
-    create: defineChurchTaskMutator(CreateTaskCommentArgs, async ({ args, ctx, tx }) => {
+    create: defineChurchWorkMutator(CreateTaskCommentArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -3595,7 +3595,7 @@ export const mutators = defineMutators({
       }
       // TODO(mentions): create explicit-target mention notifications when comment input carries targets.
     }),
-    delete: defineChurchTaskMutator(DeleteTaskCommentArgs, async ({ args, ctx, tx }) => {
+    delete: defineChurchWorkMutator(DeleteTaskCommentArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -3634,7 +3634,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    update: defineChurchTaskMutator(UpdateTaskCommentArgs, async ({ args, ctx, tx }) => {
+    update: defineChurchWorkMutator(UpdateTaskCommentArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -3670,7 +3670,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    subscribe: defineChurchTaskMutator(TaskCommentSubscriptionArgs, async ({ args, ctx, tx }) => {
+    subscribe: defineChurchWorkMutator(TaskCommentSubscriptionArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -3714,7 +3714,7 @@ export const mutators = defineMutators({
       });
       // TODO(notifications): enqueue thread subscription + future thread activity notifications.
     }),
-    unsubscribe: defineChurchTaskMutator(TaskCommentSubscriptionArgs, async ({ args, ctx, tx }) => {
+    unsubscribe: defineChurchWorkMutator(TaskCommentSubscriptionArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -3740,7 +3740,7 @@ export const mutators = defineMutators({
     }),
   },
   tasks: {
-    create: defineChurchTaskMutator(CreateTaskArgs, async ({ args, ctx, tx }) => {
+    create: defineChurchWorkMutator(CreateTaskArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -3887,7 +3887,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    update: defineChurchTaskMutator(UpdateTaskArgs, async ({ args, ctx, tx }) => {
+    update: defineChurchWorkMutator(UpdateTaskArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -3918,7 +3918,7 @@ export const mutators = defineMutators({
         task_id: args.task_id,
       });
     }),
-    update_batch: defineChurchTaskMutator(UpdateTasksBatchArgs, async ({ args, ctx, tx }) => {
+    update_batch: defineChurchWorkMutator(UpdateTasksBatchArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -3950,7 +3950,7 @@ export const mutators = defineMutators({
         });
       }
     }),
-    materialize_projected: defineChurchTaskMutator(
+    materialize_projected: defineChurchWorkMutator(
       MaterializeProjectedTaskArgs,
       async ({ args, ctx, tx }) => {
         const db = serverDb(tx);
@@ -4085,7 +4085,7 @@ export const mutators = defineMutators({
         });
       },
     ),
-    complete: defineChurchTaskMutator(TaskTransitionArgs, async ({ args, ctx, tx }) => {
+    complete: defineChurchWorkMutator(TaskTransitionArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -4134,7 +4134,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    cancel: defineChurchTaskMutator(TaskTransitionArgs, async ({ args, ctx, tx }) => {
+    cancel: defineChurchWorkMutator(TaskTransitionArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -4175,7 +4175,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    reopen: defineChurchTaskMutator(TaskTransitionArgs, async ({ args, ctx, tx }) => {
+    reopen: defineChurchWorkMutator(TaskTransitionArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
       if (!db) return;
 
@@ -4221,7 +4221,7 @@ export const mutators = defineMutators({
     }),
   },
   workflows: {
-    rename: defineChurchTaskMutator(RenameWorkflowArgs, async ({ args, ctx, tx }) => {
+    rename: defineChurchWorkMutator(RenameWorkflowArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
         return;
       }
@@ -4256,7 +4256,7 @@ export const mutators = defineMutators({
         metadata: { name },
       });
     }),
-    reorder: defineChurchTaskMutator(ReorderWorkflowsArgs, async ({ args, ctx, tx }) => {
+    reorder: defineChurchWorkMutator(ReorderWorkflowsArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
         return;
       }
@@ -4318,7 +4318,7 @@ export const mutators = defineMutators({
         ),
       );
     }),
-    archive: defineChurchTaskMutator(ArchiveWorkflowArgs, async ({ args, ctx, tx }) => {
+    archive: defineChurchWorkMutator(ArchiveWorkflowArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
         return;
       }
@@ -4343,7 +4343,7 @@ export const mutators = defineMutators({
       if (rows.length === 0) throw new Error("Workflow was not found in the active Church.");
       throw new Error("A Workflow owned by an active Team cannot be archived.");
     }),
-    add_status: defineChurchTaskMutator(AddWorkflowStatusArgs, async ({ args, ctx, tx }) => {
+    add_status: defineChurchWorkMutator(AddWorkflowStatusArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
         return;
       }
@@ -4405,7 +4405,7 @@ export const mutators = defineMutators({
         occurred_at: now,
       });
     }),
-    rename_status: defineChurchTaskMutator(RenameWorkflowStatusArgs, async ({ args, ctx, tx }) => {
+    rename_status: defineChurchWorkMutator(RenameWorkflowStatusArgs, async ({ args, ctx, tx }) => {
       if (tx.location !== "server") {
         return;
       }
@@ -4440,7 +4440,7 @@ export const mutators = defineMutators({
         metadata: { name },
       });
     }),
-    reorder_statuses: defineChurchTaskMutator(
+    reorder_statuses: defineChurchWorkMutator(
       ReorderWorkflowStatusesArgs,
       async ({ args, ctx, tx }) => {
         if (tx.location !== "server") {
@@ -4485,7 +4485,7 @@ export const mutators = defineMutators({
         );
       },
     ),
-    archive_status: defineChurchTaskMutator(
+    archive_status: defineChurchWorkMutator(
       ArchiveWorkflowStatusArgs,
       async ({ args, ctx, tx }) => {
         if (tx.location !== "server") {

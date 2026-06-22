@@ -3,15 +3,15 @@ import { expect, test } from "@playwright/test";
 import { signInAndCompleteOnboarding } from "./helpers";
 
 test.skip(
-  process.env.CHURCH_TASK_E2E_READY !== "1",
-  process.env.CHURCH_TASK_E2E_SKIP_REASON ?? "E2E environment is not configured.",
+  process.env.CHURCH_WORK_E2E_READY !== "1",
+  process.env.CHURCH_WORK_E2E_SKIP_REASON ?? "E2E environment is not configured.",
 );
 
 test("unauthenticated app routes render the OTP sign-in entry", async ({ page }) => {
   await page.goto("/my-work");
 
   await expect(page).toHaveURL(/\/my-work$/);
-  await expect(page.getByText("Sign in to Church Task", { exact: true })).toBeVisible();
+  await expect(page.getByText("Sign in to Church Work", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Email address")).toBeVisible();
   await expect(page.getByRole("button", { name: "Continue" })).toBeVisible();
 });

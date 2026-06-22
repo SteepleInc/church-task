@@ -1,5 +1,5 @@
-import { DemoItemSelectSchema, demo_items } from "@church-task/db";
-import { getDemoItemId, getUserId } from "@church-task/shared/get-ids";
+import { DemoItemSelectSchema, demo_items } from "@church-work/db";
+import { getDemoItemId, getUserId } from "@church-work/shared/get-ids";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 

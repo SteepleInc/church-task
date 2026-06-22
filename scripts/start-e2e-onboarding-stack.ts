@@ -1,8 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { resolve } from "node:path";
 
-import type { SeedProfile } from "@church-task/db";
-import { startPostgresHarness, startZeroCacheHarness } from "@church-task/test-harness";
+import type { SeedProfile } from "@church-work/db";
+import { startPostgresHarness, startZeroCacheHarness } from "@church-work/test-harness";
 
 const rootDir = resolve(import.meta.dirname, "..");
 const webDir = resolve(rootDir, "apps/web");

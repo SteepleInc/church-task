@@ -1,5 +1,5 @@
-import { createAuth, createLocalOtpStore } from "@church-task/auth";
-import { bootstrapChurchOnboarding, createDb } from "@church-task/db";
+import { createAuth, createLocalOtpStore } from "@church-work/auth";
+import { bootstrapChurchOnboarding, createDb } from "@church-work/db";
 import {
   demo_items,
   invitation,
@@ -10,17 +10,17 @@ import {
   tasks,
   teams,
   user,
-} from "@church-task/db/schema";
-import { formatTaskIdentifier } from "@church-task/domain";
-import { getChurchInvitationId, getNotificationId } from "@church-task/shared/get-ids";
-import { anonymousServerContext, mutators, queries, schema } from "@church-task/zero";
+} from "@church-work/db/schema";
+import { formatTaskIdentifier } from "@church-work/domain";
+import { getChurchInvitationId, getNotificationId } from "@church-work/shared/get-ids";
+import { anonymousServerContext, mutators, queries, schema } from "@church-work/zero";
 import { handleMutateRequest, handleQueryRequest } from "@rocicorp/zero/server";
 import { zeroDrizzle } from "@rocicorp/zero/server/adapters/drizzle";
 import { mustGetMutator, mustGetQuery } from "@rocicorp/zero";
 import { and, eq } from "drizzle-orm";
 import { Effect } from "effect";
 
-import type { OptionalZeroSessionContext } from "@church-task/zero";
+import type { OptionalZeroSessionContext } from "@church-work/zero";
 import { handleAgentRequest } from "./agent-operations";
 
 const getSessionContext = async (
@@ -78,7 +78,7 @@ export const createTracerApi = (databaseUrl: string) => {
     Effect.succeed(
       Response.json({
         ok: true,
-        service: "@church-task/server",
+        service: "@church-work/server",
       }),
     );
 
@@ -191,7 +191,7 @@ export const createTracerApi = (databaseUrl: string) => {
           body: {
             email,
             name,
-            password: `church-task-e2e-${crypto.randomUUID()}`,
+            password: `church-work-e2e-${crypto.randomUUID()}`,
           },
         });
         const signUpCookie = signUp.headers.get("set-cookie");

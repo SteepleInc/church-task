@@ -1,4 +1,4 @@
-import { queries, type Activity } from "@church-task/zero";
+import { queries, type Activity } from "@church-work/zero";
 import { useQuery } from "@rocicorp/zero/react";
 
 export type ActivityEntityType =

@@ -1,14 +1,14 @@
-name: church-task
+name: church-work
 
 services:
-  church_task_postgres:
+  church_work_postgres:
     image: postgres:16-alpine
     network_mode: bridge
     shm_size: 1g
     user: postgres
     restart: always
     healthcheck:
-      test: "pg_isready -U postgres --dbname=church_task"
+      test: "pg_isready -U postgres --dbname=church_work"
       interval: 10s
       timeout: 5s
       retries: 5
@@ -16,7 +16,7 @@ services:
       - "5434:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_DB: church_task
+      POSTGRES_DB: church_work
       POSTGRES_PASSWORD: postgres
     command: |
       postgres
@@ -27,8 +27,8 @@ services:
       -c hot_standby_feedback=on
       -c max_connections=200
     volumes:
-      - church_task_pgdata:/var/lib/postgresql/data
+      - church_work_pgdata:/var/lib/postgresql/data
 
 volumes:
-  church_task_pgdata:
+  church_work_pgdata:
     driver: local

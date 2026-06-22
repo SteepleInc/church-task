@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createDb, resetAndSeedDatabase, type SeedProfile } from "@church-task/db";
+import { createDb, resetAndSeedDatabase, type SeedProfile } from "@church-work/db";
 import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
@@ -129,13 +129,13 @@ export const startZeroCacheHarness = async (options: {
   readonly port?: number;
 }) => {
   const appId = options.appId ?? "tracer";
-  const adminPassword = "church-task-e2e-zero-admin-password";
+  const adminPassword = "church-work-e2e-zero-admin-password";
   const statzAuthorization = `Basic ${Buffer.from(`zero:${adminPassword}`).toString("base64")}`;
   const maxAttempts = options.port ? 1 : 3;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const port = options.port ?? (await getOpenPort());
-    const tmpDir = await mkdtemp(join(tmpdir(), "church-task-zero-"));
+    const tmpDir = await mkdtemp(join(tmpdir(), "church-work-zero-"));
     const replicaFile = join(tmpDir, "zero.db");
     const zeroUrl = `http://127.0.0.1:${port}`;
     const child = spawn(process.execPath, [getZeroCacheCliPath()], {

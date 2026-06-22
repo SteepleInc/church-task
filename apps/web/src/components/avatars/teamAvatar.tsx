@@ -1,11 +1,11 @@
-import { getTeamColorForName, isTeamColor, type TeamColor } from "@church-task/domain";
+import { getTeamColorForName, isTeamColor, type TeamColor } from "@church-work/domain";
 import type { FC } from "react";
 
 import { Avatar, AvatarFallback, getAvatarInitials } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 // Team Color token -> Tailwind classes. Tokens come from TEAM_COLORS in
-// @church-task/domain; Tailwind needs literal class strings, so the mapping
+// @church-work/domain; Tailwind needs literal class strings, so the mapping
 // lives here on the web side.
 const TEAM_COLOR_CLASSES: Record<TeamColor, string> = {
   red: "bg-red-500/15 text-red-700 dark:text-red-400",

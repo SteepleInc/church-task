@@ -2,7 +2,7 @@ import { defineQueries, defineQueryWithType } from "@rocicorp/zero";
 import { Schema } from "effect";
 
 import { toZeroSchema } from "./effect-schema";
-import { parseTaskIdentifier } from "@church-task/domain";
+import { parseTaskIdentifier } from "@church-work/domain";
 
 import {
   hasActiveChurchAccess,
@@ -19,14 +19,14 @@ import type { Schema as ZeroSchema } from "./zero-schema.gen";
 
 const DemoItemByIdArgs = toZeroSchema(Schema.Struct({ id: Schema.String }));
 const ChurchScopedArgs = toZeroSchema(Schema.Struct({ church_id: Schema.String }));
-const ChurchTaskAssigneeArgs = toZeroSchema(
+const ChurchWorkAssigneeArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, assigned_user_id: Schema.String }),
 );
-const ChurchTaskTeamArgs = toZeroSchema(
+const ChurchWorkTeamArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, team_id: Schema.String }),
 );
 const AdminListArgs = toZeroSchema(Schema.Struct({ list_args: ListArgsEffectSchema }));
-const ChurchTaskListArgs = toZeroSchema(
+const ChurchWorkListArgs = toZeroSchema(
   Schema.Struct({
     assigned_user_id: Schema.optional(Schema.String),
     church_id: Schema.String,
@@ -47,16 +47,16 @@ const TaskByIdentifierArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, identifier: Schema.String }),
 );
 
-const defineChurchTaskQuery = defineQueryWithType<ZeroSchema, OptionalZeroSessionContext>();
+const defineChurchWorkQuery = defineQueryWithType<ZeroSchema, OptionalZeroSessionContext>();
 
 export const queries = defineQueries({
   demo_items: {
-    admin_all: defineChurchTaskQuery(({ ctx }) => {
+    admin_all: defineChurchWorkQuery(({ ctx }) => {
       requireAppAdminSession(ctx);
 
       return zql.demo_items.where("deleted_at", "IS", null).orderBy("created_at", "desc");
     }),
-    all: defineChurchTaskQuery(({ ctx }) => {
+    all: defineChurchWorkQuery(({ ctx }) => {
       const scoped = isAppAdminSession(ctx)
         ? zql.demo_items
         : ctx?.authenticated === true
@@ -65,7 +65,7 @@ export const queries = defineQueries({
 
       return scoped.where("deleted_at", "IS", null).orderBy("created_at", "desc");
     }),
-    by_id: defineChurchTaskQuery(DemoItemByIdArgs, ({ args, ctx }) =>
+    by_id: defineChurchWorkQuery(DemoItemByIdArgs, ({ args, ctx }) =>
       (isAppAdminSession(ctx)
         ? zql.demo_items
         : ctx?.authenticated === true
@@ -78,7 +78,7 @@ export const queries = defineQueries({
     ),
   },
   organization: {
-    admin_list: defineChurchTaskQuery(AdminListArgs, ({ args, ctx }) => {
+    admin_list: defineChurchWorkQuery(AdminListArgs, ({ args, ctx }) => {
       requireAppAdminSession(ctx);
 
       return applyZeroListQuery(zql.organization, args.list_args, {
@@ -103,7 +103,7 @@ export const queries = defineQueries({
     }),
   },
   user: {
-    admin_list: defineChurchTaskQuery(AdminListArgs, ({ args, ctx }) => {
+    admin_list: defineChurchWorkQuery(AdminListArgs, ({ args, ctx }) => {
       requireAppAdminSession(ctx);
 
       return applyZeroListQuery(zql.user, args.list_args, {
@@ -115,14 +115,14 @@ export const queries = defineQueries({
     }),
   },
   member: {
-    admin_all: defineChurchTaskQuery(({ ctx }) => {
+    admin_all: defineChurchWorkQuery(({ ctx }) => {
       requireAppAdminSession(ctx);
 
       return zql.member.orderBy("createdAt", "desc");
     }),
   },
   invitations: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
         if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
 
@@ -133,7 +133,7 @@ export const queries = defineQueries({
     }),
   },
   activities: {
-    by_entity: defineChurchTaskQuery(ActivityForEntityArgs, ({ args, ctx }) => {
+    by_entity: defineChurchWorkQuery(ActivityForEntityArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
         if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
 
@@ -149,7 +149,7 @@ export const queries = defineQueries({
     }),
   },
   task_comments: {
-    by_task: defineChurchTaskQuery(TaskCommentsArgs, ({ args, ctx }) => {
+    by_task: defineChurchWorkQuery(TaskCommentsArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
         if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
 
@@ -163,7 +163,7 @@ export const queries = defineQueries({
     }),
   },
   notifications: {
-    by_recipient: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_recipient: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id) || ctx?.authenticated !== true) {
         if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
 
@@ -178,7 +178,7 @@ export const queries = defineQueries({
     }),
   },
   task_comment_subscriptions: {
-    by_task_for_user: defineChurchTaskQuery(TaskCommentSubscriptionsArgs, ({ args, ctx }) => {
+    by_task_for_user: defineChurchWorkQuery(TaskCommentSubscriptionsArgs, ({ args, ctx }) => {
       if (
         !hasActiveChurchAccess(ctx, args.church_id) ||
         ctx?.authenticated !== true ||
@@ -200,14 +200,14 @@ export const queries = defineQueries({
     }),
   },
   teams_admin: {
-    admin_all: defineChurchTaskQuery(({ ctx }) => {
+    admin_all: defineChurchWorkQuery(({ ctx }) => {
       requireAppAdminSession(ctx);
 
       return zql.teams.where("deleted_at", "IS", null).orderBy("created_at", "desc");
     }),
   },
   teams: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       const scoped = zql.teams.where("church_id", args.church_id);
 
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
@@ -220,7 +220,7 @@ export const queries = defineQueries({
     }),
   },
   team_memberships: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       const scoped = zql.team_memberships.where("church_id", args.church_id);
 
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
@@ -233,7 +233,7 @@ export const queries = defineQueries({
     }),
   },
   labels: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       const scoped = zql.labels.where("church_id", args.church_id);
 
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
@@ -246,7 +246,7 @@ export const queries = defineQueries({
     }),
   },
   cycles: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       const scoped = zql.cycles.where("church_id", args.church_id);
 
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
@@ -259,7 +259,7 @@ export const queries = defineQueries({
     }),
   },
   key_dates: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
         if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
 
@@ -273,7 +273,7 @@ export const queries = defineQueries({
     }),
   },
   key_date_occurrences: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
         if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
 
@@ -289,7 +289,7 @@ export const queries = defineQueries({
     }),
   },
   templates: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
         if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
 
@@ -303,7 +303,7 @@ export const queries = defineQueries({
     }),
   },
   template_schedules: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
         if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
 
@@ -319,7 +319,7 @@ export const queries = defineQueries({
     }),
   },
   template_teams: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
         if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
 
@@ -333,7 +333,7 @@ export const queries = defineQueries({
     }),
   },
   focus_windows: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
         if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
 
@@ -347,7 +347,7 @@ export const queries = defineQueries({
     }),
   },
   template_tasks: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
         if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
 
@@ -361,7 +361,7 @@ export const queries = defineQueries({
     }),
   },
   cycle_adjustments: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
         if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
 
@@ -377,7 +377,7 @@ export const queries = defineQueries({
     }),
   },
   workflows: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       const scoped = zql.workflows.where("church_id", args.church_id);
 
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
@@ -390,7 +390,7 @@ export const queries = defineQueries({
     }),
   },
   workflow_statuses: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       const scoped = zql.workflow_statuses.where("church_id", args.church_id);
 
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
@@ -405,7 +405,7 @@ export const queries = defineQueries({
     }),
   },
   tasks: {
-    by_church: defineChurchTaskQuery(ChurchScopedArgs, ({ args, ctx }) => {
+    by_church: defineChurchWorkQuery(ChurchScopedArgs, ({ args, ctx }) => {
       const scoped = zql.tasks.where("church_id", args.church_id);
 
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
@@ -416,7 +416,7 @@ export const queries = defineQueries({
 
       return scoped.where("deleted_at", "IS", null).orderBy("created_at", "desc");
     }),
-    by_assignee: defineChurchTaskQuery(ChurchTaskAssigneeArgs, ({ args, ctx }) => {
+    by_assignee: defineChurchWorkQuery(ChurchWorkAssigneeArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
         if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
 
@@ -429,7 +429,7 @@ export const queries = defineQueries({
         .where("deleted_at", "IS", null)
         .orderBy("created_at", "desc");
     }),
-    by_team: defineChurchTaskQuery(ChurchTaskTeamArgs, ({ args, ctx }) => {
+    by_team: defineChurchWorkQuery(ChurchWorkTeamArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
         if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
 
@@ -442,7 +442,7 @@ export const queries = defineQueries({
         .where("deleted_at", "IS", null)
         .orderBy("created_at", "desc");
     }),
-    filtered: defineChurchTaskQuery(ChurchTaskListArgs, ({ args, ctx }) => {
+    filtered: defineChurchWorkQuery(ChurchWorkListArgs, ({ args, ctx }) => {
       if (!hasActiveChurchAccess(ctx, args.church_id)) {
         if (isServerContext(ctx)) requireActiveChurchAccess(ctx, args.church_id);
 
@@ -472,7 +472,7 @@ export const queries = defineQueries({
         default_order_direction: "desc",
       });
     }),
-    by_identifier: defineChurchTaskQuery(TaskByIdentifierArgs, ({ args, ctx }) => {
+    by_identifier: defineChurchWorkQuery(TaskByIdentifierArgs, ({ args, ctx }) => {
       const parsed = parseTaskIdentifier(args.identifier);
       if (!parsed)
         return zql.tasks.where("id", "__invalid_identifier__").where("deleted_at", "IS", null);

@@ -6,7 +6,7 @@ ELAPSED=0
 
 DB_HOST=${DB_HOST_PRIMARY:-127.0.0.1}
 DB_PORT=${DB_PORT:-5434}
-DB_NAME=${DB_NAME:-church_task}
+DB_NAME=${DB_NAME:-church_work}
 DB_USER=${DB_USERNAME:-postgres}
 
 echo "Checking PostgreSQL health at $DB_HOST:$DB_PORT/$DB_NAME"

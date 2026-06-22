@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 test.skip(
-  process.env.CHURCH_TASK_E2E_READY !== "1",
-  process.env.CHURCH_TASK_E2E_SKIP_REASON ?? "E2E environment is not configured.",
+  process.env.CHURCH_WORK_E2E_READY !== "1",
+  process.env.CHURCH_WORK_E2E_SKIP_REASON ?? "E2E environment is not configured.",
 );
 
 test("marketing home keeps the copied PreachX desktop treatment", async ({ page }) => {
@@ -10,7 +10,7 @@ test("marketing home keeps the copied PreachX desktop treatment", async ({ page 
   await page.goto("/");
 
   await expect(page.locator("html")).toHaveClass(/marketing-dark/);
-  await expect(page.getByRole("link", { name: "Church Task" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Church Work" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Sign In" })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Workflows For Churches", level: 1 }),
@@ -35,7 +35,7 @@ test("marketing home keeps the copied PreachX mobile treatment", async ({ page }
   ).toBeVisible();
 });
 
-test("marketing library keeps Church Task copy in the copied collection card layout", async ({
+test("marketing library keeps Church Work copy in the copied collection card layout", async ({
   page,
 }) => {
   await page.goto("/library");

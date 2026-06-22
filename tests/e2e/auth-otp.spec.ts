@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test";
 import { waitForOtp } from "./helpers";
 
 test.skip(
-  process.env.CHURCH_TASK_E2E_READY !== "1",
-  process.env.CHURCH_TASK_E2E_SKIP_REASON ?? "E2E environment is not configured.",
+  process.env.CHURCH_WORK_E2E_READY !== "1",
+  process.env.CHURCH_WORK_E2E_SKIP_REASON ?? "E2E environment is not configured.",
 );
 
 test("signs in with email OTP using the test capture channel", async ({ page }) => {

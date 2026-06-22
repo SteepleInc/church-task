@@ -4,7 +4,7 @@ TIMEOUT=${1:-30}
 INTERVAL=2
 ELAPSED=0
 ZERO_URL=${VITE_ZERO_CACHE_URL:-http://127.0.0.1:4848}
-ZERO_ADMIN_PASSWORD=${ZERO_ADMIN_PASSWORD:-church-task-dev-zero-admin-password}
+ZERO_ADMIN_PASSWORD=${ZERO_ADMIN_PASSWORD:-church-work-dev-zero-admin-password}
 
 echo "Checking Zero health at $ZERO_URL/statz"
 

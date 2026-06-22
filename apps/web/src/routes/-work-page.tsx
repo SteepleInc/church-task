@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { normalizeTeamIdentifier } from "@church-task/domain";
+import { normalizeTeamIdentifier } from "@church-work/domain";
 import { revalidateLogic } from "@tanstack/react-form";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Schema } from "effect";
@@ -585,7 +585,7 @@ function ChurchOnboardingGate({ activePanel }: { activePanel: ActiveWorkPanel })
         <CardHeader>
           <CardTitle>Create Your First Church</CardTitle>
           <CardDescription>
-            Church Task needs an active Church before you can enter the app.
+            Church Work needs an active Church before you can enter the app.
           </CardDescription>
         </CardHeader>
         <CardContent>

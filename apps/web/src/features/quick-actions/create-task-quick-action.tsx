@@ -88,11 +88,11 @@ export const createTaskQuickActionStateAtom = atom<CreateTaskQuickActionState>(n
 
 // Linear-style dialog chrome preferences, remembered across opens.
 const createTaskDialogExpandedAtom = atomWithStorage<boolean>(
-  "church-task:create-task-expanded",
+  "church-work:create-task-expanded",
   false,
 );
 const createTaskCreateMoreAtom = atomWithStorage<boolean>(
-  "church-task:create-task-create-more",
+  "church-work:create-task-create-more",
   false,
 );
 

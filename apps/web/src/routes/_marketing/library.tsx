@@ -30,7 +30,7 @@ function LibraryPage() {
   return (
     <>
       <PageBanner
-        ByLine="Jump into the core Church Task surfaces for teams, workflows, tasks, and settings."
+        ByLine="Jump into the core Church Work surfaces for teams, workflows, tasks, and settings."
         Title="A working library for church operations."
       />
 

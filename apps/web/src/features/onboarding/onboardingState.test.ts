@@ -8,7 +8,7 @@ import {
 } from "./onboardingState";
 
 describe("onboarding step contract", () => {
-  test("uses the three Church Task onboarding steps", () => {
+  test("uses the three Church Work onboarding steps", () => {
     expect(ONBOARDING_TOTAL_STEPS).toBe(3);
     expect(onboardingStepLookup).toEqual({
       churchProfile: 1,
@@ -17,7 +17,7 @@ describe("onboarding step contract", () => {
     });
   });
 
-  test("keeps the copied card titles adapted to Church Task", () => {
+  test("keeps the copied card titles adapted to Church Work", () => {
     expect(getOnboardingStepTitle({ _tag: "churchProfile" })).toBe("Tell us about your Church");
     expect(getOnboardingStepTitle({ _tag: "initialTeams" })).toBe("Review your initial Teams");
     expect(getOnboardingStepTitle({ _tag: "finished" })).toBe("You're all set");

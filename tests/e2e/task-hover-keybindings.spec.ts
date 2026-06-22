@@ -5,7 +5,7 @@ import { startAuthenticatedSession } from "./helpers";
 // Same gating as the other onboarding-stack specs: only runs against the local
 // Postgres/Zero stack booted by `bun run test:e2e:hover-keybindings`.
 test.skip(
-  process.env.CHURCH_TASK_E2E_ONBOARDING_STACK !== "1",
+  process.env.CHURCH_WORK_E2E_ONBOARDING_STACK !== "1",
   "Run with bun run test:e2e:hover-keybindings to boot the local Postgres/Zero onboarding stack.",
 );
 

@@ -13,7 +13,7 @@ export const MarketingNavigation = () => {
     <>
       <Link to="/">
         <span className="block h-10 w-auto font-medium font-serif text-3xl text-white leading-10">
-          Church Task
+          Church Work
         </span>
       </Link>
 
