@@ -7,12 +7,24 @@ import {
   MessageSquareTextIcon,
   Trash2Icon,
 } from "lucide-react";
-import type { ComponentType } from "react";
+import { useState, type ComponentType } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 
 import { UserAvatar } from "@/components/avatars/userAvatar";
 import { useOpenTaskDetailsPaneUrl } from "@/components/details-pane/details-pane-helpers";
 import { MainContainer, PageContainer } from "@/components/pageComponents";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +36,7 @@ import {
 } from "@/components/ui/empty";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   useMarkNotificationReadMutation,
   useMarkNotificationUnreadMutation,
@@ -118,13 +131,35 @@ export function InboxPage() {
   const markAllRead = useMarkAllNotificationsReadMutation();
   const deleteRead = useDeleteReadNotificationsMutation();
   const hasNotifications = notificationsCollection.length > 0;
-  const hasReadNotifications = notificationsCollection.some(
+  const readCount = notificationsCollection.filter(
     (notification) => notification.read_at != null,
-  );
+  ).length;
+  const hasReadNotifications = readCount > 0;
+  const [deleteReadOpen, setDeleteReadOpen] = useState(false);
 
   const membersByUserId = new Map<string, MemberItem>(
     membersCollection.map((member) => [member.userId, member]),
   );
+
+  const handleMarkAllRead = () => {
+    if (!activeChurch || unreadCount === 0) return;
+    void markAllRead({ churchId: activeChurch.id });
+    toast.success(
+      unreadCount === 1
+        ? "Marked 1 notification as read."
+        : `Marked ${unreadCount} notifications as read.`,
+    );
+  };
+
+  const handleDeleteRead = () => {
+    if (!activeChurch || !hasReadNotifications) return;
+    const removed = readCount;
+    void deleteRead({ churchId: activeChurch.id });
+    setDeleteReadOpen(false);
+    toast.success(
+      removed === 1 ? "Deleted 1 read notification." : `Deleted ${removed} read notifications.`,
+    );
+  };
 
   return (
     <MainContainer>
@@ -142,7 +177,7 @@ export function InboxPage() {
             <div className="flex items-center gap-2">
               <Button
                 disabled={unreadCount === 0}
-                onClick={() => activeChurch && void markAllRead({ churchId: activeChurch.id })}
+                onClick={handleMarkAllRead}
                 size="sm"
                 variant="outline"
               >
@@ -151,7 +186,7 @@ export function InboxPage() {
               </Button>
               <Button
                 disabled={!hasReadNotifications}
-                onClick={() => activeChurch && void deleteRead({ churchId: activeChurch.id })}
+                onClick={() => setDeleteReadOpen(true)}
                 size="sm"
                 variant="ghost"
               >
@@ -163,6 +198,37 @@ export function InboxPage() {
         </div>
         <p className="text-balance text-muted-foreground text-sm">{PAGE_DESCRIPTION}</p>
       </div>
+
+      <AlertDialog onOpenChange={setDeleteReadOpen} open={deleteReadOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogMedia>
+              <Trash2Icon />
+            </AlertDialogMedia>
+            <AlertDialogTitle>
+              {readCount === 1
+                ? "Delete 1 read notification?"
+                : `Delete ${readCount} read notifications?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Read notifications are cleared from your Inbox. The Tasks and conversations they point
+              to stay exactly where they are.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep them</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                handleDeleteRead();
+              }}
+              variant="destructive"
+            >
+              Delete read
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <PageContainer className="flex-1" wrapperClassName="gap-0 pt-2 md:pt-2">
         {loading ? (
@@ -247,7 +313,7 @@ function NotificationRow({
   };
 
   return (
-    <li className={cn("relative", !isFirst && "border-t", isUnread && "bg-primary/[0.03]")}>
+    <li className={cn("group relative", !isFirst && "border-t", isUnread && "bg-primary/[0.03]")}>
       {isUnread ? (
         <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-primary" />
       ) : null}
@@ -333,33 +399,48 @@ function NotificationRow({
             ) : null}
           </div>
         </button>
-        <div className="flex shrink-0 items-center gap-1 px-3">
-          <Button
-            aria-label={isUnread ? "Mark notification read" : "Mark notification unread"}
-            onClick={() =>
-              void (isUnread ? markNotificationRead : markNotificationUnread)({
-                churchId: notification.church_id,
-                notificationId: notification.id,
-              })
-            }
-            size="icon-sm"
-            variant="ghost"
-          >
-            {isUnread ? <MailOpenIcon /> : <MailIcon />}
-          </Button>
-          <Button
-            aria-label="Delete notification"
-            onClick={() =>
-              void deleteNotification({
-                churchId: notification.church_id,
-                notificationId: notification.id,
-              })
-            }
-            size="icon-sm"
-            variant="ghost"
-          >
-            <Trash2Icon />
-          </Button>
+        <div className="flex shrink-0 items-center gap-1 px-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label={isUnread ? "Mark notification read" : "Mark notification unread"}
+                  onClick={() =>
+                    void (isUnread ? markNotificationRead : markNotificationUnread)({
+                      churchId: notification.church_id,
+                      notificationId: notification.id,
+                    })
+                  }
+                  size="icon-sm"
+                  variant="ghost"
+                >
+                  {isUnread ? <MailOpenIcon /> : <MailIcon />}
+                </Button>
+              }
+            />
+            <TooltipContent>{isUnread ? "Mark read" : "Mark unread"}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  aria-label="Delete notification"
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() =>
+                    void deleteNotification({
+                      churchId: notification.church_id,
+                      notificationId: notification.id,
+                    })
+                  }
+                  size="icon-sm"
+                  variant="ghost"
+                >
+                  <Trash2Icon />
+                </Button>
+              }
+            />
+            <TooltipContent>Delete</TooltipContent>
+          </Tooltip>
         </div>
       </div>
     </li>
