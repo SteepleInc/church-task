@@ -213,10 +213,7 @@ function NotificationRow({
           )}
           <span
             aria-hidden
-            className={cn(
-              "-bottom-0.5 -right-0.5 absolute flex size-4 items-center justify-center rounded-full ring-2 ring-card",
-              isUnread ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
-            )}
+            className="-bottom-0.5 -right-0.5 absolute flex size-4 items-center justify-center rounded-full bg-muted text-muted-foreground ring-2 ring-card"
           >
             <KindIcon className="size-2.5" />
           </span>
@@ -238,7 +235,7 @@ function NotificationRow({
               data-icon="inline-start"
               variant="outline"
             >
-              <KindIcon className="size-3" />
+              <KindIcon />
               {kind.label}
             </Badge>
             {notification.created_at ? (
