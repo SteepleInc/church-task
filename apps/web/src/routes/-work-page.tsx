@@ -2,25 +2,9 @@ import { MainContainer, PageContainer, PageWrapper } from "@/components/pageComp
 import { useAppForm } from "@/components/form/ts-form";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemTitle,
-} from "@/components/ui/item";
-import { Label } from "@/components/ui/label";
+import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { normalizeTeamIdentifier } from "@church-task/domain";
 import { revalidateLogic } from "@tanstack/react-form";
 import { useNavigate, useSearch } from "@tanstack/react-router";
@@ -57,9 +41,7 @@ import { useUserInvitationsCollection } from "@/data/invitations/invitationsData
 import { useCyclesCollection } from "@/data/cycles/cyclesData.app";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { useTeamsCollection } from "@/data/teams/teamsData.app";
-import { useChurchUsersCollection } from "@/data/users/usersData.app";
 import { authClient } from "@/lib/auth-client";
-import { InviteMemberButton, InviteMemberQuickAction } from "@/features/settings/invite-member";
 import { useQuickActionOpeners } from "@/features/quick-actions/quick-actions-state";
 import {
   getWorkSearchForPanel,
@@ -102,8 +84,6 @@ function PrivateWorkContent({ activePanel }: { activePanel: ActiveWorkPanel }) {
   const currentUserId = activeChurch?.currentUserId ?? sessionData?.user?.id ?? null;
   const teams = useTeamsCollection({ churchId: activeChurchId });
   const cyclesCollection = useCyclesCollection({ churchId: activeChurchId, currentUserId });
-  const pendingInvitations =
-    activeChurch?.invitations.filter((invitation) => invitation.status === "pending") ?? [];
   const activeTeams = teams.teamsCollection;
   const selectedTeam =
     typeof activePanel === "object"
@@ -355,16 +335,6 @@ function PrivateWorkContent({ activePanel }: { activePanel: ActiveWorkPanel }) {
             </div>
           </section>
           <ActiveChurchInvitationPrompt />
-          {activeChurch ? (
-            <>
-              <ChurchMembersPanel activeChurchId={activeChurch.id} />
-              <ChurchInvitationPanel
-                activeChurchId={activeChurch.id}
-                activeChurchRole={activeChurch.role}
-                pendingInvitations={pendingInvitations}
-              />
-            </>
-          ) : null}
         </>
       )}
     </>
@@ -391,8 +361,6 @@ const ChurchNameSchema = Schema.Struct({
     Schema.check(Schema.isMinLength(1, { message: "Church Time Zone is required." })),
   ),
 });
-
-type InvitationRole = "member" | "admin";
 
 function detectedChurchTimeZone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
@@ -458,203 +426,8 @@ function ActiveChurchInvitationPrompt() {
   );
 }
 
-function canMutateChurchSettings(role: string | string[]) {
-  return memberHasRole(role, "owner") || memberHasRole(role, "admin");
-}
-
-type PendingInvitation = {
-  id: string;
-  email: string;
-  role: string | string[];
-  status: string;
-};
-
 function invitationRoleLabel(role: string | string[]) {
   return Array.isArray(role) ? role.join(", ") : role;
-}
-
-function memberHasRole(role: string | string[], expectedRole: string) {
-  return Array.isArray(role) ? role.includes(expectedRole) : role === expectedRole;
-}
-
-function ChurchMembersPanel({ activeChurchId }: { activeChurchId: string }) {
-  const members = useChurchUsersCollection({ churchId: activeChurchId });
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [updatingMemberId, setUpdatingMemberId] = useState<string | null>(null);
-  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Church Members</CardTitle>
-        <CardDescription>Your membership context for the Active Church.</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-3">
-        {members.loading ? (
-          <>
-            {[0, 1, 2].map((index) => (
-              <Skeleton className="h-16 w-full rounded-lg" key={index} />
-            ))}
-          </>
-        ) : null}
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-        {success ? (
-          <Alert>
-            <AlertDescription>{success}</AlertDescription>
-          </Alert>
-        ) : null}
-        {!members.loading && !error && members.usersCollection.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No Church Members found.</p>
-        ) : null}
-        {members.usersCollection.map((member) => {
-          const isOwner = memberHasRole(member.role, "owner");
-          const roleLabel = invitationRoleLabel(member.role);
-          const isUpdating = updatingMemberId === member.memberId;
-          const isRemoving = removingMemberId === member.memberId;
-
-          return (
-            <Item key={member.memberId} variant="outline">
-              <ItemContent>
-                <ItemTitle>{member.name ?? "Unnamed member"}</ItemTitle>
-                <ItemDescription>{member.email ?? "No email"}</ItemDescription>
-              </ItemContent>
-              {isOwner ? (
-                <Badge variant="secondary" className="capitalize">
-                  {roleLabel}
-                </Badge>
-              ) : (
-                <ItemActions className="flex-wrap">
-                  <Label className="sr-only" htmlFor={`member-role-${member.memberId}`}>
-                    Role for {member.email ?? member.name ?? "Church member"}
-                  </Label>
-                  <Select
-                    value={memberHasRole(member.role, "admin") ? "admin" : "member"}
-                    disabled={isUpdating || isRemoving}
-                    onValueChange={async (value) => {
-                      const nextRole = value as InvitationRole;
-                      setError(null);
-                      setSuccess(null);
-                      setUpdatingMemberId(member.memberId);
-                      const result = await authClient.organization.updateMemberRole({
-                        organizationId: activeChurchId,
-                        memberId: member.memberId,
-                        role: nextRole,
-                      });
-                      setUpdatingMemberId(null);
-
-                      if (result.error) {
-                        setError(result.error.message ?? "Could not update Church Member role.");
-                        return;
-                      }
-
-                      setSuccess(`Updated ${member.email ?? "Church Member"} to ${nextRole}.`);
-                    }}
-                  >
-                    <SelectTrigger id={`member-role-${member.memberId}`} className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="member">Member</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    aria-label={`Remove ${member.email ?? member.name ?? "Church Member"}`}
-                    disabled={isUpdating || isRemoving}
-                    onClick={async () => {
-                      setError(null);
-                      setSuccess(null);
-                      setRemovingMemberId(member.memberId);
-                      const result = await authClient.organization.removeMember({
-                        organizationId: activeChurchId,
-                        memberIdOrEmail: member.memberId,
-                      });
-                      setRemovingMemberId(null);
-
-                      if (result.error) {
-                        setError(result.error.message ?? "Could not remove Church Member.");
-                        return;
-                      }
-
-                      setSuccess(`Removed ${member.email ?? "Church Member"}.`);
-                    }}
-                  >
-                    {isRemoving ? "Removing..." : "Remove"}
-                  </Button>
-                </ItemActions>
-              )}
-            </Item>
-          );
-        })}
-      </CardContent>
-    </Card>
-  );
-}
-
-function ChurchInvitationPanel({
-  activeChurchId,
-  activeChurchRole,
-  pendingInvitations,
-}: {
-  activeChurchId: string;
-  activeChurchRole: string | string[];
-  pendingInvitations: PendingInvitation[];
-}) {
-  const canInvite = canMutateChurchSettings(activeChurchRole);
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="grid gap-1.5">
-          <CardTitle>Church Invitations</CardTitle>
-          <CardDescription>
-            Invite people to this Church and track pending invitations.
-          </CardDescription>
-        </div>
-        <InviteMemberButton disabled={!canInvite} size="sm" variant="secondary" />
-      </CardHeader>
-      <CardContent className="grid gap-3">
-        {!canInvite ? (
-          <Alert>
-            <AlertDescription>
-              Only Church owners and admins can invite Church members.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        <InviteMemberQuickAction
-          activeChurchId={activeChurchId}
-          activeChurchRole={activeChurchRole}
-          source="settings"
-        />
-        <div className="grid gap-3">
-          <h2 className="text-base font-semibold">Pending Invitations</h2>
-          {pendingInvitations.length > 0 ? (
-            <ItemGroup className="gap-2">
-              {pendingInvitations.map((invitation) => (
-                <Item key={invitation.id} variant="outline">
-                  <ItemContent>
-                    <ItemTitle>{invitation.email}</ItemTitle>
-                  </ItemContent>
-                  <Badge variant="outline" className="capitalize">
-                    {invitationRoleLabel(invitation.role)}
-                  </Badge>
-                </Item>
-              ))}
-            </ItemGroup>
-          ) : (
-            <p className="text-sm text-muted-foreground">No pending invitations.</p>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
 }
 
 function churchSlug(name: string) {
