@@ -1723,6 +1723,11 @@ const templatesTable = {
       optional: false,
       customType: null as unknown as string,
     },
+    description: {
+      type: "string",
+      optional: true,
+      customType: null as unknown as string,
+    },
     recurrence: {
       type: "string",
       optional: false,

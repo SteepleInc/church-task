@@ -224,7 +224,8 @@ export async function signInAndCompleteOnboarding(
 /**
  * Opens the create-Template stepper big action from the /templates Collection.
  * Works from both the empty state ("Create a Template") and the populated
- * toolbar ("New Template"). The flow opens on step 0, the shape picker.
+ * toolbar ("New Template"). The flow opens on step 0, the combined Setup step
+ * (name, description, shape picker, and schedule).
  */
 export async function openTemplateCreate(page: Page) {
   await expect(page).toHaveURL(/\/templates$/);
@@ -234,20 +235,20 @@ export async function openTemplateCreate(page: Page) {
     .first();
   await expect(createButton).toBeVisible({ timeout: 20_000 });
   await createButton.click();
-  // Step 0: shape picker.
+  // Step 0: Setup. The shape picker lives inside it.
   await expect(page.getByRole("heading", { name: "Template shape" })).toBeVisible({
     timeout: 20_000,
   });
 }
 
 /**
- * Selects a Template shape on step 0 of the create flow and advances to step 1.
- * `shapeLabel` matches the visible shape label (e.g. "Weekly service",
- * "Key Date", "Monthly").
+ * Selects a Template shape inside the combined Setup step (step 0). The shape
+ * picker, name, description, and schedule all live on the same screen, so this
+ * only toggles the shape and does not advance the stepper. `shapeLabel` matches
+ * the visible shape label (e.g. "Weekly service", "Key Date", "Monthly").
  */
 export async function selectTemplateShape(page: Page, shapeLabel: string) {
   await page.getByRole("button", { name: `${shapeLabel} Template shape` }).click();
-  await page.getByRole("button", { exact: true, name: "Next" }).click();
 }
 
 /** Advances to the next stepper screen in the create-Template flow. */

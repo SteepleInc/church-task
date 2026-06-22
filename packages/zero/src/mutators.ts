@@ -412,6 +412,7 @@ const CreateTemplateArgs = toZeroSchema(
     ),
     key: Schema.String,
     name: Schema.String,
+    description: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
     placement_shape: Schema.Union([Schema.String, Schema.Null]),
     recurrence: Schema.String,
     template_schedule: Schema.Union([
@@ -2445,6 +2446,7 @@ export const mutators = defineMutators({
         church_id: args.church_id,
         created_at: now,
         created_by: session.user_id,
+        description: args.description ?? null,
         id: templateId,
         key: args.key,
         name: args.name,
@@ -2587,6 +2589,7 @@ export const mutators = defineMutators({
         .select({
           key: templates.key,
           name: templates.name,
+          description: templates.description,
           placement_shape: templates.placement_shape,
           recurrence: templates.recurrence,
         })
@@ -2600,6 +2603,7 @@ export const mutators = defineMutators({
         )) as Array<{
         readonly key: string;
         readonly name: string;
+        readonly description: string | null;
         readonly placement_shape: string | null;
         readonly recurrence: string;
       }>;
@@ -2734,6 +2738,7 @@ export const mutators = defineMutators({
         church_id: args.church_id,
         created_at: now,
         created_by: session.user_id,
+        description: source.description,
         id: templateId,
         key: `${source.key}-copy-${templateId.slice(-8)}`,
         name: `${source.name} Copy`,
