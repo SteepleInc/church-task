@@ -44,6 +44,7 @@ Because `.reference/` is ignored, files added or changed there will not appear i
 
 - Preserve the existing UI and domain language while following the target architecture decisions in `docs/adr/` and the migration PRD.
 - Check existing code before introducing new patterns.
+- Use TanStack Form as the default state/validation/submission pattern for user-editable forms and create/edit flows. Do not introduce local `useState` as the primary holder for submitted form values when a TanStack Form-backed flow fits; see `docs/agents/form-patterns.md`.
 - Keep changes small and run the narrowest useful verification command before finishing.
 - Do not commit unless the user explicitly asks.
 
