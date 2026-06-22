@@ -326,7 +326,7 @@ export function InboxPage() {
                 <SearchIcon className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-2.5 size-4 text-muted-foreground" />
                 <Input
                   aria-label="Search Inbox"
-                  className="h-8 rounded-full pr-8 pl-8"
+                  className="h-8 rounded-full pr-8 pl-8 [&::-webkit-search-cancel-button]:hidden"
                   onChange={(event) => setSearchQuery(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Escape" && hasSearchQuery) {
