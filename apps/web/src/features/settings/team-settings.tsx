@@ -141,14 +141,14 @@ function TeamGeneralForm({
           void nameForm.handleSubmit();
         }}
       >
-        <Label htmlFor="name">Name</Label>
+        <Label htmlFor="team-name">Name</Label>
         <div className="flex items-center gap-2">
           <nameForm.Field name="name">
             {(field) => (
               <Input
                 className="max-w-md"
                 disabled={!canManage || pendingAction === "rename"}
-                id={field.name}
+                id="team-name"
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.currentTarget.value)}
                 value={field.state.value}
@@ -178,7 +178,7 @@ function TeamGeneralForm({
           void identifierForm.handleSubmit();
         }}
       >
-        <Label htmlFor="identifier">Identifier</Label>
+        <Label htmlFor="team-identifier">Identifier</Label>
         <p className="text-muted-foreground text-sm">Used in Task IDs.</p>
         <div className="flex items-center gap-2">
           <identifierForm.Field name="identifier">
@@ -186,7 +186,7 @@ function TeamGeneralForm({
               <Input
                 className="max-w-xs uppercase"
                 disabled={!canManage || pendingAction === "identifier"}
-                id={field.name}
+                id="team-identifier"
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.currentTarget.value.toUpperCase())}
                 value={field.state.value}
@@ -333,12 +333,12 @@ export function TeamMembersPanel({ teamId }: { readonly teamId: string }) {
           }}
         >
           <div className="flex flex-1 flex-col gap-2">
-            <Label htmlFor="userId">Add member</Label>
+            <Label htmlFor="add-team-member">Add member</Label>
             <addMemberForm.Field name="userId">
               {(field) => (
                 <NativeSelect
                   disabled={pendingAction === "add" || availableMembers.length === 0}
-                  id={field.name}
+                  id="add-team-member"
                   onBlur={field.handleBlur}
                   onChange={(event) => field.handleChange(event.currentTarget.value)}
                   value={field.state.value}
