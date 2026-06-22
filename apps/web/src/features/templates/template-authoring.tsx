@@ -1,5 +1,7 @@
 import type { KeyDateRule } from "@church-task/domain";
+import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { Link } from "@tanstack/react-router";
+import { Schema } from "effect";
 import {
   CalendarDays,
   CalendarHeart,
@@ -39,6 +41,7 @@ import {
   type TaskPriority,
 } from "@/components/tasks/task-card-fields";
 import { DraftTaskPropertySurface } from "@/components/tasks/draft-task-property-surface";
+import { useAppForm } from "@/components/form/ts-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -141,6 +144,78 @@ const newDraftTask = (placementWeekday: number, teamId: string, cycleIndex = 0):
   teamId,
   title: "",
 });
+
+// The Template's own name and description, shared by every authoring shape. The
+// label, placeholder, and validation are intentionally generic so switching the
+// Template shape never relabels or rewrites what the user has already typed.
+const TEMPLATE_NAME_LABEL = "Template name";
+const TEMPLATE_NAME_PLACEHOLDER = "Name this Template";
+const TEMPLATE_DESCRIPTION_LABEL = "Description";
+const TEMPLATE_DESCRIPTION_PLACEHOLDER = "What is this Template for?";
+
+const TemplateDetailsSchema = Schema.Struct({
+  name: Schema.String.pipe(
+    Schema.check(Schema.isMinLength(1, { message: "Give the Template a name." })),
+  ),
+  description: Schema.String,
+});
+
+type TemplateDetails = { name: string; description: string };
+
+/**
+ * The shared TanStack form behind every Template authoring shape: just the
+ * Template's own name and description. Schedule, shape, and Template Tasks are
+ * intentionally not form fields — they are selections and a collection editor,
+ * not validated text inputs. Keeping the details in one form means the Name and
+ * Description never relabel or reset when the Template shape changes.
+ */
+function useTemplateDetailsForm(onSave: (value: TemplateDetails) => void | Promise<void>) {
+  return useAppForm({
+    defaultValues: { name: "", description: "" } as TemplateDetails,
+    validationLogic: revalidateLogic({ mode: "submit", modeAfterSubmission: "blur" }),
+    validators: { onSubmit: Schema.toStandardSchemaV1(TemplateDetailsSchema) },
+    onSubmit: ({ value }) => onSave(value),
+  });
+}
+
+type TemplateDetailsForm = ReturnType<typeof useTemplateDetailsForm>;
+
+/**
+ * Renders the Template's Name and Description fields from the shared form. The
+ * label, placeholder, and required-state are fixed regardless of Template shape.
+ */
+function TemplateDetailsFields({
+  form,
+  onChange,
+}: {
+  readonly form: TemplateDetailsForm;
+  readonly onChange?: () => void;
+}) {
+  return (
+    <div className="flex max-w-md flex-col gap-3">
+      <form.AppField name="name">
+        {(field) => (
+          <field.InputField
+            label={TEMPLATE_NAME_LABEL}
+            onInput={onChange}
+            placeholder={TEMPLATE_NAME_PLACEHOLDER}
+            required
+          />
+        )}
+      </form.AppField>
+      <form.AppField name="description">
+        {(field) => (
+          <field.TextareaField
+            label={TEMPLATE_DESCRIPTION_LABEL}
+            onInput={onChange}
+            placeholder={TEMPLATE_DESCRIPTION_PLACEHOLDER}
+            rows={2}
+          />
+        )}
+      </form.AppField>
+    </div>
+  );
+}
 
 const MONDAY_FIRST_INDEX = (jsWeekday: number) => (jsWeekday + 6) % 7;
 
@@ -247,10 +322,8 @@ export function TemplateAuthoring() {
         </p>
       </header>
 
-      <ShapeStep onSelect={setShape} shape={shape} />
-
       {shape === "key_date" ? (
-        <KeyDateAuthoring />
+        <KeyDateAuthoring onShapeChange={setShape} />
       ) : (
         <WeeklyServiceAuthoring initialShape={shape} onShapeChange={setShape} />
       )}
@@ -260,44 +333,21 @@ export function TemplateAuthoring() {
 
 // --- Big-action stepper flow -----------------------------------------------
 
-/** Labels and descriptions for each step of each authoring shape's stepper. */
-export const TEMPLATE_FLOW_STEPS: Record<
-  TemplateShape,
-  readonly { readonly label: string; readonly description: string }[]
-> = {
-  key_date: [
-    { description: "Pick the authoring frame", label: "Shape" },
-    { description: "Name this Template", label: "Name" },
-    { description: "Anchor to a Key Date", label: "Key Date" },
-    { description: "Place Template Tasks", label: "Tasks" },
-    { description: "Preview and save", label: "Save" },
-  ],
-  monthly: PERIOD_FLOW_STEPS_LABELS("monthly"),
-  quarterly: PERIOD_FLOW_STEPS_LABELS("quarterly"),
-  weekly_service: [
-    { description: "Pick the authoring frame", label: "Shape" },
-    { description: "Name this Template", label: "Details" },
-    { description: "Choose the service weekday", label: "Schedule" },
-    { description: "Place Template Tasks", label: "Tasks" },
-    { description: "Preview and save", label: "Save" },
-  ],
-  yearly: PERIOD_FLOW_STEPS_LABELS("yearly"),
-};
+/**
+ * Stepper labels and descriptions. These are intentionally shape-agnostic so the
+ * stepper title/description stay constant as the user picks a shape or schedule.
+ */
+export const TEMPLATE_FLOW_STEPS: readonly {
+  readonly label: string;
+  readonly description: string;
+}[] = [
+  { description: "Name and schedule the Template", label: "Setup" },
+  { description: "Place Template Tasks", label: "Tasks" },
+  { description: "Preview and save", label: "Save" },
+];
 
-function PERIOD_FLOW_STEPS_LABELS(
-  shape: PeriodTemplatePlacementShape,
-): readonly { readonly label: string; readonly description: string }[] {
-  return [
-    { description: "Pick the authoring frame", label: "Shape" },
-    { description: "Name this Template", label: "Details" },
-    { description: `${SHAPE_META[shape].badge} cadence`, label: "Schedule" },
-    { description: "Place Template Tasks", label: "Tasks" },
-    { description: "Preview and save", label: "Save" },
-  ];
-}
-
-export function templateFlowStepCount(shape: TemplateShape): number {
-  return TEMPLATE_FLOW_STEPS[shape].length;
+export function templateFlowStepCount(): number {
+  return TEMPLATE_FLOW_STEPS.length;
 }
 
 /**
@@ -340,8 +390,9 @@ function StepNav({
 
 /**
  * The create-Template flow, rendered one stepper screen at a time. Step 0 is the
- * shared shape picker; subsequent steps delegate to the per-shape orchestrator,
- * which holds all authoring state and renders only its active screen.
+ * combined Setup screen (shape, name, and schedule) owned by the per-shape
+ * orchestrator, which also holds all authoring state and renders only its active
+ * screen.
  */
 export function TemplateAuthoringFlow({
   shape,
@@ -359,19 +410,14 @@ export function TemplateAuthoringFlow({
   const goBack = () => onStepChange(Math.max(step - 1, 0));
   const goForward = () => onStepChange(step + 1);
 
-  if (step === 0) {
-    return (
-      <div className="flex min-h-full flex-col">
-        <div className="flex flex-col gap-6 pb-6">
-          <ShapeStep onSelect={onShapeChange} shape={shape} />
-        </div>
-        <StepNav isFirst isLast={false} onBack={goBack} onNext={goForward} />
-      </div>
-    );
-  }
-
   return shape === "key_date" ? (
-    <KeyDateAuthoring goBack={goBack} goForward={goForward} onClose={onClose} step={step} />
+    <KeyDateAuthoring
+      goBack={goBack}
+      goForward={goForward}
+      onClose={onClose}
+      onShapeChange={onShapeChange}
+      step={step}
+    />
   ) : (
     <WeeklyServiceAuthoring
       goBack={goBack}
@@ -395,17 +441,21 @@ export function TemplateAuthoringFlow({
 function WeeklyServiceAuthoring({
   initialShape,
   onShapeChange,
-  step = 4,
+  step,
   goBack,
   goForward,
   onClose,
 }: {
   readonly initialShape: TemplateAuthoringShape;
-  readonly onShapeChange: (shape: TemplateAuthoringShape) => void;
   /**
-   * The active stepper screen (1-based; step 0 is the shared shape picker handled
-   * by the parent flow). When omitted, the legacy stacked layout renders all
-   * steps at once (used by the standalone authoring page).
+   * Switches the active Template shape. Selecting `key_date` swaps the whole
+   * orchestrator (handled by the parent flow); period shapes stay in place.
+   */
+  readonly onShapeChange: (shape: TemplateShape) => void;
+  /**
+   * The active stepper screen (0-based: 0 = combined Setup, 1 = Tasks, 2 = Save).
+   * When omitted, the legacy stacked layout renders all steps at once (used by
+   * the standalone authoring page).
    */
   readonly step?: number;
   readonly goBack?: () => void;
@@ -427,7 +477,6 @@ function WeeklyServiceAuthoring({
   const teamsCollection = teams.teamsCollection;
   const defaultTeamId = teamsCollection[0]?.id ?? "";
 
-  const [name, setName] = useState("Weekly Service");
   const [shape, setShape] = useState<TemplateAuthoringShape>(initialShape);
   const [serviceWeekday, setServiceWeekday] = useState(0); // Sunday default
   const [schedule, setSchedule] = useState(true);
@@ -436,6 +485,16 @@ function WeeklyServiceAuthoring({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [tasks, setTasks] = useState<readonly DraftTask[]>([]);
+
+  // The Template's name and description are a TanStack form (see
+  // useTemplateDetailsForm). save() is bound below before the form is created.
+  const form = useTemplateDetailsForm((value) => save(value));
+
+  // Reactive read of the Template name for step gating and the Save preview.
+  const name = useStore(form.store, (state) => state.values.name);
+
+  // Any edit invalidates a prior "saved" confirmation so the Save step re-arms.
+  const resetSaved = () => setSaved(false);
 
   const startDate = useMemo(() => nextWeekdayDate(serviceWeekday), [serviceWeekday]);
 
@@ -525,8 +584,9 @@ function WeeklyServiceAuthoring({
     setTasks((current) => current.filter((task) => task.id !== id));
   };
 
-  const save = async () => {
+  const save = async ({ name, description }: { name: string; description: string }) => {
     if (!churchId) return;
+    const trimmedName = name.trim();
     const validTasks = tasks.filter((task) => task.title.trim() && task.teamId);
     if (validTasks.length === 0) {
       setError("Add at least one Template Task with a title and Team.");
@@ -542,8 +602,9 @@ function WeeklyServiceAuthoring({
     );
     const common = {
       churchId,
-      key: slugify(name),
-      name: name.trim() || "Weekly Service",
+      description: description.trim() || null,
+      key: slugify(trimmedName),
+      name: trimmedName,
       schedule,
       tasks: validTasks.map((task, index) => {
         const team = teamsCollection.find((candidate) => candidate.id === task.teamId);
@@ -568,7 +629,6 @@ function WeeklyServiceAuthoring({
         ? await createTemplate({ ...common, serviceWeekday, startDate })
         : await createPeriodTemplate({
             ...common,
-            name: name.trim() || `${shape[0]?.toUpperCase()}${shape.slice(1)} Template`,
             periodStartDate,
             scheduleDefaults: defaultTemplateScheduleForPlacementShape(shape, { repeatYearly }),
             shape,
@@ -602,22 +662,6 @@ function WeeklyServiceAuthoring({
 
   const dataLoading = churchLoading;
 
-  const shapeStep = (
-    <PeriodShapeStep
-      name={name}
-      onNameChange={(next) => {
-        setSaved(false);
-        setName(next);
-      }}
-      onShapeChange={(next) => {
-        setSaved(false);
-        selectShape(next);
-        setSchedule(true);
-      }}
-      shape={shape}
-    />
-  );
-
   const scheduleStep =
     shape === "weekly_service" ? (
       <ScheduleStep
@@ -627,7 +671,6 @@ function WeeklyServiceAuthoring({
         }}
         serviceWeekday={serviceWeekday}
         startDate={startDate}
-        step={2}
       />
     ) : (
       <PeriodScheduleStep
@@ -642,6 +685,26 @@ function WeeklyServiceAuthoring({
       />
     );
 
+  // The combined first step: pick the Template shape, name it, and configure its
+  // schedule (service weekday or normalized period frame) in one screen.
+  const setupStep = (
+    <ShapeNameStep
+      fields={<TemplateDetailsFields form={form} onChange={resetSaved} />}
+      onSelect={(next) => {
+        setSaved(false);
+        if (next === "key_date") {
+          onShapeChange(next);
+          return;
+        }
+        selectShape(next);
+        setSchedule(true);
+      }}
+      shape={shape}
+    >
+      {scheduleStep}
+    </ShapeNameStep>
+  );
+
   const tasksStep =
     shape === "weekly_service" ? (
       <CycleCalendarStep
@@ -650,7 +713,7 @@ function WeeklyServiceAuthoring({
         loading={dataLoading}
         removeTask={removeTask}
         serviceWeekday={serviceWeekday}
-        step={3}
+        step={2}
         tasks={tasks}
         updateTask={updateTask}
       />
@@ -673,7 +736,7 @@ function WeeklyServiceAuthoring({
       canSave={Boolean(churchId) && placedCount > 0}
       error={error}
       frame={periodFrame}
-      onSave={save}
+      onSave={() => form.handleSubmit()}
       onScheduleChange={(next) => {
         setSaved(false);
         setSchedule(next);
@@ -686,7 +749,7 @@ function WeeklyServiceAuthoring({
       serviceWeekday={serviceWeekday}
       shape={shape}
       startDate={shape === "weekly_service" ? startDate : periodStartDate}
-      step={4}
+      step={3}
       templateName={name}
     />
   );
@@ -694,23 +757,20 @@ function WeeklyServiceAuthoring({
   if (!stepped) {
     return (
       <div className="flex flex-col gap-8">
-        {shapeStep}
-        {scheduleStep}
+        {setupStep}
         {tasksStep}
         {saveStep}
       </div>
     );
   }
 
-  // Stepper screens (parent owns step 0, the shape picker). Steps here are
-  // 1: shape/name, 2: schedule, 3: tasks, 4: preview & save.
+  // Stepper screens. Steps here are 0: shape/name/schedule (Setup),
+  // 1: tasks, 2: preview & save.
   const screen = (() => {
     switch (step) {
+      case 0:
+        return { canAdvance: name.trim().length > 0, content: setupStep };
       case 1:
-        return { canAdvance: name.trim().length > 0, content: shapeStep };
-      case 2:
-        return { canAdvance: true, content: scheduleStep };
-      case 3:
         return { canAdvance: placedCount > 0, content: tasksStep };
       default:
         return { canAdvance: true, content: saveStep };
@@ -722,8 +782,8 @@ function WeeklyServiceAuthoring({
       <div className="flex flex-col gap-6 pb-6">{screen.content}</div>
       <StepNav
         canAdvance={screen.canAdvance}
-        isFirst={false}
-        isLast={step >= 4}
+        isFirst={step <= 0}
+        isLast={step >= 2}
         onBack={goBack ?? (() => undefined)}
         onNext={goForward ?? (() => undefined)}
         primary={
@@ -772,11 +832,17 @@ function KeyDateAuthoring({
   goBack,
   goForward,
   onClose,
+  onShapeChange,
 }: {
   readonly step?: number;
   readonly goBack?: () => void;
   readonly goForward?: () => void;
   readonly onClose?: () => void;
+  /**
+   * Switches the active Template shape. Selecting a period shape swaps the whole
+   * orchestrator (handled by the parent flow).
+   */
+  readonly onShapeChange?: (shape: TemplateShape) => void;
 } = {}) {
   const stepped = step !== undefined;
   const { currentOrgOpt: activeChurch, loading: churchLoading } = useCurrentOrgOpt();
@@ -794,7 +860,6 @@ function KeyDateAuthoring({
   const teamsCollection = teams.teamsCollection;
   const defaultTeamId = teamsCollection[0]?.id ?? "";
 
-  const [name, setName] = useState("");
   const [selectedKeyDateId, setSelectedKeyDateId] = useState<string | null>(null);
   const [pendingKeyDateKey, setPendingKeyDateKey] = useState<string | null>(null);
   const [repeatYearly, setRepeatYearly] = useState(true);
@@ -802,6 +867,14 @@ function KeyDateAuthoring({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [tasks, setTasks] = useState<readonly DraftTask[]>([]);
+
+  // The Template's name and description are a TanStack form (see
+  // useTemplateDetailsForm); generic fields that stay put no matter which Key
+  // Date anchors the Template.
+  const form = useTemplateDetailsForm((value) => save(value));
+
+  const name = useStore(form.store, (state) => state.values.name);
+  const resetSaved = () => setSaved(false);
 
   // Auto-select a freshly created Key Date once it streams in from Zero.
   useEffect(() => {
@@ -886,7 +959,6 @@ function KeyDateAuthoring({
     setSaved(false);
     setError(null);
     setSelectedKeyDateId(keyDate.id);
-    if (!name.trim()) setName(`${keyDate.name} prep`);
   };
 
   const createAndSelectKeyDate = async (keyDateName: string, schedule: KeyDateRule) => {
@@ -900,17 +972,18 @@ function KeyDateAuthoring({
       return;
     }
     // The new Key Date streams in via Zero; select it once present by matching
-    // on the slug key, and pre-fill the Template name.
+    // on the slug key. The Template name is left untouched — it is the user's to
+    // set and never auto-derived from the Key Date.
     setSaved(false);
     setPendingKeyDateKey(key);
-    if (!name.trim()) setName(`${trimmed} prep`);
   };
 
-  const save = async () => {
+  const save = async ({ name, description }: { name: string; description: string }) => {
     if (!churchId || !selectedKeyDate || !occurrenceDate) {
       setError("Choose a Key Date to anchor this Template.");
       return;
     }
+    const trimmedName = name.trim();
     const validTasks = tasks.filter((task) => task.title.trim() && task.teamId);
     if (validTasks.length === 0) {
       setError("Add at least one Template Task with a title and Team.");
@@ -926,9 +999,10 @@ function KeyDateAuthoring({
     );
     const result = await createTemplate({
       churchId,
-      key: slugify(name || selectedKeyDate.name),
+      description: description.trim() || null,
+      key: slugify(trimmedName),
       keyDateId: selectedKeyDate.id,
-      name: name.trim() || `${selectedKeyDate.name} prep`,
+      name: trimmedName,
       occurrenceDate,
       repeatYearly,
       tasks: validTasks.map((task, index) => {
@@ -953,31 +1027,28 @@ function KeyDateAuthoring({
     else setError(result.error.message);
   };
 
-  const nameStep = (
-    <NameStep
-      description="Name this Template — usually the Key Date plus what it prepares."
-      label="Key Date Template name"
-      name={name}
-      onNameChange={(next) => {
+  // The combined first step: pick the Template shape, name it, and anchor it to
+  // a Key Date in one screen.
+  const setupStep = (
+    <ShapeNameStep
+      fields={<TemplateDetailsFields form={form} onChange={resetSaved} />}
+      onSelect={(next) => {
+        if (next === "key_date") return;
         setSaved(false);
-        setName(next);
+        onShapeChange?.(next);
       }}
-      placeholder="Easter prep"
-      step={1}
-    />
-  );
-
-  const keyDateStep = (
-    <KeyDateStep
-      churchId={churchId}
-      keyDates={keyDates.keyDatesCollection}
-      loading={churchLoading || keyDates.loading}
-      occurrenceDate={occurrenceDate}
-      onCreateKeyDate={createAndSelectKeyDate}
-      onSelect={selectKeyDate}
-      selectedKeyDate={selectedKeyDate}
-      step={2}
-    />
+      shape="key_date"
+    >
+      <KeyDatePickerField
+        churchId={churchId}
+        keyDates={keyDates.keyDatesCollection}
+        loading={churchLoading || keyDates.loading}
+        occurrenceDate={occurrenceDate}
+        onCreateKeyDate={createAndSelectKeyDate}
+        onSelect={selectKeyDate}
+        selectedKeyDate={selectedKeyDate}
+      />
+    </ShapeNameStep>
   );
 
   const calendarStep = (
@@ -993,7 +1064,7 @@ function KeyDateAuthoring({
       occurrenceWeekday={occurrenceWeekday}
       removeTask={removeTask}
       selectedKeyDate={selectedKeyDate}
-      step={3}
+      step={2}
       tasks={tasks}
       teamPickerOptions={teamPickerOptions}
       teams={teamsCollection}
@@ -1010,13 +1081,13 @@ function KeyDateAuthoring({
         setSaved(false);
         setRepeatYearly(next);
       }}
-      onSave={save}
+      onSave={() => form.handleSubmit()}
       placedCount={placedCount}
       repeatYearly={repeatYearly}
       saved={saved}
       saving={saving}
       selectedKeyDate={selectedKeyDate}
-      step={4}
+      step={3}
       templateName={name}
     />
   );
@@ -1024,23 +1095,23 @@ function KeyDateAuthoring({
   if (!stepped) {
     return (
       <div className="flex flex-col gap-8">
-        {nameStep}
-        {keyDateStep}
+        {setupStep}
         {calendarStep}
         {saveStep}
       </div>
     );
   }
 
-  // Stepper screens (parent owns step 0, the shape picker). Steps here are
-  // 1: name, 2: Key Date, 3: tasks, 4: preview & save.
+  // Stepper screens. Steps here are 0: shape/name/Key Date (Setup),
+  // 1: tasks, 2: preview & save.
   const screen = (() => {
     switch (step) {
+      case 0:
+        return {
+          canAdvance: name.trim().length > 0 && Boolean(selectedKeyDate),
+          content: setupStep,
+        };
       case 1:
-        return { canAdvance: name.trim().length > 0, content: nameStep };
-      case 2:
-        return { canAdvance: Boolean(selectedKeyDate), content: keyDateStep };
-      case 3:
         return { canAdvance: placedCount > 0, content: calendarStep };
       default:
         return { canAdvance: true, content: saveStep };
@@ -1052,8 +1123,8 @@ function KeyDateAuthoring({
       <div className="flex flex-col gap-6 pb-6">{screen.content}</div>
       <StepNav
         canAdvance={screen.canAdvance}
-        isFirst={false}
-        isLast={step >= 4}
+        isFirst={step <= 0}
+        isLast={step >= 2}
         onBack={goBack ?? (() => undefined)}
         onNext={goForward ?? (() => undefined)}
         primary={
@@ -1068,10 +1139,14 @@ function KeyDateAuthoring({
   );
 }
 
-// --- Key Date: Step 2: Key Date selection / inline creation ----------------
+// --- Key Date: anchor selection / inline creation --------------------------
 
-function KeyDateStep({
-  step,
+/**
+ * Key Date anchor controls — the picker (or inline creator) plus the next
+ * occurrence preview. Rendered inside the combined Setup step, beneath the
+ * shape cards and Template name field.
+ */
+function KeyDatePickerField({
   churchId,
   keyDates,
   loading,
@@ -1080,7 +1155,6 @@ function KeyDateStep({
   onSelect,
   onCreateKeyDate,
 }: {
-  readonly step: number;
   readonly churchId: string | null;
   readonly keyDates: readonly KeyDateItem[];
   readonly loading: boolean;
@@ -1090,19 +1164,10 @@ function KeyDateStep({
   readonly onCreateKeyDate: (name: string, schedule: KeyDateRule) => void;
 }) {
   return (
-    <StepSection
-      action={
-        selectedKeyDate ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 font-medium text-primary text-xs">
-            <CalendarHeart className="size-3.5" />
-            {selectedKeyDate.name}
-          </span>
-        ) : null
-      }
-      description="Anchor the Template to a named Church date. Pick an existing Key Date or create one."
-      step={step}
-      title="Key Date"
-    >
+    <div className="flex flex-col gap-2">
+      <p className="text-muted-foreground text-sm">
+        Anchor the Template to a named Church date. Pick an existing Key Date or create one.
+      </p>
       {loading ? (
         <div className="flex flex-col gap-2">
           <Skeleton className="h-10 w-full max-w-md rounded-lg" />
@@ -1143,7 +1208,7 @@ function KeyDateStep({
           )}
         </div>
       )}
-    </StepSection>
+    </div>
   );
 }
 
@@ -1206,7 +1271,7 @@ function KeyDatePicker({
                   return (
                     <button
                       className={cn(
-                        "flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
+                        "flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
                         active && "bg-accent",
                       )}
                       key={keyDate.id}
@@ -1230,7 +1295,7 @@ function KeyDatePicker({
             </div>
             <div className="border-t p-1.5">
               <button
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+                className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
                 onClick={() => setCreating(true)}
                 type="button"
               >
@@ -1282,7 +1347,7 @@ function InlineKeyDateCreator({
         {KEY_DATE_KINDS.map((kind) => (
           <button
             className={cn(
-              "rounded-md border px-2.5 py-1 text-xs transition-colors",
+              "cursor-pointer rounded-md border px-2.5 py-1 text-xs transition-colors",
               schedule.kind === kind
                 ? "border-primary bg-primary/10 font-medium text-foreground"
                 : "border-border text-muted-foreground hover:bg-muted",
@@ -1301,7 +1366,7 @@ function InlineKeyDateCreator({
           {KEY_DATE_PRESET_OPTIONS.map((option) => (
             <button
               className={cn(
-                "flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors",
+                "flex cursor-pointer items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors",
                 option.rule === schedule.rule
                   ? "border-primary bg-primary/10 text-foreground"
                   : "border-border text-muted-foreground hover:bg-muted",
@@ -1472,7 +1537,7 @@ function KeyDateCalendarStep({
                     />
                   ))}
                   <button
-                    className="flex w-fit items-center gap-1.5 rounded-md px-1.5 py-1 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground"
+                    className="flex w-fit cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground"
                     onClick={() => addTask(weekday)}
                     type="button"
                   >
@@ -1627,7 +1692,7 @@ function StepSection({
   );
 }
 
-// --- Step 1: Shape ----------------------------------------------------------
+// --- Step 0: Setup (shape + name + schedule) -------------------------------
 
 const SHAPES = [
   {
@@ -1662,119 +1727,83 @@ const SHAPES = [
   },
 ] as const;
 
-/** Shared Template Placement Shape selector that drives the authoring flow. */
-function ShapeStep({
+/**
+ * The combined first step (Setup): name and describe the Template, pick its
+ * shape, and configure its schedule. The schedule controls vary by shape and are
+ * supplied as `children` by each orchestrator (the service weekday, the period
+ * frame, or the Key Date anchor).
+ */
+function ShapeNameStep({
   shape,
   onSelect,
+  fields,
+  children,
 }: {
   readonly shape: TemplateShape;
   readonly onSelect: (shape: TemplateShape) => void;
+  /** The Template Name + Description fields, supplied by the orchestrator's form. */
+  readonly fields: ReactNode;
+  readonly children?: ReactNode;
 }) {
   return (
     <StepSection
-      description="Choose the authoring frame. It sets the calendar and scheduling controls below."
+      description="Name and describe the Template, pick its shape, and set its schedule."
       step={1}
-      title="Template shape"
+      title="Template setup"
     >
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {SHAPES.map((entry) => {
-          const selected = entry.available && entry.key === shape;
-          return (
-            <button
-              aria-current={selected ? "true" : undefined}
-              aria-disabled={!entry.available}
-              aria-label={`${entry.label} Template shape${
-                entry.available ? (selected ? " selected" : "") : " coming soon"
-              }`}
-              className={cn(
-                "flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors",
-                !entry.available &&
-                  "cursor-not-allowed border-dashed text-muted-foreground opacity-70",
-                entry.available && selected && "border-primary bg-primary/5 shadow-xs",
-                entry.available &&
-                  !selected &&
-                  "border-border hover:border-foreground/20 hover:bg-muted/40",
-              )}
-              disabled={!entry.available}
-              key={entry.key}
-              onClick={() => entry.available && onSelect(entry.key as TemplateShape)}
-              type="button"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-sm text-foreground">{entry.label}</span>
-                {!entry.available ? (
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide">
-                    Soon
-                  </span>
-                ) : selected ? (
-                  <span className="inline-flex items-center gap-1 font-medium text-[10px] text-primary uppercase tracking-wide">
-                    <Check className="size-3.5" />
-                    Selected
-                  </span>
-                ) : null}
-              </div>
-              <span className="text-muted-foreground text-xs">{entry.description}</span>
-            </button>
-          );
-        })}
-      </div>
-    </StepSection>
-  );
-}
+      <div className="flex flex-col gap-5">
+        {fields}
 
-function PeriodShapeStep({
-  name,
-  onNameChange,
-  onShapeChange,
-  shape: selectedShape,
-}: {
-  readonly name: string;
-  readonly onNameChange: (next: string) => void;
-  readonly onShapeChange: (next: TemplateAuthoringShape) => void;
-  readonly shape: TemplateAuthoringShape;
-}) {
-  return (
-    <StepSection
-      description="Choose the authoring frame. Period shapes use normalized Cycle frames."
-      step={1}
-      title="Template shape"
-    >
-      <div className="mb-4 flex max-w-md flex-col gap-1.5">
-        <label className="sr-only" htmlFor="template-name">
-          Template name
-        </label>
-        <Input
-          id="template-name"
-          onChange={(event) => onNameChange(event.currentTarget.value)}
-          value={name}
-        />
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {SHAPES.filter((entry) => entry.key !== "key_date").map((entry) => (
-          <button
-            aria-current={selectedShape === entry.key ? "true" : undefined}
-            className={cn(
-              "flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors",
-              selectedShape === entry.key
-                ? "border-primary bg-primary/5 shadow-xs"
-                : "border-border hover:bg-muted/60",
-            )}
-            key={entry.key}
-            onClick={() => onShapeChange(entry.key as TemplateAuthoringShape)}
-            type="button"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-medium text-sm text-foreground">{entry.label}</span>
-              {selectedShape === entry.key ? (
-                <span className="inline-flex items-center gap-1 font-medium text-[10px] text-primary uppercase tracking-wide">
-                  <Check className="size-3.5" />
-                  Selected
-                </span>
-              ) : null}
-            </div>
-            <span className="text-muted-foreground text-xs">{entry.description}</span>
-          </button>
-        ))}
+        <SubSection
+          description="Choose the authoring frame. It sets the schedule and calendar controls."
+          title="Template shape"
+        >
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {SHAPES.map((entry) => {
+              const selected = entry.available && entry.key === shape;
+              return (
+                <button
+                  aria-current={selected ? "true" : undefined}
+                  aria-disabled={!entry.available}
+                  aria-label={`${entry.label} Template shape${
+                    entry.available ? (selected ? " selected" : "") : " coming soon"
+                  }`}
+                  className={cn(
+                    "flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors",
+                    !entry.available &&
+                      "cursor-not-allowed border-dashed text-muted-foreground opacity-70",
+                    entry.available && "cursor-pointer",
+                    entry.available && selected && "border-primary bg-primary/5 shadow-xs",
+                    entry.available &&
+                      !selected &&
+                      "border-border hover:border-foreground/20 hover:bg-muted/40",
+                  )}
+                  disabled={!entry.available}
+                  key={entry.key}
+                  onClick={() => entry.available && onSelect(entry.key as TemplateShape)}
+                  type="button"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-sm text-foreground">{entry.label}</span>
+                    {!entry.available ? (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide">
+                        Soon
+                      </span>
+                    ) : selected ? (
+                      <span className="inline-flex items-center gap-1 font-medium text-[10px] text-primary uppercase tracking-wide">
+                        <Check className="size-3.5" />
+                        Selected
+                      </span>
+                    ) : null}
+                  </div>
+                  <span className="text-muted-foreground text-xs">{entry.description}</span>
+                </button>
+              );
+            })}
+          </div>
+        </SubSection>
+
+        {children}
       </div>
     </StepSection>
   );
@@ -1796,9 +1825,8 @@ function PeriodScheduleStep({
   const label = SHAPE_META[shape].badge;
   const cycles = frame?.cycles ?? [];
   return (
-    <StepSection
+    <SubSection
       description="The period start anchors the normalized Cycle frame. Each Cycle is owned by the period it mostly covers; boundary Cycles are marked."
-      step={2}
       title={`${label} frame`}
     >
       <div className="flex flex-col gap-4 rounded-xl border bg-card p-4">
@@ -1890,61 +1918,54 @@ function PeriodScheduleStep({
           </p>
         )}
       </div>
-    </StepSection>
+    </SubSection>
   );
 }
 
-/** Shared Template name field, rendered as its own numbered step per flow. */
-function NameStep({
-  step,
-  name,
-  label,
+/**
+ * Lightweight labelled sub-section for controls nested inside a combined step
+ * (e.g. the schedule controls under the Setup step). Unlike `StepSection`, it
+ * carries no numbered badge — the parent step owns the number.
+ */
+function SubSection({
+  title,
   description,
-  placeholder,
-  onNameChange,
+  action,
+  children,
 }: {
-  readonly step: number;
-  readonly name: string;
-  readonly label: string;
-  readonly description: string;
-  readonly placeholder: string;
-  readonly onNameChange: (next: string) => void;
+  readonly title: string;
+  readonly description?: string;
+  readonly action?: ReactNode;
+  readonly children: ReactNode;
 }) {
   return (
-    <StepSection description={description} step={step} title="Template name">
-      <div className="flex max-w-md flex-col gap-1.5">
-        <label className="sr-only" htmlFor="template-name">
-          {label}
-        </label>
-        <Input
-          aria-label={label}
-          id="template-name"
-          onChange={(event) => onNameChange(event.currentTarget.value)}
-          placeholder={placeholder}
-          value={name}
-        />
+    <section className="flex flex-col gap-3 border-t pt-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-0.5">
+          <h3 className="font-medium text-sm">{title}</h3>
+          {description ? <p className="text-muted-foreground text-sm">{description}</p> : null}
+        </div>
+        {action}
       </div>
-    </StepSection>
+      {children}
+    </section>
   );
 }
 
-// --- Weekly: Step 2: Weekday scheduling ------------------------------------
+// --- Weekly: schedule (service weekday) ------------------------------------
 
 function ScheduleStep({
-  step,
   serviceWeekday,
   startDate,
   onWeekdayChange,
 }: {
-  readonly step: number;
   readonly serviceWeekday: number;
   readonly startDate: string;
   readonly onWeekdayChange: (next: number) => void;
 }) {
   return (
-    <StepSection
+    <SubSection
       description="The service day anchors the Cycle. Template Tasks placed on it are due that day."
-      step={step}
       title="Service day"
     >
       <div className="flex flex-col gap-3">
@@ -1955,7 +1976,7 @@ function ScheduleStep({
               <button
                 aria-pressed={selected}
                 className={cn(
-                  "rounded-md border px-3 py-1.5 font-medium text-sm transition-colors",
+                  "cursor-pointer rounded-md border px-3 py-1.5 font-medium text-sm transition-colors",
                   selected
                     ? "border-primary bg-primary/10 text-foreground"
                     : "border-border text-muted-foreground hover:bg-muted",
@@ -1974,11 +1995,11 @@ function ScheduleStep({
           First projected service: {formatLongDate(startDate)}
         </p>
       </div>
-    </StepSection>
+    </SubSection>
   );
 }
 
-// --- Weekly: Step 3: Vertical Monday–Sunday Cycle calendar ------------------
+// --- Weekly: Step 1: Vertical Monday–Sunday Cycle calendar ------------------
 
 function CycleCalendarStep({
   step,
@@ -2331,7 +2352,7 @@ function PeriodCycleRow({
 function AddTaskButton({ onClick }: { readonly onClick: () => void }) {
   return (
     <button
-      className="flex w-fit items-center gap-1.5 rounded-md px-1.5 py-1 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground"
+      className="flex w-fit cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground"
       onClick={onClick}
       type="button"
     >
@@ -2559,7 +2580,7 @@ function WeekdaySelector({
             <button
               aria-pressed={day === weekday}
               className={cn(
-                "rounded-md px-2 py-1 font-medium text-xs transition-colors",
+                "cursor-pointer rounded-md px-2 py-1 font-medium text-xs transition-colors",
                 day === weekday
                   ? "bg-primary/10 text-foreground"
                   : "text-muted-foreground hover:bg-muted",

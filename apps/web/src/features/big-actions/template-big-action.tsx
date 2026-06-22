@@ -2,7 +2,7 @@
 
 import { noOp } from "@church-task/shared/noOps";
 import { useLocation } from "@tanstack/react-router";
-import { Boolean, Match, pipe } from "effect";
+import { Boolean, pipe } from "effect";
 import { useAtom, useAtomValue } from "jotai";
 import type { FC } from "react";
 import { useEffect, useRef } from "react";
@@ -15,7 +15,6 @@ import {
 } from "@/features/big-actions/big-action-components";
 import {
   type TemplateBigActionShape,
-  type TemplateBigActionState,
   TemplateBigActionState as TemplateBigActionStateEnum,
   templateBigActionStateAtom,
 } from "@/features/big-actions/big-action-state";
@@ -27,13 +26,9 @@ import {
   templateFlowStepCount,
 } from "@/features/templates/template-authoring";
 
-const SHAPE_TITLE: Record<TemplateBigActionShape, string> = {
-  key_date: "New Key Date Template",
-  monthly: "New Monthly Template",
-  quarterly: "New Quarterly Template",
-  weekly_service: "New Weekly Service Template",
-  yearly: "New Yearly Template",
-};
+// The title is intentionally shape-agnostic: the Template shape is chosen inside
+// the Setup step, so the big action header stays a constant "New Template".
+const TEMPLATE_BIG_ACTION_TITLE = "New Template";
 
 export const TemplateBigAction: FC = () => {
   const [state, setState] = useAtom(templateBigActionStateAtom);
@@ -89,25 +84,18 @@ export const TemplateBigAction: FC = () => {
       {state._tag === "closed" ? null : (
         <div className="flex h-full flex-col overflow-hidden bg-background">
           <BigActionHeader>
-            <BigActionTitle>
-              {pipe(
-                Match.type<TemplateBigActionState>(),
-                Match.tag("create", ({ shape }) => SHAPE_TITLE[shape]),
-                Match.tag("closed", () => ""),
-                Match.exhaustive,
-              )(state)}
-            </BigActionTitle>
+            <BigActionTitle>{TEMPLATE_BIG_ACTION_TITLE}</BigActionTitle>
           </BigActionHeader>
 
           <div className="flex flex-1 flex-col overflow-hidden">
             <div className="border-b px-6 py-4 pb-5">
               <Steps
-                activeStep={Math.min(state.step, templateFlowStepCount(state.shape) - 1)}
+                activeStep={Math.min(state.step, templateFlowStepCount() - 1)}
                 onClickStep={handleStepClick}
                 orientation="horizontal"
                 responsive
               >
-                {TEMPLATE_FLOW_STEPS[state.shape].map((entry) => (
+                {TEMPLATE_FLOW_STEPS.map((entry) => (
                   <Step description={entry.description} key={entry.label} label={entry.label} />
                 ))}
               </Steps>

@@ -402,6 +402,7 @@ export const templates = pgTable(
     church_id: text("church_id").notNull(),
     key: text("key").notNull(),
     name: text("name").notNull(),
+    description: text("description"),
     recurrence: text("recurrence").notNull(),
     placement_shape: text("placement_shape"),
   },

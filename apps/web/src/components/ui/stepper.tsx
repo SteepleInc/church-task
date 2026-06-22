@@ -271,9 +271,14 @@ export const Step = forwardRef<HTMLDivElement, StepProps>((props, ref) => {
 
   const hasVisited = isCurrentStep ?? isCompletedStep;
 
+  // A step is only navigable if the stepper is clickable AND the step has been
+  // reached (the current step or an already-completed one). Future steps stay
+  // disabled — no pointer cursor and no click handling — until unlocked.
+  const isStepClickable = (isClickable && !!onClickStep && hasVisited) ?? false;
+
   const handleClick = (i: number) => {
-    if (isClickable && onClickStep) {
-      onClickStep(i);
+    if (isStepClickable) {
+      onClickStep?.(i);
     }
   };
 
@@ -310,7 +315,7 @@ export const Step = forwardRef<HTMLDivElement, StepProps>((props, ref) => {
       aria-disabled={!hasVisited}
       className={cn(
         stepVariants({
-          isClickable: isClickable && !!onClickStep,
+          isClickable: isStepClickable,
           isCurrentStep,
           isLastStep,
           isVertical,
@@ -334,7 +339,7 @@ export const Step = forwardRef<HTMLDivElement, StepProps>((props, ref) => {
             (isCompletedStep ?? typeof RenderIcon !== "number") ? "px-2.5 py-2" : "",
             additionalClassName?.button,
           )}
-          data-clickable={isClickable}
+          data-clickable={isStepClickable}
           data-highlighted={isCompletedStep}
           data-invalid={isCurrentStep && isError}
           disabled={!hasVisited}

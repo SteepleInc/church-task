@@ -292,6 +292,7 @@ export function useCreateWeeklyServiceTemplate() {
       readonly churchId: string;
       readonly key: string;
       readonly name: string;
+      readonly description: string | null;
       readonly serviceWeekday: number;
       readonly startDate: string;
       readonly schedule: boolean;
@@ -306,6 +307,7 @@ export function useCreateWeeklyServiceTemplate() {
         zero.mutate(
           mutators.templates.create({
             church_id: params.churchId,
+            description: params.description,
             focus_windows: [],
             key: params.key,
             name: params.name,
@@ -359,6 +361,7 @@ export function useCreatePeriodTemplate() {
       readonly churchId: string;
       readonly key: string;
       readonly name: string;
+      readonly description: string | null;
       readonly periodStartDate: string;
       readonly schedule: boolean;
       readonly scheduleDefaults: PeriodTemplateScheduleDefaults;
@@ -374,6 +377,7 @@ export function useCreatePeriodTemplate() {
         zero.mutate(
           mutators.templates.create({
             church_id: params.churchId,
+            description: params.description,
             focus_windows: [],
             key: params.key,
             name: params.name,
@@ -424,6 +428,7 @@ export function useCreateKeyDateTemplate() {
       readonly churchId: string;
       readonly key: string;
       readonly name: string;
+      readonly description: string | null;
       readonly keyDateId: string;
       readonly occurrenceDate: string;
       readonly repeatYearly: boolean;
@@ -439,6 +444,7 @@ export function useCreateKeyDateTemplate() {
         zero.mutate(
           mutators.templates.create({
             church_id: params.churchId,
+            description: params.description,
             focus_windows: [
               {
                 anchor_date: params.occurrenceDate,
