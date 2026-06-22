@@ -641,6 +641,26 @@ type ServerTx = {
   };
 };
 
+type InsertOnConflictDoNothing = {
+  readonly onConflictDoNothing: () => Promise<unknown>;
+};
+
+const hasOnConflictDoNothing = (value: unknown): value is InsertOnConflictDoNothing =>
+  value !== null &&
+  typeof value === "object" &&
+  "onConflictDoNothing" in value &&
+  typeof value.onConflictDoNothing === "function";
+
+const executeInsertDoNothing = async (insert: unknown) => {
+  if (hasOnConflictDoNothing(insert)) {
+    await insert.onConflictDoNothing();
+    return;
+  }
+
+  const awaitedInsert = await insert;
+  if (hasOnConflictDoNothing(awaitedInsert)) await awaitedInsert.onConflictDoNothing();
+};
+
 const serverDb = (tx: { readonly location: string }) => {
   if (tx.location !== "server") return null;
   return (tx as typeof tx & ServerTx).dbTransaction.wrappedTransaction;
@@ -807,46 +827,33 @@ const writeNotifications = async (
   },
 ) => {
   for (const plan of args.plans) {
-    const insertNotification = db.insert(notifications).values({
-      _tag: "notification",
-      activity_id: plan.activity_id,
-      actor_user_id: plan.actor_user_id,
-      church_id: args.church_id,
-      created_at: args.occurred_at,
-      created_by: args.actor_user_id,
-      deleted_at: null,
-      deleted_by: null,
-      display_body: plan.display_body,
-      display_metadata: stringifyJson(plan.display_metadata),
-      display_title: plan.display_title,
-      id: getNotificationId(),
-      idempotency_key: plan.idempotency_key,
-      read_at: null,
-      read_by: null,
-      recipient_user_id: plan.recipient_user_id,
-      snoozed_until: null,
-      task_comment_id: plan.task_comment_id,
-      task_comment_thread_id: plan.task_comment_thread_id,
-      task_id: plan.task_id,
-      type: plan.type,
-      updated_at: args.occurred_at,
-      updated_by: args.actor_user_id,
-    });
-
-    if ("onConflictDoNothing" in insertNotification) {
-      await insertNotification.onConflictDoNothing();
-      continue;
-    }
-
-    const awaitedInsertNotification = await insertNotification;
-    if (
-      awaitedInsertNotification &&
-      typeof awaitedInsertNotification === "object" &&
-      "onConflictDoNothing" in awaitedInsertNotification &&
-      typeof awaitedInsertNotification.onConflictDoNothing === "function"
-    ) {
-      await awaitedInsertNotification.onConflictDoNothing();
-    }
+    await executeInsertDoNothing(
+      db.insert(notifications).values({
+        _tag: "notification",
+        activity_id: plan.activity_id,
+        actor_user_id: plan.actor_user_id,
+        church_id: args.church_id,
+        created_at: args.occurred_at,
+        created_by: args.actor_user_id,
+        deleted_at: null,
+        deleted_by: null,
+        display_body: plan.display_body,
+        display_metadata: stringifyJson(plan.display_metadata),
+        display_title: plan.display_title,
+        id: getNotificationId(),
+        idempotency_key: plan.idempotency_key,
+        read_at: null,
+        read_by: null,
+        recipient_user_id: plan.recipient_user_id,
+        snoozed_until: null,
+        task_comment_id: plan.task_comment_id,
+        task_comment_thread_id: plan.task_comment_thread_id,
+        task_id: plan.task_id,
+        type: plan.type,
+        updated_at: args.occurred_at,
+        updated_by: args.actor_user_id,
+      }),
+    );
   }
 };
 

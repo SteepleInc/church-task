@@ -801,12 +801,14 @@ describe("Zero Label mutators", () => {
 });
 
 describe("Zero Task mutators", () => {
+  type InsertCall = {
+    onConflictDoNothing?: boolean;
+    readonly table: unknown;
+    readonly values: unknown;
+  };
+
   const createServerTx = (selectResults: Array<unknown>) => {
-    const insertCalls: Array<{
-      onConflictDoNothing?: boolean;
-      readonly table: unknown;
-      readonly values: unknown;
-    }> = [];
+    const insertCalls: InsertCall[] = [];
     const updateCalls: Array<{
       readonly table: unknown;
       readonly set: unknown;
@@ -819,11 +821,7 @@ describe("Zero Task mutators", () => {
         wrappedTransaction: {
           insert: (table: unknown) => ({
             values: async (values: unknown) => {
-              const call = { table, values } as {
-                onConflictDoNothing?: boolean;
-                readonly table: unknown;
-                readonly values: unknown;
-              };
+              const call: InsertCall = { table, values };
               insertCalls.push(call);
               return {
                 onConflictDoNothing: async () => {
