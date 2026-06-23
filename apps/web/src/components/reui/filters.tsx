@@ -1444,7 +1444,7 @@ export function Filters<T = unknown>({
             }}
           >
             <DropdownMenuTrigger render={triggerButton} />
-            <DropdownMenuContent className={cn("w-[220px]", menuPopupClassName)} align="start">
+            <DropdownMenuContent className={cn("w-[220px]", menuPopupClassName)} align="end">
               {showSearchInput && (
                 <>
                   <div className="relative">
