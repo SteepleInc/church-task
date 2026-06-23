@@ -1196,6 +1196,95 @@ export function TeamComboboxSelector({
   );
 }
 
+export type WeekPickerOption = {
+  readonly id: string;
+  readonly label: string;
+};
+
+type WeekComboboxSelectorProps = {
+  readonly value: string | null;
+  readonly options: readonly WeekPickerOption[];
+  readonly onValueChange: (value: string | null) => void;
+  readonly trigger: ReactNode;
+  readonly disabled?: boolean;
+  readonly openRef?: MutableRefObject<(() => void) | null>;
+};
+
+const NO_WEEK_VALUE = "__no_week__";
+
+export function WeekComboboxSelector({
+  value,
+  options,
+  onValueChange,
+  trigger,
+  triggerLabel = "Change week",
+  triggerTestId,
+  disabled = false,
+  openRef,
+}: WeekComboboxSelectorProps & {
+  readonly triggerLabel?: string;
+  readonly triggerTestId?: string;
+}) {
+  const items = useMemo(() => [NO_WEEK_VALUE, ...options.map((option) => option.id)], [options]);
+  const labelFor = useMemo(() => {
+    const lookup = new Map(options.map((option) => [option.id, option.label]));
+    return (candidate: string) =>
+      candidate === NO_WEEK_VALUE ? "No week" : (lookup.get(candidate) ?? candidate);
+  }, [options]);
+  const [open, setOpen] = usePickerOpener(openRef, disabled);
+
+  const select = (next: string | null) => {
+    onValueChange(next === NO_WEEK_VALUE ? null : next);
+    setOpen(false);
+  };
+
+  return (
+    <Combobox<string>
+      disabled={disabled}
+      items={items}
+      itemToStringLabel={labelFor}
+      onOpenChange={setOpen}
+      onValueChange={(next) => select(next ?? null)}
+      open={open}
+      value={value ?? NO_WEEK_VALUE}
+    >
+      <ComboboxPrimitive.Trigger
+        aria-label={triggerLabel}
+        className="inline-flex cursor-pointer items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-60"
+        data-slot="card-combobox-trigger"
+        data-testid={triggerTestId}
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        {trigger}
+      </ComboboxPrimitive.Trigger>
+      <PickerPopup popupProps={{ onClick: (event) => event.stopPropagation() }} width="lg">
+        <PickerHeader placeholder="Change week..." shortcut="" />
+        <ComboboxEmpty>No weeks.</ComboboxEmpty>
+        <ComboboxList>
+          <ComboboxGroup>
+            <ComboboxOption selected={value === null} shortcut={null} value={NO_WEEK_VALUE}>
+              <CalendarIcon className="size-4 text-muted-foreground" />
+              <span className="truncate">No week</span>
+            </ComboboxOption>
+            {options.map((option) => (
+              <ComboboxOption
+                key={option.id}
+                selected={option.id === value}
+                shortcut={null}
+                value={option.id}
+              >
+                <CalendarIcon className="size-4 text-muted-foreground" />
+                <span className="truncate">{option.label}</span>
+              </ComboboxOption>
+            ))}
+          </ComboboxGroup>
+        </ComboboxList>
+      </PickerPopup>
+    </Combobox>
+  );
+}
+
 // --- Shared creation/editing property pill triggers --------------------------
 
 /** The Linear-style Task property pill used as picker trigger chrome. */

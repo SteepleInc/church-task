@@ -439,6 +439,9 @@ export function TaskExecutionSurface({
     assigneeOptions.map((assignee) => [assignee.id, assignee.label]),
   );
   const teamNamesById = new Map(teams.map((teamOption) => [teamOption.id, teamOption.name]));
+  const cycleLabelsById = new Map(
+    cycles.map((cycle, index) => [cycle.id, cycle.name?.trim() || `Week ${index + 1}`]),
+  );
   const weekCsvTasks: readonly WeekCsvTask[] = boardTasks.map((task) => ({
     identifier: task.identifier,
     title: task.title,
@@ -459,6 +462,7 @@ export function TaskExecutionSurface({
     labelOptions: labelsCollection.labelsCollection,
     currentUserId,
     teamMemberIdsByTeamId,
+    cycleLabelsById,
     grouping: boardGrouping,
     showEmptyColumns: resolvedView.showEmptyColumns,
     displayProperties: resolvedView.displayProperties,
@@ -489,6 +493,9 @@ export function TaskExecutionSurface({
       priority: "urgent" | "high" | "medium" | "low" | null;
     }) => {
       editTask(change.taskId, { priority: change.priority });
+    },
+    onChangeTaskCycle: (change: { taskId: string; cycleId: string | null }) => {
+      editTask(change.taskId, { cycleId: change.cycleId });
     },
     onOpenTask: (taskIdentifier: string) => {
       const url = openTaskDetailsPaneUrl({ id: taskIdentifier });
@@ -625,6 +632,7 @@ export function TaskExecutionSurface({
                 labelOptions={labelsCollection.labelsCollection}
                 currentUserId={currentUserId}
                 teamMemberIdsByTeamId={teamMemberIdsByTeamId}
+                cycleLabelsById={cycleLabelsById}
                 grouping={boardGrouping}
                 showEmptyColumns={resolvedView.showEmptyColumns}
                 displayProperties={resolvedView.displayProperties}
@@ -732,6 +740,7 @@ export function TaskExecutionSurface({
                 onChangeTaskLabels={sharedSurfaceProps.onChangeTaskLabels}
                 onChangeTaskEstimate={sharedSurfaceProps.onChangeTaskEstimate}
                 onChangeTaskPriority={sharedSurfaceProps.onChangeTaskPriority}
+                onChangeTaskCycle={sharedSurfaceProps.onChangeTaskCycle}
                 onOpenTask={(taskIdentifier) => {
                   const url = openTaskDetailsPaneUrl({ id: taskIdentifier });
                   void navigate({ to: url.to, search: url.search });

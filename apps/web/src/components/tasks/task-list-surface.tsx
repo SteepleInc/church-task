@@ -1,4 +1,4 @@
-import { ChevronRight, PlusIcon, Tag, Triangle } from "lucide-react";
+import { CalendarIcon, ChevronRight, PlusIcon, Tag, Triangle } from "lucide-react";
 import { type MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAppForm } from "@/components/form/ts-form";
@@ -21,6 +21,7 @@ import {
   LabelsComboboxSelector,
   PriorityComboboxSelector,
   StatusComboboxSelector,
+  WeekComboboxSelector,
   WorkflowStatusIcon,
   type AssigneeOption,
   type TaskEstimate,
@@ -63,6 +64,7 @@ type TaskListSurfaceProps = {
   readonly labelOptions?: readonly TaskBoardLabelOption[];
   readonly currentUserId?: string | null;
   readonly teamMemberIdsByTeamId?: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly cycleLabelsById?: ReadonlyMap<string, string>;
   // View Options (URL-carried presentation settings).
   readonly grouping?: TaskBoardGrouping;
   readonly showEmptyColumns?: boolean;
@@ -74,6 +76,10 @@ type TaskListSurfaceProps = {
   readonly onChangeTaskPriority?: (change: {
     readonly taskId: string;
     readonly priority: "urgent" | "high" | "medium" | "low" | null;
+  }) => void | Promise<void>;
+  readonly onChangeTaskCycle?: (change: {
+    readonly taskId: string;
+    readonly cycleId: string | null;
   }) => void | Promise<void>;
   readonly onOpenTask?: (taskIdentifier: string) => void;
   // The list shares the Board's per-group add affordance. The columnId means a
@@ -106,6 +112,7 @@ export function TaskListSurface({
   labelOptions = [],
   currentUserId = null,
   teamMemberIdsByTeamId = EMPTY_TEAM_MEMBERS,
+  cycleLabelsById = new Map(),
   grouping = "workflow_status",
   showEmptyColumns = true,
   displayProperties = DEFAULT_TASK_VIEW_OPTIONS.displayProperties,
@@ -114,6 +121,7 @@ export function TaskListSurface({
   onChangeTaskLabels,
   onChangeTaskEstimate,
   onChangeTaskPriority,
+  onChangeTaskCycle,
   onOpenTask,
   onAddTask,
   className,
@@ -165,6 +173,7 @@ export function TaskListSurface({
             assigneeOptions={assigneeOptions}
             currentUserId={currentUserId}
             teamMemberIdsByTeamId={teamMemberIdsByTeamId}
+            cycleLabelsById={cycleLabelsById}
             displayProperties={displayPropertySet}
             teamsById={teamsById}
             labelOptions={labelOptions}
@@ -173,6 +182,7 @@ export function TaskListSurface({
             onChangeTaskLabels={onChangeTaskLabels}
             onChangeTaskEstimate={onChangeTaskEstimate}
             onChangeTaskPriority={onChangeTaskPriority}
+            onChangeTaskCycle={onChangeTaskCycle}
             onOpenTask={onOpenTask}
             onAddTask={onAddTask}
           />
@@ -190,6 +200,7 @@ type TaskListGroupProps = {
   readonly assigneeOptions: readonly AssigneeOption[];
   readonly currentUserId: string | null;
   readonly teamMemberIdsByTeamId: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly cycleLabelsById: ReadonlyMap<string, string>;
   readonly displayProperties: ReadonlySet<TaskDisplayProperty>;
   readonly teamsById: ReadonlyMap<string, TaskBoardTeamOption>;
   readonly labelOptions: readonly TaskBoardLabelOption[];
@@ -198,6 +209,7 @@ type TaskListGroupProps = {
   readonly onChangeTaskLabels?: TaskListSurfaceProps["onChangeTaskLabels"];
   readonly onChangeTaskEstimate?: TaskListSurfaceProps["onChangeTaskEstimate"];
   readonly onChangeTaskPriority?: TaskListSurfaceProps["onChangeTaskPriority"];
+  readonly onChangeTaskCycle?: TaskListSurfaceProps["onChangeTaskCycle"];
   readonly onOpenTask?: (taskIdentifier: string) => void;
   readonly onAddTask?: (columnId: string) => void;
 };
@@ -210,6 +222,7 @@ function TaskListGroup({
   assigneeOptions,
   currentUserId,
   teamMemberIdsByTeamId,
+  cycleLabelsById,
   displayProperties,
   teamsById,
   labelOptions,
@@ -218,6 +231,7 @@ function TaskListGroup({
   onChangeTaskLabels,
   onChangeTaskEstimate,
   onChangeTaskPriority,
+  onChangeTaskCycle,
   onOpenTask,
   onAddTask,
 }: TaskListGroupProps) {
@@ -292,6 +306,7 @@ function TaskListGroup({
             assigneeOptions={assigneeOptions}
             currentUserId={currentUserId}
             teamMemberIdsByTeamId={teamMemberIdsByTeamId}
+            cycleLabelsById={cycleLabelsById}
             displayProperties={displayProperties}
             teamsById={teamsById}
             labelOptions={labelOptions}
@@ -300,6 +315,7 @@ function TaskListGroup({
             onChangeTaskLabels={onChangeTaskLabels}
             onChangeTaskEstimate={onChangeTaskEstimate}
             onChangeTaskPriority={onChangeTaskPriority}
+            onChangeTaskCycle={onChangeTaskCycle}
             onOpenTask={onOpenTask}
           />
         ))}
@@ -361,6 +377,7 @@ type TaskListRowProps = {
   readonly assigneeOptions: readonly AssigneeOption[];
   readonly currentUserId: string | null;
   readonly teamMemberIdsByTeamId: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly cycleLabelsById: ReadonlyMap<string, string>;
   readonly displayProperties: ReadonlySet<TaskDisplayProperty>;
   readonly teamsById: ReadonlyMap<string, TaskBoardTeamOption>;
   readonly labelOptions: readonly TaskBoardLabelOption[];
@@ -369,6 +386,7 @@ type TaskListRowProps = {
   readonly onChangeTaskLabels?: TaskListSurfaceProps["onChangeTaskLabels"];
   readonly onChangeTaskEstimate?: TaskListSurfaceProps["onChangeTaskEstimate"];
   readonly onChangeTaskPriority?: TaskListSurfaceProps["onChangeTaskPriority"];
+  readonly onChangeTaskCycle?: TaskListSurfaceProps["onChangeTaskCycle"];
   readonly onOpenTask?: (taskIdentifier: string) => void;
 };
 
@@ -378,6 +396,7 @@ function TaskListRow({
   assigneeOptions,
   currentUserId,
   teamMemberIdsByTeamId,
+  cycleLabelsById,
   displayProperties,
   teamsById,
   labelOptions,
@@ -386,6 +405,7 @@ function TaskListRow({
   onChangeTaskLabels,
   onChangeTaskEstimate,
   onChangeTaskPriority,
+  onChangeTaskCycle,
   onOpenTask,
 }: TaskListRowProps) {
   const currentStatus = workflowStatuses.find((status) => status.id === task.workflowStatusId);
@@ -445,6 +465,11 @@ function TaskListRow({
   const createdAtLabel = formatCreatedAt(task.createdAt);
   const dueDateLabel = formatDueDate(task.dueDate);
   const teamName = teamsById.get(task.teamId)?.name ?? null;
+  const cycleLabel = task.cycleId ? (cycleLabelsById.get(task.cycleId) ?? null) : null;
+  const cycleOptions = useMemo(
+    () => [...cycleLabelsById].map(([id, label]) => ({ id, label })),
+    [cycleLabelsById],
+  );
   const showProperty = (property: TaskDisplayProperty) => displayProperties.has(property);
 
   // Church Labels plus the Task's Team's Labels are applicable in the picker
@@ -576,6 +601,21 @@ function TaskListRow({
         ) : null}
 
         {showProperty("team") && teamName ? <Badge variant="outline">{teamName}</Badge> : null}
+
+        {showProperty("cycle") ? (
+          <WeekComboboxSelector
+            disabled={task.isProjected || !onChangeTaskCycle}
+            onValueChange={(next) => void onChangeTaskCycle?.({ taskId: task.id, cycleId: next })}
+            options={cycleOptions}
+            trigger={
+              <span className="inline-flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 font-medium text-muted-foreground text-xs hover:bg-accent">
+                <CalendarIcon className="size-3.5" />
+                {cycleLabel ?? "No week"}
+              </span>
+            }
+            value={task.cycleId ?? null}
+          />
+        ) : null}
 
         {task.sourceBadge ? (
           <TemplateSourceBadge badge={task.sourceBadge} className="max-w-[16rem]" />
