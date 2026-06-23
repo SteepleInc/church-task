@@ -2354,8 +2354,8 @@ const GRID_COLUMNS = "grid grid-cols-7";
 /**
  * Sticky Mon–Sun column header. The anchor weekday (the service day or Key Date
  * occurrence) is the gravitational center of the whole Template, so its column
- * header carries the primary identity — and the anchor's name (e.g. the Key Date)
- * once, here — that the anchor spine then continues downward through every row.
+ * header alone carries the primary tint and ink — keeping every weekday label on
+ * one baseline rather than annotating the anchor with an extra sublabel.
  */
 function CycleGridWeekdayHeader({
   highlight,
@@ -2369,27 +2369,13 @@ function CycleGridWeekdayHeader({
         return (
           <div
             className={cn(
-              "flex flex-col items-center justify-center gap-0.5 px-2 py-2",
+              "flex items-center justify-center px-2 py-2 font-medium text-xs uppercase tracking-wide",
               index !== 0 && "border-l",
-              isAnchor && "bg-primary/[0.06]",
+              isAnchor ? "bg-primary/[0.06] text-primary" : "text-muted-foreground",
             )}
             key={weekday}
           >
-            <span
-              className={cn(
-                "font-medium text-xs uppercase tracking-wide",
-                isAnchor
-                  ? "border-primary border-b-2 pb-0.5 text-primary"
-                  : "text-muted-foreground",
-              )}
-            >
-              {WEEKDAY_SHORT[weekday]}
-            </span>
-            {isAnchor && highlight ? (
-              <span className="max-w-full truncate font-medium text-[10px] text-primary/80 normal-case tracking-normal">
-                {highlight.label}
-              </span>
-            ) : null}
+            {WEEKDAY_SHORT[weekday]}
           </div>
         );
       })}
@@ -2481,13 +2467,13 @@ function CycleGridRow({
         </div>
       )}
 
-      {/* Seven day cells, Monday → Sunday. The anchor day reads as a continuous
-          vertical spine — a faint tint plus an indigo edge — so the eye tracks
-          the day the Template revolves around straight down the grid. */}
+      {/* Seven day cells, Monday → Sunday. Only the focus (service) Cycle marks
+          its anchor day with the indigo tint and spine — on before/after rows
+          that weekday is ordinary, so it stays plain. */}
       <div className={GRID_COLUMNS}>
         {MONDAY_FIRST.map((weekday, index) => {
           const cellTasks = tasksByWeekday.get(weekday) ?? EMPTY_DRAFT_TASKS;
-          const isAnchor = highlightWeekday === weekday;
+          const isAnchor = isFocus && highlightWeekday === weekday;
           const isEmpty = cellTasks.length === 0;
           return (
             <div
