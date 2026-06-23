@@ -3026,6 +3026,39 @@ export const mutators = defineMutators({
       if (!db) return;
       const session = requireTemplateManager(ctx, args.church_id);
       const now = new Date();
+      // A Template owns its projection sources. If only the Template row is
+      // hidden, its active Schedules/Template Tasks still appear in the planning
+      // queries and continue projecting Tasks.
+      await db
+        .update(template_tasks)
+        .set({
+          deleted_at: now,
+          deleted_by: session.user_id,
+          updated_at: now,
+          updated_by: session.user_id,
+        })
+        .where(
+          and(
+            eq(template_tasks.template_id, args.id),
+            eq(template_tasks.church_id, args.church_id),
+            isNull(template_tasks.deleted_at),
+          ),
+        );
+      await db
+        .update(template_schedules)
+        .set({
+          deleted_at: now,
+          deleted_by: session.user_id,
+          updated_at: now,
+          updated_by: session.user_id,
+        })
+        .where(
+          and(
+            eq(template_schedules.template_id, args.id),
+            eq(template_schedules.church_id, args.church_id),
+            isNull(template_schedules.deleted_at),
+          ),
+        );
       await softDeleteEntity({
         church_id: args.church_id,
         db,

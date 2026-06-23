@@ -190,10 +190,14 @@ describe("Zero Cycle mutators", () => {
       tx,
     });
 
-    expect(updateCalls[0]?.table).toBe(templates);
+    expect(updateCalls[0]?.table).toBe(template_tasks);
     expect(updateCalls[0]?.set.deleted_at).toBeInstanceOf(Date);
-    expect(updateCalls[1]?.table).toBe(templates);
-    expect(updateCalls[1]?.set).toMatchObject({ deleted_at: null, deleted_by: null });
+    expect(updateCalls[1]?.table).toBe(template_schedules);
+    expect(updateCalls[1]?.set.deleted_at).toBeInstanceOf(Date);
+    expect(updateCalls[2]?.table).toBe(templates);
+    expect(updateCalls[2]?.set.deleted_at).toBeInstanceOf(Date);
+    expect(updateCalls[3]?.table).toBe(templates);
+    expect(updateCalls[3]?.set).toMatchObject({ deleted_at: null, deleted_by: null });
     expect(insertCalls.map((call) => (call.values as { event_type?: string }).event_type)).toEqual([
       "template.deleted",
       "template.restored",
@@ -262,6 +266,43 @@ describe("Zero Cycle mutators", () => {
       "template_task.restored",
       "template_schedule.deleted",
       "template_schedule.restored",
+    ]);
+  });
+
+  test("soft-deleting a Template also soft-deletes its projection sources", async () => {
+    const updateCalls: Array<{ readonly table: unknown; readonly set: Record<string, unknown> }> =
+      [];
+    const insertCalls: Array<{ readonly table: unknown; readonly values: unknown }> = [];
+    const tx = {
+      dbTransaction: {
+        wrappedTransaction: {
+          insert: (table: unknown) => ({
+            values: async (values: unknown) => insertCalls.push({ table, values }),
+          }),
+          update: (table: unknown) => ({
+            set: (set: Record<string, unknown>) => ({
+              where: async () => updateCalls.push({ table, set }),
+            }),
+          }),
+        },
+      },
+      location: "server",
+    } as never;
+
+    await mustGetMutator(mutators, "templates.delete").fn({
+      args: { church_id: "org_test", id: "template_service" },
+      ctx: signedInContext,
+      tx,
+    });
+
+    expect(updateCalls.map((call) => call.table)).toEqual([
+      template_tasks,
+      template_schedules,
+      templates,
+    ]);
+    expect(updateCalls.every((call) => call.set.deleted_at instanceof Date)).toBe(true);
+    expect(insertCalls.map((call) => (call.values as { event_type?: string }).event_type)).toEqual([
+      "template.deleted",
     ]);
   });
 
