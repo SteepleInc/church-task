@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { createContext, useContext, useRef } from "react";
 
 import mainLogo from "@/assets/main-logo.svg";
+import UserMenu from "@/components/user-menu";
+import { authClient } from "@/lib/auth-client";
 
 // The persistent marketing scroll surface is an inner container, so it's
 // registered with the router's scroll restoration (see router.tsx, which lists
@@ -200,6 +202,7 @@ function Header() {
   const active = useRouterState({
     select: (state) => activeFromPathname(state.location.pathname),
   });
+  const { data: session } = authClient.useSession();
   return (
     <header className="mx-auto flex max-w-[1400px] items-center justify-between px-6 pt-6 md:px-10 md:pt-8">
       {/* Logo group */}
@@ -273,21 +276,46 @@ function Header() {
         })}
       </nav>
 
-      {/* Get started */}
-      <motion.button
-        animate={{ scale: 1 }}
-        className="rounded-full border border-mkt-border bg-white px-5 py-[10px] font-medium text-[14px] text-mkt-fg transition-colors hover:bg-mkt-card"
-        initial={{ scale: 0 }}
-        style={{ boxShadow: "0 1px 0 rgba(0,0,0,0.04)" }}
-        transition={{
-          delay: HEADER_TIMING.button.delay,
-          duration: HEADER_TIMING.button.duration,
-          ease: BACK_OUT,
-        }}
-        type="button"
-      >
-        Get started
-      </motion.button>
+      {/* Account actions */}
+      {session ? (
+        <div className="flex items-center gap-[28px]">
+          <motion.div
+            animate={{ filter: "blur(0px)", opacity: 1 }}
+            initial={{ filter: "blur(8px)", opacity: 0 }}
+            transition={{ delay: HEADER_TIMING.button.delay, duration: 1 }}
+          >
+            <Link
+              className="flex items-center gap-1 font-medium text-[15px] text-mkt-muted transition-colors hover:text-mkt-fg"
+              to="/my-work"
+            >
+              Dashboard
+            </Link>
+          </motion.div>
+          <motion.div
+            animate={{ filter: "blur(0px)", opacity: 1 }}
+            initial={{ filter: "blur(8px)", opacity: 0 }}
+            transition={{ delay: HEADER_TIMING.button.delay + 0.2, duration: 1 }}
+          >
+            <UserMenu />
+          </motion.div>
+        </div>
+      ) : (
+        /* Get started */
+        <motion.button
+          animate={{ scale: 1 }}
+          className="rounded-full border border-mkt-border bg-white px-5 py-[10px] font-medium text-[14px] text-mkt-fg transition-colors hover:bg-mkt-card"
+          initial={{ scale: 0 }}
+          style={{ boxShadow: "0 1px 0 rgba(0,0,0,0.04)" }}
+          transition={{
+            delay: HEADER_TIMING.button.delay,
+            duration: HEADER_TIMING.button.duration,
+            ease: BACK_OUT,
+          }}
+          type="button"
+        >
+          Get started
+        </motion.button>
+      )}
     </header>
   );
 }
