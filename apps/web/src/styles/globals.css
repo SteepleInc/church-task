@@ -69,6 +69,18 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Marketing palette — semantic tokens with light + dark variants so the
+     marketing pages work through normal Tailwind dark mode. */
+  --mkt-bg: oklch(1 0 0);
+  --mkt-fg: oklch(0.16 0.01 260);
+  --mkt-muted: oklch(0.62 0.01 260);
+  --mkt-border: oklch(0.92 0.005 260);
+  --mkt-card: oklch(0.985 0.003 260);
+  --mkt-surface: oklch(0.21 0.012 260);
+  --mkt-surface-fg: oklch(0.985 0 0);
+  --mkt-accent: oklch(0.88 0.18 95);
+  --mkt-accent-fg: oklch(0.16 0.01 260);
 }
 
 .dark {
@@ -104,6 +116,17 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
   --onboarding-panel-foreground: oklch(0 0 0);
+
+  /* Marketing palette — dark variant. */
+  --mkt-bg: oklch(0.16 0.012 260);
+  --mkt-fg: oklch(0.97 0 0);
+  --mkt-muted: oklch(0.67 0.012 260);
+  --mkt-border: oklch(1 0 0 / 12%);
+  --mkt-card: oklch(0.22 0.012 260);
+  --mkt-surface: oklch(0.13 0.012 260);
+  --mkt-surface-fg: oklch(0.985 0 0);
+  --mkt-accent: oklch(0.88 0.18 95);
+  --mkt-accent-fg: oklch(0.16 0.01 260);
 }
 
 @theme inline {
@@ -144,6 +167,19 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+
+  /* Marketing palette utilities: bg-mkt-bg, text-mkt-fg, border-mkt-border,
+     bg-mkt-surface, bg-mkt-accent, … — all respond to dark mode. */
+  --color-mkt-bg: var(--mkt-bg);
+  --color-mkt-fg: var(--mkt-fg);
+  --color-mkt-muted: var(--mkt-muted);
+  --color-mkt-border: var(--mkt-border);
+  --color-mkt-card: var(--mkt-card);
+  --color-mkt-surface: var(--mkt-surface);
+  --color-mkt-surface-fg: var(--mkt-surface-fg);
+  --color-mkt-accent: var(--mkt-accent);
+  --color-mkt-accent-fg: var(--mkt-accent-fg);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -196,8 +232,540 @@
       "calt" 1;
     font-variation-settings: "wght" 450;
   }
-  html.marketing-dark,
-  html.marketing-dark body {
-    @apply bg-black;
+}
+
+/* ------------------------------------------------------------------ */
+/* Marketing light pages (home, pricing)                               */
+/*                                                                     */
+/* These pages are always light and use literal Tailwind color         */
+/* utilities (bg-white, text-zinc-900, …) in the markup, so this class */
+/* only sets the Inter Tight type treatment. The named utility classes */
+/* below (mesh, week strip, mockups) carry their own literal colors,   */
+/* so nothing here depends on the app's theme tokens or .dark state.   */
+/* ------------------------------------------------------------------ */
+
+.marketing-page {
+  font-family: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.marketing-page * {
+  font-variation-settings: normal;
+}
+
+.marketing-page .mesh-showcase {
+  position: relative;
+  background-color: #0c0a09;
+  background-image:
+    radial-gradient(55% 95% at 100% 50%, rgba(120, 180, 255, 0.85) 0%, rgba(120, 180, 255, 0) 70%),
+    radial-gradient(45% 75% at 88% 50%, rgba(170, 210, 255, 0.7) 0%, rgba(170, 210, 255, 0) 70%),
+    radial-gradient(60% 75% at 60% 50%, rgba(255, 215, 90, 0.95) 0%, rgba(255, 215, 90, 0) 70%),
+    radial-gradient(75% 80% at 50% 55%, rgba(255, 175, 60, 0.7) 0%, rgba(255, 175, 60, 0) 65%),
+    radial-gradient(80% 80% at 30% 60%, rgba(255, 150, 40, 0.6) 0%, rgba(255, 130, 30, 0) 60%),
+    radial-gradient(60% 70% at 12% 95%, rgba(255, 110, 25, 0.7) 0%, rgba(255, 110, 25, 0) 65%),
+    radial-gradient(55% 75% at 0% 0%, rgba(120, 80, 40, 0.85) 0%, rgba(120, 80, 40, 0) 60%),
+    linear-gradient(180deg, #1a120c 0%, #0c0a09 100%);
+  background-size:
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    200% 200%;
+  animation:
+    meshFlow 14s ease-in-out infinite,
+    meshDrift 18s ease-in-out infinite;
+}
+.marketing-page .mesh-showcase::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    -30deg,
+    rgba(255, 255, 255, 0) 0px,
+    rgba(255, 255, 255, 0) 240px,
+    rgba(255, 255, 255, 0.1) 340px,
+    rgba(255, 255, 255, 0.22) 380px,
+    rgba(255, 255, 255, 0.1) 420px,
+    rgba(255, 255, 255, 0) 520px,
+    rgba(255, 255, 255, 0) 820px
+  );
+  background-size: 200% 200%;
+  mix-blend-mode: screen;
+  animation: shimmerSweep 9s linear infinite;
+  border-radius: inherit;
+}
+.marketing-page .mesh-showcase > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes meshFlow {
+  0%,
+  100% {
+    filter: hue-rotate(0deg) saturate(1) brightness(1);
+  }
+  50% {
+    filter: hue-rotate(-10deg) saturate(1.08) brightness(1.05);
+  }
+}
+@keyframes meshDrift {
+  0%,
+  100% {
+    background-position:
+      0% 0%,
+      0% 0%,
+      0% 0%,
+      0% 0%,
+      0% 0%,
+      0% 0%,
+      0% 0%,
+      0% 0%;
+  }
+  50% {
+    background-position:
+      0% 0%,
+      0% 0%,
+      2% -3%,
+      -3% 2%,
+      3% 3%,
+      -2% -2%,
+      0% 0%,
+      30% 70%;
+  }
+}
+@keyframes shimmerSweep {
+  0% {
+    background-position: 0% 100%;
+  }
+  100% {
+    background-position: 100% 0%;
+  }
+}
+
+.marketing-page .star {
+  color: oklch(0.86 0.19 90);
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marketing-page .animate-marquee {
+  animation: marquee 28s linear infinite;
+}
+
+@keyframes dotPop {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  to {
+    opacity: 0.36;
+    transform: scale(1);
+  }
+}
+.marketing-page .dot-pop {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dotPop 0.35s ease-out forwards;
+}
+
+/* ------------------------------------------------------------------ */
+/* Landing sections below the hero                                     */
+/* ------------------------------------------------------------------ */
+
+/* Section eyebrow: a small tabular caption that reads like a planning
+   label, set in Inter Tight's tabular figures rather than a second face. */
+.marketing-page .cw-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mkt-muted);
+  font-variant-numeric: tabular-nums;
+}
+.marketing-page .cw-eyebrow::before {
+  content: "";
+  width: 22px;
+  height: 1px;
+  background: var(--mkt-fg);
+  opacity: 0.4;
+}
+
+/* The Week strip: the Monday→Sunday spine that carries the process.
+   Seven cells, hairline-separated, with the active days tinted warm. */
+.marketing-page .cw-weekstrip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border: 1px solid var(--mkt-border);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--mkt-bg);
+}
+.marketing-page .cw-weekcell {
+  position: relative;
+  padding: 14px 12px 18px;
+  border-right: 1px solid var(--mkt-border);
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.marketing-page .cw-weekcell:last-child {
+  border-right: 0;
+}
+.marketing-page .cw-weekcell[data-active="true"] {
+  background: linear-gradient(180deg, oklch(0.88 0.18 95 / 0.16) 0%, oklch(0.88 0.18 95 / 0) 100%);
+}
+.marketing-page .cw-weekcell[data-edge="true"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--mkt-accent);
+}
+/* On narrow screens the seven cells get tight; drop the in-cell moment label
+   (the cards below already carry it) and shrink padding so the Mon→Sun rail
+   stays legible as the signature device. */
+@media (max-width: 640px) {
+  .marketing-page .cw-weekcell {
+    padding: 10px 6px 12px;
+    min-height: 64px;
+  }
+  .marketing-page .cw-weekcell .cw-weekmoment {
+    display: none;
+  }
+  .marketing-page .cw-weekdate {
+    font-size: 12px;
+  }
+}
+.marketing-page .cw-weekday {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mkt-muted);
+  font-variant-numeric: tabular-nums;
+}
+.marketing-page .cw-weekdate {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mkt-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Scroll reveal — a single quiet rise, respecting reduced motion. */
+.marketing-page .cw-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 0.7s cubic-bezier(0.25, 1, 0.5, 1),
+    transform 0.7s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.marketing-page .cw-reveal[data-shown="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Product-mockup primitives — color drawn from the app's real Team    */
+/* colors and Task status, so the imagery reads as actual product data */
+/* ------------------------------------------------------------------ */
+
+/* The app's eight Team colors, surfaced as CSS vars so chips and dots
+   can reference the same vocabulary the product uses. */
+.marketing-page {
+  --t-red: #ef4444;
+  --t-orange: #f97316;
+  --t-amber: #f59e0b;
+  --t-emerald: #10b981;
+  --t-teal: #14b8a6;
+  --t-blue: #3b82f6;
+  --t-violet: #8b5cf6;
+  --t-pink: #ec4899;
+}
+
+/* A small chrome frame so mockups read as in-app screenshots. */
+.marketing-page .cw-ui {
+  border: 1px solid var(--mkt-border);
+  border-radius: 12px;
+  background: var(--mkt-bg);
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(16, 16, 24, 0.04);
+}
+.marketing-page .cw-ui-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--mkt-border);
+  background: var(--mkt-card);
+}
+.marketing-page .cw-ui-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+.marketing-page .cw-ui-title {
+  margin-left: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mkt-muted);
+  letter-spacing: 0.02em;
+}
+
+/* A Task row inside a list mockup. */
+.marketing-page .cw-task {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--mkt-border);
+}
+.marketing-page .cw-task:last-child {
+  border-bottom: 0;
+}
+.marketing-page .cw-teamdot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  flex: none;
+}
+.marketing-page .cw-task-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mkt-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.marketing-page .cw-task-key {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mkt-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+}
+.marketing-page .cw-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  flex: none;
+  border: 1.5px solid #fff;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Status pills, mapped to the app's Task states. */
+.marketing-page .cw-pill {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.marketing-page .cw-pill[data-state="todo"] {
+  background: oklch(0.95 0.003 260);
+  color: var(--mkt-muted);
+}
+.marketing-page .cw-pill[data-state="progress"] {
+  background: color-mix(in oklab, var(--t-amber) 16%, white);
+  color: #b45309;
+}
+.marketing-page .cw-pill[data-state="done"] {
+  background: color-mix(in oklab, var(--t-emerald) 16%, white);
+  color: #047857;
+}
+
+/* Mini Board: three colored Workflow columns. */
+.marketing-page .cw-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 12px;
+}
+.marketing-page .cw-col {
+  border-radius: 9px;
+  padding: 8px;
+  min-height: 118px;
+  border: 1px solid var(--mkt-border);
+}
+.marketing-page .cw-col-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.marketing-page .cw-chip {
+  background: #fff;
+  border: 1px solid var(--mkt-border);
+  border-radius: 7px;
+  padding: 7px 8px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mkt-fg);
+  box-shadow: 0 1px 1px rgba(16, 16, 24, 0.03);
+}
+
+/* Keep the in-app mockups inside their cards on narrow screens: tighten
+   spacing, let labels truncate, and drop the ticket key when it's tight. */
+@media (max-width: 640px) {
+  .marketing-page .cw-task {
+    gap: 7px;
+    padding: 8px 10px;
+  }
+  .marketing-page .cw-task-key {
+    display: none;
+  }
+  .marketing-page .cw-pill {
+    padding: 2px 6px;
+  }
+  .marketing-page .cw-board {
+    gap: 6px;
+    padding: 10px;
+  }
+  .marketing-page .cw-chip {
+    font-size: 10px;
+    padding: 6px;
+  }
+}
+
+/* Mini Insights: bar chart in the gradient palette. */
+.marketing-page .cw-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 116px;
+  padding: 14px 14px 0;
+}
+.marketing-page .cw-bar {
+  flex: 1;
+  border-radius: 4px 4px 0 0;
+  min-width: 0;
+}
+
+/* The second mesh band — a wider, cooler sweep than the hero so the
+   page gets a fresh hit of color at its midpoint, not a repeat. */
+.marketing-page .mesh-band {
+  position: relative;
+  background-color: #0c0a09;
+  background-image:
+    radial-gradient(60% 120% at 8% 50%, rgba(255, 180, 60, 0.85) 0%, rgba(255, 180, 60, 0) 60%),
+    radial-gradient(50% 90% at 30% 40%, rgba(255, 120, 40, 0.6) 0%, rgba(255, 120, 40, 0) 60%),
+    radial-gradient(55% 100% at 62% 60%, rgba(120, 90, 255, 0.55) 0%, rgba(120, 90, 255, 0) 62%),
+    radial-gradient(70% 120% at 100% 50%, rgba(80, 170, 255, 0.85) 0%, rgba(80, 170, 255, 0) 60%),
+    linear-gradient(110deg, #1a120c 0%, #0b1020 100%);
+  background-size:
+    200% 200%,
+    200% 200%,
+    200% 200%,
+    200% 200%,
+    100% 100%;
+  animation: meshBandDrift 20s ease-in-out infinite;
+}
+@keyframes meshBandDrift {
+  0%,
+  100% {
+    background-position:
+      0% 50%,
+      0% 50%,
+      50% 50%,
+      100% 50%,
+      0% 0%;
+  }
+  50% {
+    background-position:
+      6% 46%,
+      -4% 54%,
+      54% 44%,
+      94% 56%,
+      0% 0%;
+  }
+}
+
+/* The price card mesh — a calmer, more confident sweep than the hero. Warm
+   amber anchors the price; a single cool drift keeps it from feeling busy. */
+.marketing-page .mesh-price {
+  position: relative;
+  background-color: #0c0a09;
+  background-image:
+    radial-gradient(70% 130% at 12% 20%, rgba(255, 200, 70, 0.9) 0%, rgba(255, 200, 70, 0) 60%),
+    radial-gradient(60% 110% at 30% 60%, rgba(255, 140, 45, 0.7) 0%, rgba(255, 140, 45, 0) 60%),
+    radial-gradient(75% 130% at 95% 90%, rgba(110, 90, 240, 0.55) 0%, rgba(110, 90, 240, 0) 62%),
+    radial-gradient(80% 120% at 80% 5%, rgba(80, 160, 255, 0.6) 0%, rgba(80, 160, 255, 0) 60%),
+    linear-gradient(135deg, #1a130c 0%, #0b0e1c 100%);
+  background-size:
+    180% 180%,
+    180% 180%,
+    180% 180%,
+    180% 180%,
+    100% 100%;
+  animation: meshPriceDrift 22s ease-in-out infinite;
+}
+.marketing-page .mesh-price > * {
+  position: relative;
+  z-index: 1;
+}
+@keyframes meshPriceDrift {
+  0%,
+  100% {
+    background-position:
+      0% 20%,
+      30% 60%,
+      95% 90%,
+      80% 5%,
+      0% 0%;
+  }
+  50% {
+    background-position:
+      4% 16%,
+      26% 64%,
+      99% 86%,
+      84% 9%,
+      0% 0%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-page .cw-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .marketing-page .animate-marquee,
+  .marketing-page .mesh-showcase,
+  .marketing-page .mesh-showcase::before,
+  .marketing-page .mesh-band,
+  .marketing-page .mesh-price,
+  .marketing-page .dot-pop {
+    animation: none !important;
   }
 }

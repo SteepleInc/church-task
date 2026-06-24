@@ -1,356 +1,1195 @@
-import { ArrowRightIcon } from "@/components/icons/arrowRightIcon";
-import { COMPLETED_APP_LANDING_PATH } from "@/components/app-shell-utils";
-import { AnimatedGroup } from "@/components/motion-primitives/animatedGroup";
-import { TextEffect } from "@/components/motion-primitives/textEffect";
-import { Button } from "@/components/ui/button";
-import { authClient } from "@/lib/auth-client";
-import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { motion, useInView } from "motion/react";
+import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import browserMockup from "@/assets/browser-mockup.png";
+import frame207 from "@/assets/frame-207.svg";
+import nurseVideo from "@/assets/nurse-video.mp4";
+import programmingArrow from "@/assets/programming-arrow.svg";
+
+import { BACK_OUT, Reveal, RISE_EASE, useHeaderEntrance } from "./-marketing-shell";
 
 export const Route = createFileRoute("/_marketing/")({
   component: HomePage,
+  head: () => ({
+    meta: [
+      {
+        title: "Church Work — Shared task clarity for church teams",
+      },
+      {
+        name: "description",
+        content:
+          "Cycles, Templates & Teams. Coordinate recurring and project-based church work — without another spreadsheet — so every team knows what's next.",
+      },
+    ],
+  }),
 });
 
-const TEAM_TIERS = [
-  ["1 - 5 teams", "$0"],
-  ["6 - 15 teams", "Custom"],
-  ["16 - 50 teams", "Custom"],
-  ["50+ teams", "Custom"],
-] as const;
+/* ------------------------------------------------------------------ */
+/* AnimatedWords                                                       */
+/* ------------------------------------------------------------------ */
 
-function HomePage() {
-  const router = useRouter();
-  const { data: session } = authClient.useSession();
-
-  useEffect(() => {
-    if (session) {
-      void router.preloadRoute({ to: COMPLETED_APP_LANDING_PATH });
-    } else {
-      void router.preloadRoute({ to: "/sign-in" });
-    }
-  }, [router, session]);
-
-  const getStartedLink = session ? COMPLETED_APP_LANDING_PATH : "/sign-in";
+function AnimatedWords({
+  text,
+  className,
+  delayStart = 0,
+  stagger = 0.06,
+  inView = false,
+}: {
+  readonly text: string;
+  readonly className?: string;
+  readonly delayStart?: number;
+  readonly stagger?: number;
+  readonly inView?: boolean;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(ref, { margin: "-80px", once: true });
+  const animate = inView ? isInView : true;
+  const words = text.split(" ");
 
   return (
-    <div className="flex flex-col bg-black">
-      <div className="lg:hidden">
-        <section className="bg-cream px-6 py-34 sm:px-12">
-          <div className="mx-auto flex max-w-[1008px] flex-col gap-8">
-            <div className="flex flex-col items-start gap-[40px]">
-              <TextEffect
-                as="h1"
-                className="-mt-[10px] max-w-2xl font-normal font-serif text-[min(112px,calc((100vw-48px)/6.96))] text-black leading-none"
-                delay={0.4}
-                per="char"
-                preset="slide"
-                speedSegment={0.3}
-              >
-                Workflows For Churches
-              </TextEffect>
-              <AnimatedGroup
-                variants={{
-                  container: {
-                    visible: {
-                      transition: {
-                        delayChildren: 0.8,
-                      },
-                    },
-                  },
-                  item: {
-                    hidden: {
-                      filter: "blur(8px)",
-                      opacity: 0,
-                      y: 16,
-                    },
-                    visible: {
-                      filter: "blur(0px)",
-                      opacity: 1,
-                      transition: {
-                        bounce: 0.18,
-                        duration: 2,
-                        type: "spring",
-                      },
-                      y: 0,
-                    },
-                  },
-                }}
-              >
-                <Button asChild size="marketing" variant="marketing-hero">
-                  <Link to={getStartedLink}>
-                    Get Started
-                    <ArrowRightIcon />
-                  </Link>
-                </Button>
-              </AnimatedGroup>
-            </div>
-          </div>
-        </section>
-
-        <section className="px-6 py-16 sm:px-12 md:pt-32 md:pb-20">
-          <AnimatedGroup
-            className="mx-auto w-full max-w-[1008px]"
-            variants={{
-              container: {
-                visible: {
-                  transition: {
-                    delayChildren: 1.11,
-                    staggerChildren: 0.2,
-                  },
-                },
-              },
-              item: {
-                hidden: {
-                  filter: "blur(8px)",
-                  opacity: 0,
-                  y: 16,
-                },
-                visible: {
-                  filter: "blur(0px)",
-                  opacity: 1,
-                  transition: {
-                    duration: 0.6,
-                  },
-                  y: 0,
-                },
-              },
-            }}
+    <span className={className} ref={ref}>
+      {words.map((word, i) => (
+        <span
+          className="inline-block overflow-hidden align-bottom"
+          key={`${word}-${i}`}
+          style={{ paddingBottom: "0.2em" }}
+        >
+          <motion.span
+            animate={animate ? { opacity: 1, y: "0%" } : undefined}
+            className="inline-block"
+            initial={{ opacity: 0, y: "110%" }}
+            transition={{ delay: delayStart + i * stagger, duration: 0.6, ease: RISE_EASE }}
           >
-            <h2 className="mb-6 max-w-[816px] font-serif text-[48px] text-white leading-[48px] tracking-tight md:text-[58px] md:leading-[58px]">
-              Shared task clarity, built for church teams.
-            </h2>
-            <p className="mb-10 max-w-[816px] font-light text-[31px] text-cream md:text-[38px]">
-              Coordinate ministry work across Churches, Teams, Workflows, and Tasks without another
-              spreadsheet.
-            </p>
-            <Button asChild size="marketing" variant="marketing-secondary">
-              <Link to={getStartedLink}>
-                Get Started
-                <ArrowRightIcon />
-              </Link>
-            </Button>
-          </AnimatedGroup>
-        </section>
-      </div>
+            {word}
+            {i < words.length - 1 ? "\u00A0" : ""}
+          </motion.span>
+        </span>
+      ))}
+    </span>
+  );
+}
 
-      <div className="hidden min-h-[calc(100vh-168px)] lg:flex">
-        <section className="flex w-1/2 flex-col justify-center bg-cream px-12 py-20">
-          <div className="flex flex-col items-start gap-[40px]">
-            <TextEffect
-              as="h1"
-              className="max-w-xl font-normal font-serif text-[72px] text-black leading-none xl:text-[101px]"
-              delay={0.4}
-              per="char"
-              preset="slide"
-              speedSegment={0.3}
-            >
-              Workflows For Churches
-            </TextEffect>
-            <AnimatedGroup
-              variants={{
-                container: {
-                  visible: {
-                    transition: {
-                      delayChildren: 0.8,
-                    },
-                  },
-                },
-                item: {
-                  hidden: {
-                    filter: "blur(8px)",
-                    opacity: 0,
-                    y: 16,
-                  },
-                  visible: {
-                    filter: "blur(0px)",
-                    opacity: 1,
-                    transition: {
-                      bounce: 0.18,
-                      duration: 2,
-                      type: "spring",
-                    },
-                    y: 0,
-                  },
-                },
-              }}
-            >
-              <Button asChild size="marketing" variant="marketing-hero">
-                <Link to={getStartedLink}>
-                  Get Started
-                  <ArrowRightIcon />
-                </Link>
-              </Button>
-            </AnimatedGroup>
-          </div>
-        </section>
+/* ------------------------------------------------------------------ */
+/* AnimatedDottedFrame                                                 */
+/* ------------------------------------------------------------------ */
 
-        <section className="flex w-1/2 flex-col justify-center bg-black px-12 py-20">
-          <AnimatedGroup
-            className="w-full"
-            variants={{
-              container: {
-                visible: {
-                  transition: {
-                    delayChildren: 1.11,
-                    staggerChildren: 0.2,
-                  },
-                },
-              },
-              item: {
-                hidden: {
-                  filter: "blur(8px)",
-                  opacity: 0,
-                  y: 16,
-                },
-                visible: {
-                  filter: "blur(0px)",
-                  opacity: 1,
-                  transition: {
-                    duration: 0.6,
-                  },
-                  y: 0,
-                },
-              },
-            }}
-          >
-            <h2 className="mb-6 font-serif text-[58px] text-white leading-[58px] tracking-tight">
-              Shared task clarity, built for church teams.
-            </h2>
-            <p className="font-light text-[38px] text-cream">
-              Coordinate ministry work across Churches, Teams, Workflows, and Tasks without another
-              spreadsheet.
-            </p>
-          </AnimatedGroup>
-        </section>
-      </div>
+function AnimatedDottedFrame({
+  className,
+  style,
+  startDelay = 0,
+}: {
+  readonly className?: string;
+  readonly style?: CSSProperties;
+  readonly startDelay?: number;
+}) {
+  const pathRef = useRef<SVGPathElement>(null);
+  const [dots, setDots] = useState<ReadonlyArray<{ x: number; y: number }>>([]);
 
-      <section className="bg-cream px-6 py-20 sm:px-12 lg:bg-black lg:py-32">
-        <div className="mx-auto max-w-[1008px]">
-          <h2 className="mb-16 font-serif text-[48px] text-black leading-[48px] tracking-tight md:text-[58px] md:leading-[58px] lg:text-white">
-            How It Works
-          </h2>
+  useEffect(() => {
+    const path = pathRef.current;
+    if (!path) return;
+    const total = path.getTotalLength();
+    const next: Array<{ x: number; y: number }> = [];
+    for (let d = 2; d <= total; d += 4) {
+      const p = path.getPointAtLength(d);
+      next.push({ x: p.x, y: p.y });
+    }
+    setDots(next);
+  }, []);
 
-          <div className="grid gap-12 md:grid-cols-3 md:gap-8">
-            <div className="flex flex-col gap-4">
-              <span className="font-serif text-[72px] text-black/20 leading-none lg:text-white/40">
-                1
-              </span>
-              <h3 className="font-serif text-[28px] text-black leading-tight lg:text-white">
-                Churches Set Up Teams
-              </h3>
-              <p className="font-light text-[18px] text-black/70 lg:text-cream/70">
-                Create the ministry teams that own recurring work.
-              </p>
-            </div>
+  return (
+    <svg
+      aria-hidden
+      className={className}
+      fill="none"
+      height={107}
+      style={style}
+      viewBox="0 0 141 107"
+      width={141}
+    >
+      <path
+        d="M140.75 3.75H5.75C2.98857 3.75 0.75 5.98858 0.75 8.75V95.75C0.75 98.5114 2.98858 100.75 5.75 100.75H40"
+        ref={pathRef}
+      />
+      {dots.map((dot, i) => (
+        <circle
+          className="dot-pop"
+          cx={dot.x}
+          cy={dot.y}
+          fill="#FFFFFF"
+          key={i}
+          r={1.5}
+          style={{ animationDelay: `${startDelay + i * 40}ms` }}
+        />
+      ))}
+    </svg>
+  );
+}
 
-            <div className="flex flex-col gap-4">
-              <span className="font-serif text-[72px] text-black/20 leading-none lg:text-white/40">
-                2
-              </span>
-              <h3 className="font-serif text-[28px] text-black leading-tight lg:text-white">
-                Workflows Create Tasks
-              </h3>
-              <p className="font-light text-[18px] text-black/70 lg:text-cream/70">
-                Turn repeatable church operations into clear assignments.
-              </p>
-            </div>
+/* ------------------------------------------------------------------ */
+/* Icons                                                               */
+/* ------------------------------------------------------------------ */
 
-            <div className="flex flex-col gap-4">
-              <span className="font-serif text-[72px] text-black/20 leading-none lg:text-white/40">
-                3
-              </span>
-              <h3 className="font-serif text-[28px] text-black leading-tight lg:text-white">
-                People Finish Work
-              </h3>
-              <p className="font-light text-[18px] text-black/70 lg:text-cream/70">
-                Everyone sees My Work, Our Work, and what needs attention next.
-              </p>
-            </div>
-          </div>
+function StarIcon({ half = false }: { readonly half?: boolean }) {
+  const d =
+    "M12 2.5l2.95 6.2 6.8.78-5.05 4.66 1.4 6.66L12 17.6l-6.1 3.2 1.4-6.66L2.25 9.48l6.8-.78L12 2.5z";
+  return (
+    <svg className="star" fill="currentColor" height={16} viewBox="0 0 24 24" width={16}>
+      {half ? (
+        <>
+          <defs>
+            <linearGradient id="half-star">
+              <stop offset="50%" stopColor="currentColor" />
+              <stop offset="50%" stopColor="rgba(0,0,0,0.15)" />
+            </linearGradient>
+          </defs>
+          <path d={d} fill="url(#half-star)" />
+        </>
+      ) : (
+        <path d={d} />
+      )}
+    </svg>
+  );
+}
 
-          <div className="mt-12 flex justify-center">
-            <Button asChild className="lg:hidden" size="marketing" variant="marketing-hero">
-              <Link to={getStartedLink}>
-                Get Started
-                <ArrowRightIcon />
-              </Link>
-            </Button>
-            <Button
-              asChild
-              className="hidden lg:inline-flex"
-              size="marketing"
-              variant="marketing-secondary"
-            >
-              <Link to={getStartedLink}>
-                Get Started
-                <ArrowRightIcon />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+/* ------------------------------------------------------------------ */
+/* Trusted-by wordmarks (Inter Tight text marks, white)               */
+/* ------------------------------------------------------------------ */
 
-      <section className="px-6 py-20 sm:px-12 lg:bg-cream lg:py-32">
-        <div className="mx-auto max-w-[1008px]">
-          <h2 className="mb-4 font-serif text-[48px] text-white leading-[48px] tracking-tight md:text-[58px] md:leading-[58px] lg:text-black">
-            Built For Every Church Team
-          </h2>
-          <p className="mb-8 font-light text-[24px] text-cream/70 lg:text-black/70">
-            Start simple, then scale workflows as your ministry operations grow.
-          </p>
+function BrandWordmark({ children }: { readonly children: ReactNode }) {
+  return (
+    <span
+      className="whitespace-nowrap font-semibold text-[20px] text-white/90 leading-none tracking-tight"
+      style={{ fontFamily: '"Inter Tight", sans-serif' }}
+    >
+      {children}
+    </span>
+  );
+}
 
-          <div className="overflow-hidden rounded-lg border border-white/10 lg:border-black/10">
-            <table className="w-full">
-              <thead>
-                <tr className="border-white/10 border-b lg:border-black/10">
-                  <th className="px-4 py-4 text-left font-light text-[16px] text-cream/50 uppercase tracking-wider sm:px-6 lg:text-black/50">
-                    Team Count
-                  </th>
-                  <th className="px-4 py-4 text-right font-light text-[16px] text-cream/50 uppercase tracking-wider lg:text-black/50">
-                    Plan
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/10 lg:divide-black/10">
-                {TEAM_TIERS.map(([tier, price]) => (
-                  <tr key={tier}>
-                    <td className="px-4 py-5 font-light text-[20px] text-white sm:px-6 lg:text-black">
-                      {tier}
-                    </td>
-                    <td className="px-4 py-5 text-right font-serif text-[24px] text-cream lg:text-black">
-                      {price}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+const TRUSTED_CHURCHES = [
+  "Grace City",
+  "Hillside Church",
+  "Redeemer",
+  "New Life",
+  "Cornerstone",
+] as const;
 
-          <p className="mt-8 text-center font-light text-[16px] text-cream/50 lg:text-black/50">
-            Church Work is being shaped with churches before public pricing is finalized.
-          </p>
-
-          <div className="mt-12 flex justify-center">
-            <Button asChild className="lg:hidden" size="marketing" variant="marketing-secondary">
-              <Link to={getStartedLink}>
-                Get Started
-                <ArrowRightIcon />
-              </Link>
-            </Button>
-            <Button
-              asChild
-              className="hidden lg:inline-flex"
-              size="marketing"
-              variant="marketing-hero"
-            >
-              <Link to={getStartedLink}>
-                Get Started
-                <ArrowRightIcon />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+function TrustedByGroup() {
+  return (
+    <div className="flex items-center gap-[40px] pr-[40px]">
+      {TRUSTED_CHURCHES.map((name) => (
+        <BrandWordmark key={name}>{name}</BrandWordmark>
+      ))}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Hero                                                                */
+/* ------------------------------------------------------------------ */
+
+// The hero's load cascade is timed relative to the header settling, so it picks
+// up wherever the header leaves off. Each value is an offset (seconds) from
+// `base`, which is `headerSettle` on a cold load and 0 after navigation.
+const HERO_OFFSET = {
+  eyebrow: -0.3,
+  h1Line1: -0.1,
+  h1Line2: 0.15,
+  h1Tail: 0.3,
+  video: 0.35,
+  subhead: 0.7,
+  ctaPrimary: 0.9,
+  ctaSecondary: 1.0,
+  showcase: 1.2,
+} as const;
+
+// The showcase's internal choreography (cards, popover, dotted frame) is
+// authored against this absolute cold-load delay. Showcase derives a `shift`
+// from the live `base` so the whole block slides together while keeping its
+// internal timing intact.
+const SHOWCASE_BASELINE = 3.0;
+
+function Hero({ base }: { readonly base: number }) {
+  // Never start before the page mounts, even when base is small post-navigation.
+  const at = (offset: number) => Math.max(0, base + offset);
+  return (
+    <section className="mx-auto max-w-[1400px] px-6 pt-16 text-center md:px-10 md:pt-24">
+      {/* Eyebrow pill */}
+      <motion.div
+        animate={{ opacity: 1, y: 0 }}
+        className="inline-flex items-center rounded-[8px]"
+        initial={{ opacity: 0, y: 30 }}
+        style={{
+          backgroundColor: "rgba(192,192,192,0.17)",
+          gap: "10px",
+          padding: "4px 11px 4px 4px",
+        }}
+        transition={{ delay: at(HERO_OFFSET.eyebrow), duration: 0.8, ease: "easeOut" }}
+      >
+        <span
+          className="flex items-center justify-center rounded-[6px] bg-mkt-bg text-mkt-fg"
+          style={{ height: 22, width: 28 }}
+        >
+          <svg fill="none" height={12} viewBox="0 0 12 10" width={14}>
+            <path
+              d="M5.71198 0L9.56198 9.982H7.686L6.734 7.336H2.786L1.806 9.982H0L3.85 0H5.71198ZM6.272 6.02L4.788 1.82L3.234 6.02H6.272ZM11.998 0.014V9.982H10.234V0.014H11.998Z"
+              fill="currentColor"
+              opacity={0.85}
+            />
+          </svg>
+        </span>
+        <span className="text-[14px]">Cycles, Templates &amp; Teams</span>
+      </motion.div>
+
+      {/* H1 */}
+      <h1
+        className="mx-auto mt-6 max-w-[1100px] font-medium text-[64px] md:text-[88px]"
+        style={{ letterSpacing: "-0.035em", lineHeight: 1.05 }}
+      >
+        <span className="block">
+          <AnimatedWords
+            delayStart={at(HERO_OFFSET.h1Line1)}
+            stagger={0.05}
+            text="Shared task clarity"
+          />
+        </span>
+        <span className="block">
+          <AnimatedWords delayStart={at(HERO_OFFSET.h1Line2)} stagger={0.05} text="for your" />{" "}
+          <motion.video
+            animate={{ scale: 1 }}
+            autoPlay
+            className="inline-block h-[88px] w-[88px] rounded-full object-cover align-middle md:h-[108px] md:w-[108px]"
+            initial={{ scale: 0 }}
+            loop
+            muted
+            playsInline
+            src={nurseVideo}
+            transition={{ delay: at(HERO_OFFSET.video), duration: 0.6, ease: BACK_OUT }}
+          />{" "}
+          <AnimatedWords
+            className="text-mkt-fg/25"
+            delayStart={at(HERO_OFFSET.h1Tail)}
+            stagger={0.05}
+            text="church teams"
+          />
+        </span>
+      </h1>
+
+      {/* Subheading */}
+      <motion.p
+        animate={{ opacity: 1, y: 0 }}
+        className="mx-auto mt-8 max-w-[760px] text-[18px] text-mkt-muted"
+        initial={{ opacity: 0, y: 30 }}
+        style={{ lineHeight: 1.5 }}
+        transition={{ delay: at(HERO_OFFSET.subhead), duration: 0.8, ease: "easeOut" }}
+      >
+        Built for how church work actually happens. It recurs every week. It spans every team. It
+        slips through the cracks. Church Work turns Templates, Cycles, and Tasks into one shared
+        plan — so everyone knows what's next.
+      </motion.p>
+
+      {/* CTA row */}
+      <div className="mt-10 flex items-center justify-center gap-3">
+        <motion.button
+          animate={{ scale: 1 }}
+          className="rounded-full border border-mkt-border bg-mkt-bg px-6 py-3 font-medium text-[15px] text-mkt-fg transition-colors hover:bg-mkt-card"
+          initial={{ scale: 0 }}
+          style={{ boxShadow: "0 1px 0 rgba(0,0,0,0.04)" }}
+          transition={{ delay: at(HERO_OFFSET.ctaPrimary), duration: 0.5, ease: BACK_OUT }}
+          type="button"
+        >
+          Book a demo
+        </motion.button>
+        <motion.button
+          animate={{ scale: 1 }}
+          className="rounded-full px-6 py-3 font-semibold text-[15px] text-mkt-fg"
+          initial={{ scale: 0 }}
+          style={{ backgroundColor: "oklch(0.88 0.18 95)" }}
+          transition={{ delay: at(HERO_OFFSET.ctaSecondary), duration: 0.5, ease: BACK_OUT }}
+          type="button"
+          whileHover={{ scale: 1.02 }}
+        >
+          Get started
+        </motion.button>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Showcase                                                            */
+/* ------------------------------------------------------------------ */
+
+const KEY_FEATURES = [
+  { active: false, label: "My Work & Our Work" },
+  { active: false, label: "Templates & Schedules" },
+  { active: true, label: "Cycles & Weeks" },
+  { active: false, label: "Boards & Insights" },
+  { active: false, label: "Teams & Workflows" },
+] as const;
+
+function CheckIcon() {
+  return (
+    <svg
+      fill="none"
+      height={8}
+      stroke="#FFFFFF"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={4}
+      viewBox="0 0 24 24"
+      width={8}
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function SeamDot({ style }: { readonly style?: CSSProperties }) {
+  return (
+    <span
+      className="absolute block rounded-full bg-white"
+      style={{
+        backgroundClip: "content-box",
+        border: "2px solid rgba(255,255,255,0.12)",
+        height: 8,
+        width: 8,
+        ...style,
+      }}
+    />
+  );
+}
+
+function LeftCard({ shift }: { readonly shift: number }) {
+  const at = (delay: number) => Math.max(0, delay + shift);
+  return (
+    <motion.div
+      animate={{ opacity: 1, y: 0 }}
+      className="relative overflow-hidden rounded-[22px] bg-mkt-surface p-6 text-white md:p-7"
+      initial={{ opacity: 0, y: 40 }}
+      style={{ minHeight: 360 }}
+      transition={{ delay: at(3.2), duration: 0.8, ease: "easeOut" }}
+    >
+      <div className="relative z-20 flex h-full flex-col md:max-w-[55%]">
+        {/* Pro pill */}
+        <motion.span
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex items-center justify-center font-medium text-[12px]"
+          initial={{ opacity: 0.2, scale: 2.4 }}
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 6,
+            color: "#111114",
+            height: 22,
+            width: 36,
+          }}
+          transition={{ delay: at(3.45), duration: 0.7, ease: RISE_EASE }}
+        >
+          Plan
+        </motion.span>
+
+        {/* Heading */}
+        <h3
+          className="mt-5 font-medium text-[28px] tracking-tight text-white"
+          style={{ lineHeight: 1.15 }}
+        >
+          <span className="block">
+            <AnimatedWords delayStart={at(3.6)} text="One Shared Plan" />
+          </span>
+          <span className="block">
+            <AnimatedWords delayStart={at(3.75)} text="for Church Work" />
+          </span>
+        </h3>
+
+        {/* Bottom paragraph */}
+        <p
+          className="mt-auto pt-6 text-[16px]"
+          style={{ color: "rgba(255,255,255,0.36)", lineHeight: "19px" }}
+        >
+          From recurring Templates to weekly Cycles,
+          <br />
+          every team sees what's next.
+        </p>
+      </div>
+
+      {/* Floating browser mockup (md+) */}
+      <div className="absolute right-0 bottom-0 hidden md:block" style={{ width: 330 }}>
+        <SeamDot style={{ left: 1, top: 40 }} />
+        <AnimatedDottedFrame
+          startDelay={Math.max(0, 4200 + shift * 1000)}
+          style={{ left: -135.75, position: "absolute", top: 43.25 }}
+        />
+        <img
+          alt="Church Work dashboard"
+          className="w-full"
+          src={browserMockup}
+          style={{ filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.45))" }}
+        />
+      </div>
+
+      {/* Key Features popover (md+) */}
+      <motion.div
+        animate={{ opacity: 1, y: 0 }}
+        className="absolute z-10 hidden flex-col md:flex"
+        initial={{ opacity: 0, y: 30 }}
+        style={{
+          backdropFilter: "blur(214.5px)",
+          background:
+            "linear-gradient(164deg, rgba(255,255,255,0.04) 14.62%, rgba(255,255,255,0.40) 85.2%)",
+          border: "1px solid rgba(255,255,255,0.34)",
+          borderRadius: 13.654,
+          bottom: -24,
+          height: 222,
+          padding: 12,
+          right: 214,
+          width: 210,
+        }}
+        transition={{ delay: at(3.95), duration: 0.8, ease: "easeOut" }}
+      >
+        {/* Header */}
+        <div className="mb-2 flex items-center gap-2">
+          <img alt="" height={14} src={programmingArrow} width={14} />
+          <span className="font-medium text-[13px] text-white">Key Features</span>
+        </div>
+
+        {/* Divider */}
+        <div
+          className="relative mb-2 h-px"
+          style={{ background: "rgba(255,255,255,0.19)", marginLeft: -12, marginRight: -12 }}
+        >
+          <SeamDot style={{ left: -4, top: -4 }} />
+        </div>
+
+        {/* List */}
+        <div className="flex flex-col gap-1">
+          {KEY_FEATURES.map((feature) => (
+            <div
+              className="flex items-center gap-2"
+              key={feature.label}
+              style={
+                feature.active
+                  ? { background: "#F4F4F4", borderRadius: 4.312, padding: "6px 4px" }
+                  : { padding: "6px 4px" }
+              }
+            >
+              {feature.active ? (
+                <span
+                  className="flex items-center justify-center"
+                  style={{
+                    background: "#FFD209",
+                    borderRadius: 1.006,
+                    height: 12,
+                    width: 12,
+                  }}
+                >
+                  <CheckIcon />
+                </span>
+              ) : (
+                <span className="rounded-[3px] bg-white/15" style={{ height: 12, width: 12 }} />
+              )}
+              <span
+                className="font-medium text-[12px]"
+                style={feature.active ? { color: "#111114" } : { color: "rgba(255,255,255,0.9)" }}
+              >
+                {feature.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function RightCard({ shift }: { readonly shift: number }) {
+  const at = (delay: number) => Math.max(0, delay + shift);
+  return (
+    <motion.div
+      animate={{ opacity: 1, y: 0 }}
+      className="relative rounded-[22px] bg-mkt-bg p-6 md:p-7"
+      initial={{ opacity: 0, y: 40 }}
+      style={{ minHeight: 360 }}
+      transition={{ delay: at(3.3), duration: 0.8, ease: "easeOut" }}
+    >
+      {/* Top row */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <img alt="" className="h-[44px] w-auto" src={frame207} />
+          <span className="font-medium text-[15px] text-mkt-fg">What church teams say</span>
+        </div>
+        <div className="flex flex-col" style={{ gap: "4.34px" }}>
+          <span
+            style={{ background: "#131318", borderRadius: 5.428, height: 32.569, width: 4.343 }}
+          />
+          <span
+            style={{ background: "#DCDCDC", borderRadius: 5.428, height: 16.285, width: 4.343 }}
+          />
+        </div>
+      </div>
+
+      {/* Date */}
+      <p className="mt-12 text-[13px] text-mkt-muted">Feb 02, 2026</p>
+
+      {/* Quote */}
+      <p
+        className="mt-2 max-w-[420px] font-medium text-[22px] tracking-tight"
+        style={{ lineHeight: 1.3 }}
+      >
+        <AnimatedWords
+          className="text-mkt-fg"
+          delayStart={at(3.6)}
+          stagger={0.04}
+          text="Every team knows what's next"
+        />{" "}
+        <AnimatedWords
+          className="text-mkt-muted"
+          delayStart={at(3.75)}
+          stagger={0.04}
+          text="each week — and nothing slips through the cracks."
+        />
+      </p>
+
+      {/* Bottom row */}
+      <div className="absolute right-6 bottom-6 left-6 flex items-center justify-between">
+        <div className="flex flex-col leading-tight">
+          <span className="font-semibold text-[14px] text-mkt-fg">Hillside Church</span>
+          <span className="text-[12px] text-mkt-muted">Operations Pastor</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <StarIcon />
+          <StarIcon />
+          <StarIcon />
+          <StarIcon />
+          <StarIcon half />
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function Showcase({ base }: { readonly base: number }) {
+  // The showcase is the second beat of the load cascade. Its internal
+  // choreography is authored against the cold-load timeline (~3.0s+), so we
+  // slide the whole block by how far `base` sits from the cold-load settle.
+  const shift = base + HERO_OFFSET.showcase - SHOWCASE_BASELINE;
+  return (
+    <motion.div
+      animate={{ opacity: 1, y: 0 }}
+      className="mesh-showcase mx-auto mt-16 overflow-hidden rounded-[28px] p-5 md:p-7"
+      initial={{ opacity: 0, y: 60 }}
+      style={{ width: "calc(100% - 16px)" }}
+      transition={{ delay: Math.max(0, SHOWCASE_BASELINE + shift), duration: 1, ease: RISE_EASE }}
+    >
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <LeftCard shift={shift} />
+        <RightCard shift={shift} />
+      </div>
+
+      {/* Trusted-by row */}
+      <div className="mt-7 flex flex-col items-start gap-6 px-1 text-white md:flex-row md:items-center md:justify-between">
+        <p className="max-w-md text-[13px] text-white/75" style={{ lineHeight: 1.5 }}>
+          Built with churches who run real ministry every week,
+          <br />
+          not another spreadsheet they have to keep up to date.
+        </p>
+        <div
+          className="w-full overflow-hidden md:max-w-[60%]"
+          style={{
+            maskImage:
+              "linear-gradient(to right, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%)",
+            WebkitMaskImage:
+              "linear-gradient(to right, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%)",
+          }}
+        >
+          <div className="animate-marquee flex w-max">
+            <TrustedByGroup />
+            <TrustedByGroup />
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* How it works — laid on the Monday→Sunday Week strip                 */
+/* ------------------------------------------------------------------ */
+
+// Each day carries a few Team-color dots — quiet on ordinary days, fuller on
+// the active ones — so the rail reads like a real Cycle with work on it.
+const WEEK_DAYS = [
+  { date: "2", day: "Mon", dots: ["var(--t-violet)", "var(--t-orange)", "var(--t-blue)"] },
+  { date: "3", day: "Tue", dots: ["var(--t-teal)"] },
+  { date: "4", day: "Wed", dots: ["var(--t-pink)", "var(--t-amber)"] },
+  { date: "5", day: "Thu", dots: ["var(--t-blue)", "var(--t-emerald)", "var(--t-violet)"] },
+  { date: "6", day: "Fri", dots: ["var(--t-orange)"] },
+  { date: "7", day: "Sat", dots: [] },
+  {
+    date: "8",
+    day: "Sun",
+    dots: ["var(--t-emerald)", "var(--t-blue)", "var(--t-pink)", "var(--t-amber)"],
+  },
+] as const;
+
+// The three moments of the weekly rhythm, anchored to the weekdays they
+// actually happen on — so the timeline carries real information, not decoration.
+const WEEK_MOMENTS = [
+  {
+    body: "Build the recurring work once as a Template — weekly service, monthly all-staff, the Easter season. It projects forward onto every Cycle automatically.",
+    dayIndex: 0,
+    label: "Before the week",
+    title: "Set up Templates",
+  },
+  {
+    body: "Monday morning, the new Cycle opens with this week's Tasks already in place. Every Team sees My Work and Our Work — no one rebuilds the plan from scratch.",
+    dayIndex: 3,
+    label: "During the week",
+    title: "The Cycle runs",
+  },
+  {
+    body: "Sunday night, rollover closes the week and carries anything unfinished into the next Cycle. Nothing is lost, nothing is re-typed.",
+    dayIndex: 6,
+    label: "End of the week",
+    title: "Rollover, automatically",
+  },
+] as const;
+
+function HowItWorks() {
+  return (
+    <section className="mx-auto max-w-[1400px] px-6 pt-28 md:px-10 md:pt-36">
+      <Reveal>
+        <p className="cw-eyebrow">Mon — Sun · one Cycle</p>
+        <h2
+          className="mt-5 max-w-[760px] font-medium text-[40px] tracking-tight md:text-[56px]"
+          style={{ letterSpacing: "-0.03em", lineHeight: 1.05 }}
+        >
+          A church doesn&rsquo;t plan in projects. It plans in weeks.
+        </h2>
+        <p className="mt-5 max-w-[560px] text-[18px] text-mkt-muted" style={{ lineHeight: 1.5 }}>
+          So Church Work runs on the same Monday-to-Sunday rhythm you already keep. Here&rsquo;s one
+          week, end to end.
+        </p>
+      </Reveal>
+
+      {/* The Week strip — the signature device */}
+      <Reveal className="mt-12" delay={80}>
+        <div className="cw-weekstrip" role="img" aria-label="A week, Monday through Sunday">
+          {WEEK_DAYS.map((d, i) => {
+            const moment = WEEK_MOMENTS.find((m) => m.dayIndex === i);
+            return (
+              <div
+                className="cw-weekcell"
+                data-active={moment ? "true" : "false"}
+                data-edge={moment ? "true" : "false"}
+                key={d.day}
+              >
+                <span className="cw-weekday">{d.day}</span>
+                <span className="cw-weekdate">Feb {d.date}</span>
+                {d.dots.length ? (
+                  <span className="mt-1 flex items-center gap-1.5" aria-hidden>
+                    {d.dots.map((c, di) => (
+                      <span
+                        className="cw-teamdot"
+                        key={di}
+                        style={{ background: c, opacity: moment ? 1 : 0.5 }}
+                      />
+                    ))}
+                  </span>
+                ) : null}
+                {moment ? (
+                  <span className="cw-weekmoment mt-auto font-medium text-[12px] text-mkt-fg">
+                    {moment.title}
+                  </span>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </Reveal>
+
+      {/* The three moments, aligned under the strip */}
+      <ol className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-mkt-border bg-mkt-border md:grid-cols-3">
+        {WEEK_MOMENTS.map((m, i) => (
+          <Reveal as="li" className="bg-mkt-bg p-7 md:p-8" delay={120 + i * 90} key={m.title}>
+            <p className="cw-eyebrow">{m.label}</p>
+            <h3 className="mt-4 font-medium text-[22px] tracking-tight">{m.title}</h3>
+            <p className="mt-3 text-[15px] text-mkt-muted" style={{ lineHeight: 1.55 }}>
+              {m.body}
+            </p>
+          </Reveal>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Product mockups — lightweight "screenshots" rendered from the app's */
+/* real Team colors and Task states, so color reads as product data.   */
+/* ------------------------------------------------------------------ */
+
+function UiFrame({ title, children }: { readonly title: string; readonly children: ReactNode }) {
+  return (
+    <div className="cw-ui">
+      <div className="cw-ui-bar">
+        <span className="cw-ui-dot" style={{ background: "#ff5f57" }} />
+        <span className="cw-ui-dot" style={{ background: "#febc2e" }} />
+        <span className="cw-ui-dot" style={{ background: "#28c840" }} />
+        <span className="cw-ui-title">{title}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+const MY_WORK_ROWS = [
+  {
+    key: "WOR-128",
+    team: "var(--t-violet)",
+    state: "progress",
+    title: "Confirm Sunday band lineup",
+    who: "AK",
+    whoBg: "#8b5cf6",
+  },
+  {
+    key: "KID-064",
+    team: "var(--t-orange)",
+    state: "todo",
+    title: "Print check-in labels",
+    who: "JD",
+    whoBg: "#f97316",
+  },
+  {
+    key: "PRD-201",
+    team: "var(--t-blue)",
+    state: "done",
+    title: "Render lyric slides",
+    who: "ST",
+    whoBg: "#3b82f6",
+  },
+] as const;
+
+function MyWorkMock() {
+  return (
+    <UiFrame title="My Work">
+      <div>
+        {MY_WORK_ROWS.map((r) => (
+          <div className="cw-task" key={r.key}>
+            <span className="cw-teamdot" style={{ background: r.team }} />
+            <span className="cw-task-key">{r.key}</span>
+            <span className="cw-task-label" style={{ flex: 1 }}>
+              {r.title}
+            </span>
+            <span className="cw-pill" data-state={r.state}>
+              {r.state === "todo" ? "To Do" : r.state === "progress" ? "In Progress" : "Done"}
+            </span>
+            <span className="cw-avatar" style={{ background: r.whoBg }}>
+              {r.who}
+            </span>
+          </div>
+        ))}
+      </div>
+    </UiFrame>
+  );
+}
+
+const BOARD_COLUMNS = [
+  {
+    color: "var(--muted-foreground)",
+    name: "To Do",
+    chips: [
+      { t: "var(--t-pink)", l: "Order communion" },
+      { t: "var(--t-teal)", l: "Greeter schedule" },
+    ],
+  },
+  {
+    color: "var(--t-amber)",
+    name: "In Progress",
+    chips: [
+      { t: "var(--t-violet)", l: "Band rehearsal" },
+      { t: "var(--t-blue)", l: "Slides QA" },
+    ],
+  },
+  {
+    color: "var(--t-emerald)",
+    name: "Done",
+    chips: [{ t: "var(--t-orange)", l: "Kids check-in" }],
+  },
+] as const;
+
+function BoardMock() {
+  return (
+    <UiFrame title="Production · Board">
+      <div className="cw-board">
+        {BOARD_COLUMNS.map((col) => (
+          <div className="cw-col" key={col.name} style={{ background: "oklch(0.985 0.003 260)" }}>
+            <div className="cw-col-head" style={{ color: col.color }}>
+              <span className="cw-ui-dot" style={{ background: col.color }} />
+              {col.name}
+            </div>
+            {col.chips.map((c) => (
+              <div className="cw-chip" key={c.l}>
+                <span className="cw-teamdot" style={{ background: c.t }} />
+                {c.l}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </UiFrame>
+  );
+}
+
+const INSIGHT_BARS = [
+  { h: "44%", c: "var(--t-violet)" },
+  { h: "72%", c: "var(--t-orange)" },
+  { h: "58%", c: "var(--t-blue)" },
+  { h: "90%", c: "var(--t-emerald)" },
+  { h: "36%", c: "var(--t-pink)" },
+  { h: "64%", c: "var(--t-teal)" },
+] as const;
+
+function InsightsMock() {
+  return (
+    <UiFrame title="Insights · by Team">
+      <div className="cw-bars">
+        {INSIGHT_BARS.map((b, i) => (
+          <span className="cw-bar" key={i} style={{ background: b.c, height: b.h }} />
+        ))}
+      </div>
+      <div className="flex items-center justify-between px-4 pt-2 pb-3">
+        <span className="cw-task-key">Tasks this Cycle</span>
+        <span className="font-medium text-[13px] text-mkt-fg">48 total</span>
+      </div>
+    </UiFrame>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* What you get — the real product surfaces, each with a UI preview     */
+/* ------------------------------------------------------------------ */
+
+const SURFACES = [
+  {
+    body: "Everything assigned to you across every Team and Cycle, in one list. No hunting through channels to find what's yours this week.",
+    mock: "my-work",
+    span: "md:col-span-4",
+    tag: "Personal",
+    title: "My Work",
+  },
+  {
+    body: "Drag a Task through your Team's own Workflow — To Do, In Progress, Done — without leaving the plan.",
+    mock: "board",
+    span: "md:col-span-2",
+    tag: "Flow",
+    title: "Team Boards",
+  },
+  {
+    body: "Where the week's work stands, counted by Team — so a glance answers \u201care we ready for Sunday?\u201d",
+    mock: "insights",
+    span: "md:col-span-2",
+    tag: "Read",
+    title: "Insights",
+  },
+  {
+    body: "Every active Task across the whole church, filtered to the Teams you care about. The shared picture, not seven separate ones.",
+    mock: null,
+    span: "md:col-span-2",
+    tag: "Shared",
+    title: "Our Work",
+  },
+  {
+    body: "Recurring work, written once. A Template projects Tasks onto future Cycles so the same prep never gets rebuilt by hand.",
+    mock: null,
+    span: "md:col-span-2",
+    tag: "Reuse",
+    title: "Templates",
+  },
+] as const;
+
+function SurfaceMock({ mock }: { readonly mock: string | null }) {
+  if (mock === "my-work") return <MyWorkMock />;
+  if (mock === "board") return <BoardMock />;
+  if (mock === "insights") return <InsightsMock />;
+  return null;
+}
+
+function WhatYouGet() {
+  return (
+    <section className="mx-auto max-w-[1400px] px-6 pt-28 md:px-10 md:pt-36">
+      <Reveal>
+        <p className="cw-eyebrow">What&rsquo;s inside</p>
+        <h2
+          className="mt-5 max-w-[820px] font-medium text-[40px] tracking-tight md:text-[56px]"
+          style={{ letterSpacing: "-0.03em", lineHeight: 1.05 }}
+        >
+          The surfaces your teams open every week.
+        </h2>
+      </Reveal>
+
+      <div className="mt-12 grid gap-4 md:grid-cols-6">
+        {SURFACES.map((s, i) => (
+          <Reveal
+            className={`flex flex-col rounded-2xl border border-mkt-border bg-mkt-bg p-6 ${s.span}`}
+            delay={i * 70}
+            key={s.title}
+          >
+            <div className="flex items-baseline justify-between">
+              <h3 className="font-medium text-[20px] tracking-tight">{s.title}</h3>
+              <span className="cw-eyebrow">{s.tag}</span>
+            </div>
+            <p className="mt-3 text-[15px] text-mkt-muted" style={{ lineHeight: 1.55 }}>
+              {s.body}
+            </p>
+            {s.mock ? (
+              <div className="mt-5">
+                <SurfaceMock mock={s.mock} />
+              </div>
+            ) : null}
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* The vocabulary — the domain's own words, defined plainly            */
+/* ------------------------------------------------------------------ */
+
+const TERMS = [
+  { term: "Cadence", def: "The rhythm that makes work recur — weekly, monthly, every Easter." },
+  { term: "Cycle", def: "One Monday-to-Sunday week of work for the whole church." },
+  { term: "Template", def: "Recurring work written once, projected onto future Cycles." },
+  { term: "Rollover", def: "Sunday's hand-off that carries unfinished work into next week." },
+] as const;
+
+function Vocabulary() {
+  return (
+    <section className="mx-auto max-w-[1400px] px-6 pt-28 md:px-10 md:pt-36">
+      <div className="overflow-hidden rounded-[28px] bg-mkt-surface p-8 text-white md:p-12">
+        <Reveal>
+          <p className="cw-eyebrow" style={{ color: "rgba(255,255,255,0.55)" }}>
+            Speaks your language
+          </p>
+          <h2
+            className="mt-5 max-w-[680px] font-medium text-[32px] tracking-tight md:text-[44px]"
+            style={{ letterSpacing: "-0.03em", lineHeight: 1.1 }}
+          >
+            Built on the words a ministry team already uses.
+          </h2>
+        </Reveal>
+
+        <dl className="mt-10 grid gap-x-10 sm:grid-cols-2">
+          {TERMS.map((t, i) => (
+            <Reveal
+              className="flex flex-col gap-2 border-white/10 border-t py-6"
+              delay={i * 80}
+              key={t.term}
+            >
+              <dt className="font-medium text-[20px] tracking-tight">{t.term}</dt>
+              <dd
+                className="text-[15px]"
+                style={{ color: "rgba(255,255,255,0.55)", lineHeight: 1.5 }}
+              >
+                {t.def}
+              </dd>
+            </Reveal>
+          ))}
+        </dl>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Closing call to action                                              */
+/* ------------------------------------------------------------------ */
+
+function ClosingCTA() {
+  return (
+    <section className="mx-auto max-w-[1400px] px-6 pt-28 pb-8 text-center md:px-10 md:pt-40">
+      <Reveal>
+        <h2
+          className="mx-auto max-w-[820px] font-medium text-[44px] tracking-tight md:text-[68px]"
+          style={{ letterSpacing: "-0.035em", lineHeight: 1.04 }}
+        >
+          Start the next Cycle with a plan, not a scramble.
+        </h2>
+        <p
+          className="mx-auto mt-6 max-w-[520px] text-[18px] text-mkt-muted"
+          style={{ lineHeight: 1.5 }}
+        >
+          Set up your church in minutes. Your first Cycle and a ready next week are waiting.
+        </p>
+        <div className="mt-9 flex items-center justify-center gap-3">
+          <button
+            className="rounded-full px-7 py-3 font-semibold text-[15px] text-mkt-fg transition-transform hover:scale-[1.02]"
+            style={{ backgroundColor: "oklch(0.88 0.18 95)" }}
+            type="button"
+          >
+            Get started
+          </button>
+          <button
+            className="rounded-full border border-mkt-border bg-mkt-bg px-7 py-3 font-medium text-[15px] text-mkt-fg transition-colors hover:bg-mkt-card"
+            style={{ boxShadow: "0 1px 0 rgba(0,0,0,0.04)" }}
+            type="button"
+          >
+            Book a demo
+          </button>
+        </div>
+      </Reveal>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Gradient showcase band — a second mesh moment with a product view   */
+/* ------------------------------------------------------------------ */
+
+const CYCLE_ROWS = [
+  {
+    key: "WOR-128",
+    team: "var(--t-violet)",
+    state: "done",
+    title: "Set list finalized",
+    who: "AK",
+    whoBg: "#8b5cf6",
+  },
+  {
+    key: "PRD-204",
+    team: "var(--t-blue)",
+    state: "progress",
+    title: "Camera cuts rehearsed",
+    who: "ST",
+    whoBg: "#3b82f6",
+  },
+  {
+    key: "KID-066",
+    team: "var(--t-orange)",
+    state: "progress",
+    title: "Volunteer check-in ready",
+    who: "JD",
+    whoBg: "#f97316",
+  },
+  {
+    key: "EXP-039",
+    team: "var(--t-teal)",
+    state: "todo",
+    title: "Coffee + welcome team",
+    who: "MR",
+    whoBg: "#14b8a6",
+  },
+  {
+    key: "SOC-017",
+    team: "var(--t-pink)",
+    state: "todo",
+    title: "Sermon clip scheduled",
+    who: "LB",
+    whoBg: "#ec4899",
+  },
+] as const;
+
+function CycleBoardMock() {
+  return (
+    <div className="cw-ui" style={{ borderColor: "rgba(255,255,255,0.16)" }}>
+      <div className="cw-ui-bar" style={{ background: "#fbfbfd" }}>
+        <span className="cw-ui-dot" style={{ background: "#ff5f57" }} />
+        <span className="cw-ui-dot" style={{ background: "#febc2e" }} />
+        <span className="cw-ui-dot" style={{ background: "#28c840" }} />
+        <span className="cw-ui-title">This Week · Our Work</span>
+        <span className="cw-pill ml-auto" data-state="progress">
+          Feb 2 — Feb 8
+        </span>
+      </div>
+      <div>
+        {CYCLE_ROWS.map((r) => (
+          <div className="cw-task" key={r.key}>
+            <span className="cw-teamdot" style={{ background: r.team }} />
+            <span className="cw-task-key">{r.key}</span>
+            <span className="cw-task-label" style={{ flex: 1 }}>
+              {r.title}
+            </span>
+            <span className="cw-pill" data-state={r.state}>
+              {r.state === "todo" ? "To Do" : r.state === "progress" ? "In Progress" : "Done"}
+            </span>
+            <span className="cw-avatar" style={{ background: r.whoBg }}>
+              {r.who}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GradientBand() {
+  return (
+    <section className="mx-auto mt-28 max-w-[1400px] px-4 md:mt-36">
+      <motion.div
+        className="mesh-band overflow-hidden rounded-[28px] p-7 md:p-12"
+        initial={{ opacity: 0, y: 40 }}
+        transition={{ duration: 0.9, ease: RISE_EASE }}
+        viewport={{ margin: "-15%", once: true }}
+        whileInView={{ opacity: 1, y: 0 }}
+      >
+        <div className="grid items-center gap-10 md:grid-cols-2 md:gap-14">
+          <div className="text-white">
+            <p className="cw-eyebrow" style={{ color: "rgba(255,255,255,0.6)" }}>
+              One shared picture
+            </p>
+            <h2
+              className="mt-5 max-w-[420px] font-medium text-[32px] tracking-tight md:text-[46px]"
+              style={{ letterSpacing: "-0.03em", lineHeight: 1.08 }}
+            >
+              The whole week, in one view.
+            </h2>
+            <p
+              className="mt-5 max-w-[420px] text-[16px]"
+              style={{ color: "rgba(255,255,255,0.72)", lineHeight: 1.55 }}
+            >
+              Every Team&rsquo;s Tasks for the current Cycle, color-coded and live. Production sees
+              production; everyone sees how Sunday is coming together.
+            </p>
+          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.98 }}
+            transition={{ delay: 0.15, duration: 0.8, ease: RISE_EASE }}
+            viewport={{ margin: "-15%", once: true }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            style={{ filter: "drop-shadow(0 30px 60px rgba(0,0,0,0.35))" }}
+          >
+            <CycleBoardMock />
+          </motion.div>
+        </div>
+      </motion.div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
+
+function HomePage() {
+  // The persistent MarketingShell (see route.tsx) owns the scroll surface and
+  // the Header; this page just contributes its sections. The hero and showcase
+  // enter relative to when the header settles — full delay on a cold load, ~0
+  // after navigation (when the header is already at rest).
+  const { headerSettle } = useHeaderEntrance();
+  return (
+    <>
+      <Hero base={headerSettle} />
+      <Showcase base={headerSettle} />
+      <HowItWorks />
+      <WhatYouGet />
+      <GradientBand />
+      <Vocabulary />
+      <ClosingCTA />
+      <div className="h-16" />
+    </>
   );
 }

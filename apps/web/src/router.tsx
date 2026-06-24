@@ -10,6 +10,11 @@ export function getRouter() {
   return createRouter({
     routeTree,
     scrollRestoration: true,
+    // The marketing pages share one persistent inner scroll container
+    // (MARKETING_SCROLL_ID in routes/_marketing/-marketing-shell.tsx). Reset it
+    // to the top on forward navigation so a fresh page starts at the top, while
+    // back/forward still restore the previous scroll position.
+    scrollToTopSelectors: ['[data-scroll-restoration-id="marketing-scroll"]'],
     context: {},
   });
 }
