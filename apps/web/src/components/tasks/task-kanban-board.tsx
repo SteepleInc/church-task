@@ -39,6 +39,7 @@ import {
   AssigneeComboboxSelector,
   formatCreatedAt,
   formatDueDate,
+  formatTimestampTooltip,
   getPriorityMeta,
   getEstimateMeta,
   labelDotClassName,
@@ -70,6 +71,11 @@ import {
   type TaskBoardTaskState,
   type TaskBoardWorkflowStatus,
 } from "./task-kanban-adapter";
+import { AssigneeHoverCard, type AssigneeProfile } from "./task-assignee-hover-card";
+import { FieldTooltip } from "./task-field-tooltip";
+import { LabelHoverCard } from "./task-label-hover-card";
+import { StatusTimeTooltip } from "./task-status-tooltip";
+import { WeekTooltip } from "./task-week-tooltip";
 import { ProjectedAdjustedBadge, TemplateSourceBadge } from "./template-source-badge";
 import { DEFAULT_TASK_VIEW_OPTIONS, type TaskDisplayProperty } from "./task-view-options";
 import { statusOptions } from "./task-kanban-board-utils";
@@ -99,6 +105,9 @@ export type TaskCardLabelsChange = {
 /** A Label option as the Board consumes it; teamId scopes Team Labels. */
 export type TaskBoardLabelOption = TaskLabelOption & {
   readonly teamId?: string | null;
+  // Number of Tasks currently carrying this Label, used by the rich label
+  // hover card. Optional so surfaces that don't load counts still type-check.
+  readonly taskCount?: number;
 };
 
 export type TaskCardEstimateChange = {
@@ -120,6 +129,8 @@ type TaskKanbanBoardProps = {
   readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
   readonly tasks: readonly TaskBoardTask[];
   readonly assigneeOptions?: readonly AssigneeOption[];
+  // Rich Member profiles keyed by user id, for the assignee hover card.
+  readonly assigneeProfilesById?: ReadonlyMap<string, AssigneeProfile>;
   readonly teamOptions?: readonly TaskBoardTeamOption[];
   readonly labelOptions?: readonly TaskBoardLabelOption[];
   // The signed-in user, pinned to the top of the assignee picker.
@@ -179,6 +190,7 @@ function boardSignature(
   ].join(":");
 }
 
+const EMPTY_ASSIGNEE_PROFILES: ReadonlyMap<string, AssigneeProfile> = new Map();
 const EMPTY_TEAM_MEMBERS: ReadonlyMap<string, ReadonlySet<string>> = new Map();
 const EMPTY_CYCLE_LABELS: ReadonlyMap<string, string> = new Map();
 const EMPTY_CYCLE_OPTIONS: readonly WeekPickerOption[] = [];
@@ -191,6 +203,7 @@ export function TaskKanbanBoard({
   workflowStatuses,
   tasks,
   assigneeOptions = [],
+  assigneeProfilesById = EMPTY_ASSIGNEE_PROFILES,
   teamOptions = [],
   labelOptions = [],
   currentUserId = null,
@@ -405,6 +418,7 @@ export function TaskKanbanBoard({
               tasks={columnTasks[column.id] ?? []}
               workflowStatuses={workflowStatuses}
               assigneeOptions={assigneeOptions}
+              assigneeProfilesById={assigneeProfilesById}
               currentUserId={currentUserId}
               teamMemberIdsByTeamId={teamMemberIdsByTeamId}
               cycleLabelsById={cycleLabelsById}
@@ -453,6 +467,7 @@ export function TaskKanbanBoard({
                 task={task}
                 workflowStatuses={workflowStatuses}
                 assigneeOptions={assigneeOptions}
+                assigneeProfilesById={assigneeProfilesById}
                 currentUserId={currentUserId}
                 teamMemberIdsByTeamId={teamMemberIdsByTeamId}
                 cycleLabelsById={cycleLabelsById}
@@ -481,7 +496,15 @@ export function TaskKanbanBoard({
  * dot+name badges for one or two labels, and a collapsed dot-cluster +
  * "N labels" badge for three or more (density guard).
  */
-function TaskCardLabelsBadge({ labels }: { readonly labels: readonly TaskBoardLabelOption[] }) {
+function TaskCardLabelsBadge({
+  labels,
+  teamsById,
+  hoverDisabled,
+}: {
+  readonly labels: readonly TaskBoardLabelOption[];
+  readonly teamsById?: ReadonlyMap<string, TaskBoardTeamOption>;
+  readonly hoverDisabled?: boolean;
+}) {
   if (labels.length === 0) {
     return (
       <span
@@ -495,12 +518,22 @@ function TaskCardLabelsBadge({ labels }: { readonly labels: readonly TaskBoardLa
   if (labels.length <= 2) {
     return (
       <span className="flex items-center gap-1.5">
-        {labels.map((option) => (
-          <Badge className="text-muted-foreground" key={option.id} variant="outline">
-            <span className={cn("size-1.5 rounded-full", labelDotClassName(option))} />
-            {option.name}
-          </Badge>
-        ))}
+        {labels.map((option) => {
+          const teamName = option.teamId ? (teamsById?.get(option.teamId)?.name ?? null) : null;
+          return (
+            <LabelHoverCard
+              disabled={hoverDisabled}
+              key={option.id}
+              label={option}
+              teamName={teamName}
+            >
+              <Badge className="text-muted-foreground" variant="outline">
+                <span className={cn("size-1.5 rounded-full", labelDotClassName(option))} />
+                {option.name}
+              </Badge>
+            </LabelHoverCard>
+          );
+        })}
       </span>
     );
   }
@@ -569,6 +602,7 @@ interface TaskKanbanColumnProps extends Omit<
   readonly value: string;
   readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
   readonly assigneeOptions: readonly AssigneeOption[];
+  readonly assigneeProfilesById: ReadonlyMap<string, AssigneeProfile>;
   readonly currentUserId: string | null;
   readonly teamMemberIdsByTeamId: ReadonlyMap<string, ReadonlySet<string>>;
   readonly cycleLabelsById: ReadonlyMap<string, string>;
@@ -599,6 +633,7 @@ function TaskKanbanColumn({
   value,
   workflowStatuses,
   assigneeOptions,
+  assigneeProfilesById,
   currentUserId,
   teamMemberIdsByTeamId,
   cycleLabelsById,
@@ -701,6 +736,7 @@ function TaskKanbanColumn({
               task={task}
               workflowStatuses={workflowStatuses}
               assigneeOptions={assigneeOptions}
+              assigneeProfilesById={assigneeProfilesById}
               currentUserId={currentUserId}
               teamMemberIdsByTeamId={teamMemberIdsByTeamId}
               cycleLabelsById={cycleLabelsById}
@@ -736,6 +772,7 @@ interface TaskKanbanCardProps extends Omit<
   readonly task: TaskBoardTask;
   readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
   readonly assigneeOptions: readonly AssigneeOption[];
+  readonly assigneeProfilesById: ReadonlyMap<string, AssigneeProfile>;
   readonly currentUserId: string | null;
   readonly teamMemberIdsByTeamId: ReadonlyMap<string, ReadonlySet<string>>;
   readonly cycleLabelsById: ReadonlyMap<string, string>;
@@ -762,6 +799,7 @@ function TaskKanbanCard({
   task,
   workflowStatuses,
   assigneeOptions,
+  assigneeProfilesById,
   currentUserId,
   teamMemberIdsByTeamId,
   cycleLabelsById,
@@ -850,6 +888,9 @@ function TaskKanbanCard({
   });
 
   const createdAtLabel = formatCreatedAt(task.createdAt);
+  const createdAtTooltip = formatTimestampTooltip(task.createdAt);
+  const updatedAtLabel = formatCreatedAt(task.updatedAt);
+  const updatedAtTooltip = formatTimestampTooltip(task.updatedAt);
   const dueDateLabel = formatDueDate(task.dueDate);
 
   // The status picker renders inline next to the Task title (Linear-style
@@ -868,9 +909,18 @@ function TaskKanbanCard({
           openRef={statusOpenRef}
           options={statusItems}
           trigger={
-            <span className="flex size-5 items-center justify-center">
-              <WorkflowStatusIcon taskState={cardState} />
-            </span>
+            <StatusTimeTooltip
+              churchId={churchId}
+              createdAt={task.createdAt ?? 0}
+              currentStatusId={task.workflowStatusId}
+              disabled={isOverlay || task.isProjected}
+              taskId={task.id}
+              workflowStatuses={workflowStatuses}
+            >
+              <span className="flex size-5 items-center justify-center">
+                <WorkflowStatusIcon taskState={cardState} />
+              </span>
+            </StatusTimeTooltip>
           }
           value={field.state.value}
         />
@@ -879,6 +929,9 @@ function TaskKanbanCard({
   );
   const teamName = teamsById.get(task.teamId)?.name ?? null;
   const cycleLabel = task.cycleId ? (cycleLabelsById.get(task.cycleId) ?? null) : null;
+  const selectedWeekOption = task.cycleId
+    ? (cycleOptions.find((option) => option.id === task.cycleId) ?? null)
+    : null;
   const showProperty = (property: TaskDisplayProperty) => displayProperties.has(property);
 
   // Church Labels plus the Task's Team's Labels are applicable in the picker
@@ -947,9 +1000,18 @@ function TaskKanbanCard({
                 options={assigneeOptions}
                 teamMemberIds={teamMemberIds}
                 trigger={
-                  <span className="flex size-5 items-center justify-center">
-                    <AssigneeAvatar assignee={selectedAssignee} size={20} />
-                  </span>
+                  <AssigneeHoverCard
+                    disabled={isOverlay}
+                    profile={
+                      task.assignedUserId
+                        ? (assigneeProfilesById.get(task.assignedUserId) ?? null)
+                        : null
+                    }
+                  >
+                    <span className="flex size-5 items-center justify-center">
+                      <AssigneeAvatar assignee={selectedAssignee} size={20} />
+                    </span>
+                  </AssigneeHoverCard>
                 }
                 value={field.state.value}
               />
@@ -991,12 +1053,14 @@ function TaskKanbanCard({
                   }}
                   openRef={priorityOpenRef}
                   trigger={
-                    <span
-                      aria-label={`Priority: ${meta.label}`}
-                      className="flex size-6 items-center justify-center rounded-md border bg-background hover:bg-accent"
-                    >
-                      <Icon className={cn("size-3.5", meta.className)} />
-                    </span>
+                    <FieldTooltip disabled={isOverlay} label="Change priority" shortcut="P">
+                      <span
+                        aria-label={`Priority: ${meta.label}`}
+                        className="flex size-6 items-center justify-center rounded-md border bg-background hover:bg-accent"
+                      >
+                        <Icon className={cn("size-3.5", meta.className)} />
+                      </span>
+                    </FieldTooltip>
                   }
                   value={field.state.value}
                 />
@@ -1019,17 +1083,19 @@ function TaskKanbanCard({
                   }}
                   openRef={estimateOpenRef}
                   trigger={
-                    <span
-                      aria-label={`Estimate: ${meta.label}`}
-                      className="flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 hover:bg-accent"
-                    >
-                      <Triangle className="size-3.5" />
-                      {meta.short ? (
-                        <span className="font-medium text-muted-foreground text-xs">
-                          {meta.short}
-                        </span>
-                      ) : null}
-                    </span>
+                    <FieldTooltip disabled={isOverlay} label="Change estimate" shortcut="⇧ E">
+                      <span
+                        aria-label={`Estimate: ${meta.label}`}
+                        className="flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 hover:bg-accent"
+                      >
+                        <Triangle className="size-3.5" />
+                        {meta.short ? (
+                          <span className="font-medium text-muted-foreground text-xs">
+                            {meta.short}
+                          </span>
+                        ) : null}
+                      </span>
+                    </FieldTooltip>
                   }
                   value={field.state.value}
                 />
@@ -1043,11 +1109,26 @@ function TaskKanbanCard({
               onValueChange={(next) => void onChangeTaskLabels({ taskId: task.id, labelIds: next })}
               openRef={labelsOpenRef}
               options={applicableLabels}
-              trigger={<TaskCardLabelsBadge labels={taskLabels} />}
+              trigger={
+                // With no labels yet the chip is the "add labels" affordance, so
+                // it carries the action tooltip. Once Labels exist, each named
+                // chip surfaces its own rich hover card instead (see badge).
+                taskLabels.length === 0 ? (
+                  <FieldTooltip label="Add labels" shortcut="L">
+                    <span className="inline-flex">
+                      <TaskCardLabelsBadge labels={taskLabels} />
+                    </span>
+                  </FieldTooltip>
+                ) : (
+                  <span className="inline-flex">
+                    <TaskCardLabelsBadge labels={taskLabels} teamsById={teamsById} />
+                  </span>
+                )
+              }
               value={task.labelIds ?? []}
             />
           ) : (
-            <TaskCardLabelsBadge labels={taskLabels} />
+            <TaskCardLabelsBadge hoverDisabled teamsById={teamsById} labels={taskLabels} />
           )
         ) : null}
         {showProperty("due_date") && dueDateLabel ? (
@@ -1062,12 +1143,30 @@ function TaskKanbanCard({
             disabled={task.isProjected || !onChangeTaskCycle}
             onValueChange={(next) => void onChangeTaskCycle?.({ taskId: task.id, cycleId: next })}
             options={cycleOptions}
-            trigger={
-              <span className="inline-flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 font-medium text-xs hover:bg-accent">
-                <CalendarIcon className="size-3.5" />
-                <span className="text-muted-foreground">{cycleLabel ?? "No week"}</span>
-              </span>
-            }
+            trigger={(() => {
+              const chip = (
+                <span className="inline-flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 font-medium text-xs hover:bg-accent">
+                  <CalendarIcon className="size-3.5" />
+                  <span className="text-muted-foreground">{cycleLabel ?? "No week"}</span>
+                </span>
+              );
+              const tooltipDisabled = task.isProjected || !onChangeTaskCycle || isOverlay;
+              // A selected Week gets the rich completion hover; with no Week
+              // there is nothing to summarize, so fall back to the action chip.
+              return selectedWeekOption ? (
+                <WeekTooltip
+                  churchId={churchId}
+                  disabled={tooltipDisabled}
+                  option={selectedWeekOption}
+                >
+                  {chip}
+                </WeekTooltip>
+              ) : (
+                <FieldTooltip disabled={tooltipDisabled} label="Change week" shortcut="⇧ C">
+                  {chip}
+                </FieldTooltip>
+              );
+            })()}
             value={task.cycleId ?? null}
           />
         ) : null}
@@ -1077,9 +1176,29 @@ function TaskKanbanCard({
         {task.isProjected && task.isAdjusted ? <ProjectedAdjustedBadge /> : null}
       </CardContent>
 
-      {showProperty("created") && createdAtLabel ? (
-        <CardContent className="px-3 pt-0 pb-3">
-          <p className="text-muted-foreground text-xs">Created {createdAtLabel}</p>
+      {showProperty("created") && (createdAtLabel || updatedAtLabel) ? (
+        <CardContent className="flex flex-wrap items-center gap-x-1.5 px-3 pt-0 pb-3 text-muted-foreground text-xs">
+          {createdAtLabel ? (
+            createdAtTooltip ? (
+              <Tooltip>
+                <TooltipTrigger render={<span>Created {createdAtLabel}</span>} />
+                <TooltipContent>{createdAtTooltip}</TooltipContent>
+              </Tooltip>
+            ) : (
+              <span>Created {createdAtLabel}</span>
+            )
+          ) : null}
+          {createdAtLabel && updatedAtLabel ? <span aria-hidden>·</span> : null}
+          {updatedAtLabel ? (
+            updatedAtTooltip ? (
+              <Tooltip>
+                <TooltipTrigger render={<span>Updated {updatedAtLabel}</span>} />
+                <TooltipContent>{updatedAtTooltip}</TooltipContent>
+              </Tooltip>
+            ) : (
+              <span>Updated {updatedAtLabel}</span>
+            )
+          ) : null}
         </CardContent>
       ) : null}
     </Card>

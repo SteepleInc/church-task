@@ -41,6 +41,7 @@ export type TaskCollectionItem = {
   readonly cycleId: string | null;
   readonly dueDate: string | null;
   readonly createdAt: number;
+  readonly updatedAt: number;
   readonly createdByUserId: string | null;
   readonly parentTaskId: string | null;
   readonly labelIds: readonly string[];
@@ -422,6 +423,7 @@ const mapTask = (
   boardOrder: task.board_order,
   churchId: task.church_id,
   createdAt: task.created_at ?? 0,
+  updatedAt: task.updated_at ?? task.created_at ?? 0,
   createdByUserId: task.created_by_user_id ?? task.created_by ?? null,
   cycleId: task.cycle_id ?? null,
   description: task.description ?? null,
@@ -558,6 +560,7 @@ export function buildProjectedTemplateTasksForCycle(args: {
         boardOrder: `template:${params.schedule.id}:${params.occurrenceKey}:${templateTask.id}`,
         churchId: params.schedule.church_id,
         createdAt: 0,
+        updatedAt: 0,
         createdByUserId: null,
         cycleId: args.cycle.id,
         description: templateTask.description ?? null,

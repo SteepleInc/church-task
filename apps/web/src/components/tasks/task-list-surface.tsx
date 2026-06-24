@@ -16,6 +16,7 @@ import {
   EstimateComboboxSelector,
   formatCreatedAt,
   formatDueDate,
+  formatTimestampTooltip,
   getEstimateMeta,
   getPriorityMeta,
   LabelsComboboxSelector,
@@ -28,6 +29,11 @@ import {
   type WeekPickerOption,
   WorkflowStatusIcon,
 } from "./task-card-fields";
+import { AssigneeHoverCard, type AssigneeProfile } from "./task-assignee-hover-card";
+import { FieldTooltip } from "./task-field-tooltip";
+import { LabelHoverCard } from "./task-label-hover-card";
+import { StatusTimeTooltip } from "./task-status-tooltip";
+import { WeekTooltip } from "./task-week-tooltip";
 import { useTaskContextMenu } from "./task-context-menu";
 import {
   buildTaskBoardGroupColumns,
@@ -61,6 +67,7 @@ type TaskListSurfaceProps = {
   readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
   readonly tasks: readonly TaskBoardTask[];
   readonly assigneeOptions?: readonly AssigneeOption[];
+  readonly assigneeProfilesById?: ReadonlyMap<string, AssigneeProfile>;
   readonly teamOptions?: readonly TaskBoardTeamOption[];
   readonly labelOptions?: readonly TaskBoardLabelOption[];
   readonly currentUserId?: string | null;
@@ -92,6 +99,7 @@ type TaskListSurfaceProps = {
   readonly className?: string;
 };
 
+const EMPTY_ASSIGNEE_PROFILES: ReadonlyMap<string, AssigneeProfile> = new Map();
 const EMPTY_TEAM_MEMBERS: ReadonlyMap<string, ReadonlySet<string>> = new Map();
 const EMPTY_CYCLE_OPTIONS: readonly WeekPickerOption[] = [];
 const EMPTY_USER_ID_SET: ReadonlySet<string> = new Set();
@@ -112,6 +120,7 @@ export function TaskListSurface({
   workflowStatuses,
   tasks,
   assigneeOptions = [],
+  assigneeProfilesById = EMPTY_ASSIGNEE_PROFILES,
   teamOptions = [],
   labelOptions = [],
   currentUserId = null,
@@ -177,6 +186,7 @@ export function TaskListSurface({
           tasks={tasksByColumn[column.id] ?? []}
           workflowStatuses={workflowStatuses}
           assigneeOptions={assigneeOptions}
+          assigneeProfilesById={assigneeProfilesById}
           currentUserId={currentUserId}
           teamMemberIdsByTeamId={teamMemberIdsByTeamId}
           cycleLabelsById={cycleLabelsById}
@@ -206,6 +216,7 @@ type TaskListGroupProps = {
   readonly tasks: readonly TaskBoardTask[];
   readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
   readonly assigneeOptions: readonly AssigneeOption[];
+  readonly assigneeProfilesById: ReadonlyMap<string, AssigneeProfile>;
   readonly currentUserId: string | null;
   readonly teamMemberIdsByTeamId: ReadonlyMap<string, ReadonlySet<string>>;
   readonly cycleLabelsById: ReadonlyMap<string, string>;
@@ -231,6 +242,7 @@ function TaskListGroup({
   tasks,
   workflowStatuses,
   assigneeOptions,
+  assigneeProfilesById,
   currentUserId,
   teamMemberIdsByTeamId,
   cycleLabelsById,
@@ -336,6 +348,7 @@ function TaskListGroup({
             task={task}
             workflowStatuses={workflowStatuses}
             assigneeOptions={assigneeOptions}
+            assigneeProfilesById={assigneeProfilesById}
             currentUserId={currentUserId}
             teamMemberIdsByTeamId={teamMemberIdsByTeamId}
             cycleLabelsById={cycleLabelsById}
@@ -364,7 +377,15 @@ function TaskListGroup({
  * dot-cluster + "N labels" badge for three or more. Mirrors the Board card's
  * TaskCardLabelsBadge.
  */
-function TaskRowLabelsBadge({ labels }: { readonly labels: readonly TaskBoardLabelOption[] }) {
+function TaskRowLabelsBadge({
+  labels,
+  teamsById,
+  hoverDisabled,
+}: {
+  readonly labels: readonly TaskBoardLabelOption[];
+  readonly teamsById?: ReadonlyMap<string, TaskBoardTeamOption>;
+  readonly hoverDisabled?: boolean;
+}) {
   if (labels.length === 0) {
     return (
       <span
@@ -378,12 +399,22 @@ function TaskRowLabelsBadge({ labels }: { readonly labels: readonly TaskBoardLab
   if (labels.length <= 2) {
     return (
       <span className="flex items-center gap-1.5">
-        {labels.map((option) => (
-          <Badge className="text-muted-foreground" key={option.id} variant="outline">
-            <span className={cn("size-1.5 rounded-full", labelDotClassName(option))} />
-            {option.name}
-          </Badge>
-        ))}
+        {labels.map((option) => {
+          const teamName = option.teamId ? (teamsById?.get(option.teamId)?.name ?? null) : null;
+          return (
+            <LabelHoverCard
+              disabled={hoverDisabled}
+              key={option.id}
+              label={option}
+              teamName={teamName}
+            >
+              <Badge className="text-muted-foreground" variant="outline">
+                <span className={cn("size-1.5 rounded-full", labelDotClassName(option))} />
+                {option.name}
+              </Badge>
+            </LabelHoverCard>
+          );
+        })}
       </span>
     );
   }
@@ -409,6 +440,7 @@ type TaskListRowProps = {
   readonly task: TaskBoardTask;
   readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
   readonly assigneeOptions: readonly AssigneeOption[];
+  readonly assigneeProfilesById: ReadonlyMap<string, AssigneeProfile>;
   readonly currentUserId: string | null;
   readonly teamMemberIdsByTeamId: ReadonlyMap<string, ReadonlySet<string>>;
   readonly cycleLabelsById: ReadonlyMap<string, string>;
@@ -430,6 +462,7 @@ function TaskListRow({
   task,
   workflowStatuses,
   assigneeOptions,
+  assigneeProfilesById,
   currentUserId,
   teamMemberIdsByTeamId,
   cycleLabelsById,
@@ -501,9 +534,13 @@ function TaskListRow({
   });
 
   const createdAtLabel = formatCreatedAt(task.createdAt);
+  const createdAtTooltip = formatTimestampTooltip(task.createdAt);
   const dueDateLabel = formatDueDate(task.dueDate);
   const teamName = teamsById.get(task.teamId)?.name ?? null;
   const cycleLabel = task.cycleId ? (cycleLabelsById.get(task.cycleId) ?? null) : null;
+  const selectedWeekOption = task.cycleId
+    ? (cycleOptions.find((option) => option.id === task.cycleId) ?? null)
+    : null;
   const showProperty = (property: TaskDisplayProperty) => displayProperties.has(property);
 
   // Church Labels plus the Task's Team's Labels are applicable in the picker
@@ -567,12 +604,14 @@ function TaskListRow({
                 }}
                 openRef={priorityOpenRef}
                 trigger={
-                  <span
-                    aria-label={`Priority: ${meta.label}`}
-                    className="flex size-5 items-center justify-center"
-                  >
-                    <Icon className={cn("size-4", meta.className)} />
-                  </span>
+                  <FieldTooltip label="Change priority" shortcut="P">
+                    <span
+                      aria-label={`Priority: ${meta.label}`}
+                      className="flex size-5 items-center justify-center"
+                    >
+                      <Icon className={cn("size-4", meta.className)} />
+                    </span>
+                  </FieldTooltip>
                 }
                 value={field.state.value}
               />
@@ -604,9 +643,18 @@ function TaskListRow({
               openRef={statusOpenRef}
               options={statusItems}
               trigger={
-                <span className="flex size-5 shrink-0 items-center justify-center">
-                  <WorkflowStatusIcon taskState={rowState} />
-                </span>
+                <StatusTimeTooltip
+                  churchId={churchId}
+                  createdAt={task.createdAt ?? 0}
+                  currentStatusId={task.workflowStatusId}
+                  disabled={task.isProjected}
+                  taskId={task.id}
+                  workflowStatuses={workflowStatuses}
+                >
+                  <span className="flex size-5 shrink-0 items-center justify-center">
+                    <WorkflowStatusIcon taskState={rowState} />
+                  </span>
+                </StatusTimeTooltip>
               }
               value={field.state.value}
             />
@@ -629,11 +677,25 @@ function TaskListRow({
               onValueChange={(next) => void onChangeTaskLabels({ taskId: task.id, labelIds: next })}
               openRef={labelsOpenRef}
               options={applicableLabels}
-              trigger={<TaskRowLabelsBadge labels={taskLabels} />}
+              trigger={
+                // No labels yet → the chip is the "add" affordance (action
+                // tooltip); once labels exist each chip carries its hover card.
+                taskLabels.length === 0 ? (
+                  <FieldTooltip label="Add labels" shortcut="L">
+                    <span className="inline-flex">
+                      <TaskRowLabelsBadge labels={taskLabels} />
+                    </span>
+                  </FieldTooltip>
+                ) : (
+                  <span className="inline-flex">
+                    <TaskRowLabelsBadge labels={taskLabels} teamsById={teamsById} />
+                  </span>
+                )
+              }
               value={task.labelIds ?? []}
             />
           ) : (
-            <TaskRowLabelsBadge labels={taskLabels} />
+            <TaskRowLabelsBadge hoverDisabled labels={taskLabels} teamsById={teamsById} />
           )
         ) : null}
 
@@ -645,12 +707,30 @@ function TaskListRow({
             disabled={task.isProjected || !onChangeTaskCycle}
             onValueChange={(next) => void onChangeTaskCycle?.({ taskId: task.id, cycleId: next })}
             options={cycleOptions}
-            trigger={
-              <span className="inline-flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 font-medium text-xs hover:bg-accent">
-                <CalendarIcon className="size-3.5" />
-                <span className="text-muted-foreground">{cycleLabel ?? "No week"}</span>
-              </span>
-            }
+            trigger={(() => {
+              const chip = (
+                <span className="inline-flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 font-medium text-xs hover:bg-accent">
+                  <CalendarIcon className="size-3.5" />
+                  <span className="text-muted-foreground">{cycleLabel ?? "No week"}</span>
+                </span>
+              );
+              const tooltipDisabled = task.isProjected || !onChangeTaskCycle;
+              // A selected Week gets the rich completion hover; with no Week
+              // there is nothing to summarize, so fall back to the action chip.
+              return selectedWeekOption ? (
+                <WeekTooltip
+                  churchId={churchId}
+                  disabled={tooltipDisabled}
+                  option={selectedWeekOption}
+                >
+                  {chip}
+                </WeekTooltip>
+              ) : (
+                <FieldTooltip disabled={tooltipDisabled} label="Change week" shortcut="⇧ C">
+                  {chip}
+                </FieldTooltip>
+              );
+            })()}
             value={task.cycleId ?? null}
           />
         ) : null}
@@ -682,17 +762,19 @@ function TaskListRow({
                   }}
                   openRef={estimateOpenRef}
                   trigger={
-                    <span
-                      aria-label={`Estimate: ${meta.label}`}
-                      className="flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 hover:bg-accent"
-                    >
-                      <Triangle className="size-3.5" />
-                      {meta.short ? (
-                        <span className="font-medium text-muted-foreground text-xs">
-                          {meta.short}
-                        </span>
-                      ) : null}
-                    </span>
+                    <FieldTooltip label="Change estimate" shortcut="⇧ E">
+                      <span
+                        aria-label={`Estimate: ${meta.label}`}
+                        className="flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 hover:bg-accent"
+                      >
+                        <Triangle className="size-3.5" />
+                        {meta.short ? (
+                          <span className="font-medium text-muted-foreground text-xs">
+                            {meta.short}
+                          </span>
+                        ) : null}
+                      </span>
+                    </FieldTooltip>
                   }
                   value={field.state.value}
                 />
@@ -702,9 +784,22 @@ function TaskListRow({
         ) : null}
 
         {showProperty("created") && createdAtLabel ? (
-          <span className="hidden w-12 shrink-0 text-right text-muted-foreground text-xs sm:inline">
-            {createdAtLabel}
-          </span>
+          createdAtTooltip ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <span className="hidden w-12 shrink-0 text-right text-muted-foreground text-xs sm:inline">
+                    {createdAtLabel}
+                  </span>
+                }
+              />
+              <TooltipContent>{createdAtTooltip}</TooltipContent>
+            </Tooltip>
+          ) : (
+            <span className="hidden w-12 shrink-0 text-right text-muted-foreground text-xs sm:inline">
+              {createdAtLabel}
+            </span>
+          )
         ) : null}
 
         {showProperty("assignee") ? (
@@ -723,9 +818,17 @@ function TaskListRow({
                 options={assigneeOptions}
                 teamMemberIds={teamMemberIds}
                 trigger={
-                  <span className="flex size-5 items-center justify-center">
-                    <AssigneeAvatar assignee={selectedAssignee} size={20} />
-                  </span>
+                  <AssigneeHoverCard
+                    profile={
+                      task.assignedUserId
+                        ? (assigneeProfilesById.get(task.assignedUserId) ?? null)
+                        : null
+                    }
+                  >
+                    <span className="flex size-5 items-center justify-center">
+                      <AssigneeAvatar assignee={selectedAssignee} size={20} />
+                    </span>
+                  </AssigneeHoverCard>
                 }
                 value={field.state.value}
               />

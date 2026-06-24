@@ -34,6 +34,7 @@ export type TaskBoardTask = {
   readonly estimate?: TaskBoardEstimate | null;
   readonly priority?: "urgent" | "high" | "medium" | "low" | null;
   readonly createdAt?: number | null;
+  readonly updatedAt?: number | null;
   readonly labelIds?: readonly string[];
   readonly parentTask?: {
     readonly id: string;

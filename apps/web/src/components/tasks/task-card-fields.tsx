@@ -46,6 +46,7 @@ import {
   usePickerOpener,
 } from "@/components/ui/combobox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TooltipSuppressor } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useFieldContext } from "@/components/form/ts-field";
 import {
@@ -204,6 +205,30 @@ export function formatCreatedAt(
     month: "short",
     day: "numeric",
     ...(sameYear ? {} : { year: "numeric" }),
+  });
+}
+
+/**
+ * The full, precise date + time for a timestamp tooltip (epoch ms), e.g.
+ * "Jan 28, 2:38 PM" or "Dec 31, 2025, 9:00 AM" — the absolute time Linear
+ * surfaces on hover over a relative/short "Created"/"Updated" label. The year
+ * is appended only when the timestamp falls outside `now`'s calendar year.
+ * Returns `null` for missing/invalid timestamps.
+ */
+export function formatTimestampTooltip(
+  timestamp: number | null | undefined,
+  now: Date = new Date(),
+): string | null {
+  if (timestamp == null || !Number.isFinite(timestamp)) return null;
+  const value = new Date(timestamp);
+  if (Number.isNaN(value.getTime())) return null;
+  const sameYear = value.getFullYear() === now.getFullYear();
+  return value.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
@@ -454,7 +479,7 @@ export function AssigneeComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup
         align={align}
@@ -583,7 +608,7 @@ export function PriorityComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup
         popupProps={{
@@ -729,7 +754,7 @@ export function StatusComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup
         popupProps={{
@@ -822,7 +847,7 @@ export function EstimateComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup popupProps={{ onClick: (event) => event.stopPropagation() }}>
         <PickerHeader placeholder="Change estimate to..." shortcut="⇧ E" />
@@ -943,7 +968,7 @@ export function LabelsComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup popupProps={{ onClick: (event) => event.stopPropagation() }}>
         <PickerHeader placeholder="Add labels..." shortcut="L" />
@@ -1036,7 +1061,7 @@ export function DueDateSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-0" side="bottom" sideOffset={4}>
         <Calendar
@@ -1175,7 +1200,7 @@ export function TeamComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup popupProps={{ onClick: (event) => event.stopPropagation() }} width="lg">
         <PickerHeader placeholder="Change team..." shortcut="T" />
@@ -1250,7 +1275,11 @@ function WeekTaskCountBadge({
 }) {
   const count = useWeekTaskCount({ churchId, cycleId });
   if (count <= 0) return null;
-  return <span className="text-muted-foreground text-xs tabular-nums">{count}</span>;
+  return (
+    <span className="text-muted-foreground text-xs tabular-nums group-data-highlighted/combobox-option:text-accent-foreground">
+      {count}
+    </span>
+  );
 }
 
 /** A single rich Week row: status icon, name, date range, relative cue + count. */
@@ -1275,7 +1304,9 @@ function WeekRowItem({
       <Icon className={cn("size-4", WEEK_STATUS_ICON_CLASS[option.status])} />
       <span className="min-w-0 truncate">{option.label}</span>
       {secondary ? (
-        <span className="shrink-0 text-muted-foreground text-xs">{secondary}</span>
+        <span className="shrink-0 text-muted-foreground text-xs group-data-highlighted/combobox-option:text-accent-foreground">
+          {secondary}
+        </span>
       ) : null}
       <span className="ms-auto ps-2">
         <WeekTaskCountBadge churchId={churchId} cycleId={option.id} />
@@ -1373,7 +1404,7 @@ export function WeekComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup
         popupProps={{

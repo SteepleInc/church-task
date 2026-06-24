@@ -23,6 +23,7 @@ export type TaskSummary = {
   readonly cycleId: string | null;
   readonly dueDate: string | null;
   readonly createdAt: number;
+  readonly updatedAt: number;
   readonly parentTaskId: string | null;
   readonly workflowId: string;
   readonly workflowStatusId: string;
