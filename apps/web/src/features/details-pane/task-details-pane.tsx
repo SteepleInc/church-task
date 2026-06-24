@@ -1,5 +1,12 @@
 import { CalendarIcon, ChevronRight, Tag, Triangle } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentPropsWithoutRef,
+} from "react";
 import { toast } from "sonner";
 
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
@@ -49,9 +56,12 @@ import {
 } from "@/components/tasks/task-card-fields";
 import { isEditableTarget, statusOptions } from "@/components/tasks/task-kanban-board-utils";
 import { TaskContextMenu, type TaskStateTransition } from "@/components/tasks/task-context-menu";
+import { TaskFieldProvider } from "@/components/tasks/task-field-context";
+import { LabelHoverCard } from "@/components/tasks/task-label-hover-card";
 import type { TaskBoardTask } from "@/components/tasks/task-kanban-adapter";
 import { resolveTaskFieldShortcut } from "@/components/tasks/task-surface-keyboard-utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { TaskActivityFeed } from "./task-activity-feed";
 import type { ActivityResolvers } from "./task-activity-feed-utils";
@@ -62,30 +72,32 @@ import type { ActivityResolvers } from "./task-activity-feed-utils";
  * Borderless by default (Linear treats property chips as quiet ghost buttons),
  * tinted via `border` only when a value is set and we want it to read as active.
  */
-function FieldPill({
-  children,
-  muted = false,
-  bordered = false,
-  className,
-}: {
-  readonly children: ReactNode;
-  readonly muted?: boolean;
-  readonly bordered?: boolean;
-  readonly className?: string;
-}) {
+const FieldPill = forwardRef<
+  HTMLSpanElement,
+  ComponentPropsWithoutRef<"span"> & {
+    readonly muted?: boolean;
+    readonly bordered?: boolean;
+  }
+>(function FieldPill({ children, muted = false, bordered = false, className, ...rest }, ref) {
+  // Spreads `rest` and forwards `ref` so base-ui's `<TooltipTrigger render>` can
+  // attach its hover wiring (event handlers, `data-slot`, `aria-*`) to the real
+  // span — without this the field tooltips never mount (the trigger props would
+  // be silently dropped by an opaque component).
   return (
     <span
+      ref={ref}
       className={cn(
         "inline-flex h-7 max-w-full items-center gap-1.5 rounded-md px-2 font-medium text-[13px] transition-colors hover:bg-accent",
         bordered ? "border" : "border border-transparent",
         muted && "text-muted-foreground",
         className,
       )}
+      {...rest}
     >
       {children}
     </span>
   );
-}
+});
 
 /** Small rounded-square avatar for the breadcrumb (matches the org switcher). */
 function BreadcrumbOrgAvatar({ name }: { readonly name: string }) {
@@ -126,13 +138,6 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
   const changeDetailsPaneId = useChangeDetailsPaneId();
   const canonicalIdentifier = task?.identifier ?? null;
   const churchName = activeChurch?.name ?? "Church";
-
-  // Priority has no backend persistence yet (UI-only across the app), so it is
-  // held as local pane state, keyed to the resolved Task.
-  const [priority, setPriority] = useState<TaskPriority>("no_priority");
-  useEffect(() => {
-    setPriority("no_priority");
-  }, [canonicalIdentifier]);
 
   // Locally-buffered title, committed to the Task on blur (Linear behavior).
   const [titleDraft, setTitleDraft] = useState<string | null>(null);
@@ -266,6 +271,9 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
     .filter((label) => label !== undefined);
 
   const estimateMeta = getEstimateMeta(task.estimate ?? "no_estimate");
+  // Priority is persisted on the Task (DB → Zero → mutator); read it straight
+  // off the Task and write through the same `persist` path as the other fields.
+  const priority = (task.priority ?? "no_priority") as TaskPriority;
   const priorityMeta = getPriorityMeta(priority);
   const PriorityIcon = priorityMeta.icon;
   const dueDateLabel = formatDueDate(task.dueDate);
@@ -487,302 +495,330 @@ export function TaskDetailsPane({ identifier }: { readonly identifier: string })
   };
 
   return (
-    <DetailsShell
-      topBarButtons={
-        <TaskBreadcrumb churchName={churchName} identifier={task.identifier} title={task.title} />
-      }
-      headerBand={
-        <TaskContextMenu
-          assigneeOptions={assigneeOptions}
-          buildTaskUrl={(taskIdentifier) =>
-            `${window.location.origin}${window.location.pathname}?details-pane=${encodeURIComponent(JSON.stringify([{ type: "task", id: taskIdentifier }]))}`
-          }
-          currentUserId={currentUserId}
-          labelOptions={labels.labelsCollection}
-          memberTeamIds={memberTeamIds}
-          onAssignTask={(change) => persist({ assignedUserId: change.assignedUserId })}
-          onChangeTaskDueDate={(change) => persist({ dueDate: change.dueDate })}
-          onChangeTaskEstimate={(change) => persist({ estimate: change.estimate })}
-          onChangeTaskLabels={(change) => persist({ labelIds: change.labelIds })}
-          onChangeTaskStatus={(change) => persist({ workflowStatusId: change.workflowStatusId })}
-          onChangeTaskTeam={(change) =>
-            persist({ teamId: change.teamId, labelIds: change.labelIds })
-          }
-          onOpenTask={(taskIdentifier) => changeDetailsPaneId(taskIdentifier).forceNav()}
-          onTransitionTask={(change) => transitionTask(change.taskId, change.transition)}
-          rowState={cardState}
-          targetTaskIds={[task.id]}
-          task={toMenuTask(task)}
-          teamMemberIdsByTeamId={new Map([[task.teamId, teamMemberIds]])}
-          teamOptions={teamPickerOptions}
-          workflowStatuses={workflowStatuses.workflowStatusesCollection}
-        >
-          <div className="flex flex-wrap items-center gap-1 border-b px-4 py-2.5">
-            <StatusComboboxSelector
-              disabled={statusItems.length === 0 || task.isProjected}
-              emptyText="No statuses."
-              onValueChange={(next) => {
-                if (next) persist({ workflowStatusId: next });
-              }}
-              openRef={statusOpenRef}
-              options={statusItems}
-              trigger={
-                <FieldPill bordered>
-                  <WorkflowStatusIcon className="size-3.5" taskState={cardState} />
-                  {workflowStatus?.name ?? "Status"}
-                </FieldPill>
-              }
-              triggerTestId="task-details-status-trigger"
-              value={task.workflowStatusId}
-            />
-
-            <PriorityComboboxSelector
-              onValueChange={setPriority}
-              openRef={priorityOpenRef}
-              trigger={
-                <FieldPill bordered muted={priority === "no_priority"}>
-                  <PriorityIcon className={cn("size-3.5", priorityMeta.className)} />
-                  {priority === "no_priority" ? "Priority" : priorityMeta.label}
-                </FieldPill>
-              }
-              value={priority}
-            />
-
-            <AssigneeComboboxSelector
-              align="start"
-              currentUserId={currentUserId}
-              disabled={task.isProjected}
-              onValueChange={(next) => persist({ assignedUserId: next })}
-              openRef={assigneeOpenRef}
-              options={assigneeOptions}
-              teamMemberIds={teamMemberIds}
-              trigger={
-                <FieldPill bordered muted={selectedAssignee === null}>
-                  <AssigneeAvatar assignee={selectedAssignee} size={16} />
-                  {selectedAssignee?.label ?? "Assignee"}
-                </FieldPill>
-              }
-              value={task.assignedUserId}
-            />
-
-            <LabelsComboboxSelector
-              disabled={task.isProjected}
-              onValueChange={(next) => persist({ labelIds: [...next] })}
-              openRef={labelsOpenRef}
-              options={applicableLabels}
-              trigger={
-                <FieldPill bordered muted={taskLabels.length === 0}>
-                  {taskLabels.length === 0 ? (
-                    <>
-                      <Tag className="size-3.5" />
-                      Labels
-                    </>
-                  ) : (
-                    <>
-                      <span className="-space-x-1 flex items-center">
-                        {taskLabels.map((label) => (
-                          <span
-                            className={cn(
-                              "size-2.5 rounded-full ring-2 ring-background",
-                              labelDotClassName(label),
-                            )}
-                            key={label.id}
-                          />
-                        ))}
-                      </span>
-                      <span className="truncate">
-                        {taskLabels.length === 1
-                          ? taskLabels[0]?.name
-                          : `${taskLabels.length} labels`}
-                      </span>
-                    </>
-                  )}
-                </FieldPill>
-              }
-              triggerTestId="task-details-labels-trigger"
-              value={task.labelIds ?? []}
-            />
-
-            <EstimateComboboxSelector
-              disabled={task.isProjected}
-              onValueChange={(next) => persist({ estimate: next === "no_estimate" ? null : next })}
-              openRef={estimateOpenRef}
-              trigger={
-                <FieldPill bordered muted={(task.estimate ?? "no_estimate") === "no_estimate"}>
-                  <Triangle className="size-3.5" />
-                  {task.estimate ? estimateMeta.label : "Estimate"}
-                </FieldPill>
-              }
-              value={(task.estimate ?? "no_estimate") as TaskEstimate}
-            />
-
-            <DueDateSelector
-              disabled={task.isProjected}
-              onValueChange={(next) => persist({ dueDate: next })}
-              openRef={dueDateOpenRef}
-              trigger={
-                <FieldPill bordered muted={dueDateLabel === null}>
-                  <CalendarIcon className="size-3.5" />
-                  {dueDateLabel ?? "Due date"}
-                </FieldPill>
-              }
-              value={task.dueDate}
-            />
-
-            <WeekComboboxSelector
-              churchId={churchId}
-              disabled={task.isProjected}
-              onValueChange={(next) => persist({ cycleId: next })}
-              options={weekOptions}
-              trigger={
-                <FieldPill bordered muted={taskCycleLabel === null}>
-                  <CalendarIcon className="size-3.5" />
-                  {taskCycleLabel ?? "No week"}
-                </FieldPill>
-              }
-              value={task.cycleId ?? null}
-            />
-
-            {team ? (
-              <TeamComboboxSelector
-                disabled={task.isProjected}
-                memberTeamIds={memberTeamIds}
-                // The destination Team's Workflow takes over server-side: the
-                // Task's Workflow Status resets to that Workflow's default and
-                // foreign Team Labels drop out (see tasks.update mutator).
-                onValueChange={(next) => persist({ teamId: next })}
-                openRef={teamOpenRef}
-                options={teamPickerOptions}
-                trigger={
-                  <FieldPill bordered>
-                    <TeamAvatar color={team.color} name={team.name} size={16} />
-                    {team.name}
-                  </FieldPill>
-                }
-                triggerTestId="task-details-team-trigger"
-                value={team.id}
-              />
-            ) : null}
-          </div>
-        </TaskContextMenu>
-      }
-      contentClassName="gap-6 pt-6"
-      content={
-        <>
-          {/* Title */}
-          <textarea
-            aria-label="Task title"
-            autoComplete="off"
-            className="field-sizing-content w-full resize-none bg-transparent font-semibold text-2xl leading-tight tracking-tight outline-none placeholder:text-muted-foreground disabled:cursor-default"
-            data-1p-ignore="true"
-            disabled={task.isProjected}
-            onBlur={() => {
-              const next = titleValue.trim();
-              if (next !== "" && next !== task.title) persist({ title: next });
-              setTitleDraft(null);
-            }}
-            onChange={(event) => setTitleDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                event.currentTarget.blur();
-              }
-            }}
-            placeholder="Task title"
-            rows={1}
-            value={titleValue}
-          />
-
-          {/* Description */}
-          {task.description ? (
-            <p className="whitespace-pre-wrap break-words text-[15px] text-foreground/90 leading-relaxed">
-              {task.description}
-            </p>
-          ) : (
-            <p className="text-muted-foreground text-[15px]">Add a description...</p>
-          )}
-
-          {/* Parent context */}
-          {parentTask ? (
-            <section className="grid gap-2">
-              <h3 className="font-medium text-muted-foreground text-xs">Parent</h3>
-              <button
-                className="flex w-full items-center gap-2 rounded-lg border bg-background/60 p-3 text-left text-sm transition-colors hover:bg-accent"
-                onClick={() => changeDetailsPaneId(parentTask.identifier).forceNav()}
-                type="button"
-              >
-                <span className="shrink-0 font-medium text-muted-foreground text-xs">
-                  {parentTask.identifier}
-                </span>
-                <span className="truncate">{parentTask.title}</span>
-              </button>
-            </section>
-          ) : null}
-
-          {/* Sub-tasks */}
-          <SubTaskSection
-            allTasks={allTasks.tasksCollection}
+    // The app shell wraps everything in a `delay={0}` tooltip provider (for the
+    // collapsed-sidebar tooltips), so re-establish the default 304ms field-tooltip
+    // delay here — matching the board/list surfaces — for the Task pane.
+    <TooltipProvider>
+      <DetailsShell
+        topBarButtons={
+          <TaskBreadcrumb churchName={churchName} identifier={task.identifier} title={task.title} />
+        }
+        headerBand={
+          <TaskContextMenu
             assigneeOptions={assigneeOptions}
+            buildTaskUrl={(taskIdentifier) =>
+              `${window.location.origin}${window.location.pathname}?details-pane=${encodeURIComponent(JSON.stringify([{ type: "task", id: taskIdentifier }]))}`
+            }
             currentUserId={currentUserId}
-            defaultPriority={task.priority ?? "no_priority"}
-            labels={labels.labelsCollection.map((label) => ({
-              id: label.id,
-              name: label.name,
-              color: label.color,
-              teamId: label.teamId,
-            }))}
-            onCreateLabel={handleCreateSubTaskLabel}
-            onCreateSubTask={handleCreateSubTask}
-            onCreateSubTasks={handleCreateSubTasks}
-            onEditTask={handleEditSubTask}
-            onOpenTask={(identifier) => changeDetailsPaneId(identifier).forceNav()}
-            parentTask={task}
-            teamMemberships={teamMemberships.teamMembershipsCollection.map((membership) => ({
-              teamId: membership.teamId,
-              userId: membership.userId,
-            }))}
-            teams={teams.teamsCollection.map((candidate) => ({
-              id: candidate.id,
-              name: candidate.name,
-              color: (candidate.color ?? null) as string | null,
-            }))}
-            weekLabelByCycleId={weekLabelByCycleId}
-            workflowStatuses={workflowStatuses.workflowStatusesCollection.map((status) => ({
-              id: status.id,
-              workflowId: status.workflowId,
-              name: status.name,
-              sortOrder: status.sortOrder,
-              taskState: status.taskState,
-              archivedAt: status.archivedAt,
-            }))}
-          />
+            labelOptions={labels.labelsCollection}
+            memberTeamIds={memberTeamIds}
+            onAssignTask={(change) => persist({ assignedUserId: change.assignedUserId })}
+            onChangeTaskDueDate={(change) => persist({ dueDate: change.dueDate })}
+            onChangeTaskEstimate={(change) => persist({ estimate: change.estimate })}
+            onChangeTaskLabels={(change) => persist({ labelIds: change.labelIds })}
+            onChangeTaskStatus={(change) => persist({ workflowStatusId: change.workflowStatusId })}
+            onChangeTaskTeam={(change) =>
+              persist({ teamId: change.teamId, labelIds: change.labelIds })
+            }
+            onOpenTask={(taskIdentifier) => changeDetailsPaneId(taskIdentifier).forceNav()}
+            onTransitionTask={(change) => transitionTask(change.taskId, change.transition)}
+            rowState={cardState}
+            targetTaskIds={[task.id]}
+            task={toMenuTask(task)}
+            teamMemberIdsByTeamId={new Map([[task.teamId, teamMemberIds]])}
+            teamOptions={teamPickerOptions}
+            workflowStatuses={workflowStatuses.workflowStatusesCollection}
+          >
+            <TaskFieldProvider taskId={task.id}>
+              <div className="flex flex-wrap items-center gap-1 border-b px-4 py-2.5">
+                <StatusComboboxSelector
+                  disabled={statusItems.length === 0 || task.isProjected}
+                  emptyText="No statuses."
+                  onValueChange={(next) => {
+                    if (next) persist({ workflowStatusId: next });
+                  }}
+                  openRef={statusOpenRef}
+                  options={statusItems}
+                  trigger={
+                    <FieldPill bordered>
+                      <WorkflowStatusIcon className="size-3.5" taskState={cardState} />
+                      {workflowStatus?.name ?? "Status"}
+                    </FieldPill>
+                  }
+                  triggerTestId="task-details-status-trigger"
+                  value={task.workflowStatusId}
+                />
 
-          {/* Activity Feed (read-only history). Projected Tasks have no real
-              Activity rows yet, so the feed is only shown for real Tasks. */}
-          {task.isProjected ? null : (
-            <TaskActivityFeed
-              churchId={churchId}
-              currentUserId={currentUserId}
-              onCreateTaskFromComment={(prefill) => openCreateTask(prefill)}
-              resolveActorName={activityResolvers.user}
-              resolvers={activityResolvers}
-              sourceTask={{
-                id: task.id,
-                identifier: task.identifier,
-                title: task.title,
-                assignedUserId: task.assignedUserId,
-                teamId: task.teamId,
-                priority: task.priority ?? "no_priority",
-                estimate: task.estimate ?? "no_estimate",
-                labelIds: task.labelIds,
-                dueDate: task.dueDate,
+                <PriorityComboboxSelector
+                  disabled={task.isProjected}
+                  onValueChange={(next) =>
+                    persist({ priority: next === "no_priority" ? null : next })
+                  }
+                  openRef={priorityOpenRef}
+                  trigger={
+                    <FieldPill bordered muted={priority === "no_priority"}>
+                      <PriorityIcon className={cn("size-3.5", priorityMeta.className)} />
+                      {priority === "no_priority" ? "Priority" : priorityMeta.label}
+                    </FieldPill>
+                  }
+                  value={priority}
+                />
+
+                <AssigneeComboboxSelector
+                  align="start"
+                  currentUserId={currentUserId}
+                  disabled={task.isProjected}
+                  onValueChange={(next) => persist({ assignedUserId: next })}
+                  openRef={assigneeOpenRef}
+                  options={assigneeOptions}
+                  teamMemberIds={teamMemberIds}
+                  trigger={
+                    <FieldPill bordered muted={selectedAssignee === null}>
+                      <AssigneeAvatar assignee={selectedAssignee} size={16} />
+                      {selectedAssignee?.label ?? "Assignee"}
+                    </FieldPill>
+                  }
+                  value={task.assignedUserId}
+                />
+
+                <LabelsComboboxSelector
+                  disabled={task.isProjected}
+                  onValueChange={(next) => persist({ labelIds: [...next] })}
+                  openRef={labelsOpenRef}
+                  options={applicableLabels}
+                  trigger={
+                    // With exactly one Label the pill carries that Label's rich
+                    // hover card (resolved from its id); the empty pill keeps the
+                    // selector's "Add labels" action tooltip, and the merged
+                    // "N labels" summary has no single Label to describe.
+                    taskLabels.length === 1 && taskLabels[0] ? (
+                      <LabelHoverCard labelId={taskLabels[0].id}>
+                        <FieldPill bordered>
+                          <span className="-space-x-1 flex items-center">
+                            <span
+                              className={cn(
+                                "size-2.5 rounded-full ring-2 ring-background",
+                                labelDotClassName(taskLabels[0]),
+                              )}
+                            />
+                          </span>
+                          <span className="truncate">{taskLabels[0].name}</span>
+                        </FieldPill>
+                      </LabelHoverCard>
+                    ) : (
+                      <FieldPill bordered muted={taskLabels.length === 0}>
+                        {taskLabels.length === 0 ? (
+                          <>
+                            <Tag className="size-3.5" />
+                            Labels
+                          </>
+                        ) : (
+                          <>
+                            <span className="-space-x-1 flex items-center">
+                              {taskLabels.map((label) => (
+                                <span
+                                  className={cn(
+                                    "size-2.5 rounded-full ring-2 ring-background",
+                                    labelDotClassName(label),
+                                  )}
+                                  key={label.id}
+                                />
+                              ))}
+                            </span>
+                            <span className="truncate">{`${taskLabels.length} labels`}</span>
+                          </>
+                        )}
+                      </FieldPill>
+                    )
+                  }
+                  triggerTestId="task-details-labels-trigger"
+                  value={task.labelIds ?? []}
+                />
+
+                <EstimateComboboxSelector
+                  disabled={task.isProjected}
+                  onValueChange={(next) =>
+                    persist({ estimate: next === "no_estimate" ? null : next })
+                  }
+                  openRef={estimateOpenRef}
+                  trigger={
+                    <FieldPill bordered muted={(task.estimate ?? "no_estimate") === "no_estimate"}>
+                      <Triangle className="size-3.5" />
+                      {task.estimate ? estimateMeta.label : "Estimate"}
+                    </FieldPill>
+                  }
+                  value={(task.estimate ?? "no_estimate") as TaskEstimate}
+                />
+
+                <DueDateSelector
+                  disabled={task.isProjected}
+                  onValueChange={(next) => persist({ dueDate: next })}
+                  openRef={dueDateOpenRef}
+                  trigger={
+                    <FieldPill bordered muted={dueDateLabel === null}>
+                      <CalendarIcon className="size-3.5" />
+                      {dueDateLabel ?? "Due date"}
+                    </FieldPill>
+                  }
+                  value={task.dueDate}
+                />
+
+                <WeekComboboxSelector
+                  churchId={churchId}
+                  disabled={task.isProjected}
+                  onValueChange={(next) => persist({ cycleId: next })}
+                  options={weekOptions}
+                  trigger={
+                    <FieldPill bordered muted={taskCycleLabel === null}>
+                      <CalendarIcon className="size-3.5" />
+                      {taskCycleLabel ?? "No week"}
+                    </FieldPill>
+                  }
+                  value={task.cycleId ?? null}
+                />
+
+                {team ? (
+                  <TeamComboboxSelector
+                    disabled={task.isProjected}
+                    memberTeamIds={memberTeamIds}
+                    // The destination Team's Workflow takes over server-side: the
+                    // Task's Workflow Status resets to that Workflow's default and
+                    // foreign Team Labels drop out (see tasks.update mutator).
+                    onValueChange={(next) => persist({ teamId: next })}
+                    openRef={teamOpenRef}
+                    options={teamPickerOptions}
+                    trigger={
+                      <FieldPill bordered>
+                        <TeamAvatar color={team.color} name={team.name} size={16} />
+                        {team.name}
+                      </FieldPill>
+                    }
+                    triggerTestId="task-details-team-trigger"
+                    value={team.id}
+                  />
+                ) : null}
+              </div>
+            </TaskFieldProvider>
+          </TaskContextMenu>
+        }
+        contentClassName="gap-6 pt-6"
+        content={
+          <>
+            {/* Title */}
+            <textarea
+              aria-label="Task title"
+              autoComplete="off"
+              className="field-sizing-content w-full resize-none bg-transparent font-semibold text-2xl leading-tight tracking-tight outline-none placeholder:text-muted-foreground disabled:cursor-default"
+              data-1p-ignore="true"
+              disabled={task.isProjected}
+              onBlur={() => {
+                const next = titleValue.trim();
+                if (next !== "" && next !== task.title) persist({ title: next });
+                setTitleDraft(null);
               }}
-              taskEntityId={task.id}
+              onChange={(event) => setTitleDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+              }}
+              placeholder="Task title"
+              rows={1}
+              value={titleValue}
             />
-          )}
-        </>
-      }
-    />
+
+            {/* Description */}
+            {task.description ? (
+              <p className="whitespace-pre-wrap break-words text-[15px] text-foreground/90 leading-relaxed">
+                {task.description}
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-[15px]">Add a description...</p>
+            )}
+
+            {/* Parent context */}
+            {parentTask ? (
+              <section className="grid gap-2">
+                <h3 className="font-medium text-muted-foreground text-xs">Parent</h3>
+                <button
+                  className="flex w-full items-center gap-2 rounded-lg border bg-background/60 p-3 text-left text-sm transition-colors hover:bg-accent"
+                  onClick={() => changeDetailsPaneId(parentTask.identifier).forceNav()}
+                  type="button"
+                >
+                  <span className="shrink-0 font-medium text-muted-foreground text-xs">
+                    {parentTask.identifier}
+                  </span>
+                  <span className="truncate">{parentTask.title}</span>
+                </button>
+              </section>
+            ) : null}
+
+            {/* Sub-tasks */}
+            <SubTaskSection
+              allTasks={allTasks.tasksCollection}
+              assigneeOptions={assigneeOptions}
+              currentUserId={currentUserId}
+              defaultPriority={task.priority ?? "no_priority"}
+              labels={labels.labelsCollection.map((label) => ({
+                id: label.id,
+                name: label.name,
+                color: label.color,
+                teamId: label.teamId,
+              }))}
+              onCreateLabel={handleCreateSubTaskLabel}
+              onCreateSubTask={handleCreateSubTask}
+              onCreateSubTasks={handleCreateSubTasks}
+              onEditTask={handleEditSubTask}
+              onOpenTask={(identifier) => changeDetailsPaneId(identifier).forceNav()}
+              parentTask={task}
+              teamMemberships={teamMemberships.teamMembershipsCollection.map((membership) => ({
+                teamId: membership.teamId,
+                userId: membership.userId,
+              }))}
+              teams={teams.teamsCollection.map((candidate) => ({
+                id: candidate.id,
+                name: candidate.name,
+                color: (candidate.color ?? null) as string | null,
+              }))}
+              weekLabelByCycleId={weekLabelByCycleId}
+              workflowStatuses={workflowStatuses.workflowStatusesCollection.map((status) => ({
+                id: status.id,
+                workflowId: status.workflowId,
+                name: status.name,
+                sortOrder: status.sortOrder,
+                taskState: status.taskState,
+                archivedAt: status.archivedAt,
+              }))}
+            />
+
+            {/* Activity Feed (read-only history). Projected Tasks have no real
+              Activity rows yet, so the feed is only shown for real Tasks. */}
+            {task.isProjected ? null : (
+              <TaskActivityFeed
+                churchId={churchId}
+                currentUserId={currentUserId}
+                onCreateTaskFromComment={(prefill) => openCreateTask(prefill)}
+                resolveActorName={activityResolvers.user}
+                resolvers={activityResolvers}
+                sourceTask={{
+                  id: task.id,
+                  identifier: task.identifier,
+                  title: task.title,
+                  assignedUserId: task.assignedUserId,
+                  teamId: task.teamId,
+                  priority: task.priority ?? "no_priority",
+                  estimate: task.estimate ?? "no_estimate",
+                  labelIds: task.labelIds,
+                  dueDate: task.dueDate,
+                }}
+                taskEntityId={task.id}
+              />
+            )}
+          </>
+        }
+      />
+    </TooltipProvider>
   );
 }
 

@@ -39,6 +39,7 @@ import {
   AssigneeComboboxSelector,
   formatCreatedAt,
   formatDueDate,
+  formatTimestampTooltip,
   getPriorityMeta,
   getEstimateMeta,
   labelDotClassName,
@@ -70,6 +71,8 @@ import {
   type TaskBoardTaskState,
   type TaskBoardWorkflowStatus,
 } from "./task-kanban-adapter";
+import { LabelHoverCard } from "./task-label-hover-card";
+import { TaskFieldProvider } from "./task-field-context";
 import { ProjectedAdjustedBadge, TemplateSourceBadge } from "./template-source-badge";
 import { DEFAULT_TASK_VIEW_OPTIONS, type TaskDisplayProperty } from "./task-view-options";
 import { statusOptions } from "./task-kanban-board-utils";
@@ -99,6 +102,9 @@ export type TaskCardLabelsChange = {
 /** A Label option as the Board consumes it; teamId scopes Team Labels. */
 export type TaskBoardLabelOption = TaskLabelOption & {
   readonly teamId?: string | null;
+  // Number of Tasks currently carrying this Label, used by the rich label
+  // hover card. Optional so surfaces that don't load counts still type-check.
+  readonly taskCount?: number;
 };
 
 export type TaskCardEstimateChange = {
@@ -481,7 +487,13 @@ export function TaskKanbanBoard({
  * dot+name badges for one or two labels, and a collapsed dot-cluster +
  * "N labels" badge for three or more (density guard).
  */
-function TaskCardLabelsBadge({ labels }: { readonly labels: readonly TaskBoardLabelOption[] }) {
+function TaskCardLabelsBadge({
+  labels,
+  hoverDisabled,
+}: {
+  readonly labels: readonly TaskBoardLabelOption[];
+  readonly hoverDisabled?: boolean;
+}) {
   if (labels.length === 0) {
     return (
       <span
@@ -496,10 +508,12 @@ function TaskCardLabelsBadge({ labels }: { readonly labels: readonly TaskBoardLa
     return (
       <span className="flex items-center gap-1.5">
         {labels.map((option) => (
-          <Badge className="text-muted-foreground" key={option.id} variant="outline">
-            <span className={cn("size-1.5 rounded-full", labelDotClassName(option))} />
-            {option.name}
-          </Badge>
+          <LabelHoverCard disabled={hoverDisabled} key={option.id} labelId={option.id}>
+            <Badge className="text-muted-foreground" variant="outline">
+              <span className={cn("size-1.5 rounded-full", labelDotClassName(option))} />
+              {option.name}
+            </Badge>
+          </LabelHoverCard>
         ))}
       </span>
     );
@@ -850,6 +864,9 @@ function TaskKanbanCard({
   });
 
   const createdAtLabel = formatCreatedAt(task.createdAt);
+  const createdAtTooltip = formatTimestampTooltip(task.createdAt);
+  const updatedAtLabel = formatCreatedAt(task.updatedAt);
+  const updatedAtTooltip = formatTimestampTooltip(task.updatedAt);
   const dueDateLabel = formatDueDate(task.dueDate);
 
   // The status picker renders inline next to the Task title (Linear-style
@@ -859,6 +876,7 @@ function TaskKanbanCard({
       {(field) => (
         <StatusComboboxSelector
           disabled={statusItems.length === 0}
+          disableTooltip={isOverlay || task.isProjected}
           emptyText="No statuses."
           onValueChange={(next) => {
             if (!next) return;
@@ -905,184 +923,218 @@ function TaskKanbanCard({
   };
 
   const cardContent = (
-    <Card
-      ref={cardRef}
-      className={cn(
-        "gap-0 rounded-md py-0 shadow-xs ring-foreground/10",
-        cardState === "canceled" && "opacity-70",
-        // Projected Template Tasks are planned, not yet created: read them as a
-        // dashed/muted "ghost" card so they're distinct from real Tasks, in
-        // keeping with the app's dashed-placeholder language.
-        task.isProjected &&
-          "border border-dashed border-foreground/20 bg-muted/20 shadow-none ring-0",
-        onOpenTask &&
-          !task.isProjected &&
-          "cursor-pointer transition-colors hover:ring-foreground/20",
-        isFocused && "ring-1 ring-foreground/20",
-        isSelected &&
-          "bg-primary/5 ring-primary/40 hover:ring-primary/50 group-data-[dragging=true]/kanban-root:opacity-40",
-        className,
-      )}
-      onClick={handleCardClick}
-      onMouseEnter={onHover}
-    >
-      <CardHeader className="flex flex-row items-center justify-between gap-2 px-3 pt-3 pb-0">
-        <div className="flex min-w-0 items-center gap-1.5">
-          {showProperty("id") ? (
-            <span className="truncate font-medium text-muted-foreground text-xs">
-              {task.identifier}
-            </span>
+    <TaskFieldProvider taskId={task.id}>
+      <Card
+        ref={cardRef}
+        className={cn(
+          "gap-0 rounded-md py-0 shadow-xs ring-foreground/10",
+          cardState === "canceled" && "opacity-70",
+          // Projected Template Tasks are planned, not yet created: read them as a
+          // dashed/muted "ghost" card so they're distinct from real Tasks, in
+          // keeping with the app's dashed-placeholder language.
+          task.isProjected &&
+            "border border-dashed border-foreground/20 bg-muted/20 shadow-none ring-0",
+          onOpenTask &&
+            !task.isProjected &&
+            "cursor-pointer transition-colors hover:ring-foreground/20",
+          isFocused && "ring-1 ring-foreground/20",
+          isSelected &&
+            "bg-primary/5 ring-primary/40 hover:ring-primary/50 group-data-[dragging=true]/kanban-root:opacity-40",
+          className,
+        )}
+        onClick={handleCardClick}
+        onMouseEnter={onHover}
+      >
+        <CardHeader className="flex flex-row items-center justify-between gap-2 px-3 pt-3 pb-0">
+          <div className="flex min-w-0 items-center gap-1.5">
+            {showProperty("id") ? (
+              <span className="truncate font-medium text-muted-foreground text-xs">
+                {task.identifier}
+              </span>
+            ) : null}
+          </div>
+          {showProperty("assignee") ? (
+            <form.Field name="assignedUserId">
+              {(field) => (
+                <AssigneeComboboxSelector
+                  currentUserId={currentUserId}
+                  disableTooltip={isOverlay}
+                  onValueChange={(next) => {
+                    field.handleChange(next);
+                    void onAssignTask?.({ taskId: task.id, assignedUserId: next });
+                  }}
+                  openRef={assigneeOpenRef}
+                  options={assigneeOptions}
+                  teamMemberIds={teamMemberIds}
+                  trigger={
+                    <span className="flex size-5 items-center justify-center">
+                      <AssigneeAvatar assignee={selectedAssignee} size={20} />
+                    </span>
+                  }
+                  value={field.state.value}
+                />
+              )}
+            </form.Field>
           ) : null}
-        </div>
-        {showProperty("assignee") ? (
-          <form.Field name="assignedUserId">
-            {(field) => (
-              <AssigneeComboboxSelector
-                currentUserId={currentUserId}
-                onValueChange={(next) => {
-                  field.handleChange(next);
-                  void onAssignTask?.({ taskId: task.id, assignedUserId: next });
-                }}
-                openRef={assigneeOpenRef}
-                options={assigneeOptions}
-                teamMemberIds={teamMemberIds}
+        </CardHeader>
+
+        <CardContent className="px-3 py-2">
+          <div className="flex items-start gap-1.5">
+            {showProperty("status") ? (
+              <span className="flex shrink-0 items-center pt-px">{statusSelector}</span>
+            ) : null}
+            <CardTitle className="line-clamp-2 font-semibold text-sm leading-snug">
+              {task.title}
+            </CardTitle>
+          </div>
+          {showProperty("parent") && task.parentTask ? (
+            <p className="mt-1 line-clamp-1 text-muted-foreground text-xs">
+              Parent: {task.parentTask.title}
+            </p>
+          ) : null}
+        </CardContent>
+
+        <CardContent className="flex flex-wrap items-center gap-1.5 px-3 pt-0 pb-3">
+          {showProperty("priority") ? (
+            <form.Field name="priority">
+              {(field) => {
+                const meta = getPriorityMeta(field.state.value);
+                const Icon = meta.icon;
+                return (
+                  <PriorityComboboxSelector
+                    disableTooltip={isOverlay}
+                    onValueChange={(next) => {
+                      field.handleChange(next);
+                      void onChangeTaskPriority?.({
+                        taskId: task.id,
+                        priority: next === "no_priority" ? null : next,
+                      });
+                    }}
+                    openRef={priorityOpenRef}
+                    trigger={
+                      <span
+                        aria-label={`Priority: ${meta.label}`}
+                        className="flex size-6 items-center justify-center rounded-md border bg-background hover:bg-accent"
+                      >
+                        <Icon className={cn("size-3.5", meta.className)} />
+                      </span>
+                    }
+                    value={field.state.value}
+                  />
+                );
+              }}
+            </form.Field>
+          ) : null}
+          {showProperty("estimate") ? (
+            <form.Field name="estimate">
+              {(field) => {
+                const meta = getEstimateMeta(field.state.value);
+                return (
+                  <EstimateComboboxSelector
+                    disableTooltip={isOverlay}
+                    onValueChange={(next) => {
+                      field.handleChange(next);
+                      void onChangeTaskEstimate?.({
+                        taskId: task.id,
+                        estimate: next === "no_estimate" ? null : next,
+                      });
+                    }}
+                    openRef={estimateOpenRef}
+                    trigger={
+                      <span
+                        aria-label={`Estimate: ${meta.label}`}
+                        className="flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 hover:bg-accent"
+                      >
+                        <Triangle className="size-3.5" />
+                        {meta.short ? (
+                          <span className="font-medium text-muted-foreground text-xs">
+                            {meta.short}
+                          </span>
+                        ) : null}
+                      </span>
+                    }
+                    value={field.state.value}
+                  />
+                );
+              }}
+            </form.Field>
+          ) : null}
+          {showProperty("labels") ? (
+            onChangeTaskLabels && !isOverlay ? (
+              <LabelsComboboxSelector
+                onValueChange={(next) =>
+                  void onChangeTaskLabels({ taskId: task.id, labelIds: next })
+                }
+                openRef={labelsOpenRef}
+                options={applicableLabels}
                 trigger={
-                  <span className="flex size-5 items-center justify-center">
-                    <AssigneeAvatar assignee={selectedAssignee} size={20} />
+                  // The empty-state action tooltip and the per-chip Label hover
+                  // cards are owned by the selector/badge respectively.
+                  <span className="inline-flex">
+                    <TaskCardLabelsBadge labels={taskLabels} />
                   </span>
                 }
-                value={field.state.value}
+                value={task.labelIds ?? []}
               />
-            )}
-          </form.Field>
-        ) : null}
-      </CardHeader>
-
-      <CardContent className="px-3 py-2">
-        <div className="flex items-start gap-1.5">
-          {showProperty("status") ? (
-            <span className="flex shrink-0 items-center pt-px">{statusSelector}</span>
+            ) : (
+              <TaskCardLabelsBadge hoverDisabled labels={taskLabels} />
+            )
           ) : null}
-          <CardTitle className="line-clamp-2 font-semibold text-sm leading-snug">
-            {task.title}
-          </CardTitle>
-        </div>
-        {showProperty("parent") && task.parentTask ? (
-          <p className="mt-1 line-clamp-1 text-muted-foreground text-xs">
-            Parent: {task.parentTask.title}
-          </p>
-        ) : null}
-      </CardContent>
-
-      <CardContent className="flex flex-wrap items-center gap-1.5 px-3 pt-0 pb-3">
-        {showProperty("priority") ? (
-          <form.Field name="priority">
-            {(field) => {
-              const meta = getPriorityMeta(field.state.value);
-              const Icon = meta.icon;
-              return (
-                <PriorityComboboxSelector
-                  onValueChange={(next) => {
-                    field.handleChange(next);
-                    void onChangeTaskPriority?.({
-                      taskId: task.id,
-                      priority: next === "no_priority" ? null : next,
-                    });
-                  }}
-                  openRef={priorityOpenRef}
-                  trigger={
-                    <span
-                      aria-label={`Priority: ${meta.label}`}
-                      className="flex size-6 items-center justify-center rounded-md border bg-background hover:bg-accent"
-                    >
-                      <Icon className={cn("size-3.5", meta.className)} />
-                    </span>
-                  }
-                  value={field.state.value}
-                />
-              );
-            }}
-          </form.Field>
-        ) : null}
-        {showProperty("estimate") ? (
-          <form.Field name="estimate">
-            {(field) => {
-              const meta = getEstimateMeta(field.state.value);
-              return (
-                <EstimateComboboxSelector
-                  onValueChange={(next) => {
-                    field.handleChange(next);
-                    void onChangeTaskEstimate?.({
-                      taskId: task.id,
-                      estimate: next === "no_estimate" ? null : next,
-                    });
-                  }}
-                  openRef={estimateOpenRef}
-                  trigger={
-                    <span
-                      aria-label={`Estimate: ${meta.label}`}
-                      className="flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 hover:bg-accent"
-                    >
-                      <Triangle className="size-3.5" />
-                      {meta.short ? (
-                        <span className="font-medium text-muted-foreground text-xs">
-                          {meta.short}
-                        </span>
-                      ) : null}
-                    </span>
-                  }
-                  value={field.state.value}
-                />
-              );
-            }}
-          </form.Field>
-        ) : null}
-        {showProperty("labels") ? (
-          onChangeTaskLabels && !isOverlay ? (
-            <LabelsComboboxSelector
-              onValueChange={(next) => void onChangeTaskLabels({ taskId: task.id, labelIds: next })}
-              openRef={labelsOpenRef}
-              options={applicableLabels}
-              trigger={<TaskCardLabelsBadge labels={taskLabels} />}
-              value={task.labelIds ?? []}
+          {showProperty("due_date") && dueDateLabel ? (
+            <Badge className="text-muted-foreground" variant="outline">
+              Due {dueDateLabel}
+            </Badge>
+          ) : null}
+          {showProperty("team") && teamName ? <Badge variant="outline">{teamName}</Badge> : null}
+          {showProperty("cycle") ? (
+            <WeekComboboxSelector
+              churchId={churchId}
+              disabled={task.isProjected || !onChangeTaskCycle}
+              disableTooltip={task.isProjected || !onChangeTaskCycle || isOverlay}
+              onValueChange={(next) => void onChangeTaskCycle?.({ taskId: task.id, cycleId: next })}
+              options={cycleOptions}
+              trigger={
+                <span className="inline-flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 font-medium text-xs hover:bg-accent">
+                  <CalendarIcon className="size-3.5" />
+                  <span className="text-muted-foreground">{cycleLabel ?? "No week"}</span>
+                </span>
+              }
+              value={task.cycleId ?? null}
             />
-          ) : (
-            <TaskCardLabelsBadge labels={taskLabels} />
-          )
-        ) : null}
-        {showProperty("due_date") && dueDateLabel ? (
-          <Badge className="text-muted-foreground" variant="outline">
-            Due {dueDateLabel}
-          </Badge>
-        ) : null}
-        {showProperty("team") && teamName ? <Badge variant="outline">{teamName}</Badge> : null}
-        {showProperty("cycle") ? (
-          <WeekComboboxSelector
-            churchId={churchId}
-            disabled={task.isProjected || !onChangeTaskCycle}
-            onValueChange={(next) => void onChangeTaskCycle?.({ taskId: task.id, cycleId: next })}
-            options={cycleOptions}
-            trigger={
-              <span className="inline-flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 font-medium text-xs hover:bg-accent">
-                <CalendarIcon className="size-3.5" />
-                <span className="text-muted-foreground">{cycleLabel ?? "No week"}</span>
-              </span>
-            }
-            value={task.cycleId ?? null}
-          />
-        ) : null}
-        {task.sourceBadge ? (
-          <TemplateSourceBadge badge={task.sourceBadge} className="max-w-[14rem]" />
-        ) : null}
-        {task.isProjected && task.isAdjusted ? <ProjectedAdjustedBadge /> : null}
-      </CardContent>
-
-      {showProperty("created") && createdAtLabel ? (
-        <CardContent className="px-3 pt-0 pb-3">
-          <p className="text-muted-foreground text-xs">Created {createdAtLabel}</p>
+          ) : null}
+          {task.sourceBadge ? (
+            <TemplateSourceBadge badge={task.sourceBadge} className="max-w-[14rem]" />
+          ) : null}
+          {task.isProjected && task.isAdjusted ? <ProjectedAdjustedBadge /> : null}
         </CardContent>
-      ) : null}
-    </Card>
+
+        {showProperty("created") && (createdAtLabel || updatedAtLabel) ? (
+          <CardContent className="flex flex-wrap items-center gap-x-1.5 px-3 pt-0 pb-3 text-muted-foreground text-xs">
+            {createdAtLabel ? (
+              createdAtTooltip ? (
+                <Tooltip>
+                  <TooltipTrigger render={<span>Created {createdAtLabel}</span>} />
+                  <TooltipContent>{createdAtTooltip}</TooltipContent>
+                </Tooltip>
+              ) : (
+                <span>Created {createdAtLabel}</span>
+              )
+            ) : null}
+            {createdAtLabel && updatedAtLabel ? <span aria-hidden>·</span> : null}
+            {updatedAtLabel ? (
+              updatedAtTooltip ? (
+                <Tooltip>
+                  <TooltipTrigger render={<span>Updated {updatedAtLabel}</span>} />
+                  <TooltipContent>{updatedAtTooltip}</TooltipContent>
+                </Tooltip>
+              ) : (
+                <span>Updated {updatedAtLabel}</span>
+              )
+            ) : null}
+          </CardContent>
+        ) : null}
+      </Card>
+    </TaskFieldProvider>
   );
 
   // The overlay is a drag preview, not an interactive card — no context menu.

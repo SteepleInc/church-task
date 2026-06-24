@@ -64,7 +64,7 @@ export function TemplateSourceBadge({
           <span className={cn("size-1.5 shrink-0 rounded-full", badge.dotClassName)} />
           {badge.scheduleName}
         </span>
-        <span className="text-background/70">
+        <span className="text-muted-foreground">
           {badge.occurrenceLabel}
           {badge.periodLabel ? ` · ${badge.periodLabel}` : ""}
         </span>

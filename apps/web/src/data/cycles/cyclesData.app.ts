@@ -127,6 +127,8 @@ export type WeekPickerOption = {
   readonly dateRange: string;
   /** ISO start date (YYYY-MM-DD), used to order and curate the picker window. */
   readonly startDate: string;
+  /** ISO end date (YYYY-MM-DD), used by the Week tooltip's weekdays-left runway. */
+  readonly endDate: string;
   readonly status: WeekPickerStatus;
   /** A short cue like "Current", "Next week" or "Last week"; null when none applies. */
   readonly relativeLabel: string | null;
@@ -190,6 +192,7 @@ export function buildWeekPickerOptions(
       return {
         id: cycle.id,
         startDate: cycle.startDate,
+        endDate: cycle.endDate,
         label,
         dateRange,
         status: weekPickerStatus(cycle, today),
@@ -269,6 +272,46 @@ export function useWeekTaskCount(params: {
   if (params.churchId === null || params.cycleId === null) return 0;
 
   return rows.filter((task) => task.task_state !== "canceled").length;
+}
+
+export type WeekProgressSummary = {
+  /** Non-canceled Tasks scoped to the Week (its denominator). */
+  readonly scope: number;
+  /** Completed (done) Tasks in the Week. */
+  readonly completed: number;
+  /** completed / scope as a percentage (0 when the Week is empty). */
+  readonly completedPercentage: number;
+};
+
+/**
+ * Live completion summary for a single Week, mirroring `useWeekTaskCount`'s
+ * per-Week query but returning the done/total split the Week tooltip's ring and
+ * "X% of N" line need. Canceled Tasks are excluded from both numerator and
+ * denominator so the percentage matches the Week Progress pane.
+ */
+export function useWeekProgress(params: {
+  readonly churchId: string | null;
+  readonly cycleId: string | null;
+}): WeekProgressSummary {
+  const [rows] = useQuery(
+    queries.tasks.by_cycle({
+      church_id: params.churchId ?? "__no_church__",
+      cycle_id: params.cycleId ?? "__no_cycle__",
+    }),
+  );
+
+  if (params.churchId === null || params.cycleId === null) {
+    return { scope: 0, completed: 0, completedPercentage: 0 };
+  }
+
+  const scoped = rows.filter((task) => task.task_state !== "canceled");
+  const completed = scoped.filter((task) => task.task_state === "done").length;
+  const scope = scoped.length;
+  return {
+    scope,
+    completed,
+    completedPercentage: scope === 0 ? 0 : (completed / scope) * 100,
+  };
 }
 
 export function useCyclesCollection(params: {

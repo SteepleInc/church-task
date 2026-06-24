@@ -389,7 +389,7 @@ export function ComboboxOption({
   return (
     <ComboboxPrimitive.Item
       className={cn(
-        "flex min-h-9 cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-base text-foreground outline-none data-disabled:pointer-events-none data-disabled:cursor-default data-disabled:opacity-64 data-highlighted:bg-accent data-highlighted:text-accent-foreground sm:min-h-8 sm:text-sm [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "group/combobox-option flex min-h-9 cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-base text-foreground outline-none data-disabled:pointer-events-none data-disabled:cursor-default data-disabled:opacity-64 data-highlighted:bg-accent data-highlighted:text-accent-foreground sm:min-h-8 sm:text-sm [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         className,
       )}
       data-slot="combobox-option"

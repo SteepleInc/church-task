@@ -16,6 +16,7 @@ import {
   EstimateComboboxSelector,
   formatCreatedAt,
   formatDueDate,
+  formatTimestampTooltip,
   getEstimateMeta,
   getPriorityMeta,
   LabelsComboboxSelector,
@@ -28,6 +29,8 @@ import {
   type WeekPickerOption,
   WorkflowStatusIcon,
 } from "./task-card-fields";
+import { LabelHoverCard } from "./task-label-hover-card";
+import { TaskFieldProvider } from "./task-field-context";
 import { useTaskContextMenu } from "./task-context-menu";
 import {
   buildTaskBoardGroupColumns,
@@ -364,7 +367,13 @@ function TaskListGroup({
  * dot-cluster + "N labels" badge for three or more. Mirrors the Board card's
  * TaskCardLabelsBadge.
  */
-function TaskRowLabelsBadge({ labels }: { readonly labels: readonly TaskBoardLabelOption[] }) {
+function TaskRowLabelsBadge({
+  labels,
+  hoverDisabled,
+}: {
+  readonly labels: readonly TaskBoardLabelOption[];
+  readonly hoverDisabled?: boolean;
+}) {
   if (labels.length === 0) {
     return (
       <span
@@ -379,10 +388,12 @@ function TaskRowLabelsBadge({ labels }: { readonly labels: readonly TaskBoardLab
     return (
       <span className="flex items-center gap-1.5">
         {labels.map((option) => (
-          <Badge className="text-muted-foreground" key={option.id} variant="outline">
-            <span className={cn("size-1.5 rounded-full", labelDotClassName(option))} />
-            {option.name}
-          </Badge>
+          <LabelHoverCard disabled={hoverDisabled} key={option.id} labelId={option.id}>
+            <Badge className="text-muted-foreground" variant="outline">
+              <span className={cn("size-1.5 rounded-full", labelDotClassName(option))} />
+              {option.name}
+            </Badge>
+          </LabelHoverCard>
         ))}
       </span>
     );
@@ -501,6 +512,7 @@ function TaskListRow({
   });
 
   const createdAtLabel = formatCreatedAt(task.createdAt);
+  const createdAtTooltip = formatTimestampTooltip(task.createdAt);
   const dueDateLabel = formatDueDate(task.dueDate);
   const teamName = teamsById.get(task.teamId)?.name ?? null;
   const cycleLabel = task.cycleId ? (cycleLabelsById.get(task.cycleId) ?? null) : null;
@@ -533,165 +545,46 @@ function TaskListRow({
   };
 
   const row = (
-    <div
-      ref={rowRef}
-      aria-label={`Task card ${task.title}`}
-      data-task-list-row=""
-      data-selected={isSelected || undefined}
-      className={cn(
-        "mx-3 my-0.5 flex h-9 items-center gap-2 rounded-md px-3 transition-colors",
-        rowState === "canceled" && "opacity-70",
-        // Projected Template Tasks are planned, not yet created: a dashed, muted
-        // row reads them as "ghost" placeholders distinct from real Tasks.
-        task.isProjected && "border border-dashed bg-muted/20 text-muted-foreground",
-        onOpenTask && !task.isProjected && "cursor-pointer hover:bg-muted/70",
-        isFocused && "bg-accent/60",
-        isSelected && "bg-primary/5",
-      )}
-      onClick={handleRowClick}
-      onMouseEnter={onHover}
-    >
-      {showProperty("priority") ? (
-        <form.Field name="priority">
-          {(field) => {
-            const meta = getPriorityMeta(field.state.value);
-            const Icon = meta.icon;
-            return (
-              <PriorityComboboxSelector
-                onValueChange={(next) => {
-                  field.handleChange(next);
-                  void onChangeTaskPriority?.({
-                    taskId: task.id,
-                    priority: next === "no_priority" ? null : next,
-                  });
-                }}
-                openRef={priorityOpenRef}
-                trigger={
-                  <span
-                    aria-label={`Priority: ${meta.label}`}
-                    className="flex size-5 items-center justify-center"
-                  >
-                    <Icon className={cn("size-4", meta.className)} />
-                  </span>
-                }
-                value={field.state.value}
-              />
-            );
-          }}
-        </form.Field>
-      ) : null}
-
-      {showProperty("id") ? (
-        <span className="w-16 shrink-0 truncate font-medium text-muted-foreground text-xs">
-          {task.identifier}
-        </span>
-      ) : null}
-
-      {showProperty("status") ? (
-        <form.Field name="workflowStatusId">
-          {(field) => (
-            <StatusComboboxSelector
-              disabled={statusItems.length === 0}
-              emptyText="No statuses."
-              onValueChange={(next) => {
-                if (!next) return;
-                field.handleChange(next);
-                void onChangeTaskStatus?.({
-                  taskId: task.id,
-                  workflowStatusId: next,
-                });
-              }}
-              openRef={statusOpenRef}
-              options={statusItems}
-              trigger={
-                <span className="flex size-5 shrink-0 items-center justify-center">
-                  <WorkflowStatusIcon taskState={rowState} />
-                </span>
-              }
-              value={field.state.value}
-            />
-          )}
-        </form.Field>
-      ) : null}
-
-      <span className="min-w-0 flex-1 truncate text-sm">{task.title}</span>
-
-      {showProperty("parent") && task.parentTask ? (
-        <span className="hidden shrink-0 truncate text-muted-foreground text-xs sm:inline">
-          {task.parentTask.title}
-        </span>
-      ) : null}
-
-      <div className="ml-auto flex shrink-0 items-center gap-1.5">
-        {showProperty("labels") ? (
-          onChangeTaskLabels ? (
-            <LabelsComboboxSelector
-              onValueChange={(next) => void onChangeTaskLabels({ taskId: task.id, labelIds: next })}
-              openRef={labelsOpenRef}
-              options={applicableLabels}
-              trigger={<TaskRowLabelsBadge labels={taskLabels} />}
-              value={task.labelIds ?? []}
-            />
-          ) : (
-            <TaskRowLabelsBadge labels={taskLabels} />
-          )
-        ) : null}
-
-        {showProperty("team") && teamName ? <Badge variant="outline">{teamName}</Badge> : null}
-
-        {showProperty("cycle") ? (
-          <WeekComboboxSelector
-            churchId={churchId}
-            disabled={task.isProjected || !onChangeTaskCycle}
-            onValueChange={(next) => void onChangeTaskCycle?.({ taskId: task.id, cycleId: next })}
-            options={cycleOptions}
-            trigger={
-              <span className="inline-flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 font-medium text-xs hover:bg-accent">
-                <CalendarIcon className="size-3.5" />
-                <span className="text-muted-foreground">{cycleLabel ?? "No week"}</span>
-              </span>
-            }
-            value={task.cycleId ?? null}
-          />
-        ) : null}
-
-        {task.sourceBadge ? (
-          <TemplateSourceBadge badge={task.sourceBadge} className="max-w-[16rem]" />
-        ) : null}
-
-        {task.isProjected && task.isAdjusted ? <ProjectedAdjustedBadge /> : null}
-
-        {showProperty("due_date") && dueDateLabel ? (
-          <Badge className="text-muted-foreground" variant="outline">
-            Due {dueDateLabel}
-          </Badge>
-        ) : null}
-
-        {showProperty("estimate") ? (
-          <form.Field name="estimate">
+    <TaskFieldProvider taskId={task.id}>
+      <div
+        ref={rowRef}
+        aria-label={`Task card ${task.title}`}
+        data-task-list-row=""
+        data-selected={isSelected || undefined}
+        className={cn(
+          "mx-3 my-0.5 flex h-9 items-center gap-2 rounded-md px-3 transition-colors",
+          rowState === "canceled" && "opacity-70",
+          // Projected Template Tasks are planned, not yet created: a dashed, muted
+          // row reads them as "ghost" placeholders distinct from real Tasks.
+          task.isProjected && "border border-dashed bg-muted/20 text-muted-foreground",
+          onOpenTask && !task.isProjected && "cursor-pointer hover:bg-muted/70",
+          isFocused && "bg-accent/60",
+          isSelected && "bg-primary/5",
+        )}
+        onClick={handleRowClick}
+        onMouseEnter={onHover}
+      >
+        {showProperty("priority") ? (
+          <form.Field name="priority">
             {(field) => {
-              const meta = getEstimateMeta(field.state.value);
+              const meta = getPriorityMeta(field.state.value);
+              const Icon = meta.icon;
               return (
-                <EstimateComboboxSelector
+                <PriorityComboboxSelector
                   onValueChange={(next) => {
                     field.handleChange(next);
-                    void onChangeTaskEstimate?.({
+                    void onChangeTaskPriority?.({
                       taskId: task.id,
-                      estimate: next === "no_estimate" ? null : (next as TaskBoardEstimate),
+                      priority: next === "no_priority" ? null : next,
                     });
                   }}
-                  openRef={estimateOpenRef}
+                  openRef={priorityOpenRef}
                   trigger={
                     <span
-                      aria-label={`Estimate: ${meta.label}`}
-                      className="flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 hover:bg-accent"
+                      aria-label={`Priority: ${meta.label}`}
+                      className="flex size-5 items-center justify-center"
                     >
-                      <Triangle className="size-3.5" />
-                      {meta.short ? (
-                        <span className="font-medium text-muted-foreground text-xs">
-                          {meta.short}
-                        </span>
-                      ) : null}
+                      <Icon className={cn("size-4", meta.className)} />
                     </span>
                   }
                   value={field.state.value}
@@ -701,30 +594,32 @@ function TaskListRow({
           </form.Field>
         ) : null}
 
-        {showProperty("created") && createdAtLabel ? (
-          <span className="hidden w-12 shrink-0 text-right text-muted-foreground text-xs sm:inline">
-            {createdAtLabel}
+        {showProperty("id") ? (
+          <span className="w-16 shrink-0 truncate font-medium text-muted-foreground text-xs">
+            {task.identifier}
           </span>
         ) : null}
 
-        {showProperty("assignee") ? (
-          <form.Field name="assignedUserId">
+        {showProperty("status") ? (
+          <form.Field name="workflowStatusId">
             {(field) => (
-              <AssigneeComboboxSelector
-                currentUserId={currentUserId}
+              <StatusComboboxSelector
+                disabled={statusItems.length === 0}
+                disableTooltip={task.isProjected}
+                emptyText="No statuses."
                 onValueChange={(next) => {
+                  if (!next) return;
                   field.handleChange(next);
-                  void onAssignTask?.({
+                  void onChangeTaskStatus?.({
                     taskId: task.id,
-                    assignedUserId: next,
+                    workflowStatusId: next,
                   });
                 }}
-                openRef={assigneeOpenRef}
-                options={assigneeOptions}
-                teamMemberIds={teamMemberIds}
+                openRef={statusOpenRef}
+                options={statusItems}
                 trigger={
-                  <span className="flex size-5 items-center justify-center">
-                    <AssigneeAvatar assignee={selectedAssignee} size={20} />
+                  <span className="flex size-5 shrink-0 items-center justify-center">
+                    <WorkflowStatusIcon taskState={rowState} />
                   </span>
                 }
                 value={field.state.value}
@@ -732,8 +627,150 @@ function TaskListRow({
             )}
           </form.Field>
         ) : null}
+
+        <span className="min-w-0 flex-1 truncate text-sm">{task.title}</span>
+
+        {showProperty("parent") && task.parentTask ? (
+          <span className="hidden shrink-0 truncate text-muted-foreground text-xs sm:inline">
+            {task.parentTask.title}
+          </span>
+        ) : null}
+
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          {showProperty("labels") ? (
+            onChangeTaskLabels ? (
+              <LabelsComboboxSelector
+                onValueChange={(next) =>
+                  void onChangeTaskLabels({ taskId: task.id, labelIds: next })
+                }
+                openRef={labelsOpenRef}
+                options={applicableLabels}
+                trigger={
+                  // The empty-state action tooltip and the per-chip Label hover
+                  // cards are owned by the selector/badge respectively.
+                  <span className="inline-flex">
+                    <TaskRowLabelsBadge labels={taskLabels} />
+                  </span>
+                }
+                value={task.labelIds ?? []}
+              />
+            ) : (
+              <TaskRowLabelsBadge hoverDisabled labels={taskLabels} />
+            )
+          ) : null}
+
+          {showProperty("team") && teamName ? <Badge variant="outline">{teamName}</Badge> : null}
+
+          {showProperty("cycle") ? (
+            <WeekComboboxSelector
+              churchId={churchId}
+              disabled={task.isProjected || !onChangeTaskCycle}
+              disableTooltip={task.isProjected || !onChangeTaskCycle}
+              onValueChange={(next) => void onChangeTaskCycle?.({ taskId: task.id, cycleId: next })}
+              options={cycleOptions}
+              trigger={
+                <span className="inline-flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 font-medium text-xs hover:bg-accent">
+                  <CalendarIcon className="size-3.5" />
+                  <span className="text-muted-foreground">{cycleLabel ?? "No week"}</span>
+                </span>
+              }
+              value={task.cycleId ?? null}
+            />
+          ) : null}
+
+          {task.sourceBadge ? (
+            <TemplateSourceBadge badge={task.sourceBadge} className="max-w-[16rem]" />
+          ) : null}
+
+          {task.isProjected && task.isAdjusted ? <ProjectedAdjustedBadge /> : null}
+
+          {showProperty("due_date") && dueDateLabel ? (
+            <Badge className="text-muted-foreground" variant="outline">
+              Due {dueDateLabel}
+            </Badge>
+          ) : null}
+
+          {showProperty("estimate") ? (
+            <form.Field name="estimate">
+              {(field) => {
+                const meta = getEstimateMeta(field.state.value);
+                return (
+                  <EstimateComboboxSelector
+                    onValueChange={(next) => {
+                      field.handleChange(next);
+                      void onChangeTaskEstimate?.({
+                        taskId: task.id,
+                        estimate: next === "no_estimate" ? null : (next as TaskBoardEstimate),
+                      });
+                    }}
+                    openRef={estimateOpenRef}
+                    trigger={
+                      <span
+                        aria-label={`Estimate: ${meta.label}`}
+                        className="flex h-6 items-center justify-center gap-1 rounded-md border bg-background px-1.5 hover:bg-accent"
+                      >
+                        <Triangle className="size-3.5" />
+                        {meta.short ? (
+                          <span className="font-medium text-muted-foreground text-xs">
+                            {meta.short}
+                          </span>
+                        ) : null}
+                      </span>
+                    }
+                    value={field.state.value}
+                  />
+                );
+              }}
+            </form.Field>
+          ) : null}
+
+          {showProperty("created") && createdAtLabel ? (
+            createdAtTooltip ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span className="hidden w-12 shrink-0 text-right text-muted-foreground text-xs sm:inline">
+                      {createdAtLabel}
+                    </span>
+                  }
+                />
+                <TooltipContent>{createdAtTooltip}</TooltipContent>
+              </Tooltip>
+            ) : (
+              <span className="hidden w-12 shrink-0 text-right text-muted-foreground text-xs sm:inline">
+                {createdAtLabel}
+              </span>
+            )
+          ) : null}
+
+          {showProperty("assignee") ? (
+            <form.Field name="assignedUserId">
+              {(field) => (
+                <AssigneeComboboxSelector
+                  currentUserId={currentUserId}
+                  onValueChange={(next) => {
+                    field.handleChange(next);
+                    void onAssignTask?.({
+                      taskId: task.id,
+                      assignedUserId: next,
+                    });
+                  }}
+                  openRef={assigneeOpenRef}
+                  options={assigneeOptions}
+                  teamMemberIds={teamMemberIds}
+                  trigger={
+                    <span className="flex size-5 items-center justify-center">
+                      <AssigneeAvatar assignee={selectedAssignee} size={20} />
+                    </span>
+                  }
+                  value={field.state.value}
+                />
+              )}
+            </form.Field>
+          ) : null}
+        </div>
       </div>
-    </div>
+    </TaskFieldProvider>
   );
 
   return wrapWithContextMenu({ task, rowState, children: row });

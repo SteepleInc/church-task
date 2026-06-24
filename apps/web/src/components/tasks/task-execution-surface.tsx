@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useOpenTaskDetailsPaneUrl } from "@/components/details-pane/details-pane-helpers";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { TeamWeekSelector } from "@/components/weeks/team-week-selector";
 import { WeekActionsMenu } from "@/components/weeks/week-actions-menu";
 import type { WeekCsvTask } from "@/components/weeks/week-actions-data";
@@ -593,236 +594,242 @@ export function TaskExecutionSurface({
 
   return (
     <TaskSurfaceKeyboardProvider actions={keyboardActions}>
-      <TaskContextMenuBridge config={contextMenuConfig}>
-        {/* Insights is a right-hand side pane (Linear): the Board/List keeps the
+      {/* Re-establish the Task tooltip timer here: the app-shell sidebar wraps
+          all page content in a delay={0} TooltipProvider (instant nav tooltips),
+          which would otherwise make every Task field tooltip pop open on hover.
+          This scopes the shared 304ms open delay back to the Task surfaces. */}
+      <TooltipProvider>
+        <TaskContextMenuBridge config={contextMenuConfig}>
+          {/* Insights is a right-hand side pane (Linear): the Board/List keeps the
             remaining width, the pane scrolls independently. */}
-        <section className="flex min-h-0 min-w-0 flex-1 gap-4">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-            {currentWeek && surface === "team_board" && team?.identifier ? (
-              <AppHeaderSlot>
-                <div className="flex min-w-0 items-center gap-1">
-                  <TeamWeekSelector
-                    cycles={cycles}
-                    selectedCycleId={currentWeek.id}
-                    teamIdentifier={team.identifier}
-                    teamName={team.name}
-                  />
-                  <WeekActionsMenu churchId={churchId} cycle={currentWeek} tasks={weekCsvTasks} />
+          <section className="flex min-h-0 min-w-0 flex-1 gap-4">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
+              {currentWeek && surface === "team_board" && team?.identifier ? (
+                <AppHeaderSlot>
+                  <div className="flex min-w-0 items-center gap-1">
+                    <TeamWeekSelector
+                      cycles={cycles}
+                      selectedCycleId={currentWeek.id}
+                      teamIdentifier={team.identifier}
+                      teamName={team.name}
+                    />
+                    <WeekActionsMenu churchId={churchId} cycle={currentWeek} tasks={weekCsvTasks} />
+                  </div>
+                </AppHeaderSlot>
+              ) : null}
+
+              {isLoading && !showBoard ? <TaskBoardSkeleton /> : null}
+
+              {showProjectedWeekEmptyState ? (
+                <div className="grid place-items-center gap-1 rounded-lg border border-dashed bg-muted/10 px-4 py-8 text-center">
+                  <p className="text-sm font-medium">Nothing planned yet</p>
+                  <p className="text-xs text-muted-foreground">
+                    Add Tasks to this Week and it starts tracking progress automatically.
+                  </p>
                 </div>
-              </AppHeaderSlot>
-            ) : null}
+              ) : null}
 
-            {isLoading && !showBoard ? <TaskBoardSkeleton /> : null}
-
-            {showProjectedWeekEmptyState ? (
-              <div className="grid place-items-center gap-1 rounded-lg border border-dashed bg-muted/10 px-4 py-8 text-center">
-                <p className="text-sm font-medium">Nothing planned yet</p>
-                <p className="text-xs text-muted-foreground">
-                  Add Tasks to this Week and it starts tracking progress automatically.
-                </p>
-              </div>
-            ) : null}
-
-            {showBoard && resolvedView.mode === "list" ? (
-              <TaskListSurface
-                className="min-h-0 flex-1"
-                {...sharedSurfaceProps}
-                onAddTask={onAddTaskForColumn}
-              />
-            ) : showBoard ? (
-              <TaskKanbanBoard
-                className="min-h-0 flex-1"
-                workflowStatuses={workflowStatuses.map(toBoardWorkflowStatus)}
-                tasks={boardTasks}
-                assigneeOptions={assigneeOptions}
-                teamOptions={teams}
-                labelOptions={labelsCollection.labelsCollection}
-                currentUserId={currentUserId}
-                teamMemberIdsByTeamId={teamMemberIdsByTeamId}
-                cycleLabelsById={cycleLabelsById}
-                cycleOptions={cycleOptions}
-                churchId={churchId}
-                grouping={boardGrouping}
-                showEmptyColumns={resolvedView.showEmptyColumns}
-                displayProperties={resolvedView.displayProperties}
-                onMoveTask={(move) => {
-                  // The drag's destination column id means a different field per
-                  // grouping; team lanes are not draggable.
-                  const fields =
-                    boardGrouping === "workflow_status"
-                      ? { workflowStatusId: move.columnId }
-                      : boardGrouping === "assignee"
-                        ? {
-                            assignedUserId:
-                              move.columnId === UNASSIGNED_COLUMN_ID ? null : move.columnId,
-                          }
-                        : boardGrouping === "task_state"
-                          ? (() => {
-                              const workflowStatusId = findTaskStateStatusId(
-                                move.taskId,
-                                move.columnId,
-                              );
-                              return workflowStatusId ? { workflowStatusId } : null;
-                            })()
-                          : resolvedView.grouping === "estimate"
-                            ? {
-                                estimate:
-                                  move.columnId === NO_ESTIMATE_COLUMN_ID
-                                    ? null
-                                    : (move.columnId as TaskBoardEstimate),
-                              }
-                            : null;
-                  if (!fields) return;
-                  const movedTask = tasks.find((candidate) => candidate.id === move.taskId);
-                  if (movedTask?.isProjected) {
-                    if ("workflowStatusId" in fields && fields.workflowStatusId) {
-                      requestMaterialize({
-                        task: movedTask,
-                        workflowStatusId: fields.workflowStatusId,
-                      });
+              {showBoard && resolvedView.mode === "list" ? (
+                <TaskListSurface
+                  className="min-h-0 flex-1"
+                  {...sharedSurfaceProps}
+                  onAddTask={onAddTaskForColumn}
+                />
+              ) : showBoard ? (
+                <TaskKanbanBoard
+                  className="min-h-0 flex-1"
+                  workflowStatuses={workflowStatuses.map(toBoardWorkflowStatus)}
+                  tasks={boardTasks}
+                  assigneeOptions={assigneeOptions}
+                  teamOptions={teams}
+                  labelOptions={labelsCollection.labelsCollection}
+                  currentUserId={currentUserId}
+                  teamMemberIdsByTeamId={teamMemberIdsByTeamId}
+                  cycleLabelsById={cycleLabelsById}
+                  cycleOptions={cycleOptions}
+                  churchId={churchId}
+                  grouping={boardGrouping}
+                  showEmptyColumns={resolvedView.showEmptyColumns}
+                  displayProperties={resolvedView.displayProperties}
+                  onMoveTask={(move) => {
+                    // The drag's destination column id means a different field per
+                    // grouping; team lanes are not draggable.
+                    const fields =
+                      boardGrouping === "workflow_status"
+                        ? { workflowStatusId: move.columnId }
+                        : boardGrouping === "assignee"
+                          ? {
+                              assignedUserId:
+                                move.columnId === UNASSIGNED_COLUMN_ID ? null : move.columnId,
+                            }
+                          : boardGrouping === "task_state"
+                            ? (() => {
+                                const workflowStatusId = findTaskStateStatusId(
+                                  move.taskId,
+                                  move.columnId,
+                                );
+                                return workflowStatusId ? { workflowStatusId } : null;
+                              })()
+                            : resolvedView.grouping === "estimate"
+                              ? {
+                                  estimate:
+                                    move.columnId === NO_ESTIMATE_COLUMN_ID
+                                      ? null
+                                      : (move.columnId as TaskBoardEstimate),
+                                }
+                              : null;
+                    if (!fields) return;
+                    const movedTask = tasks.find((candidate) => candidate.id === move.taskId);
+                    if (movedTask?.isProjected) {
+                      if ("workflowStatusId" in fields && fields.workflowStatusId) {
+                        requestMaterialize({
+                          task: movedTask,
+                          workflowStatusId: fields.workflowStatusId,
+                        });
+                        return;
+                      }
+                      editTask(move.taskId, fields);
                       return;
                     }
-                    editTask(move.taskId, fields);
-                    return;
-                  }
-                  void updateTask({
-                    churchId,
-                    actorUserId: currentUserId,
-                    taskId: move.taskId,
-                    fields,
-                  });
-                }}
-                hiddenColumnIds={hiddenColumnIds}
-                onMoveTasks={(moves) => {
-                  // Projected Template Tasks cannot be reordered or moved
-                  // between Workflow Status lanes — they have no Task row.
-                  const persistable = moves.filter((move) => {
-                    const task = tasks.find((candidate) => candidate.id === move.taskId);
-                    return !task?.isProjected;
-                  });
-                  if (persistable.length === 0) return;
-                  if (persistable.length === 1) {
-                    const move = persistable[0];
                     void updateTask({
                       churchId,
                       actorUserId: currentUserId,
                       taskId: move.taskId,
-                      fields: {
-                        workflowStatusId: move.workflowStatusId,
-                        boardOrder: move.boardOrder,
-                      },
+                      fields,
                     });
-                    return;
-                  }
-                  void updateTasksBatch({
-                    churchId,
-                    actorUserId: currentUserId,
-                    updates: persistable.map((move) => ({
-                      taskId: move.taskId,
-                      fields: {
-                        workflowStatusId: move.workflowStatusId,
-                        boardOrder: move.boardOrder,
-                      },
-                    })),
-                  });
-                }}
-                onAddTask={(workflowStatusId) => {
-                  const defaults = getTaskCreationDefaults({
-                    surface,
-                    currentUserId,
-                    teamId: team?.id ?? null,
-                  });
-                  openCreateTask({
-                    assignTo: defaults.assignedUserId,
-                    teamId: defaults.teamId,
-                    workflowStatusId,
-                    ...(scopedCycle ? { targetCycle: scopedCycle.targetCycle } : {}),
-                  });
-                }}
-                onToggleColumnHidden={(workflowStatusId) => {
-                  setHiddenBoardColumns((current) =>
-                    toggleHiddenBoardColumn(current, boardKey, workflowStatusId),
-                  );
-                }}
-                onAssignTask={sharedSurfaceProps.onAssignTask}
-                onChangeTaskStatus={sharedSurfaceProps.onChangeTaskStatus}
-                onChangeTaskLabels={sharedSurfaceProps.onChangeTaskLabels}
-                onChangeTaskEstimate={sharedSurfaceProps.onChangeTaskEstimate}
-                onChangeTaskPriority={sharedSurfaceProps.onChangeTaskPriority}
-                onChangeTaskCycle={sharedSurfaceProps.onChangeTaskCycle}
-                onOpenTask={(taskIdentifier) => {
-                  const url = openTaskDetailsPaneUrl({ id: taskIdentifier });
-                  void navigate({ to: url.to, search: url.search });
-                }}
-              />
-            ) : !isLoading ? (
-              <p className="text-sm text-muted-foreground">
-                Configure this Team's Workflow before using the Task board.
-              </p>
-            ) : null}
-          </div>
+                  }}
+                  hiddenColumnIds={hiddenColumnIds}
+                  onMoveTasks={(moves) => {
+                    // Projected Template Tasks cannot be reordered or moved
+                    // between Workflow Status lanes — they have no Task row.
+                    const persistable = moves.filter((move) => {
+                      const task = tasks.find((candidate) => candidate.id === move.taskId);
+                      return !task?.isProjected;
+                    });
+                    if (persistable.length === 0) return;
+                    if (persistable.length === 1) {
+                      const move = persistable[0];
+                      void updateTask({
+                        churchId,
+                        actorUserId: currentUserId,
+                        taskId: move.taskId,
+                        fields: {
+                          workflowStatusId: move.workflowStatusId,
+                          boardOrder: move.boardOrder,
+                        },
+                      });
+                      return;
+                    }
+                    void updateTasksBatch({
+                      churchId,
+                      actorUserId: currentUserId,
+                      updates: persistable.map((move) => ({
+                        taskId: move.taskId,
+                        fields: {
+                          workflowStatusId: move.workflowStatusId,
+                          boardOrder: move.boardOrder,
+                        },
+                      })),
+                    });
+                  }}
+                  onAddTask={(workflowStatusId) => {
+                    const defaults = getTaskCreationDefaults({
+                      surface,
+                      currentUserId,
+                      teamId: team?.id ?? null,
+                    });
+                    openCreateTask({
+                      assignTo: defaults.assignedUserId,
+                      teamId: defaults.teamId,
+                      workflowStatusId,
+                      ...(scopedCycle ? { targetCycle: scopedCycle.targetCycle } : {}),
+                    });
+                  }}
+                  onToggleColumnHidden={(workflowStatusId) => {
+                    setHiddenBoardColumns((current) =>
+                      toggleHiddenBoardColumn(current, boardKey, workflowStatusId),
+                    );
+                  }}
+                  onAssignTask={sharedSurfaceProps.onAssignTask}
+                  onChangeTaskStatus={sharedSurfaceProps.onChangeTaskStatus}
+                  onChangeTaskLabels={sharedSurfaceProps.onChangeTaskLabels}
+                  onChangeTaskEstimate={sharedSurfaceProps.onChangeTaskEstimate}
+                  onChangeTaskPriority={sharedSurfaceProps.onChangeTaskPriority}
+                  onChangeTaskCycle={sharedSurfaceProps.onChangeTaskCycle}
+                  onOpenTask={(taskIdentifier) => {
+                    const url = openTaskDetailsPaneUrl({ id: taskIdentifier });
+                    void navigate({ to: url.to, search: url.search });
+                  }}
+                />
+              ) : !isLoading ? (
+                <p className="text-sm text-muted-foreground">
+                  Configure this Team's Workflow before using the Task board.
+                </p>
+              ) : null}
+            </div>
 
-          {insightsOpen && insightsState && onInsightsChange ? (
-            surface === "team_board" ? (
-              <WeekProgressPanel
-                className="min-h-0 w-full max-w-md shrink-0 self-stretch overflow-y-auto md:w-96 lg:w-[28rem]"
-                meta={weekProgressMeta}
-                onClose={() => onInsightsChange({ ...insightsState, open: false })}
-                tasks={boardTasks}
-              />
-            ) : (
-              <TaskInsightsPanel
-                className="min-h-0 w-full max-w-md shrink-0 self-stretch overflow-y-auto md:w-96 lg:w-[28rem]"
-                meta={insightsMeta}
-                onClose={() => onInsightsChange({ ...insightsState, open: false })}
-                onCopyLink={() => {
-                  void navigator.clipboard?.writeText(window.location.href);
-                }}
-                onExportCsv={() => {
-                  const sliceLabel =
-                    INSIGHTS_DIMENSION_OPTIONS.find(
-                      (option) => option.value === insightsState.slice,
-                    )?.label ?? "Slice";
-                  const scoped = insightsState.showCanceled
-                    ? boardTasks
-                    : boardTasks.filter((task) => task.taskState !== "canceled");
-                  const csv = insightsToCsv(
-                    buildInsightsData({
-                      slice: insightsState.slice,
-                      segment: insightsState.segment,
-                      tasks: scoped,
-                      meta: insightsMeta,
-                    }),
-                    sliceLabel,
-                  );
-                  downloadCsv(csv, "insights.csv");
-                }}
-                onRefresh={() => {
-                  // Data is live through synced collections; Refresh is a no-op re-render.
-                  // hook kept for parity with Linear's menu.
-                  onInsightsChange({ ...insightsState });
-                }}
-                onStateChange={onInsightsChange}
-                state={insightsState}
-                tasks={boardTasks}
-              />
-            )
-          ) : null}
-        </section>
-        <MaterializeProjectedTaskDialog
-          loading={materializing}
-          onConfirm={confirmMaterialize}
-          onOpenChange={(open) => {
-            if (!materializing && !open) setPendingMaterialization(null);
-          }}
-          pending={pendingMaterialization}
-          statusName={
-            pendingMaterialization
-              ? (workflowStatusNamesById.get(pendingMaterialization.workflowStatusId) ?? null)
-              : null
-          }
-        />
-      </TaskContextMenuBridge>
+            {insightsOpen && insightsState && onInsightsChange ? (
+              surface === "team_board" ? (
+                <WeekProgressPanel
+                  className="min-h-0 w-full max-w-md shrink-0 self-stretch overflow-y-auto md:w-96 lg:w-[28rem]"
+                  meta={weekProgressMeta}
+                  onClose={() => onInsightsChange({ ...insightsState, open: false })}
+                  tasks={boardTasks}
+                />
+              ) : (
+                <TaskInsightsPanel
+                  className="min-h-0 w-full max-w-md shrink-0 self-stretch overflow-y-auto md:w-96 lg:w-[28rem]"
+                  meta={insightsMeta}
+                  onClose={() => onInsightsChange({ ...insightsState, open: false })}
+                  onCopyLink={() => {
+                    void navigator.clipboard?.writeText(window.location.href);
+                  }}
+                  onExportCsv={() => {
+                    const sliceLabel =
+                      INSIGHTS_DIMENSION_OPTIONS.find(
+                        (option) => option.value === insightsState.slice,
+                      )?.label ?? "Slice";
+                    const scoped = insightsState.showCanceled
+                      ? boardTasks
+                      : boardTasks.filter((task) => task.taskState !== "canceled");
+                    const csv = insightsToCsv(
+                      buildInsightsData({
+                        slice: insightsState.slice,
+                        segment: insightsState.segment,
+                        tasks: scoped,
+                        meta: insightsMeta,
+                      }),
+                      sliceLabel,
+                    );
+                    downloadCsv(csv, "insights.csv");
+                  }}
+                  onRefresh={() => {
+                    // Data is live through synced collections; Refresh is a no-op re-render.
+                    // hook kept for parity with Linear's menu.
+                    onInsightsChange({ ...insightsState });
+                  }}
+                  onStateChange={onInsightsChange}
+                  state={insightsState}
+                  tasks={boardTasks}
+                />
+              )
+            ) : null}
+          </section>
+          <MaterializeProjectedTaskDialog
+            loading={materializing}
+            onConfirm={confirmMaterialize}
+            onOpenChange={(open) => {
+              if (!materializing && !open) setPendingMaterialization(null);
+            }}
+            pending={pendingMaterialization}
+            statusName={
+              pendingMaterialization
+                ? (workflowStatusNamesById.get(pendingMaterialization.workflowStatusId) ?? null)
+                : null
+            }
+          />
+        </TaskContextMenuBridge>
+      </TooltipProvider>
     </TaskSurfaceKeyboardProvider>
   );
 }
@@ -958,6 +965,7 @@ function toBoardTask(task: TaskSummary, tasks: readonly TaskSummary[]) {
     cycleId: task.cycleId,
     dueDate: task.dueDate,
     createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
     assignedUserId: task.assignedUserId,
     parentTask: getTaskParentContext(task, tasks),
     workflowStatusId: task.workflowStatusId,

@@ -19,14 +19,17 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
+  forwardRef,
   useId,
   useMemo,
   useRef,
   useState,
   type ComponentProps,
+  type ComponentPropsWithoutRef,
   type ComponentType,
   type KeyboardEvent as ReactKeyboardEvent,
   type MutableRefObject,
+  type ReactElement,
   type ReactNode,
 } from "react";
 
@@ -46,6 +49,7 @@ import {
   usePickerOpener,
 } from "@/components/ui/combobox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TooltipSuppressor } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useFieldContext } from "@/components/form/ts-field";
 import {
@@ -55,6 +59,11 @@ import {
   type WeekPickerStatus,
 } from "@/data/cycles/cyclesData.app";
 
+import { AssigneeHoverCard } from "./task-assignee-hover-card";
+import { FieldTooltip } from "./task-field-tooltip";
+import { useTaskFieldContext } from "./task-field-context";
+import { StatusTimeTooltip } from "./task-status-tooltip";
+import { WeekTooltip } from "./task-week-tooltip";
 import type { TaskBoardTaskState } from "./task-kanban-adapter";
 
 // --- Priority ---------------------------------------------------------------
@@ -204,6 +213,30 @@ export function formatCreatedAt(
     month: "short",
     day: "numeric",
     ...(sameYear ? {} : { year: "numeric" }),
+  });
+}
+
+/**
+ * The full, precise date + time for a timestamp tooltip (epoch ms), e.g.
+ * "Jan 28, 2:38 PM" or "Dec 31, 2025, 9:00 AM" — the absolute time Linear
+ * surfaces on hover over a relative/short "Created"/"Updated" label. The year
+ * is appended only when the timestamp falls outside `now`'s calendar year.
+ * Returns `null` for missing/invalid timestamps.
+ */
+export function formatTimestampTooltip(
+  timestamp: number | null | undefined,
+  now: Date = new Date(),
+): string | null {
+  if (timestamp == null || !Number.isFinite(timestamp)) return null;
+  const value = new Date(timestamp);
+  if (Number.isNaN(value.getTime())) return null;
+  const sameYear = value.getFullYear() === now.getFullYear();
+  return value.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
@@ -371,6 +404,7 @@ type AssigneeComboboxSelectorProps = {
   readonly onValueChange: (value: string | null) => void;
   readonly trigger: ReactNode;
   readonly disabled?: boolean;
+  readonly disableTooltip?: boolean;
   // Popup alignment relative to the trigger. Board cards keep the default
   // "end" (the avatar sits on the card's right edge, so the popup grows left);
   // the create dialog passes "start" so it opens rightward like its other
@@ -395,9 +429,11 @@ export function AssigneeComboboxSelector({
   onValueChange,
   trigger,
   disabled = false,
+  disableTooltip = false,
   align = "end",
   openRef,
 }: AssigneeComboboxSelectorProps) {
+  const taskField = useTaskFieldContext();
   const partition = useMemo(
     () => partitionAssignees({ options, currentUserId, teamMemberIds }),
     [options, currentUserId, teamMemberIds],
@@ -454,7 +490,19 @@ export function AssigneeComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>
+          {taskField ? (
+            // On a real Task surface the avatar carries the rich Member profile
+            // card, resolved from the assigned user id.
+            <AssigneeHoverCard disabled={disableTooltip} userId={value}>
+              {trigger as ReactElement}
+            </AssigneeHoverCard>
+          ) : (
+            <FieldTooltip disabled={disableTooltip} label="Assign to" shortcut="A">
+              {trigger as ReactElement}
+            </FieldTooltip>
+          )}
+        </TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup
         align={align}
@@ -520,6 +568,9 @@ type PriorityComboboxSelectorProps = {
   readonly onValueChange: (value: TaskPriority) => void;
   readonly trigger: ReactNode;
   readonly disabled?: boolean;
+  // Suppresses the built-in field tooltip (drag overlay / hidden context-menu
+  // trigger). The tooltip is on by default everywhere else.
+  readonly disableTooltip?: boolean;
   // Populated by the parent so a card-level "P" hover shortcut can open the
   // picker without focusing the trigger.
   readonly openRef?: MutableRefObject<(() => void) | null>;
@@ -536,6 +587,7 @@ export function PriorityComboboxSelector({
   onValueChange,
   trigger,
   disabled = false,
+  disableTooltip = false,
   openRef,
 }: PriorityComboboxSelectorProps) {
   const rows = useMemo(() => priorityRows(), []);
@@ -583,7 +635,11 @@ export function PriorityComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>
+          <FieldTooltip disabled={disableTooltip} label="Change priority" shortcut="P">
+            {trigger as ReactElement}
+          </FieldTooltip>
+        </TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup
         popupProps={{
@@ -649,6 +705,7 @@ type StatusComboboxSelectorProps = {
   readonly onValueChange: (value: string | null) => void;
   readonly trigger: ReactNode;
   readonly disabled?: boolean;
+  readonly disableTooltip?: boolean;
   readonly emptyText?: string;
   // Populated by the parent so a card-level "S" hover shortcut can open the
   // picker without focusing the trigger.
@@ -670,12 +727,14 @@ export function StatusComboboxSelector({
   triggerLabel = "Change status",
   triggerTestId,
   disabled = false,
+  disableTooltip = false,
   emptyText = "No results.",
   openRef,
 }: StatusComboboxSelectorProps & {
   readonly triggerLabel?: string;
   readonly triggerTestId?: string;
 }) {
+  const taskField = useTaskFieldContext();
   const rows = useMemo(() => statusRows(options), [options]);
   const items = useMemo(() => rows.map((row) => row.value), [rows]);
   const labelFor = useMemo(() => {
@@ -729,7 +788,20 @@ export function StatusComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>
+          {taskField ? (
+            // On a real Task surface the status pill carries the rich "time in
+            // status" hover, resolved from the Task id alone.
+            <StatusTimeTooltip disabled={disableTooltip} taskId={taskField.taskId}>
+              {trigger as ReactElement}
+            </StatusTimeTooltip>
+          ) : (
+            // Creation flows have no Task yet — fall back to the action tooltip.
+            <FieldTooltip disabled={disableTooltip} label={triggerLabel} shortcut="S">
+              {trigger as ReactElement}
+            </FieldTooltip>
+          )}
+        </TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup
         popupProps={{
@@ -767,6 +839,7 @@ type EstimateComboboxSelectorProps = {
   readonly trigger: ReactNode;
   readonly triggerLabel?: string;
   readonly disabled?: boolean;
+  readonly disableTooltip?: boolean;
   // Populated by the parent so a card-level "Shift+E" hover shortcut can open
   // the picker without focusing the trigger.
   readonly openRef?: MutableRefObject<(() => void) | null>;
@@ -784,6 +857,7 @@ export function EstimateComboboxSelector({
   trigger,
   triggerLabel = "Change estimate",
   disabled = false,
+  disableTooltip = false,
   openRef,
 }: EstimateComboboxSelectorProps) {
   const items = useMemo(() => estimateValues(), []);
@@ -822,7 +896,11 @@ export function EstimateComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>
+          <FieldTooltip disabled={disableTooltip} label={triggerLabel} shortcut="⇧ E">
+            {trigger as ReactElement}
+          </FieldTooltip>
+        </TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup popupProps={{ onClick: (event) => event.stopPropagation() }}>
         <PickerHeader placeholder="Change estimate to..." shortcut="⇧ E" />
@@ -859,6 +937,7 @@ type LabelsComboboxSelectorProps = {
   readonly onCreateLabel?: (name: string) => void;
   readonly trigger: ReactNode;
   readonly disabled?: boolean;
+  readonly disableTooltip?: boolean;
   // Populated by the parent so an "L" hover/dialog shortcut can open the
   // picker without focusing the trigger.
   readonly openRef?: MutableRefObject<(() => void) | null>;
@@ -883,6 +962,7 @@ export function LabelsComboboxSelector({
   triggerLabel = "Add labels",
   triggerTestId,
   disabled = false,
+  disableTooltip = false,
   openRef,
 }: LabelsComboboxSelectorProps & {
   readonly triggerLabel?: string;
@@ -943,7 +1023,18 @@ export function LabelsComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>
+          {value.length === 0 ? (
+            // With no labels the chip is the "add labels" affordance, so it
+            // carries the action tooltip. Once Labels exist, each named chip in
+            // the trigger surfaces its own rich Label hover card instead.
+            <FieldTooltip disabled={disableTooltip} label={triggerLabel} shortcut="L">
+              {trigger as ReactElement}
+            </FieldTooltip>
+          ) : (
+            trigger
+          )}
+        </TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup popupProps={{ onClick: (event) => event.stopPropagation() }}>
         <PickerHeader placeholder="Add labels..." shortcut="L" />
@@ -999,6 +1090,7 @@ type DueDateSelectorProps = {
   readonly onValueChange: (value: string | null) => void;
   readonly trigger: ReactNode;
   readonly disabled?: boolean;
+  readonly disableTooltip?: boolean;
   // Populated by the parent so a "D" hover/dialog shortcut can open the
   // picker without focusing the trigger.
   readonly openRef?: MutableRefObject<(() => void) | null>;
@@ -1014,6 +1106,7 @@ export function DueDateSelector({
   onValueChange,
   trigger,
   disabled = false,
+  disableTooltip = false,
   openRef,
 }: DueDateSelectorProps) {
   const [open, setOpen] = usePickerOpener(openRef, disabled);
@@ -1036,7 +1129,11 @@ export function DueDateSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>
+          <FieldTooltip disabled={disableTooltip} label="Set due date" shortcut="D">
+            {trigger as ReactElement}
+          </FieldTooltip>
+        </TooltipSuppressor>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-0" side="bottom" sideOffset={4}>
         <Calendar
@@ -1119,6 +1216,7 @@ type TeamComboboxSelectorProps = {
   readonly onValueChange: (value: string) => void;
   readonly trigger: ReactNode;
   readonly disabled?: boolean;
+  readonly disableTooltip?: boolean;
   readonly openRef?: MutableRefObject<(() => void) | null>;
 };
 
@@ -1135,6 +1233,7 @@ export function TeamComboboxSelector({
   triggerLabel = "Change team",
   triggerTestId,
   disabled = false,
+  disableTooltip = false,
   openRef,
 }: TeamComboboxSelectorProps & {
   readonly triggerLabel?: string;
@@ -1175,7 +1274,11 @@ export function TeamComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>
+          <FieldTooltip disabled={disableTooltip} label={triggerLabel} shortcut="T">
+            {trigger as ReactElement}
+          </FieldTooltip>
+        </TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup popupProps={{ onClick: (event) => event.stopPropagation() }} width="lg">
         <PickerHeader placeholder="Change team..." shortcut="T" />
@@ -1214,6 +1317,7 @@ type WeekComboboxSelectorProps = {
   // null the counts are hidden (the picker still works for selection).
   readonly churchId?: string | null;
   readonly disabled?: boolean;
+  readonly disableTooltip?: boolean;
   readonly openRef?: MutableRefObject<(() => void) | null>;
 };
 
@@ -1250,7 +1354,11 @@ function WeekTaskCountBadge({
 }) {
   const count = useWeekTaskCount({ churchId, cycleId });
   if (count <= 0) return null;
-  return <span className="text-muted-foreground text-xs tabular-nums">{count}</span>;
+  return (
+    <span className="text-muted-foreground text-xs tabular-nums group-data-highlighted/combobox-option:text-accent-foreground">
+      {count}
+    </span>
+  );
 }
 
 /** A single rich Week row: status icon, name, date range, relative cue + count. */
@@ -1275,7 +1383,9 @@ function WeekRowItem({
       <Icon className={cn("size-4", WEEK_STATUS_ICON_CLASS[option.status])} />
       <span className="min-w-0 truncate">{option.label}</span>
       {secondary ? (
-        <span className="shrink-0 text-muted-foreground text-xs">{secondary}</span>
+        <span className="shrink-0 text-muted-foreground text-xs group-data-highlighted/combobox-option:text-accent-foreground">
+          {secondary}
+        </span>
       ) : null}
       <span className="ms-auto ps-2">
         <WeekTaskCountBadge churchId={churchId} cycleId={option.id} />
@@ -1302,11 +1412,13 @@ export function WeekComboboxSelector({
   triggerLabel = "Change week",
   triggerTestId,
   disabled = false,
+  disableTooltip = false,
   openRef,
 }: WeekComboboxSelectorProps & {
   readonly triggerLabel?: string;
   readonly triggerTestId?: string;
 }) {
+  const selectedOption = value === null ? null : (options.find((o) => o.id === value) ?? null);
   const items = useMemo(() => [NO_WEEK_VALUE, ...options.map((option) => option.id)], [options]);
   const searchTextById = useMemo(
     () => new Map(options.map((option) => [option.id, option.searchText])),
@@ -1373,7 +1485,19 @@ export function WeekComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        {trigger}
+        <TooltipSuppressor suppressed={open}>
+          {selectedOption ? (
+            // A selected Week gets the rich completion hover; with no Week there
+            // is nothing to summarize, so fall back to the action chip.
+            <WeekTooltip disabled={disableTooltip} option={selectedOption}>
+              {trigger as ReactElement}
+            </WeekTooltip>
+          ) : (
+            <FieldTooltip disabled={disableTooltip} label={triggerLabel} shortcut="⇧ C">
+              {trigger as ReactElement}
+            </FieldTooltip>
+          )}
+        </TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup
         popupProps={{
@@ -1426,74 +1550,83 @@ export function WeekComboboxSelector({
 
 // --- Shared creation/editing property pill triggers --------------------------
 
-/** The Linear-style Task property pill used as picker trigger chrome. */
-export function TaskPropertyPill({
-  children,
-  muted = false,
-  className,
-}: {
-  readonly children: ReactNode;
-  readonly muted?: boolean;
-  readonly className?: string;
-}) {
+/**
+ * The Linear-style Task property pill used as picker trigger chrome. Forwards
+ * its `ref` and spreads incoming props onto the underlying `<span>` so base-ui's
+ * `<TooltipTrigger render>` can attach its hover wiring to a real DOM node — an
+ * opaque component would drop the injected props and the tooltip would never
+ * mount.
+ */
+export const TaskPropertyPill = forwardRef<
+  HTMLSpanElement,
+  ComponentPropsWithoutRef<"span"> & { readonly muted?: boolean }
+>(function TaskPropertyPill({ children, muted = false, className, ...rest }, ref) {
   return (
     <span
+      ref={ref}
       className={cn(
         "inline-flex h-7 items-center gap-1.5 rounded-md border bg-background px-2 font-medium text-xs transition-colors hover:bg-accent",
         muted && "text-muted-foreground",
         className,
       )}
+      {...rest}
     >
       {children}
     </span>
   );
-}
+});
 
-export function TaskPriorityPillTrigger({ value }: { readonly value: TaskPriority }) {
+export const TaskPriorityPillTrigger = forwardRef<
+  HTMLSpanElement,
+  ComponentPropsWithoutRef<"span"> & { readonly value: TaskPriority }
+>(function TaskPriorityPillTrigger({ value, ...rest }, ref) {
   const meta = getPriorityMeta(value);
   const Icon = meta.icon;
   return (
-    <TaskPropertyPill muted={value === "no_priority"}>
+    <TaskPropertyPill muted={value === "no_priority"} ref={ref} {...rest}>
       <Icon className={cn("size-3.5", meta.className)} />
       {value === "no_priority" ? "Priority" : meta.label}
     </TaskPropertyPill>
   );
-}
+});
 
-export function TaskEstimatePillTrigger({ value }: { readonly value: TaskEstimate }) {
+export const TaskEstimatePillTrigger = forwardRef<
+  HTMLSpanElement,
+  ComponentPropsWithoutRef<"span"> & { readonly value: TaskEstimate }
+>(function TaskEstimatePillTrigger({ value, ...rest }, ref) {
   const meta = getEstimateMeta(value);
   return (
-    <TaskPropertyPill muted={value === "no_estimate"}>
+    <TaskPropertyPill muted={value === "no_estimate"} ref={ref} {...rest}>
       <Triangle className="size-3.5" />
       {value === "no_estimate" ? "Estimate" : meta.label}
     </TaskPropertyPill>
   );
-}
+});
 
-export function TaskAssigneePillTrigger({
-  assignee,
-  avatarSize = 14,
-}: {
-  readonly assignee: AssigneeOption | null;
-  readonly avatarSize?: number;
-}) {
+export const TaskAssigneePillTrigger = forwardRef<
+  HTMLSpanElement,
+  ComponentPropsWithoutRef<"span"> & {
+    readonly assignee: AssigneeOption | null;
+    readonly avatarSize?: number;
+  }
+>(function TaskAssigneePillTrigger({ assignee, avatarSize = 14, ...rest }, ref) {
   return (
-    <TaskPropertyPill muted={assignee === null}>
+    <TaskPropertyPill muted={assignee === null} ref={ref} {...rest}>
       <AssigneeAvatar assignee={assignee} size={avatarSize} />
       {assignee?.label ?? "Assignee"}
     </TaskPropertyPill>
   );
-}
+});
 
-export function TaskTeamPillTrigger({
-  team,
-  avatarSize = 14,
-}: {
-  readonly team: TeamPickerOption | null;
-  readonly avatarSize?: number;
-}) {
+export const TaskTeamPillTrigger = forwardRef<
+  HTMLSpanElement,
+  ComponentPropsWithoutRef<"span"> & {
+    readonly team: TeamPickerOption | null;
+    readonly avatarSize?: number;
+  }
+>(function TaskTeamPillTrigger({ team, avatarSize = 14, ...rest }, ref) {
   return (
-    <TaskPropertyPill muted={team === null}>
+    <TaskPropertyPill muted={team === null} ref={ref} {...rest}>
       {team ? (
         <>
           <TeamAvatar color={team.color} name={team.name} size={avatarSize} />
@@ -1504,17 +1637,17 @@ export function TaskTeamPillTrigger({
       )}
     </TaskPropertyPill>
   );
-}
+});
 
-export function TaskLabelsPillTrigger({
-  labels,
-  showEmptyIcon = true,
-}: {
-  readonly labels: readonly TaskLabelOption[];
-  readonly showEmptyIcon?: boolean;
-}) {
+export const TaskLabelsPillTrigger = forwardRef<
+  HTMLSpanElement,
+  ComponentPropsWithoutRef<"span"> & {
+    readonly labels: readonly TaskLabelOption[];
+    readonly showEmptyIcon?: boolean;
+  }
+>(function TaskLabelsPillTrigger({ labels, showEmptyIcon = true, ...rest }, ref) {
   return (
-    <TaskPropertyPill muted={labels.length === 0}>
+    <TaskPropertyPill muted={labels.length === 0} ref={ref} {...rest}>
       {labels.length === 0 ? (
         <>
           {showEmptyIcon ? <Tag className="size-3.5" /> : null}
@@ -1540,29 +1673,33 @@ export function TaskLabelsPillTrigger({
       )}
     </TaskPropertyPill>
   );
-}
+});
 
-export function TaskDueDatePillTrigger({ value }: { readonly value: string | null }) {
+export const TaskDueDatePillTrigger = forwardRef<
+  HTMLSpanElement,
+  ComponentPropsWithoutRef<"span"> & { readonly value: string | null }
+>(function TaskDueDatePillTrigger({ value, ...rest }, ref) {
   const label = formatDueDate(value);
   return (
-    <TaskPropertyPill muted={label === null}>
+    <TaskPropertyPill muted={label === null} ref={ref} {...rest}>
       <CalendarIcon className="size-3.5" />
       {label ?? "Due date"}
     </TaskPropertyPill>
   );
-}
+});
 
-export function TaskStatusPillTrigger({
-  status,
-}: {
-  readonly status: {
-    readonly id: string;
-    readonly name: string;
-    readonly taskState: TaskBoardTaskState;
-  } | null;
-}) {
+export const TaskStatusPillTrigger = forwardRef<
+  HTMLSpanElement,
+  ComponentPropsWithoutRef<"span"> & {
+    readonly status: {
+      readonly id: string;
+      readonly name: string;
+      readonly taskState: TaskBoardTaskState;
+    } | null;
+  }
+>(function TaskStatusPillTrigger({ status, ...rest }, ref) {
   return (
-    <TaskPropertyPill muted={status === null}>
+    <TaskPropertyPill muted={status === null} ref={ref} {...rest}>
       {status ? (
         <>
           <WorkflowStatusIcon className="size-3.5" taskState={status.taskState} />
@@ -1573,7 +1710,7 @@ export function TaskStatusPillTrigger({
       )}
     </TaskPropertyPill>
   );
-}
+});
 
 export function PriorityTaskField(
   props: Omit<
