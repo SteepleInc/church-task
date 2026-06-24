@@ -441,34 +441,6 @@ export function TaskExecutionSurface({
     assigneeOptions.map((assignee) => [assignee.id, assignee.label]),
   );
   const teamNamesById = new Map(teams.map((teamOption) => [teamOption.id, teamOption.name]));
-  // The Team names each Member belongs to, for the rich assignee profile card.
-  const teamNamesByUserId = new Map<string, string[]>();
-  for (const membership of teamMembershipsCollection.teamMembershipsCollection) {
-    const teamName = teamNamesById.get(membership.teamId);
-    if (!teamName) continue;
-    const names = teamNamesByUserId.get(membership.userId);
-    if (names) names.push(teamName);
-    else teamNamesByUserId.set(membership.userId, [teamName]);
-  }
-  const assigneeProfilesById = new Map(
-    usersCollection.usersCollection.map((user) => {
-      const name = getUserDisplayName(user);
-      // The subtitle is the email when it differs from the display name (which
-      // already falls back to the email/id when there's no name).
-      const subtitle = user.email && user.email !== name ? user.email : null;
-      return [
-        user.id,
-        {
-          userId: user.id,
-          name,
-          subtitle,
-          image: user.image ?? null,
-          role: user.role ?? null,
-          teamNames: teamNamesByUserId.get(user.id) ?? [],
-        },
-      ] as const;
-    }),
-  );
   const cycleLabelsById = new Map(
     cycles.map((cycle, index) => [cycle.id, cycle.name?.trim() || `Week ${index + 1}`]),
   );
@@ -492,7 +464,6 @@ export function TaskExecutionSurface({
     workflowStatuses: workflowStatuses.map(toBoardWorkflowStatus),
     tasks: boardTasks,
     assigneeOptions,
-    assigneeProfilesById,
     teamOptions: teams.map((teamOption) => ({ ...teamOption, color: null })),
     labelOptions: labelsCollection.labelsCollection,
     currentUserId,
@@ -670,7 +641,6 @@ export function TaskExecutionSurface({
                   workflowStatuses={workflowStatuses.map(toBoardWorkflowStatus)}
                   tasks={boardTasks}
                   assigneeOptions={assigneeOptions}
-                  assigneeProfilesById={assigneeProfilesById}
                   teamOptions={teams}
                   labelOptions={labelsCollection.labelsCollection}
                   currentUserId={currentUserId}

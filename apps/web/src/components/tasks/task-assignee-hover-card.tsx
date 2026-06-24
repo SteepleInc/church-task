@@ -2,22 +2,8 @@ import { UserRound, Users } from "lucide-react";
 import type { ReactElement } from "react";
 
 import { UserAvatar } from "@/components/avatars/userAvatar";
+import { useTaskAssigneeProfile } from "@/data/users/usersData.app";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
-/**
- * The Member identity the assignee hover card renders. Mirrors Linear's profile
- * popover with the fields we actually have: avatar, name, an email/username
- * subtitle, the org Role, and the Member's Teams. Presence + local time are
- * intentionally omitted (we don't track them).
- */
-export type AssigneeProfile = {
-  readonly userId: string;
-  readonly name: string;
-  readonly subtitle: string | null;
-  readonly image: string | null;
-  readonly role: string | null;
-  readonly teamNames: readonly string[];
-};
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "Owner",
@@ -39,8 +25,9 @@ const formatTeamNames = (names: readonly string[]): string => {
 };
 
 type AssigneeHoverCardProps = {
-  // The resolved profile, or null when the Task is unassigned.
-  readonly profile: AssigneeProfile | null;
+  // The assigned Member's user id (the assignee picker's value), or null when
+  // the Task is unassigned. The rich profile is fetched from this id.
+  readonly userId: string | null;
   readonly children: ReactElement;
   // Suppressed on the drag overlay, where hover surfaces would be noise.
   readonly disabled?: boolean;
@@ -49,11 +36,15 @@ type AssigneeHoverCardProps = {
 /**
  * Linear-style rich profile tooltip for a Task's assignee avatar: the Member's
  * avatar + name (+ email/username), their Role, and the Teams they belong to.
- * Hover-only — clicks pass through to the assignee picker. The unassigned
- * avatar shows a minimal "No assignee" card. Built on the shared Tooltip
- * primitive so it shares one timer/animation with every other field tooltip.
+ * Self-contained — it resolves the Member profile from `userId` via a
+ * Church-scoped Zero hook (collapsing to one query across every assignee
+ * tooltip), so callers pass only the assigned user id. Hover-only: clicks pass
+ * through to the assignee picker. The unassigned avatar shows a minimal "No
+ * assignee" card. Built on the shared Tooltip primitive so it shares one
+ * timer/animation with every other field tooltip.
  */
-export function AssigneeHoverCard({ profile, children, disabled }: AssigneeHoverCardProps) {
+export function AssigneeHoverCard({ userId, children, disabled }: AssigneeHoverCardProps) {
+  const profile = useTaskAssigneeProfile(userId);
   if (disabled) return children;
 
   return (

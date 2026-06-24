@@ -235,6 +235,7 @@ export function TaskContextMenu({
           {target.fields.status.set ? (
             <StatusComboboxSelector
               disabled={statusItems.length === 0}
+              disableTooltip
               emptyText="No statuses."
               onValueChange={target.fields.status.set}
               openRef={statusOpenRef}
@@ -246,6 +247,7 @@ export function TaskContextMenu({
           {target.fields.assignee.set ? (
             <AssigneeComboboxSelector
               currentUserId={currentUserId}
+              disableTooltip
               onValueChange={target.fields.assignee.set}
               openRef={assigneeOpenRef}
               options={assigneeOptions}
@@ -256,6 +258,7 @@ export function TaskContextMenu({
           ) : null}
           {target.fields.labels.set ? (
             <LabelsComboboxSelector
+              disableTooltip
               onValueChange={target.fields.labels.set}
               openRef={labelsOpenRef}
               options={applicableLabels}
@@ -265,6 +268,7 @@ export function TaskContextMenu({
           ) : null}
           {target.fields.estimate.set ? (
             <EstimateComboboxSelector
+              disableTooltip
               onValueChange={target.fields.estimate.set}
               openRef={estimateOpenRef}
               trigger={hiddenTrigger}
@@ -274,6 +278,7 @@ export function TaskContextMenu({
           ) : null}
           {target.fields.dueDate.set ? (
             <DueDateSelector
+              disableTooltip
               onValueChange={target.fields.dueDate.set}
               openRef={dueDateOpenRef}
               trigger={hiddenTrigger}
@@ -283,6 +288,7 @@ export function TaskContextMenu({
           {target.fields.team.set ? (
             <TeamComboboxSelector
               disabled={teamOptions.length === 0}
+              disableTooltip
               memberTeamIds={memberTeamIds}
               onValueChange={target.fields.team.set}
               openRef={teamOpenRef}

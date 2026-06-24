@@ -27,6 +27,7 @@ import {
   type ComponentType,
   type KeyboardEvent as ReactKeyboardEvent,
   type MutableRefObject,
+  type ReactElement,
   type ReactNode,
 } from "react";
 
@@ -56,6 +57,11 @@ import {
   type WeekPickerStatus,
 } from "@/data/cycles/cyclesData.app";
 
+import { AssigneeHoverCard } from "./task-assignee-hover-card";
+import { FieldTooltip } from "./task-field-tooltip";
+import { useTaskFieldContext } from "./task-field-context";
+import { StatusTimeTooltip } from "./task-status-tooltip";
+import { WeekTooltip } from "./task-week-tooltip";
 import type { TaskBoardTaskState } from "./task-kanban-adapter";
 
 // --- Priority ---------------------------------------------------------------
@@ -396,6 +402,7 @@ type AssigneeComboboxSelectorProps = {
   readonly onValueChange: (value: string | null) => void;
   readonly trigger: ReactNode;
   readonly disabled?: boolean;
+  readonly disableTooltip?: boolean;
   // Popup alignment relative to the trigger. Board cards keep the default
   // "end" (the avatar sits on the card's right edge, so the popup grows left);
   // the create dialog passes "start" so it opens rightward like its other
@@ -420,9 +427,11 @@ export function AssigneeComboboxSelector({
   onValueChange,
   trigger,
   disabled = false,
+  disableTooltip = false,
   align = "end",
   openRef,
 }: AssigneeComboboxSelectorProps) {
+  const taskField = useTaskFieldContext();
   const partition = useMemo(
     () => partitionAssignees({ options, currentUserId, teamMemberIds }),
     [options, currentUserId, teamMemberIds],
@@ -479,7 +488,19 @@ export function AssigneeComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
+        <TooltipSuppressor suppressed={open}>
+          {taskField ? (
+            // On a real Task surface the avatar carries the rich Member profile
+            // card, resolved from the assigned user id.
+            <AssigneeHoverCard disabled={disableTooltip} userId={value}>
+              {trigger as ReactElement}
+            </AssigneeHoverCard>
+          ) : (
+            <FieldTooltip disabled={disableTooltip} label="Assign to" shortcut="A">
+              {trigger as ReactElement}
+            </FieldTooltip>
+          )}
+        </TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup
         align={align}
@@ -545,6 +566,9 @@ type PriorityComboboxSelectorProps = {
   readonly onValueChange: (value: TaskPriority) => void;
   readonly trigger: ReactNode;
   readonly disabled?: boolean;
+  // Suppresses the built-in field tooltip (drag overlay / hidden context-menu
+  // trigger). The tooltip is on by default everywhere else.
+  readonly disableTooltip?: boolean;
   // Populated by the parent so a card-level "P" hover shortcut can open the
   // picker without focusing the trigger.
   readonly openRef?: MutableRefObject<(() => void) | null>;
@@ -561,6 +585,7 @@ export function PriorityComboboxSelector({
   onValueChange,
   trigger,
   disabled = false,
+  disableTooltip = false,
   openRef,
 }: PriorityComboboxSelectorProps) {
   const rows = useMemo(() => priorityRows(), []);
@@ -608,7 +633,11 @@ export function PriorityComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
+        <TooltipSuppressor suppressed={open}>
+          <FieldTooltip disabled={disableTooltip} label="Change priority" shortcut="P">
+            {trigger as ReactElement}
+          </FieldTooltip>
+        </TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup
         popupProps={{
@@ -674,6 +703,7 @@ type StatusComboboxSelectorProps = {
   readonly onValueChange: (value: string | null) => void;
   readonly trigger: ReactNode;
   readonly disabled?: boolean;
+  readonly disableTooltip?: boolean;
   readonly emptyText?: string;
   // Populated by the parent so a card-level "S" hover shortcut can open the
   // picker without focusing the trigger.
@@ -695,12 +725,14 @@ export function StatusComboboxSelector({
   triggerLabel = "Change status",
   triggerTestId,
   disabled = false,
+  disableTooltip = false,
   emptyText = "No results.",
   openRef,
 }: StatusComboboxSelectorProps & {
   readonly triggerLabel?: string;
   readonly triggerTestId?: string;
 }) {
+  const taskField = useTaskFieldContext();
   const rows = useMemo(() => statusRows(options), [options]);
   const items = useMemo(() => rows.map((row) => row.value), [rows]);
   const labelFor = useMemo(() => {
@@ -754,7 +786,20 @@ export function StatusComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
+        <TooltipSuppressor suppressed={open}>
+          {taskField ? (
+            // On a real Task surface the status pill carries the rich "time in
+            // status" hover, resolved from the Task id alone.
+            <StatusTimeTooltip disabled={disableTooltip} taskId={taskField.taskId}>
+              {trigger as ReactElement}
+            </StatusTimeTooltip>
+          ) : (
+            // Creation flows have no Task yet — fall back to the action tooltip.
+            <FieldTooltip disabled={disableTooltip} label={triggerLabel} shortcut="S">
+              {trigger as ReactElement}
+            </FieldTooltip>
+          )}
+        </TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup
         popupProps={{
@@ -792,6 +837,7 @@ type EstimateComboboxSelectorProps = {
   readonly trigger: ReactNode;
   readonly triggerLabel?: string;
   readonly disabled?: boolean;
+  readonly disableTooltip?: boolean;
   // Populated by the parent so a card-level "Shift+E" hover shortcut can open
   // the picker without focusing the trigger.
   readonly openRef?: MutableRefObject<(() => void) | null>;
@@ -809,6 +855,7 @@ export function EstimateComboboxSelector({
   trigger,
   triggerLabel = "Change estimate",
   disabled = false,
+  disableTooltip = false,
   openRef,
 }: EstimateComboboxSelectorProps) {
   const items = useMemo(() => estimateValues(), []);
@@ -847,7 +894,11 @@ export function EstimateComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
+        <TooltipSuppressor suppressed={open}>
+          <FieldTooltip disabled={disableTooltip} label={triggerLabel} shortcut="⇧ E">
+            {trigger as ReactElement}
+          </FieldTooltip>
+        </TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup popupProps={{ onClick: (event) => event.stopPropagation() }}>
         <PickerHeader placeholder="Change estimate to..." shortcut="⇧ E" />
@@ -884,6 +935,7 @@ type LabelsComboboxSelectorProps = {
   readonly onCreateLabel?: (name: string) => void;
   readonly trigger: ReactNode;
   readonly disabled?: boolean;
+  readonly disableTooltip?: boolean;
   // Populated by the parent so an "L" hover/dialog shortcut can open the
   // picker without focusing the trigger.
   readonly openRef?: MutableRefObject<(() => void) | null>;
@@ -908,6 +960,7 @@ export function LabelsComboboxSelector({
   triggerLabel = "Add labels",
   triggerTestId,
   disabled = false,
+  disableTooltip = false,
   openRef,
 }: LabelsComboboxSelectorProps & {
   readonly triggerLabel?: string;
@@ -968,7 +1021,18 @@ export function LabelsComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
+        <TooltipSuppressor suppressed={open}>
+          {value.length === 0 ? (
+            // With no labels the chip is the "add labels" affordance, so it
+            // carries the action tooltip. Once Labels exist, each named chip in
+            // the trigger surfaces its own rich Label hover card instead.
+            <FieldTooltip disabled={disableTooltip} label={triggerLabel} shortcut="L">
+              {trigger as ReactElement}
+            </FieldTooltip>
+          ) : (
+            trigger
+          )}
+        </TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup popupProps={{ onClick: (event) => event.stopPropagation() }}>
         <PickerHeader placeholder="Add labels..." shortcut="L" />
@@ -1024,6 +1088,7 @@ type DueDateSelectorProps = {
   readonly onValueChange: (value: string | null) => void;
   readonly trigger: ReactNode;
   readonly disabled?: boolean;
+  readonly disableTooltip?: boolean;
   // Populated by the parent so a "D" hover/dialog shortcut can open the
   // picker without focusing the trigger.
   readonly openRef?: MutableRefObject<(() => void) | null>;
@@ -1039,6 +1104,7 @@ export function DueDateSelector({
   onValueChange,
   trigger,
   disabled = false,
+  disableTooltip = false,
   openRef,
 }: DueDateSelectorProps) {
   const [open, setOpen] = usePickerOpener(openRef, disabled);
@@ -1061,7 +1127,11 @@ export function DueDateSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
+        <TooltipSuppressor suppressed={open}>
+          <FieldTooltip disabled={disableTooltip} label="Set due date" shortcut="D">
+            {trigger as ReactElement}
+          </FieldTooltip>
+        </TooltipSuppressor>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-0" side="bottom" sideOffset={4}>
         <Calendar
@@ -1144,6 +1214,7 @@ type TeamComboboxSelectorProps = {
   readonly onValueChange: (value: string) => void;
   readonly trigger: ReactNode;
   readonly disabled?: boolean;
+  readonly disableTooltip?: boolean;
   readonly openRef?: MutableRefObject<(() => void) | null>;
 };
 
@@ -1160,6 +1231,7 @@ export function TeamComboboxSelector({
   triggerLabel = "Change team",
   triggerTestId,
   disabled = false,
+  disableTooltip = false,
   openRef,
 }: TeamComboboxSelectorProps & {
   readonly triggerLabel?: string;
@@ -1200,7 +1272,11 @@ export function TeamComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
+        <TooltipSuppressor suppressed={open}>
+          <FieldTooltip disabled={disableTooltip} label={triggerLabel} shortcut="T">
+            {trigger as ReactElement}
+          </FieldTooltip>
+        </TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup popupProps={{ onClick: (event) => event.stopPropagation() }} width="lg">
         <PickerHeader placeholder="Change team..." shortcut="T" />
@@ -1239,6 +1315,7 @@ type WeekComboboxSelectorProps = {
   // null the counts are hidden (the picker still works for selection).
   readonly churchId?: string | null;
   readonly disabled?: boolean;
+  readonly disableTooltip?: boolean;
   readonly openRef?: MutableRefObject<(() => void) | null>;
 };
 
@@ -1333,11 +1410,13 @@ export function WeekComboboxSelector({
   triggerLabel = "Change week",
   triggerTestId,
   disabled = false,
+  disableTooltip = false,
   openRef,
 }: WeekComboboxSelectorProps & {
   readonly triggerLabel?: string;
   readonly triggerTestId?: string;
 }) {
+  const selectedOption = value === null ? null : (options.find((o) => o.id === value) ?? null);
   const items = useMemo(() => [NO_WEEK_VALUE, ...options.map((option) => option.id)], [options]);
   const searchTextById = useMemo(
     () => new Map(options.map((option) => [option.id, option.searchText])),
@@ -1404,7 +1483,19 @@ export function WeekComboboxSelector({
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <TooltipSuppressor suppressed={open}>{trigger}</TooltipSuppressor>
+        <TooltipSuppressor suppressed={open}>
+          {selectedOption ? (
+            // A selected Week gets the rich completion hover; with no Week there
+            // is nothing to summarize, so fall back to the action chip.
+            <WeekTooltip disabled={disableTooltip} option={selectedOption}>
+              {trigger as ReactElement}
+            </WeekTooltip>
+          ) : (
+            <FieldTooltip disabled={disableTooltip} label={triggerLabel} shortcut="⇧ C">
+              {trigger as ReactElement}
+            </FieldTooltip>
+          )}
+        </TooltipSuppressor>
       </ComboboxPrimitive.Trigger>
       <PickerPopup
         popupProps={{

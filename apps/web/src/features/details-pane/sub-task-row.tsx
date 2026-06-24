@@ -18,6 +18,7 @@ import {
 } from "@/components/tasks/task-card-fields";
 import { TeamAvatar } from "@/components/avatars/teamAvatar";
 import { TaskContextMenu } from "@/components/tasks/task-context-menu";
+import { TaskFieldProvider } from "@/components/tasks/task-field-context";
 import type {
   TaskBoardTask,
   TaskBoardWorkflowStatus,
@@ -227,175 +228,177 @@ function SubTaskRow({
       teamOptions={context.teamOptions}
       workflowStatuses={context.workflowStatuses}
     >
-      <div
-        className={cn(
-          // Hovering a row arms its field/open keyboard shortcuts (S/A/P/L/⇧E/
-          // D/T, O/Enter). The subtle ring mirrors the Board card's hover-focus
-          // affordance so the armed state reads the same across surfaces.
-          "flex items-center gap-2 rounded-lg border bg-background/60 px-3 py-2 text-sm ring-foreground/10 transition-colors hover:bg-accent hover:ring-1 hover:ring-foreground/20",
-          isContext && "opacity-60",
-        )}
-        data-sub-task-row=""
-        onMouseEnter={onHover}
-        style={depth > 0 ? { marginLeft: depth * 20 } : undefined}
-      >
-        {/* Status: icon always visible; the "status" property adds the name. */}
-        <StatusComboboxSelector
-          emptyText="No statuses."
-          onValueChange={(next) => {
-            if (next) context.onEdit(task.id, { workflowStatusId: next });
-          }}
-          openRef={statusOpenRef}
-          options={context.statusOptionsForTask(task)}
-          trigger={
-            <span className="inline-flex cursor-pointer items-center">
-              <WorkflowStatusIcon className="size-4 shrink-0" taskState={task.taskState} />
-            </span>
-          }
-          triggerLabel="Change sub-task status"
-          value={task.workflowStatusId}
-        />
-
-        <button
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
-          onClick={() => context.onOpen(task.identifier)}
-          type="button"
+      <TaskFieldProvider taskId={task.id}>
+        <div
+          className={cn(
+            // Hovering a row arms its field/open keyboard shortcuts (S/A/P/L/⇧E/
+            // D/T, O/Enter). The subtle ring mirrors the Board card's hover-focus
+            // affordance so the armed state reads the same across surfaces.
+            "flex items-center gap-2 rounded-lg border bg-background/60 px-3 py-2 text-sm ring-foreground/10 transition-colors hover:bg-accent hover:ring-1 hover:ring-foreground/20",
+            isContext && "opacity-60",
+          )}
+          data-sub-task-row=""
+          onMouseEnter={onHover}
+          style={depth > 0 ? { marginLeft: depth * 20 } : undefined}
         >
-          {show("id") ? (
-            <span className="shrink-0 font-medium text-muted-foreground text-xs">
-              {task.identifier}
-            </span>
-          ) : null}
-          <span className="truncate">{task.title}</span>
-        </button>
-
-        <div className="flex shrink-0 items-center gap-1.5">
-          {show("priority") ? (
-            <PriorityComboboxSelector
-              onValueChange={(next) =>
-                context.onEdit(task.id, {
-                  priority: next === "no_priority" ? null : next,
-                })
-              }
-              openRef={priorityOpenRef}
-              trigger={
-                <RowPill muted={(task.priority ?? "no_priority") === "no_priority"}>
-                  <PriorityIcon className={cn("size-3.5", priorityMeta.className)} />
-                </RowPill>
-              }
-              value={(task.priority ?? "no_priority") as TaskPriority}
-            />
-          ) : null}
-
-          {show("labels") ? (
-            <LabelsComboboxSelector
-              onValueChange={(next) => context.onEdit(task.id, { labelIds: next })}
-              openRef={labelsOpenRef}
-              options={labelOptions}
-              trigger={
-                // The pill only shows when labels exist; when empty the trigger is
-                // a zero-size anchor so the `L` hover shortcut can still open it.
-                selectedLabels.length > 0 ? (
-                  <RowPill>
-                    <span className="-space-x-1 flex items-center">
-                      {selectedLabels.slice(0, 3).map((label) => (
-                        <span
-                          className={cn(
-                            "size-2.5 rounded-full ring-2 ring-background",
-                            labelDotClassName(label),
-                          )}
-                          key={label.id}
-                        />
-                      ))}
-                    </span>
-                  </RowPill>
-                ) : (
-                  <span className="sr-only" />
-                )
-              }
-              triggerLabel="Add sub-task labels"
-              value={task.labelIds}
-            />
-          ) : null}
-
-          {show("cycle") && weekLabel ? (
-            <span className="hidden text-muted-foreground text-xs sm:inline">{weekLabel}</span>
-          ) : null}
-
-          <DueDateSelector
-            onValueChange={(next) => context.onEdit(task.id, { dueDate: next })}
-            openRef={dueDateOpenRef}
+          {/* Status: icon always visible; the "status" property adds the name. */}
+          <StatusComboboxSelector
+            emptyText="No statuses."
+            onValueChange={(next) => {
+              if (next) context.onEdit(task.id, { workflowStatusId: next });
+            }}
+            openRef={statusOpenRef}
+            options={context.statusOptionsForTask(task)}
             trigger={
-              // Always render a trigger so the hover `D` shortcut can open the
-              // picker even when Due date is hidden in display properties.
-              show("due_date") && dueDateLabel ? (
-                <RowPill>
-                  <span className="text-muted-foreground text-xs">{dueDateLabel}</span>
-                </RowPill>
-              ) : (
-                <span className="sr-only" />
-              )
+              <span className="inline-flex cursor-pointer items-center">
+                <WorkflowStatusIcon className="size-4 shrink-0" taskState={task.taskState} />
+              </span>
             }
-            value={task.dueDate}
+            triggerLabel="Change sub-task status"
+            value={task.workflowStatusId}
           />
 
-          {show("estimate") ? (
-            <EstimateComboboxSelector
-              onValueChange={(next) =>
-                context.onEdit(task.id, { estimate: next === "no_estimate" ? null : next })
-              }
-              openRef={estimateOpenRef}
+          <button
+            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+            onClick={() => context.onOpen(task.identifier)}
+            type="button"
+          >
+            {show("id") ? (
+              <span className="shrink-0 font-medium text-muted-foreground text-xs">
+                {task.identifier}
+              </span>
+            ) : null}
+            <span className="truncate">{task.title}</span>
+          </button>
+
+          <div className="flex shrink-0 items-center gap-1.5">
+            {show("priority") ? (
+              <PriorityComboboxSelector
+                onValueChange={(next) =>
+                  context.onEdit(task.id, {
+                    priority: next === "no_priority" ? null : next,
+                  })
+                }
+                openRef={priorityOpenRef}
+                trigger={
+                  <RowPill muted={(task.priority ?? "no_priority") === "no_priority"}>
+                    <PriorityIcon className={cn("size-3.5", priorityMeta.className)} />
+                  </RowPill>
+                }
+                value={(task.priority ?? "no_priority") as TaskPriority}
+              />
+            ) : null}
+
+            {show("labels") ? (
+              <LabelsComboboxSelector
+                onValueChange={(next) => context.onEdit(task.id, { labelIds: next })}
+                openRef={labelsOpenRef}
+                options={labelOptions}
+                trigger={
+                  // The pill only shows when labels exist; when empty the trigger is
+                  // a zero-size anchor so the `L` hover shortcut can still open it.
+                  selectedLabels.length > 0 ? (
+                    <RowPill>
+                      <span className="-space-x-1 flex items-center">
+                        {selectedLabels.slice(0, 3).map((label) => (
+                          <span
+                            className={cn(
+                              "size-2.5 rounded-full ring-2 ring-background",
+                              labelDotClassName(label),
+                            )}
+                            key={label.id}
+                          />
+                        ))}
+                      </span>
+                    </RowPill>
+                  ) : (
+                    <span className="sr-only" />
+                  )
+                }
+                triggerLabel="Add sub-task labels"
+                value={task.labelIds}
+              />
+            ) : null}
+
+            {show("cycle") && weekLabel ? (
+              <span className="hidden text-muted-foreground text-xs sm:inline">{weekLabel}</span>
+            ) : null}
+
+            <DueDateSelector
+              onValueChange={(next) => context.onEdit(task.id, { dueDate: next })}
+              openRef={dueDateOpenRef}
               trigger={
-                estimateValue !== "no_estimate" ? (
+                // Always render a trigger so the hover `D` shortcut can open the
+                // picker even when Due date is hidden in display properties.
+                show("due_date") && dueDateLabel ? (
                   <RowPill>
-                    <span className="text-muted-foreground text-xs">{estimateMeta.label}</span>
+                    <span className="text-muted-foreground text-xs">{dueDateLabel}</span>
                   </RowPill>
                 ) : (
                   <span className="sr-only" />
                 )
               }
-              value={estimateValue}
+              value={task.dueDate}
             />
-          ) : null}
 
-          {team ? (
-            <TeamComboboxSelector
-              memberTeamIds={context.memberTeamIds}
-              onValueChange={(next) => context.onEdit(task.id, { teamId: next })}
-              openRef={teamOpenRef}
-              options={context.teamOptions}
-              trigger={
-                show("team") ? (
-                  <span className="inline-flex items-center">
-                    <TeamAvatar color={team.color} name={team.name} size={16} />
+            {show("estimate") ? (
+              <EstimateComboboxSelector
+                onValueChange={(next) =>
+                  context.onEdit(task.id, { estimate: next === "no_estimate" ? null : next })
+                }
+                openRef={estimateOpenRef}
+                trigger={
+                  estimateValue !== "no_estimate" ? (
+                    <RowPill>
+                      <span className="text-muted-foreground text-xs">{estimateMeta.label}</span>
+                    </RowPill>
+                  ) : (
+                    <span className="sr-only" />
+                  )
+                }
+                value={estimateValue}
+              />
+            ) : null}
+
+            {team ? (
+              <TeamComboboxSelector
+                memberTeamIds={context.memberTeamIds}
+                onValueChange={(next) => context.onEdit(task.id, { teamId: next })}
+                openRef={teamOpenRef}
+                options={context.teamOptions}
+                trigger={
+                  show("team") ? (
+                    <span className="inline-flex items-center">
+                      <TeamAvatar color={team.color} name={team.name} size={16} />
+                    </span>
+                  ) : (
+                    <span className="sr-only" />
+                  )
+                }
+                triggerLabel="Change sub-task team"
+                value={task.teamId}
+              />
+            ) : null}
+
+            {show("assignee") ? (
+              <AssigneeComboboxSelector
+                align="end"
+                currentUserId={context.currentUserId}
+                onValueChange={(next) => context.onEdit(task.id, { assignedUserId: next })}
+                openRef={assigneeOpenRef}
+                options={context.assigneeOptions}
+                teamMemberIds={context.teamMemberIdsForTask(task)}
+                trigger={
+                  <span className="inline-flex cursor-pointer items-center">
+                    <AssigneeAvatar assignee={selectedAssignee} size={20} />
                   </span>
-                ) : (
-                  <span className="sr-only" />
-                )
-              }
-              triggerLabel="Change sub-task team"
-              value={task.teamId}
-            />
-          ) : null}
-
-          {show("assignee") ? (
-            <AssigneeComboboxSelector
-              align="end"
-              currentUserId={context.currentUserId}
-              onValueChange={(next) => context.onEdit(task.id, { assignedUserId: next })}
-              openRef={assigneeOpenRef}
-              options={context.assigneeOptions}
-              teamMemberIds={context.teamMemberIdsForTask(task)}
-              trigger={
-                <span className="inline-flex cursor-pointer items-center">
-                  <AssigneeAvatar assignee={selectedAssignee} size={20} />
-                </span>
-              }
-              value={task.assignedUserId}
-            />
-          ) : null}
+                }
+                value={task.assignedUserId}
+              />
+            ) : null}
+          </div>
         </div>
-      </div>
+      </TaskFieldProvider>
     </TaskContextMenu>
   );
 }

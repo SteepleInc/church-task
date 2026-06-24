@@ -1,11 +1,14 @@
 import { useMemo, type ReactElement } from "react";
 
 import { useActivitiesForEntityCollection } from "@/data/activities/activitiesData.app";
+import { useTasksCollection } from "@/data/tasks/tasksData.app";
+import { useChurchId } from "@/data/useChurchId";
+import { useWorkflowStatusesCollection } from "@/data/workflows/workflowsData.app";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { WorkflowStatusIcon } from "./task-card-fields";
-import type { TaskBoardTaskState, TaskBoardWorkflowStatus } from "./task-kanban-adapter";
+import type { TaskBoardTaskState } from "./task-kanban-adapter";
 import {
   computeTimeInStatus,
   formatStatusDuration,
@@ -13,11 +16,9 @@ import {
 } from "./task-time-in-status-utils";
 
 type StatusTimeTooltipProps = {
+  // The Task whose status history this hover summarizes; everything else
+  // (creation time, Workflow Statuses, Activity log) is resolved from Zero.
   readonly taskId: string;
-  readonly churchId: string | null;
-  readonly createdAt: number;
-  readonly currentStatusId: string;
-  readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
   // The visual status trigger to attach the hover to (the same node passed to
   // the status picker).
   readonly children: ReactElement;
@@ -28,19 +29,13 @@ type StatusTimeTooltipProps = {
 /**
  * Linear-style "Time in status" hover for a Task's status pill: a panel listing
  * how long the Task has spent in each Workflow Status, with the change-status
- * shortcut in the footer. The Activity log it reads from is queried lazily —
- * the inner panel only mounts (and so only subscribes) while the tooltip is
- * open, so resting the board never fans out a query per card.
+ * shortcut in the footer. Self-contained — it resolves the Task's creation
+ * time, the Church's Workflow Statuses, and the Activity log from Zero by
+ * `taskId` alone (all Church-scoped or lazily mounted, so they collapse to one
+ * subscription each). The inner panel only mounts while the tooltip is open, so
+ * resting the board never fans out a query per card.
  */
-export function StatusTimeTooltip({
-  taskId,
-  churchId,
-  createdAt,
-  currentStatusId,
-  workflowStatuses,
-  children,
-  disabled,
-}: StatusTimeTooltipProps) {
+export function StatusTimeTooltip({ taskId, children, disabled }: StatusTimeTooltipProps) {
   if (disabled) return children;
   return (
     <Tooltip>
@@ -51,31 +46,21 @@ export function StatusTimeTooltip({
         className="flex w-56 flex-col items-stretch gap-0 p-0 text-sm font-normal"
         sideOffset={6}
       >
-        <StatusTimePanel
-          churchId={churchId}
-          createdAt={createdAt}
-          currentStatusId={currentStatusId}
-          taskId={taskId}
-          workflowStatuses={workflowStatuses}
-        />
+        <StatusTimePanel taskId={taskId} />
       </TooltipContent>
     </Tooltip>
   );
 }
 
-function StatusTimePanel({
-  taskId,
-  churchId,
-  createdAt,
-  currentStatusId,
-  workflowStatuses,
-}: {
-  readonly taskId: string;
-  readonly churchId: string | null;
-  readonly createdAt: number;
-  readonly currentStatusId: string;
-  readonly workflowStatuses: readonly TaskBoardWorkflowStatus[];
-}) {
+function StatusTimePanel({ taskId }: { readonly taskId: string }) {
+  const churchId = useChurchId();
+  const { tasksCollection } = useTasksCollection({ churchId, currentUserId: null });
+  const { workflowStatusesCollection } = useWorkflowStatusesCollection({ churchId });
+  const task = tasksCollection.find((candidate) => candidate.id === taskId);
+  const createdAt = task?.createdAt ?? 0;
+  const currentStatusId = task?.workflowStatusId ?? "";
+  const workflowStatuses = workflowStatusesCollection;
+
   const { collection, loading } = useActivitiesForEntityCollection({
     churchId,
     entityType: "task",

@@ -6,6 +6,7 @@ import {
   type WeekPickerOption,
   type WeekPickerStatus,
 } from "@/data/cycles/cyclesData.app";
+import { useChurchId } from "@/data/useChurchId";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -29,7 +30,6 @@ const WEEK_STATUS_ICON_CLASS: Record<WeekPickerStatus, string> = {
 
 type WeekTooltipProps = {
   readonly option: WeekPickerOption;
-  readonly churchId: string | null;
   // The visual Week chip to attach the hover to (the same node passed to the
   // Week picker trigger).
   readonly children: ReactElement;
@@ -46,7 +46,7 @@ type WeekTooltipProps = {
  * lazy — the inner panel only mounts (and so only subscribes) while the tooltip
  * is open, so resting the board never fans out a query per card.
  */
-export function WeekTooltip({ option, churchId, children, disabled }: WeekTooltipProps) {
+export function WeekTooltip({ option, children, disabled }: WeekTooltipProps) {
   if (disabled) return children;
   const Icon = WEEK_STATUS_ICON[option.status];
   return (
@@ -64,7 +64,7 @@ export function WeekTooltip({ option, churchId, children, disabled }: WeekToolti
           <Icon className={cn("size-4 shrink-0", WEEK_STATUS_ICON_CLASS[option.status])} />
           <span className="min-w-0 truncate font-medium">{option.label}</span>
         </div>
-        <WeekTooltipSummary churchId={churchId} option={option} />
+        <WeekTooltipSummary option={option} />
         <div className="flex items-center justify-between border-t px-2.5 py-1.5 text-muted-foreground text-xs">
           <span>Change week</span>
           <Kbd>⇧ C</Kbd>
@@ -74,13 +74,8 @@ export function WeekTooltip({ option, churchId, children, disabled }: WeekToolti
   );
 }
 
-function WeekTooltipSummary({
-  option,
-  churchId,
-}: {
-  readonly option: WeekPickerOption;
-  readonly churchId: string | null;
-}) {
+function WeekTooltipSummary({ option }: { readonly option: WeekPickerOption }) {
+  const churchId = useChurchId();
   const { scope, completedPercentage } = useWeekProgress({ churchId, cycleId: option.id });
   const today = new Date().toISOString().slice(0, 10);
   const summary = weekTooltipSummary({

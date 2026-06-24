@@ -3,6 +3,9 @@ import { getLabelId } from "@church-work/shared/get-ids";
 import { mutators, queries, type Label, type Task } from "@church-work/zero";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 
+import { useTeamsCollection } from "@/data/teams/teamsData.app";
+import { useChurchId } from "@/data/useChurchId";
+
 export type LabelItem = {
   readonly id: string;
   readonly churchId: string;
@@ -88,6 +91,49 @@ export function useLabelsCollection(params: { readonly churchId: string | null }
     collection,
     labelsCollection: collection,
     loading: false,
+  };
+}
+
+/**
+ * The resolved data a Label hover card renders: the Label's own fields plus the
+ * count of Tasks carrying it and the name of its owning Team (a Team Label), or
+ * `null` for a Church-wide Label.
+ */
+export type TaskLabelCard = {
+  readonly id: string;
+  readonly name: string;
+  readonly color: string;
+  readonly taskCount: number;
+  readonly teamName: string | null;
+};
+
+/**
+ * Resolves a single Label's hover-card data from its id, reading the active
+ * Church from ambient context so callers pass only `labelId`. Both sources
+ * (Labels + Teams) are Church-scoped, so every Label hover shares the same
+ * queries (collapsing to one subscription each). Returns `null` for an unknown
+ * Label id.
+ */
+export function useTaskLabelCard(labelId: string | null): TaskLabelCard | null {
+  const churchId = useChurchId();
+  const { labelsCollection } = useLabelsCollection({ churchId });
+  const { teamsCollection } = useTeamsCollection({ churchId });
+
+  if (labelId === null) return null;
+  const label = labelsCollection.find((candidate) => candidate.id === labelId);
+  if (!label) return null;
+
+  const teamName =
+    label.teamId === null
+      ? null
+      : (teamsCollection.find((team) => team.id === label.teamId)?.name ?? null);
+
+  return {
+    id: label.id,
+    name: label.name,
+    color: label.color,
+    taskCount: label.taskCount,
+    teamName,
   };
 }
 
