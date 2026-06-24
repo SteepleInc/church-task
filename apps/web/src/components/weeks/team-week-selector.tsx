@@ -6,7 +6,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatWeekDateRange } from "@/data/cycles/cyclesData.app";
+import { formatWeekDateRange, formatWeekNameParts } from "@/data/cycles/cyclesData.app";
 import { cn } from "@/lib/utils";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { CalendarRange, ChevronDown, ChevronRight } from "lucide-react";
@@ -22,7 +22,7 @@ type SelectorCycle = {
 };
 
 function weekLabel(cycle: SelectorCycle): string {
-  return cycle.name?.trim() || formatWeekDateRange(cycle);
+  return cycle.name?.trim() || formatWeekNameParts(cycle).fullLabel;
 }
 
 /**
@@ -118,7 +118,11 @@ export function TeamWeekSelector({
           className="-mx-1 flex min-w-0 items-center gap-1 rounded-md px-1 py-0.5 font-medium text-foreground transition-colors hover:bg-muted aria-expanded:bg-muted data-popup-open:bg-muted"
         >
           <CalendarRange aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">{selected ? weekLabel(selected) : "Select a Week"}</span>
+          {selected ? (
+            <WeekNameInline cycle={selected} />
+          ) : (
+            <span className="truncate">Select a Week</span>
+          )}
           <ChevronDown aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72">
@@ -143,6 +147,20 @@ export function TeamWeekSelector({
   );
 }
 
+function WeekNameInline({ cycle }: { readonly cycle: SelectorCycle }) {
+  const name = cycle.name?.trim();
+  const fallback = formatWeekNameParts(cycle);
+  return (
+    <span className="min-w-0 truncate">
+      {name || fallback.primary}
+      <span className="text-muted-foreground">
+        {" "}
+        - {name ? formatWeekDateRange(cycle) : fallback.dateRange}
+      </span>
+    </span>
+  );
+}
+
 function BreadcrumbChevron() {
   return <ChevronRight aria-hidden className="size-3.5 shrink-0 opacity-60" />;
 }
@@ -157,16 +175,15 @@ function WeekMenuItem({
   readonly shortcut: string;
 }) {
   const name = cycle.name?.trim();
+  const fallback = formatWeekNameParts(cycle);
   return (
     <DropdownMenuItem className="gap-2" onClick={() => void onSelect(cycle.id)}>
       <CalendarRange className="size-4 shrink-0 text-muted-foreground" />
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate">{name || formatWeekDateRange(cycle)}</span>
-        {name ? (
-          <span className="truncate text-xs text-muted-foreground">
-            {formatWeekDateRange(cycle)}
-          </span>
-        ) : null}
+        <span className="truncate">{name || fallback.primary}</span>
+        <span className="truncate text-xs text-muted-foreground">
+          {name ? formatWeekDateRange(cycle) : fallback.dateRange}
+        </span>
       </span>
       <DropdownMenuShortcut className={cn("tracking-normal", name ? "self-start" : undefined)}>
         {shortcut}
