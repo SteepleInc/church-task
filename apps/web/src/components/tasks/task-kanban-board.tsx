@@ -909,7 +909,8 @@ function TaskKanbanCard({
         // Projected Template Tasks are planned, not yet created: read them as a
         // dashed/muted "ghost" card so they're distinct from real Tasks, in
         // keeping with the app's dashed-placeholder language.
-        task.isProjected && "border-dashed bg-muted/20 shadow-none ring-0",
+        task.isProjected &&
+          "border border-dashed border-foreground/20 bg-muted/20 shadow-none ring-0",
         onOpenTask &&
           !task.isProjected &&
           "cursor-pointer transition-colors hover:ring-foreground/20",

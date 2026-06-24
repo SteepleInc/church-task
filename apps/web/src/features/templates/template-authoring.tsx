@@ -1,4 +1,10 @@
 import type { KeyDateRule } from "@church-work/domain";
+import {
+  buildPeriodPlacementFrame,
+  defaultTemplateScheduleForPlacementShape,
+  type PeriodPlacementFrame,
+  type PeriodTemplatePlacementShape,
+} from "@church-work/domain";
 import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { Link } from "@tanstack/react-router";
 import { Schema } from "effect";
@@ -15,64 +21,55 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import {
-  buildPeriodPlacementFrame,
-  defaultTemplateScheduleForPlacementShape,
-  resolvePeriodPlacementDueDate,
-  type PeriodPlacementFrame,
-  type PeriodTemplatePlacementShape,
-} from "@church-work/domain";
-
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useAppForm } from "@/components/form/ts-form";
 import {
   AssigneeComboboxSelector,
   EstimateComboboxSelector,
   LabelsComboboxSelector,
   PriorityComboboxSelector,
   TaskAssigneePillTrigger,
+  type TaskEstimate,
   TaskEstimatePillTrigger,
   TaskLabelsPillTrigger,
-  TaskPropertyPill,
+  type TaskPriority,
   TaskPriorityPillTrigger,
   TaskTeamPillTrigger,
   TeamComboboxSelector,
-  type TaskEstimate,
-  type TaskPriority,
 } from "@/components/tasks/task-card-fields";
-import { DraftTaskPropertySurface } from "@/components/tasks/draft-task-property-surface";
-import { useAppForm } from "@/components/form/ts-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollSections, type SectionRenderArgs } from "@/components/ui/scroll-sections";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { type LabelItem, useLabelsCollection } from "@/data/labels/labelsData.app";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
-import { useLabelsCollection, type LabelItem } from "@/data/labels/labelsData.app";
 import {
+  type TeamCollectionItem,
   useTeamMembershipsCollection,
   useTeamsCollection,
-  type TeamCollectionItem,
 } from "@/data/teams/teamsData.app";
-import { getUserDisplayName, useChurchUsersCollection } from "@/data/users/usersData.app";
 import {
   describeKeyDateSchedule,
   formatKeyDateOccurrence,
   KEY_DATE_PRESET_OPTIONS,
+  type KeyDateItem,
+  type KeyDateScheduleKind,
   keyDateKindLabel,
   useCreateKeyDate,
   useKeyDatesCollection,
-  type KeyDateItem,
-  type KeyDateScheduleKind,
 } from "@/data/templates/keyDatesData.app";
 import {
   useCreateKeyDateTemplate,
   useCreatePeriodTemplate,
   useCreateWeeklyServiceTemplate,
 } from "@/data/templates/templatesData.app";
+import { getUserDisplayName, useChurchUsersCollection } from "@/data/users/usersData.app";
 import { BigActionFooter } from "@/features/big-actions/big-action-components";
 import { cn } from "@/lib/utils";
 
@@ -107,10 +104,14 @@ type DraftTask = {
   /** JS weekday (0 = Sunday) the Template Task is due on within its Cycle. */
   readonly placementWeekday: number;
   /**
-   * For period shapes only: which Cycle of the normalized frame the Template
-   * Task lives in, indexed from 0. Ignored for the weekly service shape.
+   * The Template Task's week row, expressed as the Cycle offset from the
+   * Template End Cycle (the unified placement coordinate, see CONTEXT.md
+   * "Template Task Placement" and issue #219 story 17). 0 is the End Cycle; the
+   * normalized focus frame occupies offsets [-(frameSize-1) … 0]; "before" rows
+   * are more negative and "after" rows are positive. Weekly service and Key Date
+   * shapes anchor their single focus Cycle at offset 0.
    */
-  readonly cycleIndex: number;
+  readonly cycleOffsetFromEnd: number;
 };
 
 type TemplateAuthoringShape = "weekly_service" | PeriodTemplatePlacementShape;
@@ -132,9 +133,13 @@ const PRIORITY_TO_KEY: Record<TaskPriority, string | null> = {
   low: "low",
 };
 
-const newDraftTask = (placementWeekday: number, teamId: string, cycleIndex = 0): DraftTask => ({
+const newDraftTask = (
+  placementWeekday: number,
+  teamId: string,
+  cycleOffsetFromEnd = 0,
+): DraftTask => ({
   assigneeId: null,
-  cycleIndex,
+  cycleOffsetFromEnd,
   description: "",
   estimate: "no_estimate",
   priority: "no_priority",
@@ -172,7 +177,10 @@ type TemplateDetails = { name: string; description: string };
 function useTemplateDetailsForm(onSave: (value: TemplateDetails) => void | Promise<void>) {
   return useAppForm({
     defaultValues: { name: "", description: "" } as TemplateDetails,
-    validationLogic: revalidateLogic({ mode: "submit", modeAfterSubmission: "blur" }),
+    validationLogic: revalidateLogic({
+      mode: "submit",
+      modeAfterSubmission: "blur",
+    }),
     validators: { onSubmit: Schema.toStandardSchemaV1(TemplateDetailsSchema) },
     onSubmit: ({ value }) => onSave(value),
   });
@@ -237,7 +245,11 @@ type AssigneeOption = { readonly id: string; readonly label: string };
 /** Shared Template Task picker context reused by every Template Task card. */
 type TaskFieldProps = {
   readonly teams: readonly TeamCollectionItem[];
-  readonly teamPickerOptions: readonly { id: string; name: string; color: string | null }[];
+  readonly teamPickerOptions: readonly {
+    id: string;
+    name: string;
+    color: string | null;
+  }[];
   readonly memberTeamIds: ReadonlySet<string>;
   readonly assigneeOptions: readonly AssigneeOption[];
   readonly churchLabels: readonly LabelItem[];
@@ -478,6 +490,9 @@ function WeeklyServiceAuthoring({
 
   const teamsCollection = teams.teamsCollection;
   const defaultTeamId = teamsCollection[0]?.id ?? "";
+  // Remembers the Team of the most recently created/edited Template Task so the
+  // next blank Task seeds with it (chain-capture convenience).
+  const lastTeamIdRef = useRef("");
 
   const [shape, setShape] = useState<TemplateAuthoringShape>(initialShape);
   const [serviceWeekday, setServiceWeekday] = useState(0); // Sunday default
@@ -517,7 +532,10 @@ function WeeklyServiceAuthoring({
     () =>
       shape === "weekly_service"
         ? null
-        : buildPeriodPlacementFrame({ periodStartLocalDate: periodStartDate, shape }),
+        : buildPeriodPlacementFrame({
+            periodStartLocalDate: periodStartDate,
+            shape,
+          }),
     [shape, periodStartDate],
   );
 
@@ -542,7 +560,11 @@ function WeeklyServiceAuthoring({
   );
 
   const assigneeOptions = useMemo(
-    () => users.usersCollection.map((user) => ({ id: user.id, label: getUserDisplayName(user) })),
+    () =>
+      users.usersCollection.map((user) => ({
+        id: user.id,
+        label: getUserDisplayName(user),
+      })),
     [users.usersCollection],
   );
 
@@ -573,12 +595,19 @@ function WeeklyServiceAuthoring({
 
   const updateTask = (id: string, patch: Partial<DraftTask>) => {
     setSaved(false);
+    if (patch.teamId) lastTeamIdRef.current = patch.teamId;
     setTasks((current) => current.map((task) => (task.id === id ? { ...task, ...patch } : task)));
   };
 
-  const addTask = (placementWeekday: number, cycleIndex = 0) => {
+  const addTask = (placementWeekday: number, cycleOffsetFromEnd = 0) => {
     setSaved(false);
-    setTasks((current) => [...current, newDraftTask(placementWeekday, defaultTeamId, cycleIndex)]);
+    // New Template Tasks inherit the Team of the most recently edited Task so a
+    // coordinator can dump several Tasks for the same ministry without
+    // re-picking the Team each time (see the chain-capture flow).
+    const seedTeamId = lastTeamIdRef.current || defaultTeamId;
+    const draft = newDraftTask(placementWeekday, seedTeamId, cycleOffsetFromEnd);
+    setTasks((current) => [...current, draft]);
+    return draft.id;
   };
 
   const removeTask = (id: string) => {
@@ -617,7 +646,9 @@ function WeeklyServiceAuthoring({
           priority: PRIORITY_TO_KEY[task.priority],
           key: `task-${index + 1}-${slugify(task.title)}`,
           labelIds: [...task.labelIds],
-          placementCycleOffset: 0,
+          // Weekly service anchors its focus Cycle at offset 0; before/after
+          // rows carry their signed offset from the Template End Cycle directly.
+          placementCycleOffset: task.cycleOffsetFromEnd,
           placementWeekday: task.placementWeekday,
           templateTeamKey: team?.identifier ?? templateTeams[0]?.key ?? "team",
           title: task.title.trim(),
@@ -625,17 +656,19 @@ function WeeklyServiceAuthoring({
       }),
       templateTeams,
     };
-    const frameSize = periodFrame?.cycles.length ?? 1;
     const result =
       shape === "weekly_service"
         ? await createTemplate({ ...common, serviceWeekday, startDate })
         : await createPeriodTemplate({
             ...common,
             periodStartDate,
-            scheduleDefaults: defaultTemplateScheduleForPlacementShape(shape, { repeatYearly }),
+            scheduleDefaults: defaultTemplateScheduleForPlacementShape(shape, {
+              repeatYearly,
+            }),
             shape,
-            // Period placement: anchor each Template Task to its Cycle in the
-            // normalized frame (offset from the frame's last Cycle) and its
+            // Period placement: each Template Task carries its signed Cycle
+            // offset from the Template End Cycle (the focus frame occupies
+            // [-(frameSize-1) … 0]; before/after rows extend past it) and its
             // Monday-first weekday within that Cycle.
             tasks: validTasks.map((task, index) => {
               const team = teamsCollection.find((candidate) => candidate.id === task.teamId);
@@ -646,8 +679,7 @@ function WeeklyServiceAuthoring({
                 priority: PRIORITY_TO_KEY[task.priority],
                 key: `task-${index + 1}-${slugify(task.title)}`,
                 labelIds: [...task.labelIds],
-                placementCycleOffset:
-                  Math.min(Math.max(task.cycleIndex, 0), frameSize - 1) - (frameSize - 1),
+                placementCycleOffset: task.cycleOffsetFromEnd,
                 placementWeekday: MONDAY_FIRST_INDEX(task.placementWeekday),
                 templateTeamKey: team?.identifier ?? templateTeams[0]?.key ?? "team",
                 title: task.title.trim(),
@@ -707,31 +739,31 @@ function WeeklyServiceAuthoring({
     </ShapeNameStep>
   );
 
-  const tasksStep =
-    shape === "weekly_service" ? (
-      <CycleCalendarStep
-        addTask={addTask}
-        fieldProps={taskFieldProps}
-        loading={dataLoading}
-        removeTask={removeTask}
-        serviceWeekday={serviceWeekday}
-        step={2}
-        tasks={tasks}
-        updateTask={updateTask}
-      />
-    ) : (
-      <PeriodFrameStep
-        addTask={addTask}
-        fieldProps={taskFieldProps}
-        frame={periodFrame}
-        loading={dataLoading}
-        removeTask={removeTask}
-        shape={shape}
-        tasks={tasks}
-        teamsAvailable={teamsCollection.length > 0}
-        updateTask={updateTask}
-      />
-    );
+  const gridDescriptor = useMemo<CycleGridDescriptor | null>(() => {
+    if (shape === "weekly_service") {
+      return buildAnchorGridDescriptor({
+        anchorWeekday: serviceWeekday,
+        focusLabel: "Service week",
+        highlightLabel: "Service",
+      });
+    }
+    return periodFrame ? buildPeriodGridDescriptor(periodFrame, shape) : null;
+  }, [shape, serviceWeekday, periodFrame]);
+
+  const tasksStep = (
+    <CycleGridStep
+      addTask={addTask}
+      descriptor={gridDescriptor}
+      emptyHint="Configure the schedule to place Template Tasks."
+      fieldProps={taskFieldProps}
+      loading={dataLoading}
+      removeTask={removeTask}
+      step={2}
+      tasks={tasks}
+      teamsAvailable={teamsCollection.length > 0}
+      updateTask={updateTask}
+    />
+  );
 
   const saveStep = (
     <SaveStep
@@ -779,9 +811,16 @@ function WeeklyServiceAuthoring({
     }
   })();
 
+  // Step 2 (the Cycle grid) fills the available height so its internal scroll
+  // container drives the before/focus/after scroll; the other steps flow
+  // top-aligned as before.
+  const fillContent = step === 1;
+
   return (
-    <div className="flex min-h-full flex-col">
-      <div className="flex flex-col gap-6 pb-6">{screen.content}</div>
+    <div className={cn("flex flex-col", fillContent ? "h-full min-h-0" : "min-h-full")}>
+      <div className={cn("flex flex-col pb-6", fillContent ? "min-h-0 flex-1" : "gap-6")}>
+        {screen.content}
+      </div>
       <StepNav
         canAdvance={screen.canAdvance}
         isFirst={step <= 0}
@@ -810,15 +849,6 @@ function formatShortDate(value: string) {
     day: "numeric",
     month: "short",
   });
-}
-
-/** Returns the Monday that opens the Cycle containing the given local date. */
-function cycleMondayFor(localDate: string): Date {
-  const [year, month, day] = localDate.split("-").map(Number);
-  const date = new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1);
-  const mondayDelta = (date.getDay() + 6) % 7; // 0 = Monday
-  date.setDate(date.getDate() - mondayDelta);
-  return date;
 }
 
 /**
@@ -861,6 +891,9 @@ function KeyDateAuthoring({
 
   const teamsCollection = teams.teamsCollection;
   const defaultTeamId = teamsCollection[0]?.id ?? "";
+  // Remembers the Team of the most recently created/edited Template Task so the
+  // next blank Task seeds with it (chain-capture convenience).
+  const lastTeamIdRef = useRef("");
 
   const [selectedKeyDateId, setSelectedKeyDateId] = useState<string | null>(null);
   const [pendingKeyDateKey, setPendingKeyDateKey] = useState<string | null>(null);
@@ -902,19 +935,6 @@ function KeyDateAuthoring({
     return new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1).getDay();
   }, [occurrenceDate]);
 
-  // Resolve each Monday-first weekday slot to a concrete date in the
-  // occurrence's Cycle so the calendar shows real, highlighted dates.
-  const cycleDates = useMemo(() => {
-    if (!occurrenceDate) return null;
-    const monday = cycleMondayFor(occurrenceDate);
-    return MONDAY_FIRST.reduce<Record<number, string>>((acc, weekday, index) => {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + index);
-      acc[weekday] = formatLocalDate(date);
-      return acc;
-    }, {});
-  }, [occurrenceDate]);
-
   const memberTeamIds = useMemo(
     () =>
       new Set(
@@ -936,7 +956,11 @@ function KeyDateAuthoring({
   );
 
   const assigneeOptions = useMemo(
-    () => users.usersCollection.map((user) => ({ id: user.id, label: getUserDisplayName(user) })),
+    () =>
+      users.usersCollection.map((user) => ({
+        id: user.id,
+        label: getUserDisplayName(user),
+      })),
     [users.usersCollection],
   );
 
@@ -944,12 +968,19 @@ function KeyDateAuthoring({
 
   const updateTask = (id: string, patch: Partial<DraftTask>) => {
     setSaved(false);
+    if (patch.teamId) lastTeamIdRef.current = patch.teamId;
     setTasks((current) => current.map((task) => (task.id === id ? { ...task, ...patch } : task)));
   };
 
-  const addTask = (placementWeekday: number) => {
+  const addTask = (placementWeekday: number, cycleOffsetFromEnd = 0) => {
     setSaved(false);
-    setTasks((current) => [...current, newDraftTask(placementWeekday, defaultTeamId)]);
+    // New Template Tasks inherit the Team of the most recently edited Task so a
+    // coordinator can dump several Tasks for the same ministry without
+    // re-picking the Team each time (see the chain-capture flow).
+    const seedTeamId = lastTeamIdRef.current || defaultTeamId;
+    const draft = newDraftTask(placementWeekday, seedTeamId, cycleOffsetFromEnd);
+    setTasks((current) => [...current, draft]);
+    return draft.id;
   };
 
   const removeTask = (id: string) => {
@@ -968,7 +999,12 @@ function KeyDateAuthoring({
     setError(null);
     const trimmed = keyDateName.trim();
     const key = slugify(trimmed);
-    const result = await createKeyDate({ churchId, key, name: trimmed, schedule });
+    const result = await createKeyDate({
+      churchId,
+      key,
+      name: trimmed,
+      schedule,
+    });
     if (!result.ok) {
       setError(result.error.message);
       return;
@@ -1016,7 +1052,9 @@ function KeyDateAuthoring({
           priority: PRIORITY_TO_KEY[task.priority],
           key: `task-${index + 1}-${slugify(task.title)}`,
           labelIds: [...task.labelIds],
-          placementCycleOffset: 0,
+          // Key Date anchors its focus Cycle (the occurrence's Cycle) at offset
+          // 0; before/after rows carry their signed offset from it directly.
+          placementCycleOffset: task.cycleOffsetFromEnd,
           placementWeekday: task.placementWeekday,
           templateTeamKey: team?.identifier ?? templateTeams[0]?.key ?? "team",
           title: task.title.trim(),
@@ -1053,23 +1091,47 @@ function KeyDateAuthoring({
     </ShapeNameStep>
   );
 
+  const taskFieldProps = useMemo<TaskFieldProps>(
+    () => ({
+      assigneeOptions,
+      churchLabels: labels.labelsCollection,
+      currentUserId,
+      memberTeamIds,
+      memberships: memberships.teamMembershipsCollection,
+      teamPickerOptions,
+      teams: teamsCollection,
+    }),
+    [
+      assigneeOptions,
+      labels.labelsCollection,
+      currentUserId,
+      memberTeamIds,
+      memberships.teamMembershipsCollection,
+      teamPickerOptions,
+      teamsCollection,
+    ],
+  );
+
+  const gridDescriptor = useMemo<CycleGridDescriptor | null>(() => {
+    if (!occurrenceDate || occurrenceWeekday === null || !selectedKeyDate) return null;
+    return buildAnchorGridDescriptor({
+      anchorWeekday: occurrenceWeekday,
+      focusLabel: `${selectedKeyDate.name} · ${formatKeyDateOccurrence(occurrenceDate)}`,
+      highlightLabel: selectedKeyDate.name,
+    });
+  }, [occurrenceDate, occurrenceWeekday, selectedKeyDate]);
+
   const calendarStep = (
-    <KeyDateCalendarStep
+    <CycleGridStep
       addTask={addTask}
-      assigneeOptions={assigneeOptions}
-      churchLabels={labels.labelsCollection}
-      currentUserId={currentUserId}
-      cycleDates={cycleDates}
+      descriptor={gridDescriptor}
+      emptyHint="Choose a Key Date to place Template Tasks around its occurrence."
+      fieldProps={taskFieldProps}
       loading={churchLoading}
-      memberTeamIds={memberTeamIds}
-      memberships={memberships.teamMembershipsCollection}
-      occurrenceWeekday={occurrenceWeekday}
       removeTask={removeTask}
-      selectedKeyDate={selectedKeyDate}
       step={2}
       tasks={tasks}
-      teamPickerOptions={teamPickerOptions}
-      teams={teamsCollection}
+      teamsAvailable={teamsCollection.length > 0}
       updateTask={updateTask}
     />
   );
@@ -1120,9 +1182,13 @@ function KeyDateAuthoring({
     }
   })();
 
+  const fillContent = step === 1;
+
   return (
-    <div className="flex min-h-full flex-col">
-      <div className="flex flex-col gap-6 pb-6">{screen.content}</div>
+    <div className={cn("flex flex-col", fillContent ? "h-full min-h-0" : "min-h-full")}>
+      <div className={cn("flex flex-col pb-6", fillContent ? "min-h-0 flex-1" : "gap-6")}>
+        {screen.content}
+      </div>
       <StepNav
         canAdvance={screen.canAdvance}
         isFirst={step <= 0}
@@ -1345,8 +1411,13 @@ function InlineKeyDateCreator({
       name: "",
       schedule: defaultScheduleForKind("computedYearly"),
     } satisfies InlineKeyDateCreatorValues,
-    validationLogic: revalidateLogic({ mode: "submit", modeAfterSubmission: "blur" }),
-    validators: { onSubmit: Schema.toStandardSchemaV1(InlineKeyDateCreatorSchema) },
+    validationLogic: revalidateLogic({
+      mode: "submit",
+      modeAfterSubmission: "blur",
+    }),
+    validators: {
+      onSubmit: Schema.toStandardSchemaV1(InlineKeyDateCreatorSchema),
+    },
     onSubmit: ({ value }) => {
       const name = value.name.trim();
       if (!name) return;
@@ -1465,137 +1536,6 @@ function InlineKeyDateCreator({
   );
 }
 
-// --- Key Date: Step 3: Cycle calendar with occurrence highlight ------------
-
-function KeyDateCalendarStep({
-  step,
-  tasks,
-  teams,
-  teamPickerOptions,
-  memberTeamIds,
-  assigneeOptions,
-  churchLabels,
-  memberships,
-  currentUserId,
-  occurrenceWeekday,
-  cycleDates,
-  selectedKeyDate,
-  loading,
-  addTask,
-  updateTask,
-  removeTask,
-}: {
-  readonly step: number;
-  readonly tasks: readonly DraftTask[];
-  readonly teams: readonly TeamCollectionItem[];
-  readonly teamPickerOptions: readonly { id: string; name: string; color: string | null }[];
-  readonly memberTeamIds: ReadonlySet<string>;
-  readonly assigneeOptions: readonly AssigneeOption[];
-  readonly churchLabels: readonly LabelItem[];
-  readonly memberships: readonly { teamId: string; userId: string }[];
-  readonly currentUserId: string | null;
-  readonly occurrenceWeekday: number | null;
-  readonly cycleDates: Record<number, string> | null;
-  readonly selectedKeyDate: KeyDateItem | null;
-  readonly loading: boolean;
-  readonly addTask: (weekday: number) => void;
-  readonly updateTask: (id: string, patch: Partial<DraftTask>) => void;
-  readonly removeTask: (id: string) => void;
-}) {
-  const totalPlaced = tasks.filter((task) => task.title.trim() && task.teamId).length;
-
-  return (
-    <StepSection
-      action={
-        totalPlaced > 0 ? (
-          <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground text-xs">
-            {totalPlaced} Template {totalPlaced === 1 ? "Task" : "Tasks"}
-          </span>
-        ) : null
-      }
-      description="Place Template Tasks across the Cycle that contains the Key Date. The occurrence day is highlighted."
-      step={step}
-      title="Cycle calendar"
-    >
-      {loading ? (
-        <CalendarSkeleton />
-      ) : teams.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground text-sm">
-          Create a Team before authoring Template Tasks.
-        </div>
-      ) : !selectedKeyDate ? (
-        <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground text-sm">
-          Choose a Key Date above to place Template Tasks around its occurrence.
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-xl border bg-card">
-          {MONDAY_FIRST.map((weekday, index) => {
-            const dayTasks = tasks.filter((task) => task.placementWeekday === weekday);
-            const isOccurrence = weekday === occurrenceWeekday;
-            const dayDate = cycleDates?.[weekday] ?? null;
-            return (
-              <div
-                className={cn(
-                  "flex gap-3 px-3 py-3 sm:px-4",
-                  index !== 0 && "border-t",
-                  isOccurrence &&
-                    "border-l-2 border-l-primary bg-primary/[0.06] pl-[calc(0.75rem-2px)] sm:pl-[calc(1rem-2px)]",
-                )}
-                key={weekday}
-              >
-                <div className="flex w-28 shrink-0 flex-col gap-1 pt-1.5">
-                  <span className="font-medium text-sm">{WEEKDAY_NAMES[weekday]}</span>
-                  {dayDate ? (
-                    <span className="text-muted-foreground text-xs tabular-nums">
-                      {formatShortDate(dayDate)}
-                    </span>
-                  ) : null}
-                  {isOccurrence ? (
-                    <span
-                      className="inline-flex max-w-full items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 font-medium text-[11px] text-primary"
-                      title={selectedKeyDate.name}
-                    >
-                      <CalendarHeart className="size-3 shrink-0" />
-                      <span className="truncate">{selectedKeyDate.name}</span>
-                    </span>
-                  ) : null}
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col gap-2">
-                  {dayTasks.map((task) => (
-                    <TemplateTaskCard
-                      fieldProps={{
-                        assigneeOptions,
-                        churchLabels,
-                        currentUserId,
-                        memberTeamIds,
-                        memberships,
-                        teamPickerOptions,
-                        teams,
-                      }}
-                      key={task.id}
-                      onChange={(patch) => updateTask(task.id, patch)}
-                      onRemove={() => removeTask(task.id)}
-                      task={task}
-                    />
-                  ))}
-                  <button
-                    className="flex w-fit cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground"
-                    onClick={() => addTask(weekday)}
-                    type="button"
-                  >
-                    <Plus className="size-3.5" />
-                    Add Template Task
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </StepSection>
-  );
-}
-
 // --- Key Date: Step 4: Preview and save ------------------------------------
 
 function KeyDateSaveStep({
@@ -1708,15 +1648,22 @@ function StepSection({
   description,
   children,
   action,
+  fill = false,
 }: {
   readonly step: number;
   readonly title: string;
   readonly description: string;
   readonly children: ReactNode;
   readonly action?: ReactNode;
+  /**
+   * When true, the section fills the available height and its content area is a
+   * bounded, min-h-0 flex column — required so a nested scroll container (the
+   * Cycle grid's ScrollSections) gets a real height to drive its scroll engine.
+   */
+  readonly fill?: boolean;
 }) {
   return (
-    <section className="flex flex-col gap-4">
+    <section className={cn("flex flex-col gap-4", fill && "min-h-0 flex-1")}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-muted-foreground text-xs">
@@ -1729,7 +1676,7 @@ function StepSection({
         </div>
         {action}
       </div>
-      <div className="pl-9">{children}</div>
+      <div className={cn("pl-9", fill && "flex min-h-0 flex-1 flex-col")}>{children}</div>
     </section>
   );
 }
@@ -2041,152 +1988,134 @@ function ScheduleStep({
   );
 }
 
-// --- Weekly: Step 1: Vertical Monday–Sunday Cycle calendar ------------------
+// --- Cycle grid descriptors -------------------------------------------------
 
-function CycleCalendarStep({
+/**
+ * Builds the grid descriptor for a single-Cycle focus shape (weekly service or
+ * Key Date): the focus window is one Cycle at offset 0, with the anchor weekday
+ * highlighted in every row.
+ */
+function buildAnchorGridDescriptor(params: {
+  readonly anchorWeekday: number;
+  readonly focusLabel: string;
+  readonly highlightLabel: string;
+}): CycleGridDescriptor {
+  return {
+    focusLabel: params.focusLabel,
+    focusMeta: new Map(),
+    focusStartOffset: 0,
+    weekdayHighlight: {
+      label: params.highlightLabel,
+      weekday: params.anchorWeekday,
+    },
+  };
+}
+
+/**
+ * Builds the grid descriptor for a period shape (monthly/quarterly/yearly) from
+ * the normalized placement frame: the focus window is the whole frame, offsets
+ * [-(frameSize-1) … 0] measured from the End Cycle, each focus row carrying its
+ * owned-period label, in-focus flag, and any boundary-day marker.
+ */
+function buildPeriodGridDescriptor(
+  frame: PeriodPlacementFrame,
+  shape: PeriodTemplatePlacementShape,
+): CycleGridDescriptor {
+  const frameSize = frame.cycles.length;
+  const focusMeta = new Map<number, FocusCycleMeta>();
+  frame.cycles.forEach((cycle, index) => {
+    const offset = index - (frameSize - 1);
+    const boundaryDay = cycle.days.find((day) => day.isPeriodBoundary);
+    focusMeta.set(offset, {
+      boundaryLabel: boundaryDay ? boundaryLabelFor(boundaryDay.localDate, frame) : null,
+      isInFocusPeriod: cycle.isInFocusPeriod,
+      ownedPeriodLabel: ownedPeriodLabel(cycle.ownedPeriodKey),
+    });
+  });
+  return {
+    focusLabel: `${ownedPeriodLabel(frame.periodKey)} · ${frameSize}-Cycle ${shape} frame`,
+    focusMeta,
+    focusStartOffset: -(frameSize - 1),
+    weekdayHighlight: null,
+  };
+}
+
+// --- Unified Cycle grid (before / focus window / after) --------------------
+
+/**
+ * Per-Cycle metadata for a week row that falls inside the normalized focus
+ * frame. Rows outside the frame (before/after) have no meta — they are plain
+ * week rows derived purely from the Template End Cycle offset.
+ */
+type FocusCycleMeta = {
+  /** Owned-period label (e.g. "February 2026"); shown when it changes row-to-row. */
+  readonly ownedPeriodLabel: string;
+  readonly isInFocusPeriod: boolean;
+  /** Monday-first weekday index of a period-boundary day in this Cycle, if any. */
+  readonly boundaryLabel: string | null;
+};
+
+/**
+ * A normalized description of the Cycle grid shared by every Template shape. The
+ * focus window is the contiguous offset range `[focusStartOffset … 0]` measured
+ * from the Template End Cycle (see CONTEXT.md "Template Task Placement"): weekly
+ * service and Key Date are a single focus row at offset 0; monthly/quarterly/
+ * yearly are the whole normalized 5/13/52-Cycle frame. "Before" and "after" are
+ * open-ended week rows on either side of that window.
+ */
+type CycleGridDescriptor = {
+  /** Most-negative focus offset (0 for weekly/Key Date, -(frameSize-1) for period). */
+  readonly focusStartOffset: number;
+  /** Rich label for the single focus Cycle of a weekly/Key Date shape. */
+  readonly focusLabel: string;
+  /** Per-offset focus metadata, keyed by Cycle offset from the End Cycle. */
+  readonly focusMeta: ReadonlyMap<number, FocusCycleMeta>;
+  /**
+   * A weekday to highlight in every row (the weekly service day or the Key Date
+   * occurrence weekday), as a JS weekday index, plus its short badge label.
+   */
+  readonly weekdayHighlight: {
+    readonly weekday: number;
+    readonly label: string;
+  } | null;
+};
+
+/** How many extra week rows to render beyond the focus window on each side. */
+const GRID_BUFFER_ROWS = 4;
+
+/**
+ * The unified Step 2 surface for every calendar shape. Renders one scrolling
+ * column of week rows split into three sticky `ScrollSections` groups — Before,
+ * the focus window, and After — each day of every row a real drop target for the
+ * inline Template Task creator. Before/after rows extend infinitely as the user
+ * scrolls, so work can be placed far outside the normalized frame without
+ * explicitly adding Template Weeks (issue #219 stories 15–17).
+ */
+function CycleGridStep({
   step,
+  descriptor,
   tasks,
   fieldProps,
-  serviceWeekday,
   loading,
+  teamsAvailable,
+  emptyHint,
   addTask,
   updateTask,
   removeTask,
 }: {
   readonly step: number;
+  readonly descriptor: CycleGridDescriptor | null;
   readonly tasks: readonly DraftTask[];
   readonly fieldProps: TaskFieldProps;
-  readonly serviceWeekday: number;
-  readonly loading: boolean;
-  readonly addTask: (weekday: number) => void;
-  readonly updateTask: (id: string, patch: Partial<DraftTask>) => void;
-  readonly removeTask: (id: string) => void;
-}) {
-  const totalPlaced = tasks.filter((task) => task.title.trim() && task.teamId).length;
-
-  return (
-    <StepSection
-      action={
-        totalPlaced > 0 ? (
-          <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground text-xs">
-            {totalPlaced} Template {totalPlaced === 1 ? "Task" : "Tasks"}
-          </span>
-        ) : null
-      }
-      description="Place Template Tasks on the day they are due. No Workflow Status or Task State yet."
-      step={step}
-      title="Cycle calendar"
-    >
-      {loading ? (
-        <CalendarSkeleton />
-      ) : fieldProps.teams.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground text-sm">
-          Create a Team before authoring Template Tasks.
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-xl border bg-card">
-          {MONDAY_FIRST.map((weekday, index) => {
-            const dayTasks = tasks.filter((task) => task.placementWeekday === weekday);
-            const isService = weekday === serviceWeekday;
-            return (
-              <div
-                className={cn(
-                  "flex gap-3 px-3 py-3 sm:px-4",
-                  index !== 0 && "border-t",
-                  isService &&
-                    "border-l-2 border-l-primary bg-primary/[0.06] pl-[calc(0.75rem-2px)] sm:pl-[calc(1rem-2px)]",
-                )}
-                key={weekday}
-              >
-                <div className="flex w-24 shrink-0 flex-col gap-1 pt-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-medium text-sm">{WEEKDAY_NAMES[weekday]}</span>
-                  </div>
-                  {isService ? (
-                    <span className="inline-flex w-fit items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 font-medium text-[10px] text-primary uppercase tracking-wide">
-                      Service
-                    </span>
-                  ) : null}
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col gap-2">
-                  {dayTasks.map((task) => (
-                    <TemplateTaskCard
-                      fieldProps={fieldProps}
-                      key={task.id}
-                      onChange={(patch) => updateTask(task.id, patch)}
-                      onRemove={() => removeTask(task.id)}
-                      task={task}
-                    />
-                  ))}
-                  <AddTaskButton onClick={() => addTask(weekday)} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </StepSection>
-  );
-}
-
-// --- Step 3 (period shapes): normalized Cycle frame -------------------------
-
-/**
- * Period authoring surface. Renders the normalized 5/13/52-Cycle frame from the
- * domain, grouped by owned period (the month or quarter each Cycle belongs to),
- * with explicit period-boundary markers. Each Cycle row exposes a Monday-first
- * weekday picker so Template Tasks land on a precise (Cycle, weekday) cell, and
- * carries its real first-period due date in a Tooltip.
- */
-function PeriodFrameStep({
-  tasks,
-  fieldProps,
-  frame,
-  shape,
-  loading,
-  teamsAvailable,
-  addTask,
-  updateTask,
-  removeTask,
-}: {
-  readonly tasks: readonly DraftTask[];
-  readonly fieldProps: TaskFieldProps;
-  readonly frame: PeriodPlacementFrame | null;
-  readonly shape: PeriodTemplatePlacementShape;
   readonly loading: boolean;
   readonly teamsAvailable: boolean;
-  readonly addTask: (weekday: number, cycleIndex: number) => void;
+  /** Shown in place of the grid when there is no descriptor yet (e.g. no Key Date). */
+  readonly emptyHint: string;
+  readonly addTask: (weekday: number, cycleOffsetFromEnd: number) => string;
   readonly updateTask: (id: string, patch: Partial<DraftTask>) => void;
   readonly removeTask: (id: string) => void;
 }) {
   const totalPlaced = tasks.filter((task) => task.title.trim() && task.teamId).length;
-  const cycles = frame?.cycles ?? [];
-  const frameSize = cycles.length;
-
-  // Group consecutive Cycles by their owned period so quarterly/yearly frames
-  // read as the months they cover instead of a flat 13/52-row wall. The focus
-  // period — the month/quarter the Template is actually for — is flagged so it
-  // reads as primary against the carried boundary periods on either side.
-  const groups = useMemo(() => {
-    const result: {
-      label: string;
-      readonly entries: number[];
-      readonly isFocusPeriod: boolean;
-    }[] = [];
-    cycles.forEach((cycle, index) => {
-      const last = result.at(-1);
-      if (last && last.label === ownedPeriodLabel(cycle.ownedPeriodKey)) {
-        last.entries.push(index);
-      } else {
-        result.push({
-          entries: [index],
-          isFocusPeriod: cycle.isInFocusPeriod,
-          label: ownedPeriodLabel(cycle.ownedPeriodKey),
-        });
-      }
-    });
-    return result;
-  }, [cycles]);
 
   return (
     <StepSection
@@ -2197,9 +2126,10 @@ function PeriodFrameStep({
           </span>
         ) : null
       }
-      description={`Place Template Tasks across the ${frameSize}-Cycle ${shape} frame. Each Cycle owns the period it covers; boundaries are marked. No Workflow Status or Task State yet.`}
-      step={3}
-      title="Cycle frame"
+      description="Place Template Tasks on the day they are due. Scroll before or after the focus window to plan work outside it. No Workflow Status or Task State yet."
+      fill
+      step={step}
+      title="Cycle calendar"
     >
       {loading ? (
         <CalendarSkeleton />
@@ -2207,72 +2137,371 @@ function PeriodFrameStep({
         <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground text-sm">
           Create a Team before authoring Template Tasks.
         </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {groups.map((group) => (
-            <div className="flex flex-col gap-2" key={group.label}>
-              <div className="flex items-center gap-2 px-0.5">
-                <span
-                  className={cn(
-                    "font-medium text-xs uppercase tracking-wide",
-                    group.isFocusPeriod ? "text-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  {group.label}
-                </span>
-                {group.isFocusPeriod ? (
-                  <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 font-medium text-[10px] text-primary uppercase tracking-wide">
-                    In period
-                  </span>
-                ) : (
-                  <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-[10px] text-muted-foreground uppercase tracking-wide">
-                    Carried
-                  </span>
-                )}
-                <span
-                  className={cn("h-px flex-1", group.isFocusPeriod ? "bg-primary/30" : "bg-border")}
-                />
-                <span className="text-muted-foreground text-xs">
-                  {group.entries.length} {group.entries.length === 1 ? "Cycle" : "Cycles"}
-                </span>
-              </div>
-              <div
-                className={cn(
-                  "overflow-hidden rounded-xl border bg-card",
-                  group.isFocusPeriod && "border-primary/30 ring-1 ring-primary/10",
-                )}
-              >
-                {group.entries.map((cycleIndex, rowInGroup) => {
-                  const cycle = cycles[cycleIndex];
-                  if (!cycle) return null;
-                  const cycleTasks = tasks.filter((task) => task.cycleIndex === cycleIndex);
-                  const boundaryDay = cycle.days.find((day) => day.isPeriodBoundary);
-                  return (
-                    <PeriodCycleRow
-                      addTask={(weekday) => addTask(weekday, cycleIndex)}
-                      boundaryLabel={
-                        boundaryDay ? boundaryLabelFor(boundaryDay.localDate, frame) : null
-                      }
-                      cycle={cycle}
-                      cycleIndex={cycleIndex}
-                      endCycleStartLocalDate={frame?.endCycleStartLocalDate ?? cycle.startLocalDate}
-                      fieldProps={fieldProps}
-                      frameSize={frameSize}
-                      isFirstRow={rowInGroup === 0}
-                      key={cycle.startLocalDate}
-                      label={`Cycle ${cycleIndex + 1}`}
-                      removeTask={removeTask}
-                      tasks={cycleTasks}
-                      updateTask={updateTask}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+      ) : !descriptor ? (
+        <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground text-sm">
+          {emptyHint}
         </div>
+      ) : (
+        <CycleGrid
+          addTask={addTask}
+          descriptor={descriptor}
+          fieldProps={fieldProps}
+          removeTask={removeTask}
+          tasks={tasks}
+          updateTask={updateTask}
+        />
       )}
     </StepSection>
+  );
+}
+
+/** The before / focus / after scrolling grid itself. */
+function CycleGrid({
+  descriptor,
+  tasks,
+  fieldProps,
+  addTask,
+  updateTask,
+  removeTask,
+}: {
+  readonly descriptor: CycleGridDescriptor;
+  readonly tasks: readonly DraftTask[];
+  readonly fieldProps: TaskFieldProps;
+  readonly addTask: (weekday: number, cycleOffsetFromEnd: number) => string;
+  readonly updateTask: (id: string, patch: Partial<DraftTask>) => void;
+  readonly removeTask: (id: string) => void;
+}) {
+  const { focusStartOffset } = descriptor;
+
+  // The rendered offset window grows outward from the focus frame as the user
+  // nears either edge. The focus range is always rendered; before/after grow.
+  const [minOffset, setMinOffset] = useState(focusStartOffset - GRID_BUFFER_ROWS);
+  const [maxOffset, setMaxOffset] = useState(GRID_BUFFER_ROWS);
+
+  // A row whose tasks live outside the rendered window must keep the row mounted
+  // so the task stays editable; widen the window to include any placed offset.
+  const placedMin = tasks.reduce(
+    (acc, task) => Math.min(acc, task.cycleOffsetFromEnd),
+    focusStartOffset - GRID_BUFFER_ROWS,
+  );
+  const placedMax = tasks.reduce((acc, task) => Math.max(acc, task.cycleOffsetFromEnd), 0);
+  useEffect(() => {
+    setMinOffset((current) => Math.min(current, placedMin));
+    setMaxOffset((current) => Math.max(current, placedMax));
+  }, [placedMin, placedMax]);
+
+  const lowerOffset = Math.min(minOffset, placedMin);
+  const upperOffset = Math.max(maxOffset, placedMax);
+
+  // Offsets split into the three groups. "before" is the most-negative first.
+  const beforeOffsets = useMemo(() => {
+    const result: number[] = [];
+    for (let offset = lowerOffset; offset < focusStartOffset; offset++) result.push(offset);
+    return result;
+  }, [lowerOffset, focusStartOffset]);
+  const focusOffsets = useMemo(() => {
+    const result: number[] = [];
+    for (let offset = focusStartOffset; offset <= 0; offset++) result.push(offset);
+    return result;
+  }, [focusStartOffset]);
+  const afterOffsets = useMemo(() => {
+    const result: number[] = [];
+    for (let offset = 1; offset <= upperOffset; offset++) result.push(offset);
+    return result;
+  }, [upperOffset]);
+
+  // Tasks bucketed by Cycle offset, then by JS weekday, so each (week row, day
+  // column) cell can read its own Template Tasks directly.
+  const tasksByOffset = useMemo(() => {
+    const map = new Map<number, Map<number, DraftTask[]>>();
+    for (const task of tasks) {
+      let byWeekday = map.get(task.cycleOffsetFromEnd);
+      if (!byWeekday) {
+        byWeekday = new Map<number, DraftTask[]>();
+        map.set(task.cycleOffsetFromEnd, byWeekday);
+      }
+      const bucket = byWeekday.get(task.placementWeekday);
+      if (bucket) bucket.push(task);
+      else byWeekday.set(task.placementWeekday, [task]);
+    }
+    return map;
+  }, [tasks]);
+
+  // The before/after groups grow as the user scrolls near a rendered edge.
+  const sentinelTopRef = useRef<HTMLDivElement>(null);
+  const sentinelBottomRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const top = sentinelTopRef.current;
+    const bottom = sentinelBottomRef.current;
+    if (!top || !bottom) return;
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        if (entry.target === top) setMinOffset((current) => current - GRID_BUFFER_ROWS);
+        if (entry.target === bottom) setMaxOffset((current) => current + GRID_BUFFER_ROWS);
+      }
+    });
+    observer.observe(top);
+    observer.observe(bottom);
+    return () => observer.disconnect();
+  }, []);
+
+  const renderGroupRows = (offsets: readonly number[]) =>
+    offsets.map((offset) => (
+      <CycleGridRow
+        addTask={addTask}
+        descriptor={descriptor}
+        fieldProps={fieldProps}
+        key={offset}
+        offset={offset}
+        removeTask={removeTask}
+        tasksByWeekday={tasksByOffset.get(offset) ?? EMPTY_WEEKDAY_TASKS}
+        updateTask={updateTask}
+      />
+    ));
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-card">
+      <CycleGridWeekdayHeader highlight={descriptor.weekdayHighlight} />
+      <ScrollSections.Root initialSectionId="focus" scrollbarGutter>
+        <ScrollSections.Section
+          aria-label="Weeks before the focus window"
+          header={(args) => (
+            <CycleGroupHeader label="Before" subdued beaconLabel="Earlier weeks" {...args} />
+          )}
+          id="before"
+          index={0}
+        >
+          <div ref={sentinelTopRef} aria-hidden className="h-px w-full" />
+          {renderGroupRows(beforeOffsets)}
+        </ScrollSections.Section>
+
+        <ScrollSections.Section
+          aria-label={descriptor.focusLabel}
+          header={(args) => <CycleGroupHeader label={descriptor.focusLabel} {...args} />}
+          id="focus"
+          index={1}
+        >
+          {renderGroupRows(focusOffsets)}
+        </ScrollSections.Section>
+
+        <ScrollSections.Section
+          aria-label="Weeks after the focus window"
+          header={(args) => (
+            <CycleGroupHeader label="After" subdued beaconLabel="Later weeks" {...args} />
+          )}
+          id="after"
+          index={2}
+        >
+          {renderGroupRows(afterOffsets)}
+          <div ref={sentinelBottomRef} aria-hidden className="h-px w-full" />
+        </ScrollSections.Section>
+      </ScrollSections.Root>
+    </div>
+  );
+}
+
+const EMPTY_DRAFT_TASKS: readonly DraftTask[] = [];
+const EMPTY_WEEKDAY_TASKS: ReadonlyMap<number, readonly DraftTask[]> = new Map();
+
+/**
+ * Sticky group header for a Cycle grid section. It speaks the grid's own
+ * vocabulary — a full-bleed band closed by a hairline, with the uppercase,
+ * letter-spaced label the Cycle divider bands use — so it reads as part of the
+ * ledger rather than a pill floating over it. The focus section ("Service week")
+ * gets full-strength ink; the Before/After framing sections stay subdued.
+ */
+function CycleGroupHeader({
+  label,
+  beaconLabel,
+  subdued = false,
+  state,
+  scrollIntoView,
+}: SectionRenderArgs & {
+  readonly label: string;
+  readonly beaconLabel?: string;
+  readonly subdued?: boolean;
+}) {
+  if (state === "below" && beaconLabel) {
+    return (
+      <button
+        aria-label={`Scroll to ${label}`}
+        className="flex h-9 w-full items-center justify-center gap-1.5 border-y bg-background/95 px-3 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.08em] backdrop-blur-sm transition-colors hover:bg-accent hover:text-foreground"
+        onClick={scrollIntoView}
+        type="button"
+      >
+        <span className="truncate">{beaconLabel}</span>
+      </button>
+    );
+  }
+
+  // The "above" overlay is the primitive's redundant copy of a section whose own
+  // sticky in-flow header is already pinned at the top — rendering it too would
+  // stack two identical bands. The pinned/in-view in-flow header is the single
+  // source of truth, so the above-overlay slot renders nothing.
+  if (state === "above") return null;
+
+  return (
+    <div
+      className={cn(
+        "flex h-9 items-center gap-3 border-y bg-card/95 px-3 backdrop-blur-sm",
+        subdued && "bg-muted/30",
+      )}
+    >
+      <span
+        className={cn(
+          "shrink-0 truncate font-medium text-[11px] uppercase tracking-[0.08em]",
+          subdued ? "text-muted-foreground/70" : "text-foreground",
+        )}
+      >
+        {label}
+      </span>
+      <span className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
+/** The shared 7-column track: Mon–Sun cells (no real dates — this is a Template). */
+const GRID_COLUMNS = "grid grid-cols-7";
+
+/**
+ * Sticky Mon–Sun column header. The anchor weekday (the service day or Key Date
+ * occurrence) is the gravitational center of the whole Template, so its column
+ * header alone carries the primary tint and ink — keeping every weekday label on
+ * one baseline rather than annotating the anchor with an extra sublabel.
+ */
+function CycleGridWeekdayHeader({
+  highlight,
+}: {
+  readonly highlight: CycleGridDescriptor["weekdayHighlight"];
+}) {
+  return (
+    <div className={cn(GRID_COLUMNS, "border-b bg-card")}>
+      {MONDAY_FIRST.map((weekday, index) => {
+        const isAnchor = highlight?.weekday === weekday;
+        return (
+          <div
+            className={cn(
+              "flex items-center justify-center px-2 py-2 font-medium text-xs uppercase tracking-wide",
+              index !== 0 && "border-l",
+              isAnchor ? "bg-primary/[0.06] text-primary" : "text-muted-foreground",
+            )}
+            key={weekday}
+          >
+            {WEEKDAY_SHORT[weekday]}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * The label for a Cycle row, expressed relative to the focus window rather than
+ * a real date (this is a Template). Focus cycles count "Cycle 1 … N" from the
+ * top of the focus window; before/after rows count outward from its edges.
+ */
+function cycleRowLabel(offset: number, descriptor: CycleGridDescriptor) {
+  const { focusStartOffset } = descriptor;
+  if (offset >= focusStartOffset && offset <= 0) {
+    const focusSize = 1 - focusStartOffset;
+    if (focusSize === 1) return descriptor.focusLabel;
+    return `Cycle ${offset - focusStartOffset + 1}`;
+  }
+  if (offset < focusStartOffset) {
+    const n = focusStartOffset - offset;
+    return `${n} week${n === 1 ? "" : "s"} before`;
+  }
+  return `${offset} week${offset === 1 ? "" : "s"} after`;
+}
+
+/**
+ * One Cycle row in the grid: a thin divider band carrying the relative-Cycle
+ * label, then seven day cells (Monday–Sunday). Each cell holds the Template
+ * Tasks due that weekday and its own add affordance — the square the user drops
+ * work into.
+ */
+function CycleGridRow({
+  offset,
+  descriptor,
+  tasksByWeekday,
+  fieldProps,
+  addTask,
+  updateTask,
+  removeTask,
+}: {
+  readonly offset: number;
+  readonly descriptor: CycleGridDescriptor;
+  /** Tasks placed in this Cycle, bucketed by JS weekday. */
+  readonly tasksByWeekday: ReadonlyMap<number, readonly DraftTask[]>;
+  readonly fieldProps: TaskFieldProps;
+  readonly addTask: (weekday: number, cycleOffsetFromEnd: number) => string;
+  readonly updateTask: (id: string, patch: Partial<DraftTask>) => void;
+  readonly removeTask: (id: string) => void;
+}) {
+  const meta = descriptor.focusMeta.get(offset) ?? null;
+  const highlightWeekday = descriptor.weekdayHighlight?.weekday ?? null;
+  const isFocus = offset >= descriptor.focusStartOffset && offset <= 0;
+
+  // When the focus window is a single Cycle (weekly service / Key Date shapes),
+  // the section header already names it — repeating the same label on this row's
+  // divider band would stack two identical "Service week" rules. Suppress the
+  // band for that lone focus row; multi-Cycle frames keep their "Cycle 1…N"
+  // bands because those carry distinct, real sequence information.
+  const isLoneFocusCycle = isFocus && descriptor.focusStartOffset === 0;
+
+  return (
+    <div className="group/row flex flex-col">
+      {/* Cycle divider band: the relative-Cycle label rides a hairline rule. The
+          label encodes a real sequence (Cycle 1…N, weeks before/after), so it
+          stays an explicit marker; focus Cycles read at full strength. */}
+      {isLoneFocusCycle ? null : (
+        <div className="flex items-center gap-2 border-t px-3 py-2">
+          <span
+            className={cn(
+              "shrink-0 font-medium text-[11px] uppercase tracking-[0.08em]",
+              isFocus ? "text-foreground" : "text-muted-foreground/70",
+            )}
+          >
+            {cycleRowLabel(offset, descriptor)}
+          </span>
+          {meta?.ownedPeriodLabel ? (
+            <span className="shrink-0 text-muted-foreground text-xs normal-case">
+              {meta.ownedPeriodLabel}
+            </span>
+          ) : null}
+          {meta?.boundaryLabel ? (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 font-medium text-[10px] text-amber-700 uppercase tracking-wide dark:text-amber-400">
+              <Flag className="size-2.5" />
+              {meta.boundaryLabel}
+            </span>
+          ) : null}
+          <span className="h-px flex-1 bg-border" />
+        </div>
+      )}
+
+      {/* Seven day cells, Monday → Sunday. Only the focus (service) Cycle marks
+          its anchor day with the indigo tint and spine — on before/after rows
+          that weekday is ordinary, so it stays plain. */}
+      <div className={GRID_COLUMNS}>
+        {MONDAY_FIRST.map((weekday, index) => {
+          const cellTasks = tasksByWeekday.get(weekday) ?? EMPTY_DRAFT_TASKS;
+          const isAnchor = isFocus && highlightWeekday === weekday;
+          return (
+            <DayCell
+              addTask={() => addTask(weekday, offset)}
+              fieldProps={fieldProps}
+              isAnchor={isAnchor}
+              isFirstColumn={index === 0}
+              key={weekday}
+              removeTask={removeTask}
+              tasks={cellTasks}
+              updateTask={updateTask}
+            />
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -2302,105 +2531,203 @@ function boundaryLabelFor(localDate: string, frame: PeriodPlacementFrame | null)
   return isStart ? `Period starts ${short}` : `Period ends ${short}`;
 }
 
-/** One Cycle row in the period frame: weekday picker, due date, Template Tasks. */
-function PeriodCycleRow({
-  cycle,
-  cycleIndex,
-  label,
-  boundaryLabel,
-  endCycleStartLocalDate,
-  frameSize,
-  isFirstRow,
+/**
+ * One weekday column inside a Cycle row. Following the Google Calendar quick-add
+ * model, the cell is never the editor: placed Template Tasks render as compact
+ * chips, and creating or editing happens in a popover that opens to the side of
+ * the column (so the day stays visible while you type). The cell owns which Task
+ * (if any) currently has its editor popover open.
+ */
+function DayCell({
   tasks,
   fieldProps,
+  isAnchor,
+  isFirstColumn,
   addTask,
   updateTask,
   removeTask,
 }: {
-  readonly cycle: PeriodPlacementFrame["cycles"][number];
-  readonly cycleIndex: number;
-  readonly label: string;
-  readonly boundaryLabel: string | null;
-  readonly endCycleStartLocalDate: string;
-  readonly frameSize: number;
-  readonly isFirstRow: boolean;
   readonly tasks: readonly DraftTask[];
   readonly fieldProps: TaskFieldProps;
-  readonly addTask: (weekday: number) => void;
+  readonly isAnchor: boolean;
+  readonly isFirstColumn: boolean;
+  readonly addTask: () => string;
   readonly updateTask: (id: string, patch: Partial<DraftTask>) => void;
   readonly removeTask: (id: string) => void;
 }) {
-  const cycleOffsetFromEnd = cycleIndex - (frameSize - 1);
+  // The id of the Task whose editor popover is open in this cell, or null. New
+  // captures and chip clicks both flow through this single piece of state so at
+  // most one editor is open per cell.
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  const openTask = tasks.find((task) => task.id === openTaskId) ?? null;
+  const isEmpty = tasks.length === 0;
+
+  // Start a fresh capture: drop a blank Task into this column and open its
+  // editor immediately. The blank chip then fills in live as the user types.
+  const startCapture = () => setOpenTaskId(addTask());
+
+  // Closing an editor drops any Task left untitled — clicking the add
+  // affordance, typing nothing, then dismissing should leave no empty chip.
+  const closeEditor = (taskId: string) => {
+    setOpenTaskId((current) => (current === taskId ? null : current));
+    const task = tasks.find((candidate) => candidate.id === taskId);
+    if (task && !task.title.trim()) removeTask(taskId);
+  };
+
   return (
     <div
       className={cn(
-        "flex gap-3 px-3 py-3 sm:px-4",
-        !isFirstRow && "border-t",
-        boundaryLabel &&
-          "border-l-2 border-l-amber-500 bg-amber-500/[0.05] pl-[calc(0.75rem-2px)] dark:border-l-amber-400 sm:pl-[calc(1rem-2px)]",
+        "group/cell relative flex min-h-20 min-w-0 flex-col gap-1 p-1.5",
+        !isFirstColumn && "border-l",
+        isAnchor && "bg-primary/[0.035] shadow-[inset_2px_0_0_var(--primary)]",
       )}
     >
-      <div className="flex w-28 shrink-0 flex-col gap-1 pt-1.5">
-        <span className="font-medium text-sm">{label}</span>
-        <Tooltip>
-          <TooltipTrigger
-            className="w-fit text-muted-foreground text-xs tabular-nums"
-            render={<span />}
-          >
-            {formatShortDate(cycle.startLocalDate)}
-          </TooltipTrigger>
-          <TooltipContent>
-            Cycle of {formatLongDate(cycle.startLocalDate)} · owns{" "}
-            {ownedPeriodLabel(cycle.ownedPeriodKey)}
-          </TooltipContent>
-        </Tooltip>
-        {boundaryLabel ? (
-          <span className="inline-flex w-fit items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 font-medium text-[10px] text-amber-700 uppercase tracking-wide dark:text-amber-400">
-            <Flag className="size-2.5" />
-            Boundary
-          </span>
-        ) : null}
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        {boundaryLabel ? (
-          <span className="inline-flex items-center gap-1.5 text-amber-700 text-xs dark:text-amber-400">
-            <Flag className="size-3" />
-            {boundaryLabel}
-          </span>
-        ) : null}
-        {tasks.map((task) => (
-          <TemplateTaskCard
-            dueDate={resolvePeriodPlacementDueDate({
-              endCycleStartLocalDate,
-              placement: {
-                cycleOffsetFromEnd,
-                weekday: MONDAY_FIRST_INDEX(task.placementWeekday),
-              },
-            })}
-            fieldProps={fieldProps}
-            key={task.id}
-            onChange={(patch) => updateTask(task.id, patch)}
-            onRemove={() => removeTask(task.id)}
-            showWeekday
-            task={task}
-          />
-        ))}
-        <AddTaskButton onClick={() => addTask(1)} />
-      </div>
+      {tasks.map((task) => (
+        <TemplateTaskChip
+          fieldProps={fieldProps}
+          isOpen={openTaskId === task.id}
+          key={task.id}
+          onOpen={() => setOpenTaskId(task.id)}
+          onRemove={() => {
+            setOpenTaskId((current) => (current === task.id ? null : current));
+            removeTask(task.id);
+          }}
+          task={task}
+        />
+      ))}
+
+      {/* Capture affordance. The anchor day gets a standing dashed invitation;
+          every other day stays quiet canvas that surfaces on hover/focus, so
+          the grid isn't a wall of seven identical buttons. */}
+      <AddTaskTrigger emphasized={isEmpty && isAnchor} onClick={startCapture} quiet={!isEmpty} />
+
+      {/* The editor popover, pinned to this cell and opening to its side. It is
+          rendered once per cell and re-targets whichever Task is currently
+          open, so chaining to a fresh Task keeps it anchored here. */}
+      {openTask ? (
+        <TemplateTaskEditor
+          fieldProps={fieldProps}
+          onChange={(patch) => updateTask(openTask.id, patch)}
+          onClose={() => closeEditor(openTask.id)}
+          onCommitAndChain={startCapture}
+          onRemove={() => {
+            setOpenTaskId(null);
+            removeTask(openTask.id);
+          }}
+          task={openTask}
+        />
+      ) : null}
     </div>
   );
 }
 
-function AddTaskButton({ onClick }: { readonly onClick: () => void }) {
+/**
+ * The capture affordance for a day cell. Empty anchor cells extend a gentle
+ * full-width dashed invitation; cells that already hold work (or non-anchor
+ * empties) keep a compact, quiet "Add" row that surfaces on hover/focus.
+ */
+function AddTaskTrigger({
+  onClick,
+  quiet = false,
+  emphasized = false,
+}: {
+  readonly onClick: () => void;
+  readonly quiet?: boolean;
+  readonly emphasized?: boolean;
+}) {
+  if (emphasized) {
+    return (
+      <button
+        className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-primary/25 border-dashed py-2 font-medium text-primary text-xs transition-colors hover:bg-primary/[0.06]"
+        onClick={onClick}
+        type="button"
+      >
+        <Plus className="size-3.5" />
+        Add Template Task
+      </button>
+    );
+  }
   return (
     <button
-      className="flex w-fit cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground"
+      aria-label="Add Template Task"
+      className={cn(
+        "flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-muted-foreground text-xs transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground",
+        quiet && "opacity-0 group-hover/cell:opacity-100 focus-visible:opacity-100",
+      )}
       onClick={onClick}
       type="button"
     >
       <Plus className="size-3.5" />
-      Add Template Task
+      Add task
     </button>
+  );
+}
+
+/**
+ * A placed Template Task as it reads inside a day cell: title plus a thin
+ * summary line of whatever properties are set (assignee, else Team). It is the
+ * trigger for its own editor popover — clicking the chip opens the editor, which
+ * the cell keeps anchored to the column. Unset properties contribute nothing, so
+ * a just-typed Task stays a single tidy line.
+ */
+function TemplateTaskChip({
+  task,
+  fieldProps,
+  isOpen,
+  onOpen,
+  onRemove,
+}: {
+  readonly task: DraftTask;
+  readonly fieldProps: TaskFieldProps;
+  readonly isOpen: boolean;
+  readonly onOpen: () => void;
+  readonly onRemove: () => void;
+}) {
+  const { teams, assigneeOptions } = fieldProps;
+  const selectedTeam = teams.find((team) => team.id === task.teamId) ?? null;
+  const selectedAssignee = assigneeOptions.find((option) => option.id === task.assigneeId) ?? null;
+  const summary = selectedAssignee?.label ?? selectedTeam?.name ?? null;
+
+  return (
+    <div className="group/chip relative">
+      <button
+        className={cn(
+          "flex w-full cursor-pointer flex-col gap-0.5 rounded-md border bg-background py-1 pr-6 pl-2 text-left transition-colors hover:border-foreground/20 hover:bg-accent",
+          isOpen && "border-primary/40 ring-1 ring-primary/30",
+        )}
+        onClick={onOpen}
+        type="button"
+      >
+        <span className="flex items-center gap-1.5">
+          {selectedTeam ? (
+            <span
+              aria-hidden
+              className="size-2 shrink-0 rounded-full"
+              style={{ backgroundColor: selectedTeam.color ?? "var(--muted-foreground)" }}
+            />
+          ) : null}
+          <span
+            className={cn(
+              "truncate font-medium text-xs",
+              !task.title.trim() && "text-muted-foreground italic",
+            )}
+          >
+            {task.title.trim() || "Untitled task"}
+          </span>
+        </span>
+        {summary ? (
+          <span className="truncate text-[11px] text-muted-foreground">{summary}</span>
+        ) : null}
+      </button>
+      <button
+        aria-label="Remove Template Task"
+        className="absolute top-1 right-1 inline-flex size-4 cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/chip:opacity-100"
+        onClick={onRemove}
+        type="button"
+      >
+        <Trash2 className="size-3" />
+      </button>
+    </div>
   );
 }
 
@@ -2417,21 +2744,31 @@ function CalendarSkeleton() {
   );
 }
 
-// --- Template Task card -----------------------------------------------------
+// --- Template Task editor ---------------------------------------------------
 
-function TemplateTaskCard({
+/**
+ * The Google-Calendar-style quick editor. Pinned to the day cell that owns it,
+ * it opens to the side of the column so the day stays visible, gives the title
+ * field room to breathe as the hero, lays the property pickers out as
+ * comfortable rows, and supports the chain-capture loop: pressing Enter in the
+ * title commits the current Task and immediately opens a fresh one in the same
+ * cell, so a coordinator can dump several Tasks for a day without reaching for
+ * the mouse. Escape (or dismissing while untitled) closes and drops an empty
+ * Task.
+ */
+function TemplateTaskEditor({
   task,
   fieldProps,
-  dueDate,
-  showWeekday = false,
   onChange,
+  onClose,
+  onCommitAndChain,
   onRemove,
 }: {
   readonly task: DraftTask;
   readonly fieldProps: TaskFieldProps;
-  readonly dueDate?: string;
-  readonly showWeekday?: boolean;
   readonly onChange: (patch: Partial<DraftTask>) => void;
+  readonly onClose: () => void;
+  readonly onCommitAndChain: () => void;
   readonly onRemove: () => void;
 }) {
   const {
@@ -2445,21 +2782,15 @@ function TemplateTaskCard({
   } = fieldProps;
   const selectedTeam = teams.find((team) => team.id === task.teamId) ?? null;
   const selectedAssignee = assigneeOptions.find((option) => option.id === task.assigneeId) ?? null;
-  const teamOpenRef = useRef<(() => void) | null>(null);
-  const assigneeOpenRef = useRef<(() => void) | null>(null);
-  const estimateOpenRef = useRef<(() => void) | null>(null);
-  const priorityOpenRef = useRef<(() => void) | null>(null);
-  const labelsOpenRef = useRef<(() => void) | null>(null);
-  const pickerRefs = useMemo(
-    () => ({
-      team: teamOpenRef,
-      assignee: assigneeOpenRef,
-      estimate: estimateOpenRef,
-      priority: priorityOpenRef,
-      labels: labelsOpenRef,
-    }),
-    [],
-  );
+  const titleRef = useRef<HTMLInputElement | null>(null);
+
+  // Keep the cursor in the title as the editor chains to a fresh Task, so the
+  // capture loop stays keyboard-ready without a manual click. (The initial open
+  // focus is handled by the popover's `initialFocus`.)
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => titleRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [task.id]);
 
   // Members of the selected Team feed the assignee picker's "Team members".
   const teamMemberUserIds = useMemo(
@@ -2488,157 +2819,109 @@ function TemplateTaskCard({
   const changeTeam = (nextTeamId: string) => {
     const nextLabelIds = task.labelIds.filter((labelId) => {
       const label = churchLabels.find((candidate) => candidate.id === labelId);
-
       return label?.teamId === null || label?.teamId === nextTeamId;
     });
-
     onChange({ labelIds: nextLabelIds, teamId: nextTeamId });
   };
 
   return (
-    <DraftTaskPropertySurface
-      className="group/task relative flex flex-col gap-2 rounded-lg border bg-background p-2.5 shadow-xs"
-      pickerRefs={pickerRefs}
-      showArmedRing
-    >
-      <div className="flex items-start gap-2">
-        <Input
-          autoComplete="off"
-          className="h-8 flex-1 border-transparent bg-transparent px-1.5 font-medium shadow-none focus-visible:border-input focus-visible:bg-background"
-          data-1p-ignore="true"
-          onChange={(event) => onChange({ title: event.currentTarget.value })}
-          placeholder="Template Task title"
-          value={task.title}
-        />
-        <Button
-          aria-label="Remove Template Task"
-          className="opacity-0 group-hover/task:opacity-100 focus-visible:opacity-100"
-          onClick={onRemove}
-          size="icon-sm"
-          type="button"
-          variant="ghost"
-        >
-          <Trash2 />
-        </Button>
-      </div>
-
-      <Textarea
-        className="min-h-0 resize-none border-transparent bg-transparent px-1.5 py-1 text-sm shadow-none focus-visible:border-input focus-visible:bg-background"
-        onChange={(event) => onChange({ description: event.currentTarget.value })}
-        placeholder="Add a description…"
-        rows={1}
-        value={task.description}
-      />
-
-      <div className="flex flex-wrap items-center gap-1.5">
-        {showWeekday ? (
-          <WeekdaySelector
-            onChange={(next) => onChange({ placementWeekday: next })}
-            weekday={task.placementWeekday}
-          />
-        ) : null}
-
-        <TeamComboboxSelector
-          memberTeamIds={memberTeamIds}
-          onValueChange={changeTeam}
-          openRef={teamOpenRef}
-          options={teamPickerOptions}
-          trigger={<TaskTeamPillTrigger team={selectedTeam} />}
-          value={task.teamId || null}
-        />
-
-        <AssigneeComboboxSelector
-          align="start"
-          currentUserId={currentUserId}
-          onValueChange={(next) => onChange({ assigneeId: next })}
-          openRef={assigneeOpenRef}
-          options={assigneeOptions}
-          teamMemberIds={teamMemberUserIds}
-          trigger={<TaskAssigneePillTrigger assignee={selectedAssignee} />}
-          value={task.assigneeId}
-        />
-
-        <EstimateComboboxSelector
-          onValueChange={(next) => onChange({ estimate: next })}
-          openRef={estimateOpenRef}
-          trigger={<TaskEstimatePillTrigger value={task.estimate} />}
-          value={task.estimate}
-        />
-
-        <PriorityComboboxSelector
-          onValueChange={(next) => onChange({ priority: next })}
-          openRef={priorityOpenRef}
-          trigger={<TaskPriorityPillTrigger value={task.priority} />}
-          value={task.priority}
-        />
-
-        <LabelsComboboxSelector
-          onValueChange={(next) => onChange({ labelIds: next })}
-          openRef={labelsOpenRef}
-          options={labelOptions}
-          trigger={<TaskLabelsPillTrigger labels={selectedLabels} showEmptyIcon={false} />}
-          value={task.labelIds}
-        />
-
-        {dueDate ? (
-          <Tooltip>
-            <TooltipTrigger
-              className="ml-auto inline-flex items-center gap-1 text-muted-foreground text-xs tabular-nums"
-              render={<span />}
-            >
-              <CalendarDays className="size-3.5" />
-              {formatShortDate(dueDate)}
-            </TooltipTrigger>
-            <TooltipContent>First projected due date · {formatLongDate(dueDate)}</TooltipContent>
-          </Tooltip>
-        ) : null}
-      </div>
-    </DraftTaskPropertySurface>
-  );
-}
-
-/** Monday-first weekday picker pill for period Template Tasks. */
-function WeekdaySelector({
-  weekday,
-  onChange,
-}: {
-  readonly weekday: number;
-  readonly onChange: (next: number) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Popover onOpenChange={setOpen} open={open}>
-      <PopoverTrigger
-        aria-label="Set Cycle weekday"
-        className="inline-flex cursor-pointer items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-        type="button"
+    <Popover onOpenChange={(next) => (next ? undefined : onClose())} open>
+      {/* Full-cell anchor: the editor opens to the side of the column the Task
+          lives in (Google-Calendar style). base-ui flips to the opposite side
+          when there isn't room. */}
+      <PopoverTrigger className="pointer-events-none absolute inset-0" tabIndex={-1} />
+      <PopoverContent
+        align="start"
+        className="w-80 gap-0 p-0"
+        // Land the cursor in the title rather than the first property row, so the
+        // capture loop is keyboard-ready the instant the editor opens.
+        initialFocus={titleRef}
+        side="inline-end"
+        sideOffset={8}
       >
-        <TaskPropertyPill>
-          <CalendarDays className="size-3.5" />
-          {WEEKDAY_SHORT[weekday]}
-        </TaskPropertyPill>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto p-1.5">
-        <div className="flex gap-1">
-          {MONDAY_FIRST.map((day) => (
-            <button
-              aria-pressed={day === weekday}
-              className={cn(
-                "cursor-pointer rounded-md px-2 py-1 font-medium text-xs transition-colors",
-                day === weekday
-                  ? "bg-primary/10 text-foreground"
-                  : "text-muted-foreground hover:bg-muted",
-              )}
-              key={day}
-              onClick={() => {
-                onChange(day);
-                setOpen(false);
-              }}
-              type="button"
-            >
-              {WEEKDAY_SHORT[day]}
-            </button>
-          ))}
+        <div className="flex items-start gap-1 border-b px-3 pt-3 pb-2">
+          <Input
+            autoComplete="off"
+            className="h-9 flex-1 border-transparent bg-transparent px-0 font-medium text-base shadow-none focus-visible:border-transparent focus-visible:ring-0"
+            data-1p-ignore="true"
+            onChange={(event) => onChange({ title: event.currentTarget.value })}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              if (!task.title.trim()) return;
+              onCommitAndChain();
+            }}
+            placeholder="Add task title"
+            ref={titleRef}
+            value={task.title}
+          />
+          <Button
+            aria-label="Remove Template Task"
+            className="mt-0.5 text-muted-foreground"
+            onClick={onRemove}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <Trash2 />
+          </Button>
+        </div>
+
+        <Textarea
+          className="min-h-0 resize-none rounded-none border-x-0 border-t-0 border-b bg-transparent px-3 py-2 text-sm shadow-none focus-visible:ring-0"
+          onChange={(event) => onChange({ description: event.currentTarget.value })}
+          placeholder="Add a description…"
+          rows={2}
+          value={task.description}
+        />
+
+        <div className="flex flex-wrap items-center gap-1.5 px-3 py-2.5">
+          <TeamComboboxSelector
+            memberTeamIds={memberTeamIds}
+            onValueChange={changeTeam}
+            options={teamPickerOptions}
+            trigger={<TaskTeamPillTrigger team={selectedTeam} />}
+            value={task.teamId || null}
+          />
+
+          <AssigneeComboboxSelector
+            align="start"
+            currentUserId={currentUserId}
+            onValueChange={(next) => onChange({ assigneeId: next })}
+            options={assigneeOptions}
+            teamMemberIds={teamMemberUserIds}
+            trigger={<TaskAssigneePillTrigger assignee={selectedAssignee} />}
+            value={task.assigneeId}
+          />
+
+          <EstimateComboboxSelector
+            onValueChange={(next) => onChange({ estimate: next })}
+            trigger={<TaskEstimatePillTrigger value={task.estimate} />}
+            value={task.estimate}
+          />
+
+          <PriorityComboboxSelector
+            onValueChange={(next) => onChange({ priority: next })}
+            trigger={<TaskPriorityPillTrigger value={task.priority} />}
+            value={task.priority}
+          />
+
+          <LabelsComboboxSelector
+            onValueChange={(next) => onChange({ labelIds: next })}
+            options={labelOptions}
+            trigger={<TaskLabelsPillTrigger labels={selectedLabels} showEmptyIcon={false} />}
+            value={task.labelIds}
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 border-t px-3 py-2">
+          <span className="text-[11px] text-muted-foreground">
+            <kbd className="rounded border bg-muted px-1 font-sans text-[10px]">Enter</kbd> adds
+            another
+          </span>
+          <Button onClick={onClose} size="sm" type="button">
+            Done
+          </Button>
         </div>
       </PopoverContent>
     </Popover>
