@@ -1,3 +1,4 @@
+import { MarketingNavigation } from "@/components/navigation/marketingNavigation";
 import { ArrowRightIcon } from "@/components/icons/arrowRightIcon";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -6,6 +7,17 @@ import type { CSSProperties, ReactNode } from "react";
 
 export const Route = createFileRoute("/_marketing/library")({
   component: LibraryPage,
+  head: () => ({
+    links: [
+      {
+        as: "font",
+        crossOrigin: "anonymous",
+        href: "/fonts/pangaia/PPPangaia-Variable.woff2",
+        rel: "preload",
+        type: "font/woff2",
+      },
+    ],
+  }),
 });
 
 const RESOURCE_CARDS = [
@@ -28,7 +40,13 @@ const RESOURCE_CARDS = [
 
 function LibraryPage() {
   return (
-    <>
+    <div className="dark min-h-full bg-black pt-18 text-foreground sm:pt-22">
+      <div className="fixed top-0 right-0 left-0 z-20 flex items-center bg-black px-6 py-4 text-primary sm:px-12 sm:py-6">
+        <div className="flex w-full items-center justify-between">
+          <MarketingNavigation />
+        </div>
+      </div>
+
       <PageBanner
         ByLine="Jump into the core Church Work surfaces for teams, workflows, tasks, and settings."
         Title="A working library for church operations."
@@ -39,7 +57,7 @@ function LibraryPage() {
           <CollectionCards />
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

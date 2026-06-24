@@ -23,6 +23,7 @@ import { Route as OrgMyWorkRouteImport } from './routes/_org/my-work'
 import { Route as OrgInboxRouteImport } from './routes/_org/inbox'
 import { Route as OrgAdminRouteImport } from './routes/_org/admin'
 import { Route as OnboardingOnboardingRouteImport } from './routes/_onboarding/onboarding'
+import { Route as MarketingPricingRouteImport } from './routes/_marketing/pricing'
 import { Route as MarketingLibraryRouteImport } from './routes/_marketing/library'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -112,6 +113,11 @@ const OnboardingOnboardingRoute = OnboardingOnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
   getParentRoute: () => OnboardingRouteRoute,
+} as any)
+const MarketingPricingRoute = MarketingPricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => MarketingRouteRoute,
 } as any)
 const MarketingLibraryRoute = MarketingLibraryRouteImport.update({
   id: '/library',
@@ -250,6 +256,7 @@ export interface FileRoutesByFullPath {
   '/': typeof MarketingIndexRoute
   '/sign-in': typeof AuthSignInRoute
   '/library': typeof MarketingLibraryRoute
+  '/pricing': typeof MarketingPricingRoute
   '/onboarding': typeof OnboardingOnboardingRoute
   '/admin': typeof OrgAdminRouteWithChildren
   '/inbox': typeof OrgInboxRoute
@@ -285,6 +292,7 @@ export interface FileRoutesByTo {
   '/': typeof MarketingIndexRoute
   '/sign-in': typeof AuthSignInRoute
   '/library': typeof MarketingLibraryRoute
+  '/pricing': typeof MarketingPricingRoute
   '/onboarding': typeof OnboardingOnboardingRoute
   '/admin': typeof OrgAdminRouteWithChildren
   '/inbox': typeof OrgInboxRoute
@@ -324,6 +332,7 @@ export interface FileRoutesById {
   '/_settings': typeof SettingsRouteRouteWithChildren
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_marketing/library': typeof MarketingLibraryRoute
+  '/_marketing/pricing': typeof MarketingPricingRoute
   '/_onboarding/onboarding': typeof OnboardingOnboardingRoute
   '/_org/admin': typeof OrgAdminRouteWithChildren
   '/_org/inbox': typeof OrgInboxRoute
@@ -362,6 +371,7 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/library'
+    | '/pricing'
     | '/onboarding'
     | '/admin'
     | '/inbox'
@@ -397,6 +407,7 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/library'
+    | '/pricing'
     | '/onboarding'
     | '/admin'
     | '/inbox'
@@ -435,6 +446,7 @@ export interface FileRouteTypes {
     | '/_settings'
     | '/_auth/sign-in'
     | '/_marketing/library'
+    | '/_marketing/pricing'
     | '/_onboarding/onboarding'
     | '/_org/admin'
     | '/_org/inbox'
@@ -577,6 +589,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingOnboardingRouteImport
       parentRoute: typeof OnboardingRouteRoute
+    }
+    '/_marketing/pricing': {
+      id: '/_marketing/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof MarketingPricingRouteImport
+      parentRoute: typeof MarketingRouteRoute
     }
     '/_marketing/library': {
       id: '/_marketing/library'
@@ -765,11 +784,13 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 
 interface MarketingRouteRouteChildren {
   MarketingLibraryRoute: typeof MarketingLibraryRoute
+  MarketingPricingRoute: typeof MarketingPricingRoute
   MarketingIndexRoute: typeof MarketingIndexRoute
 }
 
 const MarketingRouteRouteChildren: MarketingRouteRouteChildren = {
   MarketingLibraryRoute: MarketingLibraryRoute,
+  MarketingPricingRoute: MarketingPricingRoute,
   MarketingIndexRoute: MarketingIndexRoute,
 }
 

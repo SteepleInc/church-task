@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
 const routeSource = await Bun.file(new URL("./route.tsx", import.meta.url)).text();
+const shellSource = await Bun.file(new URL("./-marketing-shell.tsx", import.meta.url)).text();
 const homeSource = await Bun.file(new URL("./index.tsx", import.meta.url)).text();
+const pricingSource = await Bun.file(new URL("./pricing.tsx", import.meta.url)).text();
 const librarySource = await Bun.file(new URL("./library.tsx", import.meta.url)).text();
 const marketingNavigationSource = await Bun.file(
   new URL("../../components/navigation/marketingNavigation.tsx", import.meta.url),
@@ -11,17 +13,33 @@ const mobileMarketingNavigationSource = await Bun.file(
 ).text();
 const stylesSource = await Bun.file(new URL("../../styles/globals.css", import.meta.url)).text();
 
-describe("marketing PreachX fidelity guards", () => {
-  test("keeps the copied PreachX marketing shell and navigation treatment", () => {
-    expect(routeSource).toContain("document.documentElement.classList.add('marketing-dark')");
-    expect(routeSource).toContain("/fonts/pangaia/PPPangaia-Variable.woff2");
-    expect(routeSource).toContain("dark min-h-full bg-black pt-18 sm:pt-22");
-    expect(routeSource).toContain(
-      "fixed top-0 right-0 left-0 z-20 flex items-center bg-black px-6 py-4 text-primary sm:px-12 sm:py-6",
-    );
+describe("marketing shell and navigation treatment", () => {
+  test("light pages share one persistent shell; library opts out into its own dark shell", () => {
+    // No global class toggling. The layout mounts the persistent light shell
+    // for home/pricing and lets the library page render bare.
+    expect(routeSource).not.toContain("marketing-dark");
+    expect(routeSource).toContain("MarketingShell");
+    expect(routeSource).toContain("<Outlet />");
+
+    // The shared shell — not the individual pages — owns the scroll surface and
+    // the Header, so the chrome animates once and survives navigation.
+    expect(shellSource).toContain("export function MarketingShell");
+    expect(shellSource).toContain("marketing-page");
+    expect(shellSource).toContain("<Header />");
+    expect(shellSource).toContain("<Outlet />");
+
+    // Pages no longer mount their own Header or scroll wrapper.
+    expect(homeSource).not.toContain("<Header");
+    expect(pricingSource).not.toContain("<Header");
+    expect(homeSource).not.toContain("overflow-y-auto");
+    expect(pricingSource).not.toContain("overflow-y-auto");
+
+    // The library page brings its own dark shell + nav and font preload.
+    expect(librarySource).toContain("/fonts/pangaia/PPPangaia-Variable.woff2");
+    expect(librarySource).toContain("dark min-h-full bg-black");
+    expect(librarySource).toContain("MarketingNavigation");
 
     expect(marketingNavigationSource).toContain("motion.div");
-    expect(marketingNavigationSource).toContain("font-medium font-serif text-3xl text-white");
     expect(marketingNavigationSource).toContain('to="/my-work"');
     expect(marketingNavigationSource).toContain("Sign In");
 
@@ -29,32 +47,43 @@ describe("marketing PreachX fidelity guards", () => {
     expect(mobileMarketingNavigationSource).toContain("Toggle Menu");
   });
 
-  test("keeps the copied PreachX marketing layout classes with Church Work copy", () => {
-    expect(homeSource).toContain("bg-cream px-6 py-34 sm:px-12");
-    expect(homeSource).toContain("hidden min-h-[calc(100vh-168px)] lg:flex");
-    expect(homeSource).toContain("Workflows For Churches");
-    expect(homeSource).toContain("Shared task clarity, built for church teams.");
-    expect(homeSource).toContain("Churches, Teams, Workflows, and Tasks");
-    expect(homeSource).toContain("Built For Every Church Team");
+  test("home route renders the Church Work landing page", () => {
+    expect(homeSource).toContain("Shared task clarity");
+    expect(homeSource).toContain("church teams");
+    expect(homeSource).toContain("One Shared Plan");
+    expect(homeSource).toContain("for Church Work");
+    expect(homeSource).toContain("Cycles & Weeks");
+    expect(homeSource).toContain("What church teams say");
+    expect(homeSource).toContain("Feb 02, 2026");
 
-    expect(librarySource).toContain("A working library for church operations.");
+    // The medical/SaaS source copy is fully replaced.
+    expect(homeSource).not.toContain("medical practice");
+    expect(homeSource).not.toContain("Payments & Subscriptions");
+  });
+
+  test("marketing pages use semantic dark-mode tokens, not a scoped theme island", () => {
+    // Page chrome uses the mkt-* palette utilities that respond to dark mode…
+    expect(homeSource).toContain("bg-mkt-bg");
+    expect(homeSource).toContain("text-mkt-fg");
+    expect(homeSource).toContain("text-mkt-muted");
+
+    // …and those tokens are defined with light + dark variants.
+    expect(stylesSource).toContain("--mkt-bg:");
+    expect(stylesSource).toContain("--color-mkt-bg: var(--mkt-bg)");
+
+    // The old scoped theme-island and global-class hacks are gone.
+    expect(stylesSource).not.toContain(".nixole-page");
+    expect(stylesSource).not.toContain("marketing-dark");
+
+    // The signature mesh + marquee still ship.
+    expect(homeSource).toContain("mesh-showcase");
+    expect(homeSource).toContain("animate-marquee");
+    expect(stylesSource).toContain('"Inter Tight"');
+    expect(stylesSource).toContain(".mesh-showcase");
+
+    // The library page keeps its existing copy.
     expect(librarySource).toContain("My Work");
     expect(librarySource).toContain("Our Work");
     expect(librarySource).toContain("Settings");
-  });
-
-  test("uses the copied PreachX fonts and removes leftover sermon marketing copy", () => {
-    expect(stylesSource).toContain('font-family: "PP Neue Montreal"');
-    expect(stylesSource).toContain('font-family: "PP Pangaia"');
-    expect(stylesSource).toContain("/fonts/neueMontreal/PPNeueMontreal-Variable.woff2");
-    expect(stylesSource).toContain("/fonts/pangaia/PPPangaia-Variable.woff2");
-    expect(stylesSource).toContain('--font-serif: "PP Pangaia"');
-
-    const marketingSources = [homeSource, librarySource, marketingNavigationSource].join("\n");
-    expect(marketingSources).not.toContain("PreachX");
-    expect(marketingSources).not.toContain("Sermon");
-    expect(marketingSources).not.toContain("sermon");
-    expect(marketingSources).not.toContain("preacher");
-    expect(marketingSources).not.toContain("royalty");
   });
 });
