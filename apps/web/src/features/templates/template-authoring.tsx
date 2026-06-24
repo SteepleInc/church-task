@@ -24,7 +24,6 @@ import {
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppForm } from "@/components/form/ts-form";
-import { DraftTaskPropertySurface } from "@/components/tasks/draft-task-property-surface";
 import {
   AssigneeComboboxSelector,
   EstimateComboboxSelector,
@@ -491,6 +490,9 @@ function WeeklyServiceAuthoring({
 
   const teamsCollection = teams.teamsCollection;
   const defaultTeamId = teamsCollection[0]?.id ?? "";
+  // Remembers the Team of the most recently created/edited Template Task so the
+  // next blank Task seeds with it (chain-capture convenience).
+  const lastTeamIdRef = useRef("");
 
   const [shape, setShape] = useState<TemplateAuthoringShape>(initialShape);
   const [serviceWeekday, setServiceWeekday] = useState(0); // Sunday default
@@ -593,15 +595,19 @@ function WeeklyServiceAuthoring({
 
   const updateTask = (id: string, patch: Partial<DraftTask>) => {
     setSaved(false);
+    if (patch.teamId) lastTeamIdRef.current = patch.teamId;
     setTasks((current) => current.map((task) => (task.id === id ? { ...task, ...patch } : task)));
   };
 
   const addTask = (placementWeekday: number, cycleOffsetFromEnd = 0) => {
     setSaved(false);
-    setTasks((current) => [
-      ...current,
-      newDraftTask(placementWeekday, defaultTeamId, cycleOffsetFromEnd),
-    ]);
+    // New Template Tasks inherit the Team of the most recently edited Task so a
+    // coordinator can dump several Tasks for the same ministry without
+    // re-picking the Team each time (see the chain-capture flow).
+    const seedTeamId = lastTeamIdRef.current || defaultTeamId;
+    const draft = newDraftTask(placementWeekday, seedTeamId, cycleOffsetFromEnd);
+    setTasks((current) => [...current, draft]);
+    return draft.id;
   };
 
   const removeTask = (id: string) => {
@@ -885,6 +891,9 @@ function KeyDateAuthoring({
 
   const teamsCollection = teams.teamsCollection;
   const defaultTeamId = teamsCollection[0]?.id ?? "";
+  // Remembers the Team of the most recently created/edited Template Task so the
+  // next blank Task seeds with it (chain-capture convenience).
+  const lastTeamIdRef = useRef("");
 
   const [selectedKeyDateId, setSelectedKeyDateId] = useState<string | null>(null);
   const [pendingKeyDateKey, setPendingKeyDateKey] = useState<string | null>(null);
@@ -959,15 +968,19 @@ function KeyDateAuthoring({
 
   const updateTask = (id: string, patch: Partial<DraftTask>) => {
     setSaved(false);
+    if (patch.teamId) lastTeamIdRef.current = patch.teamId;
     setTasks((current) => current.map((task) => (task.id === id ? { ...task, ...patch } : task)));
   };
 
   const addTask = (placementWeekday: number, cycleOffsetFromEnd = 0) => {
     setSaved(false);
-    setTasks((current) => [
-      ...current,
-      newDraftTask(placementWeekday, defaultTeamId, cycleOffsetFromEnd),
-    ]);
+    // New Template Tasks inherit the Team of the most recently edited Task so a
+    // coordinator can dump several Tasks for the same ministry without
+    // re-picking the Team each time (see the chain-capture flow).
+    const seedTeamId = lastTeamIdRef.current || defaultTeamId;
+    const draft = newDraftTask(placementWeekday, seedTeamId, cycleOffsetFromEnd);
+    setTasks((current) => [...current, draft]);
+    return draft.id;
   };
 
   const removeTask = (id: string) => {
@@ -2098,7 +2111,7 @@ function CycleGridStep({
   readonly teamsAvailable: boolean;
   /** Shown in place of the grid when there is no descriptor yet (e.g. no Key Date). */
   readonly emptyHint: string;
-  readonly addTask: (weekday: number, cycleOffsetFromEnd: number) => void;
+  readonly addTask: (weekday: number, cycleOffsetFromEnd: number) => string;
   readonly updateTask: (id: string, patch: Partial<DraftTask>) => void;
   readonly removeTask: (id: string) => void;
 }) {
@@ -2154,7 +2167,7 @@ function CycleGrid({
   readonly descriptor: CycleGridDescriptor;
   readonly tasks: readonly DraftTask[];
   readonly fieldProps: TaskFieldProps;
-  readonly addTask: (weekday: number, cycleOffsetFromEnd: number) => void;
+  readonly addTask: (weekday: number, cycleOffsetFromEnd: number) => string;
   readonly updateTask: (id: string, patch: Partial<DraftTask>) => void;
   readonly removeTask: (id: string) => void;
 }) {
@@ -2422,7 +2435,7 @@ function CycleGridRow({
   /** Tasks placed in this Cycle, bucketed by JS weekday. */
   readonly tasksByWeekday: ReadonlyMap<number, readonly DraftTask[]>;
   readonly fieldProps: TaskFieldProps;
-  readonly addTask: (weekday: number, cycleOffsetFromEnd: number) => void;
+  readonly addTask: (weekday: number, cycleOffsetFromEnd: number) => string;
   readonly updateTask: (id: string, patch: Partial<DraftTask>) => void;
   readonly removeTask: (id: string) => void;
 }) {
@@ -2474,31 +2487,17 @@ function CycleGridRow({
         {MONDAY_FIRST.map((weekday, index) => {
           const cellTasks = tasksByWeekday.get(weekday) ?? EMPTY_DRAFT_TASKS;
           const isAnchor = isFocus && highlightWeekday === weekday;
-          const isEmpty = cellTasks.length === 0;
           return (
-            <div
-              className={cn(
-                "group/cell relative flex min-h-20 min-w-0 flex-col gap-1.5 p-1.5",
-                index !== 0 && "border-l",
-                isAnchor && "bg-primary/[0.035] shadow-[inset_2px_0_0_var(--primary)]",
-              )}
+            <DayCell
+              addTask={() => addTask(weekday, offset)}
+              fieldProps={fieldProps}
+              isAnchor={isAnchor}
+              isFirstColumn={index === 0}
               key={weekday}
-            >
-              {cellTasks.map((task) => (
-                <TemplateTaskCard
-                  fieldProps={fieldProps}
-                  key={task.id}
-                  onChange={(patch) => updateTask(task.id, patch)}
-                  onRemove={() => removeTask(task.id)}
-                  task={task}
-                />
-              ))}
-              <AddTaskButton
-                emphasized={isEmpty && isAnchor}
-                onClick={() => addTask(weekday, offset)}
-                quiet={isEmpty && !isAnchor}
-              />
-            </div>
+              removeTask={removeTask}
+              tasks={cellTasks}
+              updateTask={updateTask}
+            />
           );
         })}
       </div>
@@ -2533,12 +2532,101 @@ function boundaryLabelFor(localDate: string, frame: PeriodPlacementFrame | null)
 }
 
 /**
- * The drop affordance for a day cell. Empty non-anchor cells stay silent canvas
- * (an icon-only tile that only surfaces on hover/focus) so the grid isn't a wall
- * of seven identical buttons; the empty anchor cell extends a gentle full-width
- * invitation; cells that already hold work keep a compact "Add" row.
+ * One weekday column inside a Cycle row. Following the Google Calendar quick-add
+ * model, the cell is never the editor: placed Template Tasks render as compact
+ * chips, and creating or editing happens in a popover that opens to the side of
+ * the column (so the day stays visible while you type). The cell owns which Task
+ * (if any) currently has its editor popover open.
  */
-function AddTaskButton({
+function DayCell({
+  tasks,
+  fieldProps,
+  isAnchor,
+  isFirstColumn,
+  addTask,
+  updateTask,
+  removeTask,
+}: {
+  readonly tasks: readonly DraftTask[];
+  readonly fieldProps: TaskFieldProps;
+  readonly isAnchor: boolean;
+  readonly isFirstColumn: boolean;
+  readonly addTask: () => string;
+  readonly updateTask: (id: string, patch: Partial<DraftTask>) => void;
+  readonly removeTask: (id: string) => void;
+}) {
+  // The id of the Task whose editor popover is open in this cell, or null. New
+  // captures and chip clicks both flow through this single piece of state so at
+  // most one editor is open per cell.
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  const openTask = tasks.find((task) => task.id === openTaskId) ?? null;
+  const isEmpty = tasks.length === 0;
+
+  // Start a fresh capture: drop a blank Task into this column and open its
+  // editor immediately. The blank chip then fills in live as the user types.
+  const startCapture = () => setOpenTaskId(addTask());
+
+  // Closing an editor drops any Task left untitled — clicking the add
+  // affordance, typing nothing, then dismissing should leave no empty chip.
+  const closeEditor = (taskId: string) => {
+    setOpenTaskId((current) => (current === taskId ? null : current));
+    const task = tasks.find((candidate) => candidate.id === taskId);
+    if (task && !task.title.trim()) removeTask(taskId);
+  };
+
+  return (
+    <div
+      className={cn(
+        "group/cell relative flex min-h-20 min-w-0 flex-col gap-1 p-1.5",
+        !isFirstColumn && "border-l",
+        isAnchor && "bg-primary/[0.035] shadow-[inset_2px_0_0_var(--primary)]",
+      )}
+    >
+      {tasks.map((task) => (
+        <TemplateTaskChip
+          fieldProps={fieldProps}
+          isOpen={openTaskId === task.id}
+          key={task.id}
+          onOpen={() => setOpenTaskId(task.id)}
+          onRemove={() => {
+            setOpenTaskId((current) => (current === task.id ? null : current));
+            removeTask(task.id);
+          }}
+          task={task}
+        />
+      ))}
+
+      {/* Capture affordance. The anchor day gets a standing dashed invitation;
+          every other day stays quiet canvas that surfaces on hover/focus, so
+          the grid isn't a wall of seven identical buttons. */}
+      <AddTaskTrigger emphasized={isEmpty && isAnchor} onClick={startCapture} quiet={!isEmpty} />
+
+      {/* The editor popover, pinned to this cell and opening to its side. It is
+          rendered once per cell and re-targets whichever Task is currently
+          open, so chaining to a fresh Task keeps it anchored here. */}
+      {openTask ? (
+        <TemplateTaskEditor
+          fieldProps={fieldProps}
+          onChange={(patch) => updateTask(openTask.id, patch)}
+          onClose={() => closeEditor(openTask.id)}
+          onCommitAndChain={startCapture}
+          onRemove={() => {
+            setOpenTaskId(null);
+            removeTask(openTask.id);
+          }}
+          task={openTask}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The capture affordance for a day cell. Empty anchor cells extend a gentle
+ * full-width dashed invitation; cells that already hold work (or non-anchor
+ * empties) keep a compact, quiet "Add" row that surfaces on hover/focus.
+ */
+function AddTaskTrigger({
   onClick,
   quiet = false,
   emphasized = false,
@@ -2547,22 +2635,10 @@ function AddTaskButton({
   readonly quiet?: boolean;
   readonly emphasized?: boolean;
 }) {
-  if (quiet) {
-    return (
-      <button
-        aria-label="Add Template Task"
-        className="flex flex-1 cursor-pointer items-center justify-center rounded-md text-muted-foreground/0 opacity-0 transition group-hover/cell:opacity-100 hover:bg-muted/60 hover:text-muted-foreground focus-visible:opacity-100 focus-visible:text-muted-foreground"
-        onClick={onClick}
-        type="button"
-      >
-        <Plus className="size-4" />
-      </button>
-    );
-  }
   if (emphasized) {
     return (
       <button
-        className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-primary/20 border-dashed text-primary text-xs transition-colors hover:bg-primary/[0.06]"
+        className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-primary/25 border-dashed py-2 font-medium text-primary text-xs transition-colors hover:bg-primary/[0.06]"
         onClick={onClick}
         type="button"
       >
@@ -2573,13 +2649,85 @@ function AddTaskButton({
   }
   return (
     <button
-      className="flex w-fit cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-muted-foreground text-sm transition-colors hover:bg-muted hover:text-foreground"
+      aria-label="Add Template Task"
+      className={cn(
+        "flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-muted-foreground text-xs transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground",
+        quiet && "opacity-0 group-hover/cell:opacity-100 focus-visible:opacity-100",
+      )}
       onClick={onClick}
       type="button"
     >
       <Plus className="size-3.5" />
-      Add Template Task
+      Add task
     </button>
+  );
+}
+
+/**
+ * A placed Template Task as it reads inside a day cell: title plus a thin
+ * summary line of whatever properties are set (assignee, else Team). It is the
+ * trigger for its own editor popover — clicking the chip opens the editor, which
+ * the cell keeps anchored to the column. Unset properties contribute nothing, so
+ * a just-typed Task stays a single tidy line.
+ */
+function TemplateTaskChip({
+  task,
+  fieldProps,
+  isOpen,
+  onOpen,
+  onRemove,
+}: {
+  readonly task: DraftTask;
+  readonly fieldProps: TaskFieldProps;
+  readonly isOpen: boolean;
+  readonly onOpen: () => void;
+  readonly onRemove: () => void;
+}) {
+  const { teams, assigneeOptions } = fieldProps;
+  const selectedTeam = teams.find((team) => team.id === task.teamId) ?? null;
+  const selectedAssignee = assigneeOptions.find((option) => option.id === task.assigneeId) ?? null;
+  const summary = selectedAssignee?.label ?? selectedTeam?.name ?? null;
+
+  return (
+    <div className="group/chip relative">
+      <button
+        className={cn(
+          "flex w-full cursor-pointer flex-col gap-0.5 rounded-md border bg-background py-1 pr-6 pl-2 text-left transition-colors hover:border-foreground/20 hover:bg-accent",
+          isOpen && "border-primary/40 ring-1 ring-primary/30",
+        )}
+        onClick={onOpen}
+        type="button"
+      >
+        <span className="flex items-center gap-1.5">
+          {selectedTeam ? (
+            <span
+              aria-hidden
+              className="size-2 shrink-0 rounded-full"
+              style={{ backgroundColor: selectedTeam.color ?? "var(--muted-foreground)" }}
+            />
+          ) : null}
+          <span
+            className={cn(
+              "truncate font-medium text-xs",
+              !task.title.trim() && "text-muted-foreground italic",
+            )}
+          >
+            {task.title.trim() || "Untitled task"}
+          </span>
+        </span>
+        {summary ? (
+          <span className="truncate text-[11px] text-muted-foreground">{summary}</span>
+        ) : null}
+      </button>
+      <button
+        aria-label="Remove Template Task"
+        className="absolute top-1 right-1 inline-flex size-4 cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/chip:opacity-100"
+        onClick={onRemove}
+        type="button"
+      >
+        <Trash2 className="size-3" />
+      </button>
+    </div>
   );
 }
 
@@ -2596,17 +2744,31 @@ function CalendarSkeleton() {
   );
 }
 
-// --- Template Task card -----------------------------------------------------
+// --- Template Task editor ---------------------------------------------------
 
-function TemplateTaskCard({
+/**
+ * The Google-Calendar-style quick editor. Pinned to the day cell that owns it,
+ * it opens to the side of the column so the day stays visible, gives the title
+ * field room to breathe as the hero, lays the property pickers out as
+ * comfortable rows, and supports the chain-capture loop: pressing Enter in the
+ * title commits the current Task and immediately opens a fresh one in the same
+ * cell, so a coordinator can dump several Tasks for a day without reaching for
+ * the mouse. Escape (or dismissing while untitled) closes and drops an empty
+ * Task.
+ */
+function TemplateTaskEditor({
   task,
   fieldProps,
   onChange,
+  onClose,
+  onCommitAndChain,
   onRemove,
 }: {
   readonly task: DraftTask;
   readonly fieldProps: TaskFieldProps;
   readonly onChange: (patch: Partial<DraftTask>) => void;
+  readonly onClose: () => void;
+  readonly onCommitAndChain: () => void;
   readonly onRemove: () => void;
 }) {
   const {
@@ -2620,21 +2782,15 @@ function TemplateTaskCard({
   } = fieldProps;
   const selectedTeam = teams.find((team) => team.id === task.teamId) ?? null;
   const selectedAssignee = assigneeOptions.find((option) => option.id === task.assigneeId) ?? null;
-  const teamOpenRef = useRef<(() => void) | null>(null);
-  const assigneeOpenRef = useRef<(() => void) | null>(null);
-  const estimateOpenRef = useRef<(() => void) | null>(null);
-  const priorityOpenRef = useRef<(() => void) | null>(null);
-  const labelsOpenRef = useRef<(() => void) | null>(null);
-  const pickerRefs = useMemo(
-    () => ({
-      team: teamOpenRef,
-      assignee: assigneeOpenRef,
-      estimate: estimateOpenRef,
-      priority: priorityOpenRef,
-      labels: labelsOpenRef,
-    }),
-    [],
-  );
+  const titleRef = useRef<HTMLInputElement | null>(null);
+
+  // Keep the cursor in the title as the editor chains to a fresh Task, so the
+  // capture loop stays keyboard-ready without a manual click. (The initial open
+  // focus is handled by the popover's `initialFocus`.)
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => titleRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [task.id]);
 
   // Members of the selected Team feed the assignee picker's "Team members".
   const teamMemberUserIds = useMemo(
@@ -2663,92 +2819,112 @@ function TemplateTaskCard({
   const changeTeam = (nextTeamId: string) => {
     const nextLabelIds = task.labelIds.filter((labelId) => {
       const label = churchLabels.find((candidate) => candidate.id === labelId);
-
       return label?.teamId === null || label?.teamId === nextTeamId;
     });
-
     onChange({ labelIds: nextLabelIds, teamId: nextTeamId });
   };
 
   return (
-    <DraftTaskPropertySurface
-      className="group/task relative flex flex-col gap-2 rounded-lg border bg-background p-2.5 shadow-xs"
-      pickerRefs={pickerRefs}
-      showArmedRing
-    >
-      <div className="flex items-start gap-2">
-        <Input
-          autoComplete="off"
-          className="h-8 flex-1 border-transparent bg-transparent px-1.5 font-medium shadow-none focus-visible:border-input focus-visible:bg-background"
-          data-1p-ignore="true"
-          onChange={(event) => onChange({ title: event.currentTarget.value })}
-          placeholder="Template Task title"
-          value={task.title}
-        />
-        <Button
-          aria-label="Remove Template Task"
-          className="opacity-0 group-hover/task:opacity-100 focus-visible:opacity-100"
-          onClick={onRemove}
-          size="icon-sm"
-          type="button"
-          variant="ghost"
-        >
-          <Trash2 />
-        </Button>
-      </div>
+    <Popover onOpenChange={(next) => (next ? undefined : onClose())} open>
+      {/* Full-cell anchor: the editor opens to the side of the column the Task
+          lives in (Google-Calendar style). base-ui flips to the opposite side
+          when there isn't room. */}
+      <PopoverTrigger className="pointer-events-none absolute inset-0" tabIndex={-1} />
+      <PopoverContent
+        align="start"
+        className="w-80 gap-0 p-0"
+        // Land the cursor in the title rather than the first property row, so the
+        // capture loop is keyboard-ready the instant the editor opens.
+        initialFocus={titleRef}
+        side="inline-end"
+        sideOffset={8}
+      >
+        <div className="flex items-start gap-1 border-b px-3 pt-3 pb-2">
+          <Input
+            autoComplete="off"
+            className="h-9 flex-1 border-transparent bg-transparent px-0 font-medium text-base shadow-none focus-visible:border-transparent focus-visible:ring-0"
+            data-1p-ignore="true"
+            onChange={(event) => onChange({ title: event.currentTarget.value })}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              if (!task.title.trim()) return;
+              onCommitAndChain();
+            }}
+            placeholder="Add task title"
+            ref={titleRef}
+            value={task.title}
+          />
+          <Button
+            aria-label="Remove Template Task"
+            className="mt-0.5 text-muted-foreground"
+            onClick={onRemove}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <Trash2 />
+          </Button>
+        </div>
 
-      <Textarea
-        className="min-h-0 resize-none border-transparent bg-transparent px-1.5 py-1 text-sm shadow-none focus-visible:border-input focus-visible:bg-background"
-        onChange={(event) => onChange({ description: event.currentTarget.value })}
-        placeholder="Add a description…"
-        rows={1}
-        value={task.description}
-      />
-
-      <div className="flex flex-wrap items-center gap-1.5">
-        <TeamComboboxSelector
-          memberTeamIds={memberTeamIds}
-          onValueChange={changeTeam}
-          openRef={teamOpenRef}
-          options={teamPickerOptions}
-          trigger={<TaskTeamPillTrigger team={selectedTeam} />}
-          value={task.teamId || null}
-        />
-
-        <AssigneeComboboxSelector
-          align="start"
-          currentUserId={currentUserId}
-          onValueChange={(next) => onChange({ assigneeId: next })}
-          openRef={assigneeOpenRef}
-          options={assigneeOptions}
-          teamMemberIds={teamMemberUserIds}
-          trigger={<TaskAssigneePillTrigger assignee={selectedAssignee} />}
-          value={task.assigneeId}
+        <Textarea
+          className="min-h-0 resize-none rounded-none border-x-0 border-t-0 border-b bg-transparent px-3 py-2 text-sm shadow-none focus-visible:ring-0"
+          onChange={(event) => onChange({ description: event.currentTarget.value })}
+          placeholder="Add a description…"
+          rows={2}
+          value={task.description}
         />
 
-        <EstimateComboboxSelector
-          onValueChange={(next) => onChange({ estimate: next })}
-          openRef={estimateOpenRef}
-          trigger={<TaskEstimatePillTrigger value={task.estimate} />}
-          value={task.estimate}
-        />
+        <div className="flex flex-wrap items-center gap-1.5 px-3 py-2.5">
+          <TeamComboboxSelector
+            memberTeamIds={memberTeamIds}
+            onValueChange={changeTeam}
+            options={teamPickerOptions}
+            trigger={<TaskTeamPillTrigger team={selectedTeam} />}
+            value={task.teamId || null}
+          />
 
-        <PriorityComboboxSelector
-          onValueChange={(next) => onChange({ priority: next })}
-          openRef={priorityOpenRef}
-          trigger={<TaskPriorityPillTrigger value={task.priority} />}
-          value={task.priority}
-        />
+          <AssigneeComboboxSelector
+            align="start"
+            currentUserId={currentUserId}
+            onValueChange={(next) => onChange({ assigneeId: next })}
+            options={assigneeOptions}
+            teamMemberIds={teamMemberUserIds}
+            trigger={<TaskAssigneePillTrigger assignee={selectedAssignee} />}
+            value={task.assigneeId}
+          />
 
-        <LabelsComboboxSelector
-          onValueChange={(next) => onChange({ labelIds: next })}
-          openRef={labelsOpenRef}
-          options={labelOptions}
-          trigger={<TaskLabelsPillTrigger labels={selectedLabels} showEmptyIcon={false} />}
-          value={task.labelIds}
-        />
-      </div>
-    </DraftTaskPropertySurface>
+          <EstimateComboboxSelector
+            onValueChange={(next) => onChange({ estimate: next })}
+            trigger={<TaskEstimatePillTrigger value={task.estimate} />}
+            value={task.estimate}
+          />
+
+          <PriorityComboboxSelector
+            onValueChange={(next) => onChange({ priority: next })}
+            trigger={<TaskPriorityPillTrigger value={task.priority} />}
+            value={task.priority}
+          />
+
+          <LabelsComboboxSelector
+            onValueChange={(next) => onChange({ labelIds: next })}
+            options={labelOptions}
+            trigger={<TaskLabelsPillTrigger labels={selectedLabels} showEmptyIcon={false} />}
+            value={task.labelIds}
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-2 border-t px-3 py-2">
+          <span className="text-[11px] text-muted-foreground">
+            <kbd className="rounded border bg-muted px-1 font-sans text-[10px]">Enter</kbd> adds
+            another
+          </span>
+          <Button onClick={onClose} size="sm" type="button">
+            Done
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
