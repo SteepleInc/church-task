@@ -4,7 +4,7 @@ import {
   localMidnightToUtcInstant,
 } from "@church-work/domain";
 
-import { formatWeekDateRange } from "@/data/cycles/cyclesData.app";
+import { formatWeekDateRange, formatWeekNameParts } from "@/data/cycles/cyclesData.app";
 
 export type TeamWeeksIndexStatus = "current" | "upcoming" | "completed";
 
@@ -38,6 +38,7 @@ export type TeamWeeksIndexTask = {
 export type TeamWeeksIndexRow = {
   readonly id: string;
   readonly displayName: string;
+  readonly displayPrimary: string;
   readonly dateRange: string;
   /** A short relative cue such as "This week" or "Next week", when one applies. */
   readonly relativeLabel: string | null;
@@ -205,6 +206,7 @@ export function buildTeamWeeksIndexRows({
         completedCount: 0,
       };
       const dateRange = formatWeekDateRange(cycle);
+      const fallbackName = formatWeekNameParts(cycle);
       const targetCycle =
         cycle.targetCycle ??
         buildTargetCycle({
@@ -218,7 +220,8 @@ export function buildTeamWeeksIndexRows({
           counts.taskCount === 0 ? 0 : Math.round((counts.completedCount / counts.taskCount) * 100),
         dateRange,
         description: cycle.description ?? null,
-        displayName: cycle.name?.trim() || dateRange,
+        displayName: cycle.name?.trim() || fallbackName.fullLabel,
+        displayPrimary: cycle.name?.trim() || fallbackName.primary,
         href: `/team/${teamIdentifier}/weeks/${cycle.id}`,
         relativeLabel: getTeamWeekRelativeLabel(cycle, today),
         startedCount: counts.startedCount,

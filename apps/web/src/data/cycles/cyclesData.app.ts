@@ -71,6 +71,37 @@ export const formatWeekDateRange = (
   return `${startLabel} – ${endLabel}`;
 };
 
+const startOfMondayWeek = (date: Date) => {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const daysSinceMonday = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - daysSinceMonday);
+  return start;
+};
+
+export const formatWeekNameParts = (
+  cycle: {
+    readonly startDate: string;
+    readonly endDate: string;
+  },
+  now: Date = new Date(),
+) => {
+  const start = parseIsoDate(cycle.startDate);
+  if (!start) {
+    const dateRange = formatWeekDateRange(cycle, now);
+    return { primary: dateRange, dateRange, fullLabel: dateRange };
+  }
+
+  const firstOfMonthWeekStart = startOfMondayWeek(
+    new Date(start.getFullYear(), start.getMonth(), 1),
+  );
+  const weekIndex =
+    Math.floor((start.getTime() - firstOfMonthWeekStart.getTime()) / 604_800_000) + 1;
+  const primary = `${start.toLocaleDateString("en-US", { month: "long" })} Week ${weekIndex}`;
+  const dateRange = formatWeekDateRange(cycle, now);
+
+  return { primary, dateRange, fullLabel: `${primary} - ${dateRange}` };
+};
+
 export const getWeekDisplayName = (
   cycle: {
     readonly name: string | null;
@@ -78,7 +109,7 @@ export const getWeekDisplayName = (
     readonly endDate: string;
   },
   now: Date = new Date(),
-) => cycle.name?.trim() || formatWeekDateRange(cycle, now);
+) => cycle.name?.trim() || formatWeekNameParts(cycle, now).fullLabel;
 
 // --- Week picker options ----------------------------------------------------
 // The rich rows the Week picker renders, mirroring Linear's cycle picker but in

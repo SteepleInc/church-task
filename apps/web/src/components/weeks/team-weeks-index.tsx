@@ -220,8 +220,7 @@ function WeekRow({
   readonly onProgressCycleIdChange?: (cycleId: string | null) => void;
 }) {
   const StatusIcon = STATUS_ICON[row.status];
-  const headline = row.ordinal > 0 ? `Week ${row.ordinal}` : row.displayName;
-  const hasCustomName = row.displayName !== row.dateRange;
+  const headline = row.displayPrimary;
   const toggleProgress = () =>
     onProgressCycleIdChange?.(expanded ? CLOSED_PROGRESS_CYCLE_ID : row.id);
 
@@ -238,7 +237,7 @@ function WeekRow({
         >
           <span className="truncate text-sm font-medium">{headline}</span>
           <span className="hidden truncate text-xs text-muted-foreground md:inline">
-            {hasCustomName ? row.displayName : row.dateRange}
+            - {row.dateRange}
           </span>
         </Link>
 

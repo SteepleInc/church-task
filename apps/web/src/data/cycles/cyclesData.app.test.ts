@@ -8,19 +8,19 @@ describe("Week display names", () => {
   test("uses a friendly date range when a Week has no custom name", () => {
     expect(
       getWeekDisplayName({ endDate: "2026-04-05", name: null, startDate: "2026-03-30" }, now),
-    ).toBe("Mar 30 – Apr 5");
+    ).toBe("March Week 6 - Mar 30 – Apr 5");
   });
 
   test("collapses the month when the Week stays within one month", () => {
     expect(
       getWeekDisplayName({ endDate: "2026-06-21", name: null, startDate: "2026-06-15" }, now),
-    ).toBe("Jun 15 – 21");
+    ).toBe("June Week 3 - Jun 15 – 21");
   });
 
   test("shows the year when the Week falls outside the current year", () => {
     expect(
       getWeekDisplayName({ endDate: "2027-01-03", name: null, startDate: "2026-12-28" }, now),
-    ).toBe("Dec 28, 2026 – Jan 3, 2027");
+    ).toBe("December Week 5 - Dec 28, 2026 – Jan 3, 2027");
   });
 
   test("uses the custom Church-wide Week name when present", () => {
