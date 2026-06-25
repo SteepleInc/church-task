@@ -467,6 +467,31 @@ export const AGENT_OPERATION_REGISTRY = [
       "Task field controls persist title, Team, Workflow Status, assignee, priority, parent, Week/Cycle, and Due Date edits",
   }),
   coveredTaskOperation({
+    command: "church-work task update --parent-task-id/--clear-parent",
+    id: "task.subtask.parent.change",
+    inputContract:
+      "churchId plus taskId or Task Identifier and parentTaskId, or clear parent with null",
+    kind: "write",
+    operation: "Assign or Clear Subtask Parent",
+    outputContract:
+      "updated Task preserving Task Identifier and setting or clearing parent Task within the same Church",
+    tool: "update-task",
+    uiBehavior:
+      "Task parent field assigns a parent Task or clears parentTaskId to return the Task to top-level work",
+  }),
+  coveredTaskOperation({
+    command: "church-work task update --cycle-id",
+    id: "task.cycle.move",
+    inputContract: "churchId plus taskId or Task Identifier and cycleId",
+    kind: "write",
+    operation: "Move Task Between Weeks",
+    outputContract:
+      "updated Task preserving Task Identifier and moving to the requested Week/Cycle in the same Church",
+    tool: "update-task",
+    uiBehavior:
+      "Task Week field and Board/List controls update cycleId while preserving the Team-derived Task Identifier",
+  }),
+  coveredTaskOperation({
     command: "church-work task complete",
     id: "task.complete",
     inputContract: "churchId plus taskId or Task Identifier",
