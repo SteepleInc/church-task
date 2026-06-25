@@ -37,7 +37,7 @@ describe("Agent Operation parity registry", () => {
     );
 
     expect(generateAgentParityReport()).toContain(
-      "| Church | Resolve Active Church | read | covered | covered | covered | authenticated, Active Church, Church Membership | App shell and Work page resolve Active Church from session activeOrganizationId and membership-backed Church data |",
+      "| Church | Resolve Active Church | read | covered | covered | covered | authenticated, Active Church, Church Membership | Church Membership | App shell and Work page resolve Active Church from session activeOrganizationId and membership-backed Church data |",
     );
   });
 
@@ -64,7 +64,7 @@ describe("Agent Operation parity registry", () => {
     });
 
     expect(generateAgentParityReport()).toContain(
-      "| Task | List Tasks | read | covered | covered | covered | authenticated, Active Church, Church Membership | Work page TaskExecutionSurface lists Tasks from useTasksCollection |",
+      "| Task | List Tasks | read | covered | covered | covered | authenticated, Active Church, Church Membership | Church Membership | Work page TaskExecutionSurface lists Tasks from useTasksCollection |",
     );
     expect(generateAgentParityReport()).toContain(
       "Coverage statuses: covered, partial, missing, generic-passthrough",
@@ -176,11 +176,11 @@ describe("Agent Operation parity registry", () => {
     );
 
     [
-      "| App Administration | Check App Administrator Access | read | covered | missing | missing | authenticated | InternalAccessGate renders App Administrator access required unless useIsAppAdmin and authenticated Zero context allow support surfaces |",
-      "| App Administration | List Churches for Support | read | covered | missing | missing | authenticated | Admin Churches collection reads Zero-backed admin Church rows and shows App Administrator-only edit org row actions |",
-      "| App Administration | List Users for Support | read | covered | missing | missing | authenticated | Admin Users collection reads Zero-backed admin User rows and shows App Administrator-only edit user and impersonate row actions |",
-      "| App Administration | Start User Impersonation | write | covered | intentionally-ui-only | intentionally-ui-only | authenticated | Admin User actions call Better Auth admin.impersonateUser only after useIsAppAdmin gating |",
-      "| App Administration | Edit Church Support Details | write | covered | missing | missing | authenticated | Admin Church details pane action opens the App Administrator-only edit Church quick action from OrgActions |",
+      "| App Administration | Check App Administrator Access | read | covered | missing | missing | authenticated | App Administrator | InternalAccessGate renders App Administrator access required unless useIsAppAdmin and authenticated Zero context allow support surfaces |",
+      "| App Administration | List Churches for Support | read | covered | missing | missing | authenticated | App Administrator | Admin Churches collection reads Zero-backed admin Church rows and shows App Administrator-only edit org row actions |",
+      "| App Administration | List Users for Support | read | covered | missing | missing | authenticated | App Administrator | Admin Users collection reads Zero-backed admin User rows and shows App Administrator-only edit user and impersonate row actions |",
+      "| App Administration | Start User Impersonation | write | covered | intentionally-ui-only | intentionally-ui-only | authenticated | App Administrator | Admin User actions call Better Auth admin.impersonateUser only after useIsAppAdmin gating |",
+      "| App Administration | Edit Church Support Details | write | covered | missing | missing | authenticated | App Administrator | Admin Church details pane action opens the App Administrator-only edit Church quick action from OrgActions |",
     ].forEach((expectedReportRow) => expect(report).toContain(expectedReportRow));
     expect(report).toContain(
       "Coverage statuses: covered, partial, missing, generic-passthrough, intentionally-ui-only",
@@ -213,10 +213,10 @@ describe("Agent Operation parity registry", () => {
     }
 
     expect(generateAgentParityReport()).toContain(
-      "| Team | Create Team | write | covered | missing | missing | authenticated, Active Church, Church Membership | Settings and sidebar Team creation use useCreateTeamMutation, which creates the Team, creator Team Membership, owned Workflow, and default Workflow Statuses |",
+      "| Team | Create Team | write | covered | missing | missing | authenticated, Active Church, Church Membership | Church owner, Church admin, or App Administrator | Settings and sidebar Team creation use useCreateTeamMutation, which creates the Team, creator Team Membership, owned Workflow, and default Workflow Statuses |",
     );
     expect(generateAgentParityReport()).toContain(
-      "| Team Membership | Add Team Membership | write | covered | missing | missing | authenticated, Active Church, Church Membership | Team navigation membership action uses useAddTeamMemberMutation and de-duplicates existing Team Memberships |",
+      "| Team Membership | Add Team Membership | write | covered | missing | missing | authenticated, Active Church, Church Membership | Church owner, Church admin, or App Administrator | Team navigation membership action uses useAddTeamMemberMutation and de-duplicates existing Team Memberships |",
     );
   });
 
@@ -251,7 +251,64 @@ describe("Agent Operation parity registry", () => {
     );
 
     expect(generateAgentParityReport()).toContain(
-      "| Task | Complete Task | write | covered | covered | covered | authenticated, Active Church, Church Membership | Task status controls can move a Task to a completed Workflow Status |",
+      "| Task | Complete Task | write | covered | covered | covered | authenticated, Active Church, Church Membership | Church Membership | Task status controls can move a Task to a completed Workflow Status |",
+    );
+  });
+
+  test("reports UI-led Task Comment and Comment Thread behavior with intentional agent gaps", () => {
+    const byId = new Map(AGENT_OPERATION_REGISTRY.map((entry) => [entry.id, entry]));
+
+    for (const [id, operation] of [
+      ["task.comment.create", "Create Task Comment"],
+      ["task.comment.reply", "Reply to Task Comment"],
+      ["task.comment.update", "Edit Task Comment"],
+      ["task.comment.delete", "Delete Task Comment"],
+      ["task.comment.thread.subscribe", "Subscribe to Comment Thread"],
+      ["task.comment.thread.unsubscribe", "Unsubscribe from Comment Thread"],
+    ]) {
+      expect(byId.get(id)).toMatchObject({
+        domainArea: id.includes("thread") ? "Comment Thread" : "Task Comment",
+        operation,
+        context: {
+          requiresActiveChurch: true,
+          requiresChurchMembership: true,
+          session: "authenticated",
+        },
+        surfaces: {
+          ui: { status: "covered" },
+          mcp: { status: "missing" },
+          cli: { status: "missing" },
+        },
+      });
+    }
+
+    expect(byId.get("task.comment.update")?.authorization).toBe(
+      "Task Comment author, Church owner, Church admin, or App Administrator",
+    );
+    expect(byId.get("task.comment.delete")?.authorization).toBe(
+      "Task Comment author, Church owner, Church admin, or App Administrator",
+    );
+    expect(byId.get("task.comment.reply")?.inputContract).toContain(
+      "root parent Task Comment only; replies are one level deep",
+    );
+    expect(byId.get("task.comment.create")?.outputContract).toContain(
+      "comment_created Activity Feed item",
+    );
+    expect(byId.get("task.comment.delete")?.outputContract).toContain(
+      "soft-deleted Task Comment tombstone",
+    );
+    expect(byId.get("task.comment.thread.unsubscribe")?.outputContract).toContain(
+      "soft-deleted current-User Comment Thread subscription",
+    );
+
+    expect(generateAgentParityReport()).toContain(
+      "| Task Comment | Reply to Task Comment | write | covered | missing | missing | authenticated, Active Church, Church Membership | Church Membership | Task Activity Feed Reply composer creates a one-level reply under a root Task Comment and rejects nested replies in the Zero mutator |",
+    );
+    expect(generateAgentParityReport()).toContain(
+      "| Task Comment | Edit Task Comment | write | covered | missing | missing | authenticated, Active Church, Church Membership | Task Comment author, Church owner, Church admin, or App Administrator | Task Comment and reply action menus expose inline Edit only to the author, Church owner/admin, or App Administrator |",
+    );
+    expect(generateAgentParityReport()).toContain(
+      "| Comment Thread | Subscribe to Comment Thread | write | covered | missing | missing | authenticated, Active Church, Church Membership | Church Membership | Root Task Comment action menu toggles a persisted Comment Thread subscription and shows a subscribed indicator for the current User |",
     );
   });
 
@@ -340,13 +397,13 @@ describe("Agent Operation parity registry", () => {
     );
 
     expect(generateAgentParityReport()).toContain(
-      "| Template | Delete Template | write | covered | covered | generic-passthrough | authenticated, Active Church, Church Membership | Template Library and Template detail soft-delete a Template through useTemplateSoftDeleteActions.deleteTemplate |",
+      "| Template | Delete Template | write | covered | covered | generic-passthrough | authenticated, Active Church, Church Membership | Church Membership | Template Library and Template detail soft-delete a Template through useTemplateSoftDeleteActions.deleteTemplate |",
     );
     expect(generateAgentParityReport()).toContain(
-      "| Template | Restore Template | write | covered | covered | generic-passthrough | authenticated, Active Church, Church Membership | Template deleted-item controls restore a Template through useTemplateSoftDeleteActions.restoreTemplate |",
+      "| Template | Restore Template | write | covered | covered | generic-passthrough | authenticated, Active Church, Church Membership | Church Membership | Template deleted-item controls restore a Template through useTemplateSoftDeleteActions.restoreTemplate |",
     );
     expect(generateAgentParityReport()).toContain(
-      "| Template | Duplicate Template | write | covered | covered | generic-passthrough | authenticated, Active Church, Church Membership | Template detail duplicates a Template through useDuplicateTemplateAction |",
+      "| Template | Duplicate Template | write | covered | covered | generic-passthrough | authenticated, Active Church, Church Membership | Church Membership | Template detail duplicates a Template through useDuplicateTemplateAction |",
     );
   });
 
@@ -382,10 +439,10 @@ describe("Agent Operation parity registry", () => {
     });
 
     expect(generateAgentParityReport()).toContain(
-      "| Label | Create Label | write | covered | missing | missing | authenticated, Active Church, Church Membership | Label settings use useCreateLabelMutation for Church Labels; Zero label creation also supports Team Labels with same-name scoped uniqueness and deterministic default color |",
+      "| Label | Create Label | write | covered | missing | missing | authenticated, Active Church, Church Membership | Church Membership | Label settings use useCreateLabelMutation for Church Labels; Zero label creation also supports Team Labels with same-name scoped uniqueness and deterministic default color |",
     );
     expect(generateAgentParityReport()).toContain(
-      "| Label | Delete Label | write | covered | missing | missing | authenticated, Active Church, Church Membership | Label settings delete action uses useDeleteLabelMutation; deleting a Label removes it from every Task label_ids list |",
+      "| Label | Delete Label | write | covered | missing | missing | authenticated, Active Church, Church Membership | Church Membership | Label settings delete action uses useDeleteLabelMutation; deleting a Label removes it from every Task label_ids list |",
     );
   });
 
@@ -424,7 +481,7 @@ describe("Agent Operation parity registry", () => {
     );
 
     expect(generateAgentParityReport()).toContain(
-      "| Task | Move Task Between Weeks | write | covered | covered | covered | authenticated, Active Church, Church Membership | Task Week field and Board/List controls update cycleId while preserving the Team-derived Task Identifier |",
+      "| Task | Move Task Between Weeks | write | covered | covered | covered | authenticated, Active Church, Church Membership | Church Membership | Task Week field and Board/List controls update cycleId while preserving the Team-derived Task Identifier |",
     );
   });
 

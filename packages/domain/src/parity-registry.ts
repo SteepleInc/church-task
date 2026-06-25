@@ -37,6 +37,9 @@ export type AgentOperationRegistryEntry = {
 };
 
 const TEAM_MANAGEMENT_AUTHORIZATION = "Church owner, Church admin, or App Administrator";
+const CHURCH_MEMBERSHIP_AUTHORIZATION = "Church Membership";
+const TASK_COMMENT_MODERATION_AUTHORIZATION =
+  "Task Comment author, Church owner, Church admin, or App Administrator";
 
 const ACTIVE_CHURCH_MEMBERSHIP_CONTEXT = {
   requiresActiveChurch: true,
@@ -60,6 +63,16 @@ const UI_ONLY_TEAM_SURFACES = {
   ui: { status: "covered" },
 } as const satisfies AgentOperationRegistryEntry["surfaces"];
 
+const UI_ONLY_COMMENT_SURFACES = {
+  cli: missingNamedAgentSurface,
+  mcp: missingFocusedAgentSurface,
+  ui: {
+    notes:
+      "Inspected TaskActivityFeed, taskCommentsData.app hooks, taskCommentModeration-utils, and Zero Task Comment mutators.",
+    status: "covered",
+  },
+} as const satisfies AgentOperationRegistryEntry["surfaces"];
+
 const UI_ONLY_LABEL_SURFACES = {
   cli: missingNamedAgentSurface,
   mcp: missingFocusedAgentSurface,
@@ -76,7 +89,7 @@ const coveredTaskOperation = (
     "id" | "inputContract" | "kind" | "operation" | "outputContract" | "uiBehavior"
   > & { readonly command: string; readonly tool: string },
 ): AgentOperationRegistryEntry => ({
-  authorization: "Church Membership",
+  authorization: CHURCH_MEMBERSHIP_AUTHORIZATION,
   context: {
     requiresActiveChurch: true,
     requiresChurchMembership: true,
@@ -98,6 +111,24 @@ const coveredTaskOperation = (
     },
   },
   uiBehavior: entry.uiBehavior,
+});
+
+const uiOnlyTaskCommentOperation = (
+  entry: Pick<
+    AgentOperationRegistryEntry,
+    | "authorization"
+    | "domainArea"
+    | "id"
+    | "inputContract"
+    | "kind"
+    | "operation"
+    | "outputContract"
+    | "uiBehavior"
+  >,
+): AgentOperationRegistryEntry => ({
+  context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
+  surfaces: UI_ONLY_COMMENT_SURFACES,
+  ...entry,
 });
 
 type TemplateOperationEntry = Pick<
@@ -166,7 +197,7 @@ export const AGENT_OPERATION_REGISTRY = [
       "Shared useSession reads the current User and allows anonymous/null while auth resolves",
   },
   {
-    authorization: "Church Membership",
+    authorization: CHURCH_MEMBERSHIP_AUTHORIZATION,
     context: {
       requiresActiveChurch: true,
       requiresChurchMembership: true,
@@ -192,7 +223,7 @@ export const AGENT_OPERATION_REGISTRY = [
       "App shell and Work page resolve Active Church from session activeOrganizationId and membership-backed Church data",
   },
   {
-    authorization: "Church Membership",
+    authorization: CHURCH_MEMBERSHIP_AUTHORIZATION,
     context: {
       requiresActiveChurch: true,
       requiresChurchMembership: true,
@@ -614,6 +645,75 @@ export const AGENT_OPERATION_REGISTRY = [
     tool: "reopen-task",
     uiBehavior: "Task status controls can reopen finished or canceled Tasks into active work",
   }),
+  uiOnlyTaskCommentOperation({
+    authorization: CHURCH_MEMBERSHIP_AUTHORIZATION,
+    domainArea: "Task Comment",
+    id: "task.comment.create",
+    inputContract: "churchId, taskId, and non-empty Markdown/plaintext comment body",
+    kind: "write",
+    operation: "Create Task Comment",
+    outputContract: "created root Task Comment plus comment_created Activity Feed item",
+    uiBehavior:
+      "Task Activity Feed composer creates a root Task Comment after requiring an Active Church and non-empty body",
+  }),
+  uiOnlyTaskCommentOperation({
+    authorization: CHURCH_MEMBERSHIP_AUTHORIZATION,
+    domainArea: "Task Comment",
+    id: "task.comment.reply",
+    inputContract:
+      "churchId, taskId, root parent Task Comment only; replies are one level deep, and non-empty reply body",
+    kind: "write",
+    operation: "Reply to Task Comment",
+    outputContract:
+      "created reply Task Comment plus reply_created Activity Feed item and subscribed-user reply notifications",
+    uiBehavior:
+      "Task Activity Feed Reply composer creates a one-level reply under a root Task Comment and rejects nested replies in the Zero mutator",
+  }),
+  uiOnlyTaskCommentOperation({
+    authorization: TASK_COMMENT_MODERATION_AUTHORIZATION,
+    domainArea: "Task Comment",
+    id: "task.comment.update",
+    inputContract: "churchId, commentId, and non-empty replacement body",
+    kind: "write",
+    operation: "Edit Task Comment",
+    outputContract:
+      "updated Task Comment body, updated timestamp, and comment_updated Activity Feed item",
+    uiBehavior:
+      "Task Comment and reply action menus expose inline Edit only to the author, Church owner/admin, or App Administrator",
+  }),
+  uiOnlyTaskCommentOperation({
+    authorization: TASK_COMMENT_MODERATION_AUTHORIZATION,
+    domainArea: "Task Comment",
+    id: "task.comment.delete",
+    inputContract: "churchId and commentId",
+    kind: "write",
+    operation: "Delete Task Comment",
+    outputContract: "soft-deleted Task Comment tombstone plus comment_deleted Activity Feed item",
+    uiBehavior:
+      "Task Comment and reply action menus expose confirmed Delete only to the author, Church owner/admin, or App Administrator and leave a tombstone",
+  }),
+  uiOnlyTaskCommentOperation({
+    authorization: CHURCH_MEMBERSHIP_AUTHORIZATION,
+    domainArea: "Comment Thread",
+    id: "task.comment.thread.subscribe",
+    inputContract: "churchId and rootCommentId for a non-deleted root Task Comment",
+    kind: "write",
+    operation: "Subscribe to Comment Thread",
+    outputContract: "persisted current-User Comment Thread subscription",
+    uiBehavior:
+      "Root Task Comment action menu toggles a persisted Comment Thread subscription and shows a subscribed indicator for the current User",
+  }),
+  uiOnlyTaskCommentOperation({
+    authorization: CHURCH_MEMBERSHIP_AUTHORIZATION,
+    domainArea: "Comment Thread",
+    id: "task.comment.thread.unsubscribe",
+    inputContract: "churchId and rootCommentId for the current User's Comment Thread subscription",
+    kind: "write",
+    operation: "Unsubscribe from Comment Thread",
+    outputContract: "soft-deleted current-User Comment Thread subscription",
+    uiBehavior:
+      "Root Task Comment action menu can unsubscribe the current User from the Comment Thread and removes the subscribed indicator",
+  }),
   coveredTemplateOperation({
     cliStatus: "generic-passthrough",
     command: "church-work mcp call template-list",
@@ -727,6 +827,7 @@ export const generateAgentParityReport = (
         surfaceStatus(entry.surfaces.mcp),
         surfaceStatus(entry.surfaces.cli),
         contextSummary(entry),
+        entry.authorization,
         entry.uiBehavior,
       ]
         .map(markdownTableCell)
@@ -738,8 +839,8 @@ export const generateAgentParityReport = (
     "",
     `Coverage statuses: ${AGENT_PARITY_COVERAGE_STATUSES.join(", ")}`,
     "",
-    "| Domain Area | Operation | Kind | UI | MCP | CLI | Context | UI Behavior |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Domain Area | Operation | Kind | UI | MCP | CLI | Context | Authorization | UI Behavior |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ...rows,
     "",
   ].join("\n");
