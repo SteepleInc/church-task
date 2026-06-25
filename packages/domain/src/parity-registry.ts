@@ -35,6 +35,30 @@ export type AgentOperationRegistryEntry = {
   readonly uiBehavior: string;
 };
 
+const TEAM_MANAGEMENT_AUTHORIZATION = "Church owner, Church admin, or App Administrator";
+
+const ACTIVE_CHURCH_MEMBERSHIP_CONTEXT = {
+  requiresActiveChurch: true,
+  requiresChurchMembership: true,
+  session: "authenticated",
+} as const satisfies AgentOperationRegistryEntry["context"];
+
+const missingNamedAgentSurface = {
+  notes: "No named CLI command yet.",
+  status: "missing",
+} as const satisfies AgentParitySurfaceCoverage;
+
+const missingFocusedAgentSurface = {
+  notes: "No focused MCP/API operation yet.",
+  status: "missing",
+} as const satisfies AgentParitySurfaceCoverage;
+
+const UI_ONLY_TEAM_SURFACES = {
+  cli: missingNamedAgentSurface,
+  mcp: missingFocusedAgentSurface,
+  ui: { status: "covered" },
+} as const satisfies AgentOperationRegistryEntry["surfaces"];
+
 const coveredTaskOperation = (
   entry: Pick<
     AgentOperationRegistryEntry,
@@ -147,6 +171,94 @@ export const AGENT_OPERATION_REGISTRY = [
       },
     },
     uiBehavior: "Work page TaskExecutionSurface lists Tasks from useTasksCollection",
+  },
+  {
+    authorization: TEAM_MANAGEMENT_AUTHORIZATION,
+    context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
+    domainArea: "Team",
+    id: "team.create",
+    inputContract: "churchId and Team name",
+    kind: "write",
+    operation: "Create Team",
+    outputContract: "created Team plus creator Team Membership and default Workflow setup",
+    surfaces: UI_ONLY_TEAM_SURFACES,
+    uiBehavior:
+      "Settings and sidebar Team creation use useCreateTeamMutation, which creates the Team, creator Team Membership, owned Workflow, and default Workflow Statuses",
+  },
+  {
+    authorization: TEAM_MANAGEMENT_AUTHORIZATION,
+    context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
+    domainArea: "Team",
+    id: "team.rename",
+    inputContract: "churchId, teamId, and non-empty Team name",
+    kind: "write",
+    operation: "Rename Team",
+    outputContract: "updated Team name or validation error",
+    surfaces: UI_ONLY_TEAM_SURFACES,
+    uiBehavior: "Team settings use useRenameTeamMutation and trim blank Team names",
+  },
+  {
+    authorization: TEAM_MANAGEMENT_AUTHORIZATION,
+    context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
+    domainArea: "Team",
+    id: "team.identifier.change",
+    inputContract: "churchId, teamId, and 1-6 character Team Identifier",
+    kind: "write",
+    operation: "Change Team Identifier",
+    outputContract: "updated Team Identifier with prior identifier retained as a route alias",
+    surfaces: UI_ONLY_TEAM_SURFACES,
+    uiBehavior:
+      "Team settings use useSetTeamIdentifierMutation, normalize to uppercase, reject invalid or duplicate identifiers, and preserve previous identifiers",
+  },
+  {
+    authorization: TEAM_MANAGEMENT_AUTHORIZATION,
+    context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
+    domainArea: "Team",
+    id: "team.delete",
+    inputContract: "churchId and teamId",
+    kind: "write",
+    operation: "Delete Team",
+    outputContract: "soft-deleted Team plus owned Workflow and Workflow Status cleanup",
+    surfaces: UI_ONLY_TEAM_SURFACES,
+    uiBehavior:
+      "Team settings use useDeleteTeamMutation after confirmation and remove Team Memberships for that Team",
+  },
+  {
+    authorization: TEAM_MANAGEMENT_AUTHORIZATION,
+    context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
+    domainArea: "Team",
+    id: "team.reorder",
+    inputContract: "churchId and ordered Team IDs",
+    kind: "write",
+    operation: "Reorder Teams",
+    outputContract: "updated Team sort_order values",
+    surfaces: UI_ONLY_TEAM_SURFACES,
+    uiBehavior: "Settings Team list uses useReorderTeamsMutation to persist Team order per Church",
+  },
+  {
+    authorization: TEAM_MANAGEMENT_AUTHORIZATION,
+    context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
+    domainArea: "Team Membership",
+    id: "team.membership.add",
+    inputContract: "churchId, teamId, and userId",
+    kind: "write",
+    operation: "Add Team Membership",
+    outputContract: "created Team Membership or no-op when it already exists",
+    surfaces: UI_ONLY_TEAM_SURFACES,
+    uiBehavior:
+      "Team navigation membership action uses useAddTeamMemberMutation and de-duplicates existing Team Memberships",
+  },
+  {
+    authorization: TEAM_MANAGEMENT_AUTHORIZATION,
+    context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
+    domainArea: "Team Membership",
+    id: "team.membership.remove",
+    inputContract: "churchId, teamId, and userId",
+    kind: "write",
+    operation: "Remove Team Membership",
+    outputContract: "removed Team Membership",
+    surfaces: UI_ONLY_TEAM_SURFACES,
+    uiBehavior: "Team navigation membership action uses useRemoveTeamMemberMutation",
   },
   coveredTaskOperation({
     command: "church-work task get",
