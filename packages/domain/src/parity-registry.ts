@@ -133,12 +133,26 @@ const uiOnlyTaskCommentOperation = (
 
 type TemplateOperationEntry = Pick<
   AgentOperationRegistryEntry,
-  "id" | "inputContract" | "kind" | "operation" | "outputContract" | "uiBehavior"
+  | "domainArea"
+  | "id"
+  | "inputContract"
+  | "kind"
+  | "operation"
+  | "outputContract"
+  | "uiBehavior"
 > & {
   readonly cliStatus: Extract<AgentParityCoverageStatus, "covered" | "generic-passthrough">;
   readonly command: string;
   readonly tool: string;
+  readonly uiNotes?: string;
 };
+
+const TEMPLATE_UI_NOTES =
+  "Inspected Template Library, Template detail, template-soft-delete, and templatesData.app Zero mutation seams.";
+const TEMPLATE_SCHEDULE_UI_NOTES =
+  "Inspected Template schedule controls, key-date Template setup, and templatesData.app Zero mutation seams.";
+const KEY_DATE_UI_NOTES =
+  "Inspected Key Dates settings, Template setup Key Date flows, and keyDatesData.app Zero mutation seams.";
 
 const templateCliSurface = (entry: TemplateOperationEntry): AgentParitySurfaceCoverage =>
   entry.cliStatus === "covered"
@@ -150,12 +164,10 @@ const templateCliSurface = (entry: TemplateOperationEntry): AgentParitySurfaceCo
         status: "generic-passthrough",
       };
 
-const coveredTemplateOperation = (
-  entry: TemplateOperationEntry & { readonly domainArea?: string },
-): AgentOperationRegistryEntry => ({
-  authorization: "Church Membership",
+const coveredTemplateOperation = (entry: TemplateOperationEntry): AgentOperationRegistryEntry => ({
+  authorization: CHURCH_MEMBERSHIP_AUTHORIZATION,
   context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
-  domainArea: entry.domainArea ?? "Template",
+  domainArea: entry.domainArea,
   id: entry.id,
   inputContract: entry.inputContract,
   kind: entry.kind,
@@ -165,8 +177,7 @@ const coveredTemplateOperation = (
     cli: templateCliSurface(entry),
     mcp: { status: "covered", tool: entry.tool },
     ui: {
-      notes:
-        "Inspected Template Library, Template detail, template-soft-delete, and templatesData.app Zero mutation seams.",
+      notes: entry.uiNotes ?? TEMPLATE_UI_NOTES,
       status: "covered",
     },
   },
@@ -719,6 +730,7 @@ export const AGENT_OPERATION_REGISTRY = [
   coveredTemplateOperation({
     cliStatus: "generic-passthrough",
     command: "church-work mcp call template-list",
+    domainArea: "Template",
     id: "template.list",
     inputContract: "churchId",
     kind: "read",
@@ -730,6 +742,7 @@ export const AGENT_OPERATION_REGISTRY = [
   coveredTemplateOperation({
     cliStatus: "generic-passthrough",
     command: "church-work mcp call template-get",
+    domainArea: "Template",
     id: "template.get",
     inputContract: "churchId and templateId",
     kind: "read",
@@ -742,6 +755,7 @@ export const AGENT_OPERATION_REGISTRY = [
   coveredTemplateOperation({
     cliStatus: "covered",
     command: "church-work template create-weekly-service",
+    domainArea: "Template",
     id: "template.create.weekly-service",
     inputContract:
       "churchId, Template name/key/description, service weekday, start date, Template Teams, Template Tasks, and optional Template Schedule",
@@ -756,6 +770,7 @@ export const AGENT_OPERATION_REGISTRY = [
   coveredTemplateOperation({
     cliStatus: "generic-passthrough",
     command: "church-work mcp call template-update",
+    domainArea: "Template",
     id: "template.update",
     inputContract:
       "churchId, templateId, and editable Template fields such as name, recurrence, and placement shape",
@@ -768,6 +783,7 @@ export const AGENT_OPERATION_REGISTRY = [
   coveredTemplateOperation({
     cliStatus: "generic-passthrough",
     command: "church-work mcp call template-delete",
+    domainArea: "Template",
     id: "template.delete",
     inputContract: "churchId and templateId",
     kind: "write",
@@ -780,6 +796,7 @@ export const AGENT_OPERATION_REGISTRY = [
   coveredTemplateOperation({
     cliStatus: "generic-passthrough",
     command: "church-work mcp call template-restore",
+    domainArea: "Template",
     id: "template.restore",
     inputContract: "churchId and templateId",
     kind: "write",
@@ -792,6 +809,7 @@ export const AGENT_OPERATION_REGISTRY = [
   coveredTemplateOperation({
     cliStatus: "generic-passthrough",
     command: "church-work mcp call template-duplicate",
+    domainArea: "Template",
     id: "template.duplicate",
     inputContract: "churchId, templateId, and optional duplicate name",
     kind: "write",
@@ -812,6 +830,7 @@ export const AGENT_OPERATION_REGISTRY = [
     operation: "Create Template Schedule",
     outputContract: "created Template Schedule row for the Template",
     tool: "template-schedule-create",
+    uiNotes: TEMPLATE_SCHEDULE_UI_NOTES,
     uiBehavior:
       "Template authoring creates Template Schedules through mutators.templates.create and key-date Template setup writes a Key Date anchored Template Schedule",
   }),
@@ -826,6 +845,7 @@ export const AGENT_OPERATION_REGISTRY = [
     operation: "Update Template Schedule",
     outputContract: "updated Template Schedule row",
     tool: "template-schedule-update",
+    uiNotes: TEMPLATE_SCHEDULE_UI_NOTES,
     uiBehavior:
       "Template schedule controls persist schedule edits through Template Schedule update mutations while preserving Church scope",
   }),
@@ -839,6 +859,7 @@ export const AGENT_OPERATION_REGISTRY = [
     operation: "Delete Template Schedule",
     outputContract: "soft-deleted Template Schedule with deletion audit fields",
     tool: "template-schedule-delete",
+    uiNotes: TEMPLATE_SCHEDULE_UI_NOTES,
     uiBehavior:
       "Template schedule delete controls soft-delete a Template Schedule without deleting the parent Template",
   }),
@@ -852,6 +873,7 @@ export const AGENT_OPERATION_REGISTRY = [
     operation: "Restore Template Schedule",
     outputContract: "restored Template Schedule with deletion audit fields cleared",
     tool: "template-schedule-restore",
+    uiNotes: TEMPLATE_SCHEDULE_UI_NOTES,
     uiBehavior:
       "Template schedule restore controls make a soft-deleted Template Schedule active again",
   }),
@@ -865,6 +887,7 @@ export const AGENT_OPERATION_REGISTRY = [
     operation: "List Key Dates",
     outputContract: "active Key Dates with parsed schedules and next occurrence previews",
     tool: "key-date-list",
+    uiNotes: KEY_DATE_UI_NOTES,
     uiBehavior:
       "Key Dates settings and Template setup list active Key Dates through useKeyDatesCollection",
   }),
@@ -879,6 +902,7 @@ export const AGENT_OPERATION_REGISTRY = [
     operation: "Create Key Date",
     outputContract: "created Key Date row",
     tool: "key-date-create",
+    uiNotes: KEY_DATE_UI_NOTES,
     uiBehavior:
       "Key Date quick action and Template setup create Key Dates through useCreateKeyDate with schedule validation",
   }),
@@ -892,6 +916,7 @@ export const AGENT_OPERATION_REGISTRY = [
     operation: "Update Key Date",
     outputContract: "updated Key Date row",
     tool: "key-date-update",
+    uiNotes: KEY_DATE_UI_NOTES,
     uiBehavior:
       "Key Date table inline rename and edit flows persist changes through useUpdateKeyDate",
   }),
@@ -905,6 +930,7 @@ export const AGENT_OPERATION_REGISTRY = [
     operation: "Delete Key Date",
     outputContract: "soft-deleted Key Date with deletion audit fields",
     tool: "key-date-delete",
+    uiNotes: KEY_DATE_UI_NOTES,
     uiBehavior: "Key Date row actions soft-delete a Key Date through useDeleteKeyDate",
   }),
   coveredTemplateOperation({
@@ -917,6 +943,7 @@ export const AGENT_OPERATION_REGISTRY = [
     operation: "Restore Key Date",
     outputContract: "restored Key Date with deletion audit fields cleared",
     tool: "key-date-restore",
+    uiNotes: KEY_DATE_UI_NOTES,
     uiBehavior: "Key Date deleted-item controls restore a soft-deleted Key Date",
   }),
   coveredTemplateOperation({
@@ -924,11 +951,12 @@ export const AGENT_OPERATION_REGISTRY = [
     command: "church-work mcp call key-date-preview-occurrences",
     domainArea: "Key Date",
     id: "key-date.occurrence.preview",
-    inputContract: "Key Date schedule plus optional startYear and endYear",
+    inputContract: "churchId, Key Date schedule, plus optional startYear and endYear",
     kind: "read",
     operation: "Preview Key Date Occurrences",
     outputContract: "year/localDate occurrence preview rows for valid occurrences",
     tool: "key-date-preview-occurrences",
+    uiNotes: KEY_DATE_UI_NOTES,
     uiBehavior:
       "Key Date forms preview computed yearly, fixed yearly, and one-time local-date occurrences with calculateKeyDateOccurrence before save",
   }),
