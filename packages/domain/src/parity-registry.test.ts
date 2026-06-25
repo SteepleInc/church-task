@@ -71,6 +71,67 @@ describe("Agent Operation parity registry", () => {
     );
   });
 
+  test("reports UI-led App Administration and impersonation support decisions", () => {
+    expect(AGENT_OPERATION_REGISTRY).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "app-administration.access.check",
+          domainArea: "App Administration",
+          operation: "Check App Administrator Access",
+          authorization: "App Administrator",
+          context: {
+            requiresActiveChurch: false,
+            requiresChurchMembership: false,
+            session: "authenticated",
+          },
+          surfaces: {
+            ui: expect.objectContaining({ status: "covered" }),
+            mcp: expect.objectContaining({ status: "missing" }),
+            cli: expect.objectContaining({ status: "missing" }),
+          },
+        }),
+        expect.objectContaining({
+          id: "app-administration.church.collection",
+          domainArea: "App Administration",
+          operation: "List Churches for Support",
+          surfaces: {
+            ui: expect.objectContaining({ status: "covered" }),
+            mcp: expect.objectContaining({ status: "missing" }),
+            cli: expect.objectContaining({ status: "missing" }),
+          },
+        }),
+        expect.objectContaining({
+          id: "app-administration.user.collection",
+          domainArea: "App Administration",
+          operation: "List Users for Support",
+          surfaces: {
+            ui: expect.objectContaining({ status: "covered" }),
+            mcp: expect.objectContaining({ status: "missing" }),
+            cli: expect.objectContaining({ status: "missing" }),
+          },
+        }),
+        expect.objectContaining({
+          id: "app-administration.user.impersonate",
+          domainArea: "App Administration",
+          operation: "Start User Impersonation",
+          authorization: "App Administrator",
+          surfaces: {
+            ui: expect.objectContaining({ status: "covered" }),
+            mcp: expect.objectContaining({ status: "intentionally-ui-only" }),
+            cli: expect.objectContaining({ status: "intentionally-ui-only" }),
+          },
+        }),
+      ]),
+    );
+
+    expect(generateAgentParityReport()).toContain(
+      "| App Administration | Start User Impersonation | write | covered | intentionally-ui-only | intentionally-ui-only | authenticated | Admin User actions call Better Auth admin.impersonateUser only after useIsAppAdmin gating |",
+    );
+    expect(generateAgentParityReport()).toContain(
+      "Coverage statuses: covered, partial, missing, generic-passthrough, intentionally-ui-only",
+    );
+  });
+
   test("escapes Markdown table delimiters in registry text", () => {
     expect(
       generateAgentParityReport([

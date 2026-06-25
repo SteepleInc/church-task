@@ -3,6 +3,7 @@ export const AGENT_PARITY_COVERAGE_STATUSES = [
   "partial",
   "missing",
   "generic-passthrough",
+  "intentionally-ui-only",
 ] as const;
 
 export type AgentParityCoverageStatus = (typeof AGENT_PARITY_COVERAGE_STATUSES)[number];
@@ -117,6 +118,122 @@ export const AGENT_OPERATION_REGISTRY = [
       },
     },
     uiBehavior: "Work page TaskExecutionSurface lists Tasks from useTasksCollection",
+  },
+  {
+    authorization: "App Administrator",
+    context: {
+      requiresActiveChurch: false,
+      requiresChurchMembership: false,
+      session: "authenticated",
+    },
+    domainArea: "App Administration",
+    id: "app-administration.access.check",
+    inputContract: "authenticated session with Better Auth User role",
+    kind: "read",
+    operation: "Check App Administrator Access",
+    outputContract: "App Administrator access allowed or restricted support-surface state",
+    surfaces: {
+      cli: {
+        notes: "No named CLI support command exposes app-admin authorization checks yet.",
+        status: "missing",
+      },
+      mcp: {
+        notes: "No agent endpoint exposes app-admin authorization checks yet.",
+        status: "missing",
+      },
+      ui: {
+        notes:
+          "Inspected InternalAccessGate, useIsAppAdmin, AdminNav, and Zero is_app_admin context.",
+        status: "covered",
+      },
+    },
+    uiBehavior:
+      "InternalAccessGate renders App Administrator access required unless useIsAppAdmin and authenticated Zero context allow support surfaces",
+  },
+  {
+    authorization: "App Administrator",
+    context: {
+      requiresActiveChurch: false,
+      requiresChurchMembership: false,
+      session: "authenticated",
+    },
+    domainArea: "App Administration",
+    id: "app-administration.church.collection",
+    inputContract:
+      "admin list args for Church collection search, sort, selection, limit, and pagination",
+    kind: "read",
+    operation: "List Churches for Support",
+    outputContract: "Church collection rows with support details and available row actions",
+    surfaces: {
+      cli: { notes: "No named CLI support command lists Churches.", status: "missing" },
+      mcp: { notes: "No MCP support tool lists Churches.", status: "missing" },
+      ui: {
+        notes:
+          "Inspected /admin/orgs OrgsCollection, orgsData admin_list/admin_all queries, and OrgActions edit support action.",
+        status: "covered",
+      },
+    },
+    uiBehavior:
+      "Admin Churches collection reads Zero-backed admin Church rows and shows App Administrator-only edit org row actions",
+  },
+  {
+    authorization: "App Administrator",
+    context: {
+      requiresActiveChurch: false,
+      requiresChurchMembership: false,
+      session: "authenticated",
+    },
+    domainArea: "App Administration",
+    id: "app-administration.user.collection",
+    inputContract:
+      "admin list args for User collection search, sort, selection, limit, and pagination",
+    kind: "read",
+    operation: "List Users for Support",
+    outputContract: "User collection rows with support details and available row actions",
+    surfaces: {
+      cli: { notes: "No named CLI support command lists Users.", status: "missing" },
+      mcp: { notes: "No MCP support tool lists Users.", status: "missing" },
+      ui: {
+        notes:
+          "Inspected /admin/users UsersCollection, usersData admin_list/admin_all queries, and UserActions edit/impersonate support actions.",
+        status: "covered",
+      },
+    },
+    uiBehavior:
+      "Admin Users collection reads Zero-backed admin User rows and shows App Administrator-only edit user and impersonate row actions",
+  },
+  {
+    authorization: "App Administrator",
+    context: {
+      requiresActiveChurch: false,
+      requiresChurchMembership: false,
+      session: "authenticated",
+    },
+    domainArea: "App Administration",
+    id: "app-administration.user.impersonate",
+    inputContract: "target User id selected from the App Administration Users collection",
+    kind: "write",
+    operation: "Start User Impersonation",
+    outputContract: "Better Auth impersonation session refetched into the browser session",
+    surfaces: {
+      cli: {
+        notes:
+          "Intentionally not exposed to CLI in this parity slice; impersonation remains a browser support action gated by Better Auth adminClient.",
+        status: "intentionally-ui-only",
+      },
+      mcp: {
+        notes:
+          "Intentionally not exposed to MCP in this parity slice to avoid adding an agent-controlled support impersonation path.",
+        status: "intentionally-ui-only",
+      },
+      ui: {
+        notes:
+          "Inspected UserActions useIsAppAdmin guard and authClient.admin.impersonateUser behavior.",
+        status: "covered",
+      },
+    },
+    uiBehavior:
+      "Admin User actions call Better Auth admin.impersonateUser only after useIsAppAdmin gating",
   },
 ] as const satisfies ReadonlyArray<AgentOperationRegistryEntry>;
 
