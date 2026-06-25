@@ -6,6 +6,7 @@ import type {
   ActiveChurchResponse,
   CurrentUserResponse,
 } from "@church-work/domain";
+import { activeChurchAuthenticationRequiredResponse } from "@church-work/domain";
 import { Context, Data, Effect, Layer } from "effect";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -381,11 +382,10 @@ const runActiveChurch = (args: ReadonlyArray<string>) =>
     const storage = yield* CredentialStorage;
     const envToken = yield* CurrentEnvToken;
     const storedCredential = envToken ? null : yield* storage.read;
-    const activeChurch = envToken
-      ? yield* backend.activeChurchWithToken({ token: envToken, churchId })
-      : storedCredential
-        ? yield* backend.activeChurchWithToken({ token: storedCredential.token, churchId })
-        : yield* backend.activeChurch(churchId);
+    const token = envToken ?? storedCredential?.token ?? null;
+    if (!token) return operationFailure(activeChurchAuthenticationRequiredResponse());
+
+    const activeChurch = yield* backend.activeChurchWithToken({ token, churchId });
 
     return activeChurch.ok ? success(activeChurch) : operationFailure(activeChurch);
   });

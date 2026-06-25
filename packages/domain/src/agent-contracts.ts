@@ -12,6 +12,14 @@ export type CurrentUserResponse = {
 
 export type ActiveChurchResponse =
   | {
+      readonly error: {
+        readonly code: "authentication_required";
+        readonly message: string;
+      };
+      readonly ok: false;
+      readonly operation: "activeChurch";
+    }
+  | {
       readonly data: {
         readonly activeChurch: null;
         readonly membership: null;
@@ -36,12 +44,22 @@ export type ActiveChurchResponse =
     }
   | {
       readonly error: {
+        readonly code: "church_not_found";
+        readonly message: string;
+      };
+      readonly ok: false;
+      readonly operation: "activeChurch";
+    }
+  | {
+      readonly error: {
         readonly code: "not_church_member";
         readonly message: string;
       };
       readonly ok: false;
       readonly operation: "activeChurch";
     };
+
+export type ActiveChurchFailureResponse = Extract<ActiveChurchResponse, { readonly ok: false }>;
 
 export type CoreWorkBatchOperation = {
   readonly id: string;
@@ -87,6 +105,15 @@ export const noActiveChurchResponse = (): ActiveChurchResponse => ({
   operation: "activeChurch",
 });
 
+export const activeChurchAuthenticationRequiredResponse = (): ActiveChurchFailureResponse => ({
+  error: {
+    code: "authentication_required",
+    message: "Authentication required to resolve Active Church.",
+  },
+  ok: false,
+  operation: "activeChurch",
+});
+
 export const activeChurchResponse = (args: {
   readonly church: {
     readonly churchTimeZone: string | null;
@@ -105,7 +132,16 @@ export const activeChurchResponse = (args: {
   operation: "activeChurch",
 });
 
-export const notChurchMemberResponse = (): ActiveChurchResponse => ({
+export const churchNotFoundResponse = (): ActiveChurchFailureResponse => ({
+  error: {
+    code: "church_not_found",
+    message: "Requested Church was not found.",
+  },
+  ok: false,
+  operation: "activeChurch",
+});
+
+export const notChurchMemberResponse = (): ActiveChurchFailureResponse => ({
   error: {
     code: "not_church_member",
     message: "User does not have Church Membership for requested Church.",
