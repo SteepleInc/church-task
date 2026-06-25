@@ -71,6 +71,122 @@ describe("Agent Operation parity registry", () => {
     );
   });
 
+  test("reports UI-led App Administration and impersonation support decisions", () => {
+    const appAdministratorContext = {
+      requiresActiveChurch: false,
+      requiresChurchMembership: false,
+      session: "authenticated",
+    } as const;
+    const appAdministrationOperations = AGENT_OPERATION_REGISTRY.filter(
+      (operation) => operation.domainArea === "App Administration",
+    );
+    const report = generateAgentParityReport();
+
+    expect(appAdministrationOperations).toHaveLength(6);
+    expect(appAdministrationOperations).toEqual(
+      expect.arrayContaining(
+        [
+          "app-administration.access.check",
+          "app-administration.church.collection",
+          "app-administration.user.collection",
+          "app-administration.church.edit-support-action",
+          "app-administration.user.edit-support-action",
+          "app-administration.user.impersonate",
+        ].map((id) => expect.objectContaining({ id })),
+      ),
+    );
+    expect(appAdministrationOperations).toEqual(
+      appAdministrationOperations.map(() =>
+        expect.objectContaining({
+          authorization: "App Administrator",
+          context: appAdministratorContext,
+          surfaces: expect.objectContaining({
+            ui: expect.objectContaining({ status: "covered" }),
+          }),
+        }),
+      ),
+    );
+
+    expect(AGENT_OPERATION_REGISTRY).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "app-administration.access.check",
+          domainArea: "App Administration",
+          operation: "Check App Administrator Access",
+          authorization: "App Administrator",
+          context: appAdministratorContext,
+          surfaces: {
+            ui: expect.objectContaining({ status: "covered" }),
+            mcp: expect.objectContaining({ status: "missing" }),
+            cli: expect.objectContaining({ status: "missing" }),
+          },
+        }),
+        expect.objectContaining({
+          id: "app-administration.church.collection",
+          domainArea: "App Administration",
+          operation: "List Churches for Support",
+          surfaces: {
+            ui: expect.objectContaining({ status: "covered" }),
+            mcp: expect.objectContaining({ status: "missing" }),
+            cli: expect.objectContaining({ status: "missing" }),
+          },
+        }),
+        expect.objectContaining({
+          id: "app-administration.user.collection",
+          domainArea: "App Administration",
+          operation: "List Users for Support",
+          surfaces: {
+            ui: expect.objectContaining({ status: "covered" }),
+            mcp: expect.objectContaining({ status: "missing" }),
+            cli: expect.objectContaining({ status: "missing" }),
+          },
+        }),
+        expect.objectContaining({
+          id: "app-administration.church.edit-support-action",
+          domainArea: "App Administration",
+          operation: "Edit Church Support Details",
+          surfaces: {
+            ui: expect.objectContaining({ status: "covered" }),
+            mcp: expect.objectContaining({ status: "missing" }),
+            cli: expect.objectContaining({ status: "missing" }),
+          },
+        }),
+        expect.objectContaining({
+          id: "app-administration.user.edit-support-action",
+          domainArea: "App Administration",
+          operation: "Edit User Support Details",
+          surfaces: {
+            ui: expect.objectContaining({ status: "covered" }),
+            mcp: expect.objectContaining({ status: "missing" }),
+            cli: expect.objectContaining({ status: "missing" }),
+          },
+        }),
+        expect.objectContaining({
+          id: "app-administration.user.impersonate",
+          domainArea: "App Administration",
+          operation: "Start User Impersonation",
+          authorization: "App Administrator",
+          surfaces: {
+            ui: expect.objectContaining({ status: "covered" }),
+            mcp: expect.objectContaining({ status: "intentionally-ui-only" }),
+            cli: expect.objectContaining({ status: "intentionally-ui-only" }),
+          },
+        }),
+      ]),
+    );
+
+    [
+      "| App Administration | Check App Administrator Access | read | covered | missing | missing | authenticated | InternalAccessGate renders App Administrator access required unless useIsAppAdmin and authenticated Zero context allow support surfaces |",
+      "| App Administration | List Churches for Support | read | covered | missing | missing | authenticated | Admin Churches collection reads Zero-backed admin Church rows and shows App Administrator-only edit org row actions |",
+      "| App Administration | List Users for Support | read | covered | missing | missing | authenticated | Admin Users collection reads Zero-backed admin User rows and shows App Administrator-only edit user and impersonate row actions |",
+      "| App Administration | Start User Impersonation | write | covered | intentionally-ui-only | intentionally-ui-only | authenticated | Admin User actions call Better Auth admin.impersonateUser only after useIsAppAdmin gating |",
+      "| App Administration | Edit Church Support Details | write | covered | missing | missing | authenticated | Admin Church details pane action opens the App Administrator-only edit Church quick action from OrgActions |",
+    ].forEach((expectedReportRow) => expect(report).toContain(expectedReportRow));
+    expect(report).toContain(
+      "Coverage statuses: covered, partial, missing, generic-passthrough, intentionally-ui-only",
+    );
+  });
+
   test("reports UI-led Team and Team Membership behavior with agent coverage decisions", () => {
     const byId = new Map(AGENT_OPERATION_REGISTRY.map((entry) => [entry.id, entry]));
 
