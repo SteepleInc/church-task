@@ -450,6 +450,7 @@ export const generateAgentParityReport = (
         surfaceStatus(entry.surfaces.mcp),
         surfaceStatus(entry.surfaces.cli),
         contextSummary(entry),
+        entry.authorization,
         entry.uiBehavior,
       ]
         .map(markdownTableCell)
@@ -461,8 +462,8 @@ export const generateAgentParityReport = (
     "",
     `Coverage statuses: ${AGENT_PARITY_COVERAGE_STATUSES.join(", ")}`,
     "",
-    "| Domain Area | Operation | Kind | UI | MCP | CLI | Context | UI Behavior |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Domain Area | Operation | Kind | UI | MCP | CLI | Context | Authorization | UI Behavior |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ...rows,
     "",
   ].join("\n");
