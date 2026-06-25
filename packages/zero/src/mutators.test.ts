@@ -898,21 +898,22 @@ describe("Zero Label mutators", () => {
     return { deleteCalls, insertCalls, tx, updateCalls };
   };
 
-  test("creates Church and Team Labels with scoped uniqueness", async () => {
+  test("creates Church and Team Labels for any Church member with scoped uniqueness and default colors", async () => {
     const { insertCalls, tx } = createServerTx([
       [],
       [{ id: "team_worship" }],
       [{ id: "label_church", name: "Worship", team_id: null }],
     ]);
+    const memberContext = { ...signedInContext, church_role: "member" } as const;
 
     await mustGetMutator(mutators, "labels.create").fn({
       args: { church_id: "org_test", name: "Worship" },
-      ctx: signedInContext,
+      ctx: memberContext,
       tx,
     });
     await mustGetMutator(mutators, "labels.create").fn({
       args: { church_id: "org_test", name: "Worship", team_id: "team_worship" },
-      ctx: signedInContext,
+      ctx: memberContext,
       tx,
     });
 
@@ -921,6 +922,7 @@ describe("Zero Label mutators", () => {
       .map((call) => {
         return call.values as {
           readonly id: string;
+          readonly color: string;
           readonly name: string;
           readonly team_id: string | null;
         };
@@ -928,10 +930,38 @@ describe("Zero Label mutators", () => {
 
     expect(labelInserts).toHaveLength(2);
     expect(labelInserts.every((label) => getIdType(label.id) === "label")).toBe(true);
+    expect(labelInserts.map((label) => label.color)).toEqual(["violet", "violet"]);
     expect(labelInserts.map((label) => label.team_id)).toEqual([null, "team_worship"]);
   });
 
-  test("updates Labels and hard-deletes them from Tasks", async () => {
+  test("rejects duplicate Label names within the same Church or Team scope", async () => {
+    const memberContext = { ...signedInContext, church_role: "member" } as const;
+
+    const { tx: churchDuplicateTx } = createServerTx([
+      [{ id: "label_church", name: "Worship", team_id: null }],
+    ]);
+    await expect(
+      mustGetMutator(mutators, "labels.create").fn({
+        args: { church_id: "org_test", name: "Worship" },
+        ctx: memberContext,
+        tx: churchDuplicateTx,
+      }),
+    ).rejects.toThrow("A Label with that name already exists in this scope.");
+
+    const { tx: teamDuplicateTx } = createServerTx([
+      [{ id: "team_worship" }],
+      [{ id: "label_team", name: "Worship", team_id: "team_worship" }],
+    ]);
+    await expect(
+      mustGetMutator(mutators, "labels.create").fn({
+        args: { church_id: "org_test", name: "Worship", team_id: "team_worship" },
+        ctx: memberContext,
+        tx: teamDuplicateTx,
+      }),
+    ).rejects.toThrow("A Label with that name already exists in this scope.");
+  });
+
+  test("updates Labels and hard-deletes them from Tasks for any Church member", async () => {
     const { deleteCalls, tx, updateCalls } = createServerTx([
       [{ id: "label_worship", name: "Worship", team_id: null }],
       [{ id: "label_worship", name: "Worship", team_id: null }],
@@ -940,15 +970,16 @@ describe("Zero Label mutators", () => {
         { id: "task_two", label_ids: '["label_other"]' },
       ],
     ]);
+    const memberContext = { ...signedInContext, church_role: "member" } as const;
 
     await mustGetMutator(mutators, "labels.update").fn({
       args: { church_id: "org_test", color: "blue", label_id: "label_worship", name: "Music" },
-      ctx: signedInContext,
+      ctx: memberContext,
       tx,
     });
     await mustGetMutator(mutators, "labels.delete").fn({
       args: { church_id: "org_test", label_id: "label_worship" },
-      ctx: signedInContext,
+      ctx: memberContext,
       tx,
     });
 
