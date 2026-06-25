@@ -71,6 +71,39 @@ describe("Agent Operation parity registry", () => {
     );
   });
 
+  test("reports UI-led Team and Team Membership behavior with agent coverage decisions", () => {
+    const byId = new Map(AGENT_OPERATION_REGISTRY.map((entry) => [entry.id, entry]));
+
+    expect(byId.get("team.create")).toMatchObject({
+      id: "team.create",
+      authorization: "Church owner, Church admin, or App Administrator",
+      surfaces: {
+        ui: { status: "covered" },
+        mcp: { status: "missing" },
+        cli: { status: "missing" },
+      },
+    });
+    for (const id of [
+      "team.rename",
+      "team.identifier.change",
+      "team.delete",
+      "team.reorder",
+      "team.membership.add",
+      "team.membership.remove",
+    ]) {
+      expect(byId.get(id)).toMatchObject({
+        authorization: "Church owner, Church admin, or App Administrator",
+      });
+    }
+
+    expect(generateAgentParityReport()).toContain(
+      "| Team | Create Team | write | covered | missing | missing | authenticated, Active Church, Church Membership | Settings and sidebar Team creation use useCreateTeamMutation, which creates the Team, creator Team Membership, owned Workflow, and default Workflow Statuses |",
+    );
+    expect(generateAgentParityReport()).toContain(
+      "| Team Membership | Add Team Membership | write | covered | missing | missing | authenticated, Active Church, Church Membership | Team navigation membership action uses useAddTeamMemberMutation and de-duplicates existing Team Memberships |",
+    );
+  });
+
   test("escapes Markdown table delimiters in registry text", () => {
     expect(
       generateAgentParityReport([
