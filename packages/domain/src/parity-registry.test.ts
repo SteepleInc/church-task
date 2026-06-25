@@ -442,16 +442,16 @@ describe("Agent Operation parity registry", () => {
   test("reports UI-led Template Library lifecycle parity across MCP and CLI", () => {
     const templateOperations = [
       {
-        cliStatus: "generic-passthrough",
-        command: "church-work mcp call template-list",
+        cliStatus: "covered",
+        command: "church-work template list",
         id: "template.list",
         kind: "read",
         operation: "List Templates",
         tool: "template-list",
       },
       {
-        cliStatus: "generic-passthrough",
-        command: "church-work mcp call template-get",
+        cliStatus: "covered",
+        command: "church-work template get",
         id: "template.get",
         kind: "read",
         operation: "Get Template",
@@ -466,32 +466,32 @@ describe("Agent Operation parity registry", () => {
         tool: "template-create-weekly-service",
       },
       {
-        cliStatus: "generic-passthrough",
-        command: "church-work mcp call template-update",
+        cliStatus: "covered",
+        command: "church-work template update --json",
         id: "template.update",
         kind: "write",
         operation: "Update Template",
         tool: "template-update",
       },
       {
-        cliStatus: "generic-passthrough",
-        command: "church-work mcp call template-delete",
+        cliStatus: "covered",
+        command: "church-work template delete",
         id: "template.delete",
         kind: "write",
         operation: "Delete Template",
         tool: "template-delete",
       },
       {
-        cliStatus: "generic-passthrough",
-        command: "church-work mcp call template-restore",
+        cliStatus: "covered",
+        command: "church-work template restore",
         id: "template.restore",
         kind: "write",
         operation: "Restore Template",
         tool: "template-restore",
       },
       {
-        cliStatus: "generic-passthrough",
-        command: "church-work mcp call template-duplicate",
+        cliStatus: "covered",
+        command: "church-work template duplicate --json",
         id: "template.duplicate",
         kind: "write",
         operation: "Duplicate Template",
@@ -524,13 +524,13 @@ describe("Agent Operation parity registry", () => {
     );
 
     expect(generateAgentParityReport()).toContain(
-      "| Template | Delete Template | write | covered | covered | generic-passthrough | authenticated, Active Church, Church Membership | Church Membership | Template Library and Template detail soft-delete a Template through useTemplateSoftDeleteActions.deleteTemplate |",
+      "| Template | Delete Template | write | covered | covered | covered | authenticated, Active Church, Church Membership | Church Membership | Template Library and Template detail soft-delete a Template through useTemplateSoftDeleteActions.deleteTemplate |",
     );
     expect(generateAgentParityReport()).toContain(
-      "| Template | Restore Template | write | covered | covered | generic-passthrough | authenticated, Active Church, Church Membership | Church Membership | Template deleted-item controls restore a Template through useTemplateSoftDeleteActions.restoreTemplate |",
+      "| Template | Restore Template | write | covered | covered | covered | authenticated, Active Church, Church Membership | Church Membership | Template deleted-item controls restore a Template through useTemplateSoftDeleteActions.restoreTemplate |",
     );
     expect(generateAgentParityReport()).toContain(
-      "| Template | Duplicate Template | write | covered | covered | generic-passthrough | authenticated, Active Church, Church Membership | Church Membership | Template detail duplicates a Template through useDuplicateTemplateAction |",
+      "| Template | Duplicate Template | write | covered | covered | covered | authenticated, Active Church, Church Membership | Church Membership | Template detail duplicates a Template through useDuplicateTemplateAction |",
     );
   });
 
@@ -642,11 +642,31 @@ describe("Agent Operation parity registry", () => {
   test("reports UI-led Template Schedule and Key Date behavior across MCP and CLI", () => {
     const byId = new Map(AGENT_OPERATION_REGISTRY.map((entry) => [entry.id, entry]));
 
-    for (const [id, operation, tool] of [
-      ["template-schedule.create", "Create Template Schedule", "template-schedule-create"],
-      ["template-schedule.update", "Update Template Schedule", "template-schedule-update"],
-      ["template-schedule.delete", "Delete Template Schedule", "template-schedule-delete"],
-      ["template-schedule.restore", "Restore Template Schedule", "template-schedule-restore"],
+    for (const [id, operation, tool, command] of [
+      [
+        "template-schedule.create",
+        "Create Template Schedule",
+        "template-schedule-create",
+        "church-work template-schedule create --json",
+      ],
+      [
+        "template-schedule.update",
+        "Update Template Schedule",
+        "template-schedule-update",
+        "church-work template-schedule update --json",
+      ],
+      [
+        "template-schedule.delete",
+        "Delete Template Schedule",
+        "template-schedule-delete",
+        "church-work template-schedule delete",
+      ],
+      [
+        "template-schedule.restore",
+        "Restore Template Schedule",
+        "template-schedule-restore",
+        "church-work template-schedule restore",
+      ],
     ] as const) {
       expect(byId.get(id)).toMatchObject({
         authorization: "Church Membership",
@@ -660,22 +680,47 @@ describe("Agent Operation parity registry", () => {
         surfaces: {
           ui: { status: "covered" },
           mcp: { status: "covered", tool },
-          cli: { command: `church-work mcp call ${tool}`, status: "generic-passthrough" },
+          cli: { command, status: "covered" },
         },
       });
     }
 
-    for (const [id, operation, kind, tool] of [
-      ["key-date.list", "List Key Dates", "read", "key-date-list"],
-      ["key-date.create", "Create Key Date", "write", "key-date-create"],
-      ["key-date.update", "Update Key Date", "write", "key-date-update"],
-      ["key-date.delete", "Delete Key Date", "write", "key-date-delete"],
-      ["key-date.restore", "Restore Key Date", "write", "key-date-restore"],
+    for (const [id, operation, kind, tool, command] of [
+      ["key-date.list", "List Key Dates", "read", "key-date-list", "church-work key-date list"],
+      [
+        "key-date.create",
+        "Create Key Date",
+        "write",
+        "key-date-create",
+        "church-work key-date create --json",
+      ],
+      [
+        "key-date.update",
+        "Update Key Date",
+        "write",
+        "key-date-update",
+        "church-work key-date update --json",
+      ],
+      [
+        "key-date.delete",
+        "Delete Key Date",
+        "write",
+        "key-date-delete",
+        "church-work key-date delete",
+      ],
+      [
+        "key-date.restore",
+        "Restore Key Date",
+        "write",
+        "key-date-restore",
+        "church-work key-date restore",
+      ],
       [
         "key-date.occurrence.preview",
         "Preview Key Date Occurrences",
         "read",
         "key-date-preview-occurrences",
+        "church-work key-date preview-occurrences --json",
       ],
     ] as const) {
       expect(byId.get(id)).toMatchObject({
@@ -691,16 +736,16 @@ describe("Agent Operation parity registry", () => {
         surfaces: {
           ui: { status: "covered" },
           mcp: { status: "covered", tool },
-          cli: { command: `church-work mcp call ${tool}`, status: "generic-passthrough" },
+          cli: { command, status: "covered" },
         },
       });
     }
 
     expect(generateAgentParityReport()).toContain(
-      "| Template Schedule | Create Template Schedule | write | covered | covered | generic-passthrough | authenticated, Active Church, Church Membership | Church Membership | Template authoring creates Template Schedules through mutators.templates.create and key-date Template setup writes a Key Date anchored Template Schedule |",
+      "| Template Schedule | Create Template Schedule | write | covered | covered | covered | authenticated, Active Church, Church Membership | Church Membership | Template authoring creates Template Schedules through mutators.templates.create and key-date Template setup writes a Key Date anchored Template Schedule |",
     );
     expect(generateAgentParityReport()).toContain(
-      "| Key Date | Preview Key Date Occurrences | read | covered | covered | generic-passthrough | authenticated, Active Church, Church Membership | Church Membership | Key Date forms preview computed yearly, fixed yearly, and one-time local-date occurrences with calculateKeyDateOccurrence before save |",
+      "| Key Date | Preview Key Date Occurrences | read | covered | covered | covered | authenticated, Active Church, Church Membership | Church Membership | Key Date forms preview computed yearly, fixed yearly, and one-time local-date occurrences with calculateKeyDateOccurrence before save |",
     );
   });
 

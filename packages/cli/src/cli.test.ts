@@ -364,6 +364,132 @@ describe("church-work setup write", () => {
 });
 
 describe("church-work task execution", () => {
+  it("maps remaining Template and Key Date named CLI commands to MCP tools", async () => {
+    const requests: Array<{
+      readonly token: string;
+      readonly tool: string;
+      readonly body: Record<string, unknown>;
+    }> = [];
+    const backendLayer = fakeBackend({
+      taskTool: (args) =>
+        Effect.sync(() => {
+          requests.push(args);
+          return taskToolResponse(args.tool, { received: args.body });
+        }),
+    });
+    const env = { CHURCH_WORK_AUTH_TOKEN: "env-token" };
+
+    const jsonBody = { churchId: "church_123", templateId: "template_123", name: "Copy" };
+    const commands = [
+      [
+        ["template", "list", "--church-id", "church_123"],
+        "template-list",
+        { churchId: "church_123" },
+      ],
+      [
+        ["template", "get", "--church-id", "church_123", "--template-id", "template_123"],
+        "template-get",
+        { churchId: "church_123", templateId: "template_123" },
+      ],
+      [["template", "update", "--json", JSON.stringify(jsonBody)], "template-update", jsonBody],
+      [
+        ["template", "delete", "--church-id", "church_123", "--template-id", "template_123"],
+        "template-delete",
+        { churchId: "church_123", templateId: "template_123" },
+      ],
+      [
+        ["template", "restore", "--church-id", "church_123", "--template-id", "template_123"],
+        "template-restore",
+        { churchId: "church_123", templateId: "template_123" },
+      ],
+      [
+        ["template", "duplicate", "--json", JSON.stringify(jsonBody)],
+        "template-duplicate",
+        jsonBody,
+      ],
+      [
+        ["template-schedule", "create", "--json", JSON.stringify({ churchId: "church_123" })],
+        "template-schedule-create",
+        { churchId: "church_123" },
+      ],
+      [
+        ["template-schedule", "update", "--json", JSON.stringify({ churchId: "church_123" })],
+        "template-schedule-update",
+        { churchId: "church_123" },
+      ],
+      [
+        [
+          "template-schedule",
+          "delete",
+          "--church-id",
+          "church_123",
+          "--template-schedule-id",
+          "schedule_123",
+        ],
+        "template-schedule-delete",
+        { churchId: "church_123", templateScheduleId: "schedule_123" },
+      ],
+      [
+        [
+          "template-schedule",
+          "restore",
+          "--church-id",
+          "church_123",
+          "--template-schedule-id",
+          "schedule_123",
+        ],
+        "template-schedule-restore",
+        { churchId: "church_123", templateScheduleId: "schedule_123" },
+      ],
+      [
+        ["key-date", "list", "--church-id", "church_123"],
+        "key-date-list",
+        { churchId: "church_123" },
+      ],
+      [
+        ["key-date", "create", "--json", JSON.stringify({ churchId: "church_123", key: "easter" })],
+        "key-date-create",
+        { churchId: "church_123", key: "easter" },
+      ],
+      [
+        [
+          "key-date",
+          "update",
+          "--json",
+          JSON.stringify({ churchId: "church_123", keyDateId: "keydate_123" }),
+        ],
+        "key-date-update",
+        { churchId: "church_123", keyDateId: "keydate_123" },
+      ],
+      [
+        ["key-date", "delete", "--church-id", "church_123", "--key-date-id", "keydate_123"],
+        "key-date-delete",
+        { churchId: "church_123", keyDateId: "keydate_123" },
+      ],
+      [
+        ["key-date", "restore", "--church-id", "church_123", "--key-date-id", "keydate_123"],
+        "key-date-restore",
+        { churchId: "church_123", keyDateId: "keydate_123" },
+      ],
+      [
+        [
+          "key-date",
+          "preview-occurrences",
+          "--json",
+          JSON.stringify({ churchId: "church_123", startYear: 2026 }),
+        ],
+        "key-date-preview-occurrences",
+        { churchId: "church_123", startYear: 2026 },
+      ],
+    ] as const;
+
+    for (const [command, tool, body] of commands) {
+      const result = await runCli(command, { env, backendLayer });
+      expect(result.exitCode).toBe(0);
+      expect(requests.at(-1)).toEqual({ token: "env-token", tool, body });
+    }
+  });
+
   it("maps Template Library CLI commands to MCP tools", async () => {
     const requests: Array<{
       readonly token: string;
