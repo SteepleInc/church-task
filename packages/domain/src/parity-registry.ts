@@ -1204,8 +1204,8 @@ export const AGENT_OPERATION_REGISTRY = [
       "Inbox notification row Snooze menu hides the current recipient's notification until a future preset time and invalid or past snooze inputs are rejected/no-op by the Zero mutator",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call template-list",
+    cliStatus: "covered",
+    command: "church-work template list",
     domainArea: "Template",
     id: "template.list",
     inputContract: "churchId",
@@ -1216,8 +1216,8 @@ export const AGENT_OPERATION_REGISTRY = [
     uiBehavior: "Template Library lists non-deleted Templates through useTemplatesCollection",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call template-get",
+    cliStatus: "covered",
+    command: "church-work template get",
     domainArea: "Template",
     id: "template.get",
     inputContract: "churchId and templateId",
@@ -1244,8 +1244,8 @@ export const AGENT_OPERATION_REGISTRY = [
       "Template creation flow creates weekly-service Templates through mutators.templates.create",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call template-update",
+    cliStatus: "covered",
+    command: "church-work template update --json",
     domainArea: "Template",
     id: "template.update",
     inputContract:
@@ -1257,8 +1257,8 @@ export const AGENT_OPERATION_REGISTRY = [
     uiBehavior: "Template detail persists Template field changes through Template update actions",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call template-delete",
+    cliStatus: "covered",
+    command: "church-work template delete",
     domainArea: "Template",
     id: "template.delete",
     inputContract: "churchId and templateId",
@@ -1270,8 +1270,8 @@ export const AGENT_OPERATION_REGISTRY = [
       "Template Library and Template detail soft-delete a Template through useTemplateSoftDeleteActions.deleteTemplate",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call template-restore",
+    cliStatus: "covered",
+    command: "church-work template restore",
     domainArea: "Template",
     id: "template.restore",
     inputContract: "churchId and templateId",
@@ -1283,8 +1283,8 @@ export const AGENT_OPERATION_REGISTRY = [
       "Template deleted-item controls restore a Template through useTemplateSoftDeleteActions.restoreTemplate",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call template-duplicate",
+    cliStatus: "covered",
+    command: "church-work template duplicate --json",
     domainArea: "Template",
     id: "template.duplicate",
     inputContract: "churchId, templateId, and optional duplicate name",
@@ -1296,8 +1296,8 @@ export const AGENT_OPERATION_REGISTRY = [
     uiBehavior: "Template detail duplicates a Template through useDuplicateTemplateAction",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call template-schedule-create",
+    cliStatus: "covered",
+    command: "church-work template-schedule create --json",
     domainArea: "Template Schedule",
     id: "template-schedule.create",
     inputContract:
@@ -1311,8 +1311,8 @@ export const AGENT_OPERATION_REGISTRY = [
       "Template authoring creates Template Schedules through mutators.templates.create and key-date Template setup writes a Key Date anchored Template Schedule",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call template-schedule-update",
+    cliStatus: "covered",
+    command: "church-work template-schedule update --json",
     domainArea: "Template Schedule",
     id: "template-schedule.update",
     inputContract:
@@ -1326,8 +1326,8 @@ export const AGENT_OPERATION_REGISTRY = [
       "Template schedule controls persist schedule edits through Template Schedule update mutations while preserving Church scope",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call template-schedule-delete",
+    cliStatus: "covered",
+    command: "church-work template-schedule delete",
     domainArea: "Template Schedule",
     id: "template-schedule.delete",
     inputContract: "churchId and templateScheduleId",
@@ -1340,8 +1340,8 @@ export const AGENT_OPERATION_REGISTRY = [
       "Template schedule delete controls soft-delete a Template Schedule without deleting the parent Template",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call template-schedule-restore",
+    cliStatus: "covered",
+    command: "church-work template-schedule restore",
     domainArea: "Template Schedule",
     id: "template-schedule.restore",
     inputContract: "churchId and templateScheduleId",
@@ -1354,8 +1354,8 @@ export const AGENT_OPERATION_REGISTRY = [
       "Template schedule restore controls make a soft-deleted Template Schedule active again",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call key-date-list",
+    cliStatus: "covered",
+    command: "church-work key-date list",
     domainArea: "Key Date",
     id: "key-date.list",
     inputContract: "churchId",
@@ -1368,8 +1368,8 @@ export const AGENT_OPERATION_REGISTRY = [
       "Key Dates settings and Template setup list active Key Dates through useKeyDatesCollection",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call key-date-create",
+    cliStatus: "covered",
+    command: "church-work key-date create --json",
     domainArea: "Key Date",
     id: "key-date.create",
     inputContract:
@@ -1383,8 +1383,8 @@ export const AGENT_OPERATION_REGISTRY = [
       "Key Date quick action and Template setup create Key Dates through useCreateKeyDate with schedule validation",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call key-date-update",
+    cliStatus: "covered",
+    command: "church-work key-date update --json",
     domainArea: "Key Date",
     id: "key-date.update",
     inputContract: "churchId, keyDateId, Key Date key/name, and schedule",
@@ -1397,8 +1397,8 @@ export const AGENT_OPERATION_REGISTRY = [
       "Key Date table inline rename and edit flows persist changes through useUpdateKeyDate",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call key-date-delete",
+    cliStatus: "covered",
+    command: "church-work key-date delete",
     domainArea: "Key Date",
     id: "key-date.delete",
     inputContract: "churchId and keyDateId",
@@ -1410,8 +1410,8 @@ export const AGENT_OPERATION_REGISTRY = [
     uiBehavior: "Key Date row actions soft-delete a Key Date through useDeleteKeyDate",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call key-date-restore",
+    cliStatus: "covered",
+    command: "church-work key-date restore",
     domainArea: "Key Date",
     id: "key-date.restore",
     inputContract: "churchId and keyDateId",
@@ -1423,8 +1423,8 @@ export const AGENT_OPERATION_REGISTRY = [
     uiBehavior: "Key Date deleted-item controls restore a soft-deleted Key Date",
   }),
   coveredTemplateOperation({
-    cliStatus: "generic-passthrough",
-    command: "church-work mcp call key-date-preview-occurrences",
+    cliStatus: "covered",
+    command: "church-work key-date preview-occurrences --json",
     domainArea: "Key Date",
     id: "key-date.occurrence.preview",
     inputContract: "churchId, Key Date schedule, plus optional startYear and endYear",

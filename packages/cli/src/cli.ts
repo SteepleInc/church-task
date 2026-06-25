@@ -446,6 +446,33 @@ const runMcpCall = (args: ReadonlyArray<string>) =>
     return yield* runTaskTool(tool, JSON.parse(json) as Record<string, unknown>);
   });
 
+const runJsonBackedTaskTool = (tool: string, args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const json = yield* jsonOptionFromArgs(args);
+    return yield* runTaskTool(tool, JSON.parse(json) as Record<string, unknown>);
+  });
+
+const runIdBackedTaskTool = (
+  tool: string,
+  idOption: string,
+  idKey: string,
+  args: ReadonlyArray<string>,
+) =>
+  Effect.gen(function* () {
+    const body: Record<string, unknown> = {
+      churchId: yield* requiredOptionFromArgs(args, "--church-id"),
+      [idKey]: yield* requiredOptionFromArgs(args, idOption),
+    };
+    return yield* runTaskTool(tool, body);
+  });
+
+const runChurchScopedTaskTool = (tool: string, args: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    return yield* runTaskTool(tool, {
+      churchId: yield* requiredOptionFromArgs(args, "--church-id"),
+    });
+  });
+
 const runTemplateCreateWeeklyService = (args: ReadonlyArray<string>) =>
   Effect.gen(function* () {
     const body: Record<string, unknown> = {
@@ -739,6 +766,80 @@ const runCliEffect = (
     return runTemplateCreateWeeklyService(args.slice(2));
   }
 
+  if (command === "template" && args[1] === "list") {
+    return runChurchScopedTaskTool("template-list", args.slice(2));
+  }
+
+  if (command === "template" && args[1] === "get") {
+    return runIdBackedTaskTool("template-get", "--template-id", "templateId", args.slice(2));
+  }
+
+  if (command === "template" && args[1] === "update") {
+    return runJsonBackedTaskTool("template-update", args.slice(2));
+  }
+
+  if (command === "template" && args[1] === "delete") {
+    return runIdBackedTaskTool("template-delete", "--template-id", "templateId", args.slice(2));
+  }
+
+  if (command === "template" && args[1] === "restore") {
+    return runIdBackedTaskTool("template-restore", "--template-id", "templateId", args.slice(2));
+  }
+
+  if (command === "template" && args[1] === "duplicate") {
+    return runJsonBackedTaskTool("template-duplicate", args.slice(2));
+  }
+
+  if (command === "template-schedule" && args[1] === "create") {
+    return runJsonBackedTaskTool("template-schedule-create", args.slice(2));
+  }
+
+  if (command === "template-schedule" && args[1] === "update") {
+    return runJsonBackedTaskTool("template-schedule-update", args.slice(2));
+  }
+
+  if (command === "template-schedule" && args[1] === "delete") {
+    return runIdBackedTaskTool(
+      "template-schedule-delete",
+      "--template-schedule-id",
+      "templateScheduleId",
+      args.slice(2),
+    );
+  }
+
+  if (command === "template-schedule" && args[1] === "restore") {
+    return runIdBackedTaskTool(
+      "template-schedule-restore",
+      "--template-schedule-id",
+      "templateScheduleId",
+      args.slice(2),
+    );
+  }
+
+  if (command === "key-date" && args[1] === "list") {
+    return runChurchScopedTaskTool("key-date-list", args.slice(2));
+  }
+
+  if (command === "key-date" && args[1] === "create") {
+    return runJsonBackedTaskTool("key-date-create", args.slice(2));
+  }
+
+  if (command === "key-date" && args[1] === "update") {
+    return runJsonBackedTaskTool("key-date-update", args.slice(2));
+  }
+
+  if (command === "key-date" && args[1] === "delete") {
+    return runIdBackedTaskTool("key-date-delete", "--key-date-id", "keyDateId", args.slice(2));
+  }
+
+  if (command === "key-date" && args[1] === "restore") {
+    return runIdBackedTaskTool("key-date-restore", "--key-date-id", "keyDateId", args.slice(2));
+  }
+
+  if (command === "key-date" && args[1] === "preview-occurrences") {
+    return runJsonBackedTaskTool("key-date-preview-occurrences", args.slice(2));
+  }
+
   if (command === "template-task" && args[1] === "add-at-placement") {
     return runTemplateTaskAddAtPlacement(args.slice(2));
   }
@@ -831,7 +932,7 @@ const formatError = (error: CliError) => {
       return failure({
         code: "unknown_command",
         message:
-          "Run `church-work health`, `church-work login --name <name>`, `church-work current-user`, `church-work active-church`, `church-work setup read --church-id <id>`, `church-work setup write --json <batch>`, `church-work task <list|get|create|update|complete|cancel|reopen>`, `church-work lookup <users|teams|cycles|workflow-statuses>`, `church-work auth status`, or `church-work auth logout`.",
+          "Run `church-work health`, `church-work login --name <name>`, `church-work current-user`, `church-work active-church`, `church-work setup read --church-id <id>`, `church-work setup write --json <batch>`, `church-work task <list|get|create|update|complete|cancel|reopen>`, `church-work template <list|get|update|delete|restore|duplicate>`, `church-work template-schedule <create|update|delete|restore>`, `church-work key-date <list|create|update|delete|restore|preview-occurrences>`, `church-work lookup <users|teams|cycles|workflow-statuses>`, `church-work auth status`, or `church-work auth logout`.",
       });
   }
 };
