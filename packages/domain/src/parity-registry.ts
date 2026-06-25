@@ -210,6 +210,59 @@ export const AGENT_OPERATION_REGISTRY = [
       session: "authenticated",
     },
     domainArea: "App Administration",
+    id: "app-administration.church.edit-support-action",
+    inputContract: "target Church id selected from the App Administration Churches collection",
+    kind: "write",
+    operation: "Edit Church Support Details",
+    outputContract: "edit Church quick action state opened for App Administrator review/update",
+    surfaces: {
+      cli: {
+        notes: "No named CLI support command edits Church support details.",
+        status: "missing",
+      },
+      mcp: { notes: "No MCP support tool edits Church support details.", status: "missing" },
+      ui: {
+        notes:
+          "Inspected OrgActions useIsAppAdmin guard and editOrgQuickActionStateAtom details-pane support action.",
+        status: "covered",
+      },
+    },
+    uiBehavior:
+      "Admin Church details pane action opens the App Administrator-only edit Church quick action from OrgActions",
+  },
+  {
+    authorization: "App Administrator",
+    context: {
+      requiresActiveChurch: false,
+      requiresChurchMembership: false,
+      session: "authenticated",
+    },
+    domainArea: "App Administration",
+    id: "app-administration.user.edit-support-action",
+    inputContract: "target User id selected from the App Administration Users collection",
+    kind: "write",
+    operation: "Edit User Support Details",
+    outputContract: "edit User quick action state opened for App Administrator review/update",
+    surfaces: {
+      cli: { notes: "No named CLI support command edits User support details.", status: "missing" },
+      mcp: { notes: "No MCP support tool edits User support details.", status: "missing" },
+      ui: {
+        notes:
+          "Inspected UserActions useIsAppAdmin guard and editUserQuickActionStateAtom details-pane support action.",
+        status: "covered",
+      },
+    },
+    uiBehavior:
+      "Admin User details pane action opens the App Administrator-only edit User quick action from UserActions",
+  },
+  {
+    authorization: "App Administrator",
+    context: {
+      requiresActiveChurch: false,
+      requiresChurchMembership: false,
+      session: "authenticated",
+    },
+    domainArea: "App Administration",
     id: "app-administration.user.impersonate",
     inputContract: "target User id selected from the App Administration Users collection",
     kind: "write",
