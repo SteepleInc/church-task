@@ -621,8 +621,9 @@ const runTaskTool = (
               .orderBy(asc(workflow_statuses.sort_order))
               .limit(1),
           );
+          if (!targetStatus) throw new Error(`Workflow Status for ${targetState} not found.`);
           patch.task_state = targetState;
-          if (targetStatus) patch.workflow_status_id = targetStatus.id;
+          patch.workflow_status_id = targetStatus.id;
           patch.finished_at = targetState === TaskStatus.todo ? null : new Date();
           eventType =
             tool === "complete-task"

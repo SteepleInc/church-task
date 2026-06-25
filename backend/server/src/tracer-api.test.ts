@@ -414,9 +414,28 @@ describe("tracer API", () => {
           ),
         )
         .limit(1);
+      const [doneStatus] = await authRuntime.db
+        .select()
+        .from(workflow_statuses)
+        .where(
+          and(eq(workflow_statuses.church_id, org!.id), eq(workflow_statuses.task_state, "done")),
+        )
+        .limit(1);
+      const [canceledStatus] = await authRuntime.db
+        .select()
+        .from(workflow_statuses)
+        .where(
+          and(
+            eq(workflow_statuses.church_id, org!.id),
+            eq(workflow_statuses.task_state, "canceled"),
+          ),
+        )
+        .limit(1);
       expect(team?.id).toMatch(/^team_/);
       expect(todoStatus?.id).toMatch(/^workflowstatus_/);
       expect(doingStatus?.id).toMatch(/^workflowstatus_/);
+      expect(doneStatus?.id).toMatch(/^workflowstatus_/);
+      expect(canceledStatus?.id).toMatch(/^workflowstatus_/);
 
       const createTaskResponse = await api.fetch(
         new Request("http://127.0.0.1/api/mcp/tools/create-task", {
@@ -460,7 +479,7 @@ describe("tracer API", () => {
       );
       await expect(completeTaskResponse.json()).resolves.toMatchObject({
         ok: true,
-        task: { id: created.task?.id, taskState: "done" },
+        task: { id: created.task?.id, taskState: "done", workflowStatusId: doneStatus!.id },
       });
 
       const reopenTaskResponse = await api.fetch(
@@ -484,7 +503,7 @@ describe("tracer API", () => {
       );
       await expect(cancelTaskResponse.json()).resolves.toMatchObject({
         ok: true,
-        task: { id: created.task?.id, taskState: "canceled" },
+        task: { id: created.task?.id, taskState: "canceled", workflowStatusId: canceledStatus!.id },
       });
 
       const reopenCanceledTaskResponse = await api.fetch(
