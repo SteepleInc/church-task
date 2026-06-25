@@ -59,6 +59,8 @@ export type ActiveChurchResponse =
       readonly operation: "activeChurch";
     };
 
+export type ActiveChurchFailureResponse = Extract<ActiveChurchResponse, { readonly ok: false }>;
+
 export type CoreWorkBatchOperation = {
   readonly id: string;
   readonly input: unknown;
@@ -103,7 +105,7 @@ export const noActiveChurchResponse = (): ActiveChurchResponse => ({
   operation: "activeChurch",
 });
 
-export const activeChurchAuthenticationRequiredResponse = (): ActiveChurchResponse => ({
+export const activeChurchAuthenticationRequiredResponse = (): ActiveChurchFailureResponse => ({
   error: {
     code: "authentication_required",
     message: "Authentication required to resolve Active Church.",
@@ -130,7 +132,7 @@ export const activeChurchResponse = (args: {
   operation: "activeChurch",
 });
 
-export const churchNotFoundResponse = (): ActiveChurchResponse => ({
+export const churchNotFoundResponse = (): ActiveChurchFailureResponse => ({
   error: {
     code: "church_not_found",
     message: "Requested Church was not found.",
@@ -139,7 +141,7 @@ export const churchNotFoundResponse = (): ActiveChurchResponse => ({
   operation: "activeChurch",
 });
 
-export const notChurchMemberResponse = (): ActiveChurchResponse => ({
+export const notChurchMemberResponse = (): ActiveChurchFailureResponse => ({
   error: {
     code: "not_church_member",
     message: "User does not have Church Membership for requested Church.",

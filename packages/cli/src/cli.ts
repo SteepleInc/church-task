@@ -383,16 +383,9 @@ const runActiveChurch = (args: ReadonlyArray<string>) =>
     const envToken = yield* CurrentEnvToken;
     const storedCredential = envToken ? null : yield* storage.read;
     const token = envToken ?? storedCredential?.token ?? null;
-    if (!token) {
-      const errorResponse = activeChurchAuthenticationRequiredResponse() as Extract<
-        ActiveChurchResponse,
-        { readonly ok: false }
-      >;
-      return operationFailure(errorResponse);
-    }
-    const activeChurch = envToken
-      ? yield* backend.activeChurchWithToken({ token: envToken, churchId })
-      : yield* backend.activeChurchWithToken({ token, churchId });
+    if (!token) return operationFailure(activeChurchAuthenticationRequiredResponse());
+
+    const activeChurch = yield* backend.activeChurchWithToken({ token, churchId });
 
     return activeChurch.ok ? success(activeChurch) : operationFailure(activeChurch);
   });
