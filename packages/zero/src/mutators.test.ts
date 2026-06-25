@@ -40,11 +40,11 @@ const signedInContext = {
   user_id: "user_test",
 } as const;
 
-describe("Zero Cycle mutators", () => {
-  test("marks only the signed-in recipient's notification read", async () => {
-    const updateCalls: Array<{ readonly table: unknown; readonly set: Record<string, unknown> }> =
-      [];
-    const tx = {
+const createRecordingUpdateTx = () => {
+  const updateCalls: Array<{ readonly table: unknown; readonly set: Record<string, unknown> }> = [];
+
+  return {
+    tx: {
       dbTransaction: {
         wrappedTransaction: {
           update: (table: unknown) => ({
@@ -55,7 +55,14 @@ describe("Zero Cycle mutators", () => {
         },
       },
       location: "server",
-    } as never;
+    } as never,
+    updateCalls,
+  };
+};
+
+describe("Zero Cycle mutators", () => {
+  test("marks only the signed-in recipient's notification read", async () => {
+    const { tx, updateCalls } = createRecordingUpdateTx();
 
     await mustGetMutator(mutators, "notifications.mark_read").fn({
       args: { church_id: "org_test", notification_id: "notification_test" },
@@ -70,20 +77,7 @@ describe("Zero Cycle mutators", () => {
   });
 
   test("supports scoped Inbox read/unread and soft-delete actions", async () => {
-    const updateCalls: Array<{ readonly table: unknown; readonly set: Record<string, unknown> }> =
-      [];
-    const tx = {
-      dbTransaction: {
-        wrappedTransaction: {
-          update: (table: unknown) => ({
-            set: (set: Record<string, unknown>) => ({
-              where: async () => updateCalls.push({ table, set }),
-            }),
-          }),
-        },
-      },
-      location: "server",
-    } as never;
+    const { tx, updateCalls } = createRecordingUpdateTx();
 
     await mustGetMutator(mutators, "notifications.mark_unread").fn({
       args: { church_id: "org_test", notification_id: "notification_test" },
@@ -128,20 +122,7 @@ describe("Zero Cycle mutators", () => {
   });
 
   test("snoozes only the signed-in recipient's notification until a future time", async () => {
-    const updateCalls: Array<{ readonly table: unknown; readonly set: Record<string, unknown> }> =
-      [];
-    const tx = {
-      dbTransaction: {
-        wrappedTransaction: {
-          update: (table: unknown) => ({
-            set: (set: Record<string, unknown>) => ({
-              where: async () => updateCalls.push({ table, set }),
-            }),
-          }),
-        },
-      },
-      location: "server",
-    } as never;
+    const { tx, updateCalls } = createRecordingUpdateTx();
 
     await mustGetMutator(mutators, "notifications.snooze").fn({
       args: {
@@ -160,20 +141,7 @@ describe("Zero Cycle mutators", () => {
   });
 
   test("rejects unauthorized and invalid Notification Inbox actions without updating", async () => {
-    const updateCalls: Array<{ readonly table: unknown; readonly set: Record<string, unknown> }> =
-      [];
-    const tx = {
-      dbTransaction: {
-        wrappedTransaction: {
-          update: (table: unknown) => ({
-            set: (set: Record<string, unknown>) => ({
-              where: async () => updateCalls.push({ table, set }),
-            }),
-          }),
-        },
-      },
-      location: "server",
-    } as never;
+    const { tx, updateCalls } = createRecordingUpdateTx();
 
     await expect(
       mustGetMutator(mutators, "notifications.mark_read").fn({
