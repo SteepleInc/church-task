@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useZero } from "@rocicorp/zero/react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,8 +9,8 @@ import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { useAllOrgsCollectionWithFilters } from "@/data/orgs/orgsData.app";
 import { useTeamsCollection } from "@/data/teams/teamsData.app";
 import { useIsAppAdmin } from "@/data/users/adminData.app";
+import { useSession } from "@/hooks/use-session";
 import { useChurchUsersCollection } from "@/data/users/usersData.app";
-import { authClient } from "@/lib/auth-client";
 
 export function InternalPageFrame({
   eyebrow,
@@ -45,9 +46,9 @@ export function DevSessionPanel() {
 }
 
 function DevSessionContent() {
-  const session = authClient.useSession();
+  const session = useSession();
   const { currentOrgOpt: activeChurch } = useCurrentOrgOpt();
-  const sessionUser = session.data?.user;
+  const sessionUser = session.session?.user;
 
   return (
     <InternalPageFrame
@@ -233,10 +234,12 @@ function AppAdminUsersContent() {
 }
 
 export function InternalAccessGate({ children }: { readonly children: ReactNode }) {
-  const session = authClient.useSession();
+  const session = useSession();
   const isAppAdministrator = useIsAppAdmin();
+  const zero = useZero();
+  const zeroSessionReady = zero.context?.authenticated === true;
 
-  if (session.isPending) {
+  if (session.isPending || !zeroSessionReady) {
     return (
       <ScrollArea className="min-h-0 flex-1" viewportClassName="p-6">
         <main className="mx-auto flex w-full max-w-5xl flex-col gap-6">

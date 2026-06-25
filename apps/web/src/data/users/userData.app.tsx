@@ -10,6 +10,7 @@ import {
   useChurchUsersCollection,
   type UserCollectionItem,
 } from "@/data/users/usersData.app";
+import { useIsAppAdmin } from "@/data/users/adminData.app";
 
 export function useCurrentUserOpt() {
   const { currentOrgOpt, loading: orgLoading } = useCurrentOrgOpt();
@@ -36,11 +37,15 @@ export function useUserOpt(params: { readonly churchId: string | null; readonly 
 }
 
 export function useUserData(params: { readonly userId: string }) {
-  const [userRows] = useQuery(
+  const isAppAdmin = useIsAppAdmin();
+  const [userRows = []] = useQuery(
     queries.user.admin_list({ list_args: { limit: 1, selected_ids: [params.userId] } }),
+    { enabled: isAppAdmin },
   );
-  const [memberRows] = useQuery(queries.member.admin_all());
-  const [orgRows] = useQuery(queries.organization.admin_list({ list_args: { limit: 500 } }));
+  const [memberRows = []] = useQuery(queries.member.admin_all(), { enabled: isAppAdmin });
+  const [orgRows = []] = useQuery(queries.organization.admin_list({ list_args: { limit: 500 } }), {
+    enabled: isAppAdmin,
+  });
   const orgsById = new Map(orgRows.map((org) => [org.id, org]));
   const user = userRows[0] ? mapAdminUser(userRows[0], memberRows, orgsById) : null;
 

@@ -5,7 +5,7 @@ import { mutators, schema, type OptionalZeroSessionContext } from "@church-work/
 import { ZeroProvider } from "@rocicorp/zero/react";
 import { useMemo, useRef } from "react";
 
-import { authClient } from "@/lib/auth-client";
+import { useSession } from "@/hooks/use-session";
 
 type SessionWithZeroContext = {
   readonly activeOrganizationId?: string | null;
@@ -13,6 +13,11 @@ type SessionWithZeroContext = {
   readonly orgRole?: string | null;
   readonly userRole?: string | null;
 };
+
+type AuthSessionData = {
+  readonly session?: SessionWithZeroContext | null;
+  readonly user?: { readonly id?: string | null; readonly role?: string | null } | null;
+} | null;
 
 const getZeroCacheUrl = () => {
   const configuredUrl = env.VITE_ZERO_CACHE_URL;
@@ -39,15 +44,16 @@ const getZeroCacheUrl = () => {
 };
 
 export function ZeroRuntimeProvider(props: { readonly children: React.ReactNode }) {
-  const { data, isPending: sessionPending } = authClient.useSession();
+  const { isPending: sessionPending, session: sessionData } = useSession();
+  const data = sessionData as AuthSessionData;
   const lastAuthenticatedContext = useRef<OptionalZeroSessionContext>(null);
-  const session = data?.session as SessionWithZeroContext | undefined;
+  const session = data?.session ?? undefined;
   const userId = data?.user?.id;
 
   const activeChurchId = session?.activeOrganizationId ?? null;
   const sessionId = session?.id ?? data?.session?.id;
   const churchRole = session?.orgRole ?? null;
-  const isAppAdmin = session?.userRole === "admin";
+  const isAppAdmin = data?.user?.role === "admin" || session?.userRole === "admin";
   const hasSession = Boolean(data?.user && data.session && userId && sessionId);
 
   // Build a context with a stable identity: ZeroProvider reconstructs its

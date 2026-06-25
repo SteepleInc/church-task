@@ -4,6 +4,7 @@ import { useQuery as useZeroQuery } from "@rocicorp/zero/react";
 import { authClient } from "@/lib/auth-client";
 import { FilterKeys } from "@/shared/global-state";
 import { useZeroListArgs } from "@/shared/hooks/useZeroListArgs";
+import { useIsAppAdmin } from "@/data/users/adminData.app";
 
 export type OrgCollectionItem = {
   readonly id: string;
@@ -88,13 +89,16 @@ const mapOrg = (
 });
 
 export function useAllOrgsCollectionWithFilters() {
+  const isAppAdmin = useIsAppAdmin();
   const { limit, listArgs, nextPage, pageSize } = useZeroListArgs({
     columnMap: orgColumnMap,
     filterKey: FilterKeys.Orgs,
   });
-  const [orgRows] = useZeroQuery(queries.organization.admin_list({ list_args: listArgs }));
-  const [memberRows] = useZeroQuery(queries.member.admin_all());
-  const [teamRows] = useZeroQuery(queries.teams_admin.admin_all());
+  const [orgRows = []] = useZeroQuery(queries.organization.admin_list({ list_args: listArgs }), {
+    enabled: isAppAdmin,
+  });
+  const [memberRows = []] = useZeroQuery(queries.member.admin_all(), { enabled: isAppAdmin });
+  const [teamRows = []] = useZeroQuery(queries.teams_admin.admin_all(), { enabled: isAppAdmin });
   const orgsCollection = orgRows.map((org) => mapOrg(org, memberRows, teamRows));
 
   return {
@@ -109,13 +113,15 @@ export function useAllOrgsCollectionWithFilters() {
 }
 
 export function useAdminOrgData(params: { readonly orgId: string | null }) {
-  const [orgRows] = useZeroQuery(
+  const isAppAdmin = useIsAppAdmin();
+  const [orgRows = []] = useZeroQuery(
     queries.organization.admin_list({
       list_args: params.orgId ? { limit: 1, selected_ids: [params.orgId] } : { limit: 0 },
     }),
+    { enabled: isAppAdmin },
   );
-  const [memberRows] = useZeroQuery(queries.member.admin_all());
-  const [teamRows] = useZeroQuery(queries.teams_admin.admin_all());
+  const [memberRows = []] = useZeroQuery(queries.member.admin_all(), { enabled: isAppAdmin });
+  const [teamRows = []] = useZeroQuery(queries.teams_admin.admin_all(), { enabled: isAppAdmin });
   const org = orgRows[0] ? mapOrg(orgRows[0], memberRows, teamRows) : null;
 
   return {
