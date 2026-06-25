@@ -150,10 +150,12 @@ const templateCliSurface = (entry: TemplateOperationEntry): AgentParitySurfaceCo
         status: "generic-passthrough",
       };
 
-const coveredTemplateOperation = (entry: TemplateOperationEntry): AgentOperationRegistryEntry => ({
+const coveredTemplateOperation = (
+  entry: TemplateOperationEntry & { readonly domainArea?: string },
+): AgentOperationRegistryEntry => ({
   authorization: "Church Membership",
   context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
-  domainArea: "Template",
+  domainArea: entry.domainArea ?? "Template",
   id: entry.id,
   inputContract: entry.inputContract,
   kind: entry.kind,
@@ -798,6 +800,137 @@ export const AGENT_OPERATION_REGISTRY = [
       "new Template copy with copied Template Teams, Template Tasks, and Template Schedules",
     tool: "template-duplicate",
     uiBehavior: "Template detail duplicates a Template through useDuplicateTemplateAction",
+  }),
+  coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
+    command: "church-work mcp call template-schedule-create",
+    domainArea: "Template Schedule",
+    id: "template-schedule.create",
+    inputContract:
+      "churchId, templateId, Template Schedule kind, start/end dates, recurrence, and Scheduling Rule",
+    kind: "write",
+    operation: "Create Template Schedule",
+    outputContract: "created Template Schedule row for the Template",
+    tool: "template-schedule-create",
+    uiBehavior:
+      "Template authoring creates Template Schedules through mutators.templates.create and key-date Template setup writes a Key Date anchored Template Schedule",
+  }),
+  coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
+    command: "church-work mcp call template-schedule-update",
+    domainArea: "Template Schedule",
+    id: "template-schedule.update",
+    inputContract:
+      "churchId, templateScheduleId, editable Template Schedule dates, recurrence, kind, and Scheduling Rule",
+    kind: "write",
+    operation: "Update Template Schedule",
+    outputContract: "updated Template Schedule row",
+    tool: "template-schedule-update",
+    uiBehavior:
+      "Template schedule controls persist schedule edits through Template Schedule update mutations while preserving Church scope",
+  }),
+  coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
+    command: "church-work mcp call template-schedule-delete",
+    domainArea: "Template Schedule",
+    id: "template-schedule.delete",
+    inputContract: "churchId and templateScheduleId",
+    kind: "write",
+    operation: "Delete Template Schedule",
+    outputContract: "soft-deleted Template Schedule with deletion audit fields",
+    tool: "template-schedule-delete",
+    uiBehavior:
+      "Template schedule delete controls soft-delete a Template Schedule without deleting the parent Template",
+  }),
+  coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
+    command: "church-work mcp call template-schedule-restore",
+    domainArea: "Template Schedule",
+    id: "template-schedule.restore",
+    inputContract: "churchId and templateScheduleId",
+    kind: "write",
+    operation: "Restore Template Schedule",
+    outputContract: "restored Template Schedule with deletion audit fields cleared",
+    tool: "template-schedule-restore",
+    uiBehavior:
+      "Template schedule restore controls make a soft-deleted Template Schedule active again",
+  }),
+  coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
+    command: "church-work mcp call key-date-list",
+    domainArea: "Key Date",
+    id: "key-date.list",
+    inputContract: "churchId",
+    kind: "read",
+    operation: "List Key Dates",
+    outputContract: "active Key Dates with parsed schedules and next occurrence previews",
+    tool: "key-date-list",
+    uiBehavior:
+      "Key Dates settings and Template setup list active Key Dates through useKeyDatesCollection",
+  }),
+  coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
+    command: "church-work mcp call key-date-create",
+    domainArea: "Key Date",
+    id: "key-date.create",
+    inputContract:
+      "churchId, Key Date key/name, and computed yearly, fixed yearly, or one-time schedule",
+    kind: "write",
+    operation: "Create Key Date",
+    outputContract: "created Key Date row",
+    tool: "key-date-create",
+    uiBehavior:
+      "Key Date quick action and Template setup create Key Dates through useCreateKeyDate with schedule validation",
+  }),
+  coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
+    command: "church-work mcp call key-date-update",
+    domainArea: "Key Date",
+    id: "key-date.update",
+    inputContract: "churchId, keyDateId, Key Date key/name, and schedule",
+    kind: "write",
+    operation: "Update Key Date",
+    outputContract: "updated Key Date row",
+    tool: "key-date-update",
+    uiBehavior:
+      "Key Date table inline rename and edit flows persist changes through useUpdateKeyDate",
+  }),
+  coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
+    command: "church-work mcp call key-date-delete",
+    domainArea: "Key Date",
+    id: "key-date.delete",
+    inputContract: "churchId and keyDateId",
+    kind: "write",
+    operation: "Delete Key Date",
+    outputContract: "soft-deleted Key Date with deletion audit fields",
+    tool: "key-date-delete",
+    uiBehavior: "Key Date row actions soft-delete a Key Date through useDeleteKeyDate",
+  }),
+  coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
+    command: "church-work mcp call key-date-restore",
+    domainArea: "Key Date",
+    id: "key-date.restore",
+    inputContract: "churchId and keyDateId",
+    kind: "write",
+    operation: "Restore Key Date",
+    outputContract: "restored Key Date with deletion audit fields cleared",
+    tool: "key-date-restore",
+    uiBehavior: "Key Date deleted-item controls restore a soft-deleted Key Date",
+  }),
+  coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
+    command: "church-work mcp call key-date-preview-occurrences",
+    domainArea: "Key Date",
+    id: "key-date.occurrence.preview",
+    inputContract: "Key Date schedule plus optional startYear and endYear",
+    kind: "read",
+    operation: "Preview Key Date Occurrences",
+    outputContract: "year/localDate occurrence preview rows for valid occurrences",
+    tool: "key-date-preview-occurrences",
+    uiBehavior:
+      "Key Date forms preview computed yearly, fixed yearly, and one-time local-date occurrences with calculateKeyDateOccurrence before save",
   }),
 ] as const satisfies ReadonlyArray<AgentOperationRegistryEntry>;
 
