@@ -54,7 +54,9 @@ const getSessionContext = async (
     authenticated: true,
     active_church_id: activeChurchId,
     church_role: session.orgRole ?? membership?.role ?? null,
-    is_app_admin: session.userRole === "admin",
+    is_app_admin:
+      (authSession.user as { readonly role?: string | null }).role === "admin" ||
+      session.userRole === "admin",
     runtime: "server",
     session_id: authSession.session.id,
     user_id: authSession.user.id,

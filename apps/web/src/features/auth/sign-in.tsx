@@ -2,6 +2,7 @@ import { OtpForm } from "@/components/otp-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SignInEmailForm } from "@/features/auth/sign-in-email-form";
 import { signInStateAtom } from "@/features/auth/sign-in-state";
+import { useSession } from "@/hooks/use-session";
 import { authClient } from "@/lib/auth-client";
 import { getSessionOrgSwitchTarget, type SessionOrgRoutingFields } from "@/data/org-routing";
 import { useNavigate, useSearch } from "@tanstack/react-router";
@@ -17,6 +18,7 @@ type SignInProps = {
 
 export function SignIn({ defaultEmail, invitationId: passedInvitationId, redirect }: SignInProps) {
   const { data: session, refetch } = authClient.useSession();
+  const { refetch: refetchProviderSession } = useSession();
   const navigate = useNavigate();
   const search = useSearch({ strict: false });
   const invitationId = passedInvitationId ?? search["invitation-id"];
@@ -66,7 +68,7 @@ export function SignIn({ defaultEmail, invitationId: passedInvitationId, redirec
               autoSubmit
               email={email}
               onSuccess={async () => {
-                await refetch();
+                await Promise.all([refetch(), refetchProviderSession()]);
               }}
               submitLabel="Sign In"
             />

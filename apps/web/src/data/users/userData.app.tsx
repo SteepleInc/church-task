@@ -10,6 +10,7 @@ import {
   useChurchUsersCollection,
   type UserCollectionItem,
 } from "@/data/users/usersData.app";
+import { useSession } from "@/hooks/use-session";
 
 export function useCurrentUserOpt() {
   const { currentOrgOpt, loading: orgLoading } = useCurrentOrgOpt();
@@ -36,11 +37,19 @@ export function useUserOpt(params: { readonly churchId: string | null; readonly 
 }
 
 export function useUserData(params: { readonly userId: string }) {
-  const [userRows] = useQuery(
-    queries.user.admin_list({ list_args: { limit: 1, selected_ids: [params.userId] } }),
+  const { session } = useSession();
+  const isAppAdmin =
+    (session as { user?: { role?: string | null } } | null)?.user?.role === "admin" ||
+    (session as { session?: { userRole?: string | null } } | null)?.session?.userRole === "admin";
+  const [userRows = []] = useQuery(
+    isAppAdmin
+      ? queries.user.admin_list({ list_args: { limit: 1, selected_ids: [params.userId] } })
+      : undefined,
   );
-  const [memberRows] = useQuery(queries.member.admin_all());
-  const [orgRows] = useQuery(queries.organization.admin_list({ list_args: { limit: 500 } }));
+  const [memberRows = []] = useQuery(isAppAdmin ? queries.member.admin_all() : undefined);
+  const [orgRows = []] = useQuery(
+    isAppAdmin ? queries.organization.admin_list({ list_args: { limit: 500 } }) : undefined,
+  );
   const orgsById = new Map(orgRows.map((org) => [org.id, org]));
   const user = userRows[0] ? mapAdminUser(userRows[0], memberRows, orgsById) : null;
 

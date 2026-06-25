@@ -2,7 +2,11 @@ import { createRouter } from "@tanstack/react-router";
 
 import { routeTree } from "./routeTree.gen";
 
-export interface RouterAppContext {}
+export interface RouterAppContext {
+  readonly refetchSession: () => Promise<unknown>;
+  readonly session: unknown;
+  readonly sessionPending: boolean;
+}
 
 export function getRouter() {
   // No defaultPendingComponent and no route loaders: Render Gates are forbidden
@@ -15,7 +19,11 @@ export function getRouter() {
     // to the top on forward navigation so a fresh page starts at the top, while
     // back/forward still restore the previous scroll position.
     scrollToTopSelectors: ['[data-scroll-restoration-id="marketing-scroll"]'],
-    context: {},
+    context: {
+      refetchSession: (() => Promise.resolve({})) as () => Promise<unknown>,
+      session: null,
+      sessionPending: true,
+    } satisfies RouterAppContext,
   });
 }
 

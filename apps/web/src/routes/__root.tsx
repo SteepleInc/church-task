@@ -4,6 +4,7 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import type { ReactNode } from "react";
 
 import { HeightWrapper } from "@/components/height-wrapper";
+import { AuthProvider } from "@/components/auth-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ZeroRuntimeProvider } from "@/lib/zero-runtime-provider";
@@ -87,7 +88,9 @@ function RootDocument({ children }: { readonly children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <ZeroRuntimeProvider>{children}</ZeroRuntimeProvider>
+        <AuthProvider>
+          <ZeroRuntimeProvider>{children}</ZeroRuntimeProvider>
+        </AuthProvider>
         <Scripts />
       </body>
     </html>

@@ -6,6 +6,7 @@ import { useTeamMembershipsCollection, useTeamsCollection } from "@/data/teams/t
 import { authClient } from "@/lib/auth-client";
 import { FilterKeys } from "@/shared/global-state";
 import { useZeroListArgs } from "@/shared/hooks/useZeroListArgs";
+import { useSession } from "@/hooks/use-session";
 
 export type UserCollectionItem = {
   readonly id: string;
@@ -144,13 +145,21 @@ export const mapAdminUser = (
 });
 
 export function useAllUsersCollectionWithFilters() {
+  const { session } = useSession();
+  const isAppAdmin =
+    (session as { user?: { role?: string | null } } | null)?.user?.role === "admin" ||
+    (session as { session?: { userRole?: string | null } } | null)?.session?.userRole === "admin";
   const { limit, listArgs, nextPage, pageSize } = useZeroListArgs({
     columnMap: userColumnMap,
     filterKey: FilterKeys.Users,
   });
-  const [userRows] = useQuery(queries.user.admin_list({ list_args: listArgs }));
-  const [memberRows] = useQuery(queries.member.admin_all());
-  const [orgRows] = useQuery(queries.organization.admin_list({ list_args: { limit: 500 } }));
+  const [userRows = []] = useQuery(
+    isAppAdmin ? queries.user.admin_list({ list_args: listArgs }) : undefined,
+  );
+  const [memberRows = []] = useQuery(isAppAdmin ? queries.member.admin_all() : undefined);
+  const [orgRows = []] = useQuery(
+    isAppAdmin ? queries.organization.admin_list({ list_args: { limit: 500 } }) : undefined,
+  );
   const orgsById = new Map(orgRows.map((org) => [org.id, org]));
   const usersCollection = userRows.map((user) => mapAdminUser(user, memberRows, orgsById));
 

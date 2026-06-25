@@ -4,6 +4,7 @@ import { useQuery as useZeroQuery } from "@rocicorp/zero/react";
 import { authClient } from "@/lib/auth-client";
 import { FilterKeys } from "@/shared/global-state";
 import { useZeroListArgs } from "@/shared/hooks/useZeroListArgs";
+import { useSession } from "@/hooks/use-session";
 
 export type OrgCollectionItem = {
   readonly id: string;
@@ -88,13 +89,19 @@ const mapOrg = (
 });
 
 export function useAllOrgsCollectionWithFilters() {
+  const { session } = useSession();
+  const isAppAdmin =
+    (session as { user?: { role?: string | null } } | null)?.user?.role === "admin" ||
+    (session as { session?: { userRole?: string | null } } | null)?.session?.userRole === "admin";
   const { limit, listArgs, nextPage, pageSize } = useZeroListArgs({
     columnMap: orgColumnMap,
     filterKey: FilterKeys.Orgs,
   });
-  const [orgRows] = useZeroQuery(queries.organization.admin_list({ list_args: listArgs }));
-  const [memberRows] = useZeroQuery(queries.member.admin_all());
-  const [teamRows] = useZeroQuery(queries.teams_admin.admin_all());
+  const [orgRows = []] = useZeroQuery(
+    isAppAdmin ? queries.organization.admin_list({ list_args: listArgs }) : undefined,
+  );
+  const [memberRows = []] = useZeroQuery(isAppAdmin ? queries.member.admin_all() : undefined);
+  const [teamRows = []] = useZeroQuery(isAppAdmin ? queries.teams_admin.admin_all() : undefined);
   const orgsCollection = orgRows.map((org) => mapOrg(org, memberRows, teamRows));
 
   return {
@@ -109,13 +116,19 @@ export function useAllOrgsCollectionWithFilters() {
 }
 
 export function useAdminOrgData(params: { readonly orgId: string | null }) {
-  const [orgRows] = useZeroQuery(
-    queries.organization.admin_list({
-      list_args: params.orgId ? { limit: 1, selected_ids: [params.orgId] } : { limit: 0 },
-    }),
+  const { session } = useSession();
+  const isAppAdmin =
+    (session as { user?: { role?: string | null } } | null)?.user?.role === "admin" ||
+    (session as { session?: { userRole?: string | null } } | null)?.session?.userRole === "admin";
+  const [orgRows = []] = useZeroQuery(
+    isAppAdmin
+      ? queries.organization.admin_list({
+          list_args: params.orgId ? { limit: 1, selected_ids: [params.orgId] } : { limit: 0 },
+        })
+      : undefined,
   );
-  const [memberRows] = useZeroQuery(queries.member.admin_all());
-  const [teamRows] = useZeroQuery(queries.teams_admin.admin_all());
+  const [memberRows = []] = useZeroQuery(isAppAdmin ? queries.member.admin_all() : undefined);
+  const [teamRows = []] = useZeroQuery(isAppAdmin ? queries.teams_admin.admin_all() : undefined);
   const org = orgRows[0] ? mapOrg(orgRows[0], memberRows, teamRows) : null;
 
   return {
