@@ -714,6 +714,34 @@ export const AGENT_OPERATION_REGISTRY = [
     uiBehavior:
       "Root Task Comment action menu can unsubscribe the current User from the Comment Thread and removes the subscribed indicator",
   }),
+  {
+    authorization: CHURCH_MEMBERSHIP_AUTHORIZATION,
+    context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
+    domainArea: "Activity",
+    id: "activity.feed.read",
+    inputContract:
+      "churchId, entityType, and entityId for a Task, Template, or Team Activity entity",
+    kind: "read",
+    operation: "Read Activity Feed",
+    outputContract:
+      "reverse-chronological Activity rows with event_type, actor, occurred_at, and metadata needed to render human-readable history",
+    surfaces: {
+      cli: {
+        command: "church-work mcp call list-activities",
+        notes:
+          "Available through the generic CLI MCP passthrough; no named Activity Feed command yet.",
+        status: "generic-passthrough",
+      },
+      mcp: { status: "covered", tool: "list-activities" },
+      ui: {
+        notes:
+          "Inspected useActivitiesForEntityCollection, TaskActivityFeed, and describeActivity surfaced event filtering.",
+        status: "covered",
+      },
+    },
+    uiBehavior:
+      "Task Details Pane shows reverse-chronological Task Activity rows for task lifecycle, field, label, and comment events; Template and Team Activity storage is readable for agent history, but non-task entity events are not rendered by describeActivity yet",
+  },
   coveredTemplateOperation({
     cliStatus: "generic-passthrough",
     command: "church-work mcp call template-list",

@@ -123,6 +123,27 @@ const toTaskDto = (
   workflowStatusId: task.workflow_status_id,
 });
 
+const parseActivityMetadata = (metadata: string) => {
+  try {
+    return JSON.parse(metadata) as unknown;
+  } catch {
+    return metadata;
+  }
+};
+
+const toActivityDto = (activity: typeof activities.$inferSelect) => ({
+  actorId: activity.actor_id,
+  actorType: activity.actor_type,
+  churchId: activity.church_id,
+  cycleId: activity.cycle_id,
+  entityId: activity.entity_id,
+  entityType: activity.entity_type,
+  eventType: activity.event_type,
+  id: activity.id,
+  metadata: parseActivityMetadata(activity.metadata),
+  occurredAt: activity.occurred_at.toISOString(),
+});
+
 const recordTaskActivity = (
   db: ChurchWorkDb,
   args: {
@@ -498,6 +519,54 @@ const runTaskTool = (
             listWorkflowStatuses(services.db, churchId, workflowId),
           ),
         });
+      }
+      case "list-activities": {
+        const entityType = typeof body.entityType === "string" ? body.entityType : body.entity_type;
+        const entityId = typeof body.entityId === "string" ? body.entityId : body.entity_id;
+        if (typeof entityType !== "string" || typeof entityId !== "string") {
+          return json(
+            {
+              ok: false,
+              error: {
+                code: "invalid_activity_entity",
+                message: "entityType and entityId are required.",
+              },
+              tool,
+            },
+            { status: 400 },
+          );
+        }
+        if (!["task", "template", "team"].includes(entityType)) {
+          return json(
+            {
+              ok: false,
+              error: {
+                code: "unsupported_activity_entity",
+                message: "Activity Feed reads support task, template, and team entities.",
+              },
+              tool,
+            },
+            { status: 400 },
+          );
+        }
+
+        const rows = yield* Effect.tryPromise({
+          catch: (cause) => cause,
+          try: () =>
+            services.db
+              .select()
+              .from(activities)
+              .where(
+                and(
+                  eq(activities.church_id, churchId),
+                  eq(activities.entity_type, entityType),
+                  eq(activities.entity_id, entityId),
+                  isNull(activities.deleted_at),
+                ),
+              )
+              .orderBy(desc(activities.occurred_at)),
+        });
+        return json({ activities: rows.map(toActivityDto), ok: true, tool });
       }
       case "list-tasks": {
         const surface = typeof body.surface === "string" ? body.surface : undefined;

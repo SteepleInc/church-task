@@ -312,6 +312,41 @@ describe("Agent Operation parity registry", () => {
     );
   });
 
+  test("reports UI-led Activity Feed read behavior for surfaced entity history", () => {
+    const byId = new Map(AGENT_OPERATION_REGISTRY.map((entry) => [entry.id, entry]));
+
+    expect(byId.get("activity.feed.read")).toMatchObject({
+      id: "activity.feed.read",
+      domainArea: "Activity",
+      operation: "Read Activity Feed",
+      kind: "read",
+      inputContract:
+        "churchId, entityType, and entityId for a Task, Template, or Team Activity entity",
+      outputContract: expect.stringContaining("event_type, actor, occurred_at, and metadata"),
+      context: {
+        requiresActiveChurch: true,
+        requiresChurchMembership: true,
+        session: "authenticated",
+      },
+      authorization: "Church Membership",
+      surfaces: {
+        ui: { status: "covered" },
+        mcp: { status: "covered", tool: "list-activities" },
+        cli: { command: "church-work mcp call list-activities", status: "generic-passthrough" },
+      },
+    });
+
+    expect(byId.get("activity.feed.read")?.uiBehavior).toContain(
+      "Task Details Pane shows reverse-chronological Task Activity rows",
+    );
+    expect(byId.get("activity.feed.read")?.uiBehavior).toContain(
+      "non-task entity events are not rendered by describeActivity",
+    );
+    expect(generateAgentParityReport()).toContain(
+      "| Activity | Read Activity Feed | read | covered | covered | generic-passthrough | authenticated, Active Church, Church Membership | Church Membership | Task Details Pane shows reverse-chronological Task Activity rows for task lifecycle, field, label, and comment events; Template and Team Activity storage is readable for agent history, but non-task entity events are not rendered by describeActivity yet |",
+    );
+  });
+
   test("reports UI-led Template Library lifecycle parity across MCP and CLI", () => {
     const templateOperations = [
       {
