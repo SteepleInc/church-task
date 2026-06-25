@@ -140,59 +140,68 @@ describe("Agent Operation parity registry", () => {
   });
 
   test("reports UI-led Template Library lifecycle parity across MCP and CLI", () => {
+    const templateOperations = [
+      {
+        cliStatus: "generic-passthrough",
+        command: "church-work mcp call template-list",
+        id: "template.list",
+        kind: "read",
+        operation: "List Templates",
+        tool: "template-list",
+      },
+      {
+        cliStatus: "generic-passthrough",
+        command: "church-work mcp call template-get",
+        id: "template.get",
+        kind: "read",
+        operation: "Get Template",
+        tool: "template-get",
+      },
+      {
+        cliStatus: "covered",
+        command: "church-work template create-weekly-service",
+        id: "template.create.weekly-service",
+        kind: "write",
+        operation: "Create Weekly Service Template",
+        tool: "template-create-weekly-service",
+      },
+      {
+        cliStatus: "generic-passthrough",
+        command: "church-work mcp call template-update",
+        id: "template.update",
+        kind: "write",
+        operation: "Update Template",
+        tool: "template-update",
+      },
+      {
+        cliStatus: "generic-passthrough",
+        command: "church-work mcp call template-delete",
+        id: "template.delete",
+        kind: "write",
+        operation: "Delete Template",
+        tool: "template-delete",
+      },
+      {
+        cliStatus: "generic-passthrough",
+        command: "church-work mcp call template-restore",
+        id: "template.restore",
+        kind: "write",
+        operation: "Restore Template",
+        tool: "template-restore",
+      },
+      {
+        cliStatus: "generic-passthrough",
+        command: "church-work mcp call template-duplicate",
+        id: "template.duplicate",
+        kind: "write",
+        operation: "Duplicate Template",
+        tool: "template-duplicate",
+      },
+    ] as const;
+
     expect(AGENT_OPERATION_REGISTRY).toEqual(
       expect.arrayContaining(
-        [
-          [
-            "template.list",
-            "List Templates",
-            "template-list",
-            "church-work mcp call template-list",
-            "read",
-          ],
-          [
-            "template.get",
-            "Get Template",
-            "template-get",
-            "church-work mcp call template-get",
-            "read",
-          ],
-          [
-            "template.create.weekly-service",
-            "Create Weekly Service Template",
-            "template-create-weekly-service",
-            "church-work template create-weekly-service",
-            "write",
-          ],
-          [
-            "template.update",
-            "Update Template",
-            "template-update",
-            "church-work mcp call template-update",
-            "write",
-          ],
-          [
-            "template.delete",
-            "Delete Template",
-            "template-delete",
-            "church-work mcp call template-delete",
-            "write",
-          ],
-          [
-            "template.restore",
-            "Restore Template",
-            "template-restore",
-            "church-work mcp call template-restore",
-            "write",
-          ],
-          [
-            "template.duplicate",
-            "Duplicate Template",
-            "template-duplicate",
-            "church-work mcp call template-duplicate",
-            "write",
-          ],
-        ].map(([id, operation, tool, command, kind]) =>
+        templateOperations.map(({ cliStatus, command, id, kind, operation, tool }) =>
           expect.objectContaining({
             id,
             authorization: "Church Membership",
@@ -207,10 +216,7 @@ describe("Agent Operation parity registry", () => {
             surfaces: {
               ui: expect.objectContaining({ status: "covered" }),
               mcp: { status: "covered", tool },
-              cli:
-                command === "church-work template create-weekly-service"
-                  ? { command, status: "covered" }
-                  : expect.objectContaining({ command, status: "generic-passthrough" }),
+              cli: expect.objectContaining({ command, status: cliStatus }),
             },
           }),
         ),

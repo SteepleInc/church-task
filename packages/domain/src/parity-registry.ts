@@ -89,22 +89,26 @@ const coveredTaskOperation = (
   uiBehavior: entry.uiBehavior,
 });
 
-const templateCliSurface = (command: string): AgentParitySurfaceCoverage =>
-  command === "church-work template create-weekly-service"
-    ? { command, status: "covered" }
+type TemplateOperationEntry = Pick<
+  AgentOperationRegistryEntry,
+  "id" | "inputContract" | "kind" | "operation" | "outputContract" | "uiBehavior"
+> & {
+  readonly cliStatus: Extract<AgentParityCoverageStatus, "covered" | "generic-passthrough">;
+  readonly command: string;
+  readonly tool: string;
+};
+
+const templateCliSurface = (entry: TemplateOperationEntry): AgentParitySurfaceCoverage =>
+  entry.cliStatus === "covered"
+    ? { command: entry.command, status: "covered" }
     : {
-        command,
+        command: entry.command,
         notes:
           "Available through the generic CLI MCP passthrough; no named Template lifecycle command yet.",
         status: "generic-passthrough",
       };
 
-const coveredTemplateOperation = (
-  entry: Pick<
-    AgentOperationRegistryEntry,
-    "id" | "inputContract" | "kind" | "operation" | "outputContract" | "uiBehavior"
-  > & { readonly command: string; readonly tool: string },
-): AgentOperationRegistryEntry => ({
+const coveredTemplateOperation = (entry: TemplateOperationEntry): AgentOperationRegistryEntry => ({
   authorization: "Church Membership",
   context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
   domainArea: "Template",
@@ -114,7 +118,7 @@ const coveredTemplateOperation = (
   operation: entry.operation,
   outputContract: entry.outputContract,
   surfaces: {
-    cli: templateCliSurface(entry.command),
+    cli: templateCliSurface(entry),
     mcp: { status: "covered", tool: entry.tool },
     ui: {
       notes:
@@ -366,6 +370,7 @@ export const AGENT_OPERATION_REGISTRY = [
     uiBehavior: "Task status controls can reopen finished or canceled Tasks into active work",
   }),
   coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
     command: "church-work mcp call template-list",
     id: "template.list",
     inputContract: "churchId",
@@ -376,6 +381,7 @@ export const AGENT_OPERATION_REGISTRY = [
     uiBehavior: "Template Library lists non-deleted Templates through useTemplatesCollection",
   }),
   coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
     command: "church-work mcp call template-get",
     id: "template.get",
     inputContract: "churchId and templateId",
@@ -387,6 +393,7 @@ export const AGENT_OPERATION_REGISTRY = [
       "Template detail opens a selected Template with its Template Tasks and Template Schedules",
   }),
   coveredTemplateOperation({
+    cliStatus: "covered",
     command: "church-work template create-weekly-service",
     id: "template.create.weekly-service",
     inputContract:
@@ -400,6 +407,7 @@ export const AGENT_OPERATION_REGISTRY = [
       "Template creation flow creates weekly-service Templates through mutators.templates.create",
   }),
   coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
     command: "church-work mcp call template-update",
     id: "template.update",
     inputContract:
@@ -411,6 +419,7 @@ export const AGENT_OPERATION_REGISTRY = [
     uiBehavior: "Template detail persists Template field changes through Template update actions",
   }),
   coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
     command: "church-work mcp call template-delete",
     id: "template.delete",
     inputContract: "churchId and templateId",
@@ -422,6 +431,7 @@ export const AGENT_OPERATION_REGISTRY = [
       "Template Library and Template detail soft-delete a Template through useTemplateSoftDeleteActions.deleteTemplate",
   }),
   coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
     command: "church-work mcp call template-restore",
     id: "template.restore",
     inputContract: "churchId and templateId",
@@ -433,6 +443,7 @@ export const AGENT_OPERATION_REGISTRY = [
       "Template deleted-item controls restore a Template through useTemplateSoftDeleteActions.restoreTemplate",
   }),
   coveredTemplateOperation({
+    cliStatus: "generic-passthrough",
     command: "church-work mcp call template-duplicate",
     id: "template.duplicate",
     inputContract: "churchId, templateId, and optional duplicate name",
