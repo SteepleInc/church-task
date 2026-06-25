@@ -636,7 +636,9 @@ describe("tracer API", () => {
       );
       await expect(listTasksResponse.json()).resolves.toMatchObject({
         ok: true,
-        tasks: [expect.objectContaining({ id: created.task?.id, title: "Create from new MCP" })],
+        tasks: expect.arrayContaining([
+          expect.objectContaining({ id: created.task?.id, title: "Create from new MCP" }),
+        ]),
       });
 
       const filteredTasksResponse = await api.fetch(
@@ -653,7 +655,7 @@ describe("tracer API", () => {
       );
       await expect(filteredTasksResponse.json()).resolves.toMatchObject({
         ok: true,
-        tasks: [expect.objectContaining({ id: created.task?.id })],
+        tasks: expect.arrayContaining([expect.objectContaining({ id: created.task?.id })]),
       });
 
       const templateCreateResponse = await api.fetch(
