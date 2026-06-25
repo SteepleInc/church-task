@@ -2423,7 +2423,7 @@ export const mutators = defineMutators({
       const db = serverDb(tx);
       if (!db) return;
 
-      const session = requireTeamManager(ctx, args.church_id);
+      const session = requireActiveChurchAccess(ctx, args.church_id);
       const name = args.name.trim();
       if (!name) throw new Error("Label name is required.");
 
@@ -2474,7 +2474,7 @@ export const mutators = defineMutators({
       const db = serverDb(tx);
       if (!db) return;
 
-      const session = requireTeamManager(ctx, args.church_id);
+      const session = requireActiveChurchAccess(ctx, args.church_id);
       const existingLabels = await getChurchLabels(db, args.church_id);
       const label = existingLabels.find((candidate) => candidate.id === args.label_id);
       if (!label) throw new Error("Label not found.");
@@ -2515,7 +2515,7 @@ export const mutators = defineMutators({
       const db = serverDb(tx);
       if (!db) return;
 
-      const session = requireTeamManager(ctx, args.church_id);
+      const session = requireActiveChurchAccess(ctx, args.church_id);
       const existingLabels = await getChurchLabels(db, args.church_id);
       if (!existingLabels.some((label) => label.id === args.label_id)) {
         throw new Error("Label not found.");
