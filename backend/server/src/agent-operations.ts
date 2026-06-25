@@ -161,6 +161,10 @@ const ACTIVITY_ENTITY_TYPES = [
   "key_date",
   "church",
 ] as const;
+type ActivityEntityType = (typeof ACTIVITY_ENTITY_TYPES)[number];
+
+const isActivityEntityType = (value: string): value is ActivityEntityType =>
+  ACTIVITY_ENTITY_TYPES.some((entityType) => entityType === value);
 
 const recordTaskActivity = (
   db: ChurchWorkDb,
@@ -554,7 +558,7 @@ const runTaskTool = (
             { status: 400 },
           );
         }
-        if (!ACTIVITY_ENTITY_TYPES.includes(entityType as (typeof ACTIVITY_ENTITY_TYPES)[number])) {
+        if (!isActivityEntityType(entityType)) {
           return json(
             {
               ok: false,
