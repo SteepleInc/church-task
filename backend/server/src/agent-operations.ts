@@ -420,6 +420,13 @@ const runTaskTool = (
         });
       }
       case "list-tasks": {
+        const surface = typeof body.surface === "string" ? body.surface : undefined;
+        const assignedUserId =
+          typeof body.assignedUserId === "string" || body.assignedUserId === null
+            ? body.assignedUserId
+            : undefined;
+        const cycleId =
+          typeof body.cycleId === "string" || body.cycleId === null ? body.cycleId : undefined;
         const priorityValues = Array.isArray(body.priority)
           ? body.priority.filter(
               (value): value is string | null => value === null || typeof value === "string",
@@ -441,6 +448,25 @@ const runTaskTool = (
                 and(
                   eq(tasks.church_id, churchId),
                   isNull(tasks.deleted_at),
+                  typeof body.teamId === "string" ? eq(tasks.team_id, body.teamId) : undefined,
+                  typeof body.workflowStatusId === "string"
+                    ? eq(tasks.workflow_status_id, body.workflowStatusId)
+                    : undefined,
+                  typeof body.taskState === "string"
+                    ? eq(tasks.task_state, body.taskState)
+                    : undefined,
+                  assignedUserId !== undefined
+                    ? assignedUserId === null
+                      ? isNull(tasks.assigned_user_id)
+                      : eq(tasks.assigned_user_id, assignedUserId)
+                    : surface === "my_work"
+                      ? eq(tasks.assigned_user_id, session.user.id)
+                      : undefined,
+                  cycleId !== undefined
+                    ? cycleId === null
+                      ? isNull(tasks.cycle_id)
+                      : eq(tasks.cycle_id, cycleId)
+                    : undefined,
                   priorityValues.length > 0
                     ? or(
                         priorityStrings.length > 0
@@ -580,7 +606,23 @@ const runTaskTool = (
               : tool === "cancel-task"
                 ? TaskStatus.canceled
                 : TaskStatus.todo;
+          const [targetStatus] = yield* Effect.promise(() =>
+            services.db
+              .select()
+              .from(workflow_statuses)
+              .where(
+                and(
+                  eq(workflow_statuses.church_id, churchId),
+                  eq(workflow_statuses.workflow_id, existing.workflow_id),
+                  eq(workflow_statuses.task_state, targetState),
+                  isNull(workflow_statuses.deleted_at),
+                ),
+              )
+              .orderBy(asc(workflow_statuses.sort_order))
+              .limit(1),
+          );
           patch.task_state = targetState;
+          if (targetStatus) patch.workflow_status_id = targetStatus.id;
           patch.finished_at = targetState === TaskStatus.todo ? null : new Date();
           eventType =
             tool === "complete-task"
