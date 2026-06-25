@@ -104,6 +104,41 @@ describe("Agent Operation parity registry", () => {
     );
   });
 
+  test("reports UI-led Task get/create/update/status operations across MCP and CLI", () => {
+    expect(AGENT_OPERATION_REGISTRY).toEqual(
+      expect.arrayContaining(
+        [
+          ["task.get", "Get Task", "get-task", "church-work task get"],
+          ["task.create", "Create Task", "create-task", "church-work task create"],
+          ["task.update", "Update Task", "update-task", "church-work task update"],
+          ["task.complete", "Complete Task", "complete-task", "church-work task complete"],
+          ["task.cancel", "Cancel Task", "cancel-task", "church-work task cancel"],
+          ["task.reopen", "Reopen Task", "reopen-task", "church-work task reopen"],
+        ].map(([id, operation, tool, command]) =>
+          expect.objectContaining({
+            id,
+            domainArea: "Task",
+            operation,
+            context: {
+              requiresActiveChurch: true,
+              requiresChurchMembership: true,
+              session: "authenticated",
+            },
+            surfaces: {
+              ui: expect.objectContaining({ status: "covered" }),
+              mcp: { status: "covered", tool },
+              cli: { command, status: "covered" },
+            },
+          }),
+        ),
+      ),
+    );
+
+    expect(generateAgentParityReport()).toContain(
+      "| Task | Complete Task | write | covered | covered | covered | authenticated, Active Church, Church Membership | Task status controls can move a Task to a completed Workflow Status |",
+    );
+  });
+
   test("escapes Markdown table delimiters in registry text", () => {
     expect(
       generateAgentParityReport([
