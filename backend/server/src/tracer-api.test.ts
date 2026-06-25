@@ -1,6 +1,7 @@
 import { createAuth } from "@church-work/auth";
 import {
   activities,
+  cycle_adjustments,
   cycles,
   invitation,
   tasks,
@@ -819,6 +820,67 @@ describe("tracer API", () => {
         .limit(1);
       expect(cycle?.id).toMatch(/^cycle_/);
 
+      const adjustmentResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/mcp/tools/projected-template-task-adjust", {
+          body: JSON.stringify({
+            churchId: org?.id,
+            cycleId: cycle!.id,
+            lifecycle: "active",
+            occurrenceKey: "2026-06-07",
+            overrides: [
+              { field: "title", value: "Prepare slides" },
+              { field: "dueDate", value: "2026-06-07" },
+            ],
+            templateScheduleId: templateCreated.templateSchedule?.id,
+            templateTaskId: templateTaskCreated.templateTask?.id,
+          }),
+          headers: { "content-type": "application/json", cookie },
+          method: "POST",
+        }),
+      );
+      const adjustmentCreated = (await adjustmentResponse.json()) as {
+        cycleAdjustment?: { id?: string };
+      };
+      expect(adjustmentCreated.cycleAdjustment?.id).toMatch(/^cycleadjustment_/);
+
+      const adjustmentUpdateResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/mcp/tools/projected-template-task-adjust", {
+          body: JSON.stringify({
+            churchId: org?.id,
+            cycleId: cycle!.id,
+            lifecycle: "skipped",
+            occurrenceKey: "2026-06-07",
+            overrides: [
+              { field: "dueDate", value: "2026-06-08" },
+              { field: "priority", value: "high" },
+            ],
+            templateScheduleId: templateCreated.templateSchedule?.id,
+            templateTaskId: templateTaskCreated.templateTask?.id,
+          }),
+          headers: { "content-type": "application/json", cookie },
+          method: "POST",
+        }),
+      );
+      await expect(adjustmentUpdateResponse.json()).resolves.toMatchObject({
+        cycleAdjustment: { id: adjustmentCreated.cycleAdjustment?.id },
+        ok: true,
+      });
+
+      const adjustmentRows = await authRuntime.db.select().from(cycle_adjustments);
+      expect(adjustmentRows).toHaveLength(1);
+      expect(adjustmentRows[0]).toMatchObject({
+        cycle_id: cycle!.id,
+        lifecycle: "skipped",
+        source_template_occurrence_key: "2026-06-07",
+        source_template_schedule_id: templateCreated.templateSchedule?.id,
+        template_task_id: templateTaskCreated.templateTask?.id,
+      });
+      expect(JSON.parse(adjustmentRows[0]!.overrides)).toEqual([
+        { field: "title", value: "Prepare slides" },
+        { field: "dueDate", value: "2026-06-08" },
+        { field: "priority", value: "high" },
+      ]);
+
       const materializeResponse = await api.fetch(
         new Request("http://127.0.0.1/api/mcp/tools/projected-template-task-materialize", {
           body: JSON.stringify({
@@ -839,7 +901,51 @@ describe("tracer API", () => {
       await expect(materializeResponse.json()).resolves.toMatchObject({
         deduped: false,
         ok: true,
-        task: { title: "Prepare slides" },
+        task: {
+          cycleId: cycle!.id,
+          title: "Prepare slides",
+        },
+      });
+
+      const [materializedTask] = await authRuntime.db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.source_template_task_id, templateTaskCreated.templateTask!.id!))
+        .limit(1);
+      expect(materializedTask).toMatchObject({
+        cycle_id: cycle!.id,
+        source_template_id: templateCreated.template?.id,
+        source_template_occurrence_key: "2026-06-07",
+        source_template_schedule_id: templateCreated.templateSchedule?.id,
+        source_template_task_id: templateTaskCreated.templateTask?.id,
+        title: "Prepare slides",
+      });
+
+      const dedupedMaterializeResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/mcp/tools/projected-template-task-materialize", {
+          body: JSON.stringify({
+            churchId: org?.id,
+            cycleId: cycle!.id,
+            occurrenceKey: "2026-06-07",
+            teamId: team!.id,
+            templateId: templateCreated.template?.id,
+            templateScheduleId: templateCreated.templateSchedule?.id,
+            templateTaskId: templateTaskCreated.templateTask?.id,
+            title: "Prepare slides again",
+            workflowStatusId: todoStatus!.id,
+          }),
+          headers: { "content-type": "application/json", cookie },
+          method: "POST",
+        }),
+      );
+      await expect(dedupedMaterializeResponse.json()).resolves.toMatchObject({
+        deduped: true,
+        ok: true,
+        task: {
+          cycleId: cycle!.id,
+          id: materializedTask!.id,
+          title: "Prepare slides",
+        },
       });
 
       await expect(authRuntime.db.select().from(tasks)).resolves.toHaveLength(3);
