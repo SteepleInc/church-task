@@ -251,6 +251,12 @@ const listWorkflowStatuses = (db: ChurchWorkDb, churchId: string, workflowId?: s
 const taskToolError = (code: string, message: string, status = 400) =>
   json({ ok: false, error: { code, message } }, { status });
 
+const parentTaskReferenceError = (code: string) => {
+  if (code === "invalid_parent_task")
+    return taskToolError(code, "A Task cannot be its own parent.");
+  return taskToolError(code, "Parent Task was not found in the requested Church.");
+};
+
 const validateParentTaskReference = (
   db: ChurchWorkDb,
   args: { readonly churchId: string; readonly parentTaskId: string; readonly taskId?: string },
@@ -601,8 +607,7 @@ const runTaskTool = (
             churchId,
             parentTaskId,
           });
-          if (parentError)
-            return taskToolError(parentError, "Parent Task was not found in the requested Church.");
+          if (parentError) return parentTaskReferenceError(parentError);
         }
 
         const task = {
@@ -703,13 +708,7 @@ const runTaskTool = (
               parentTaskId: patch.parent_task_id,
               taskId: existing.id,
             });
-            if (parentError === "invalid_parent_task")
-              return taskToolError(parentError, "A Task cannot be its own parent.");
-            if (parentError)
-              return taskToolError(
-                parentError,
-                "Parent Task was not found in the requested Church.",
-              );
+            if (parentError) return parentTaskReferenceError(parentError);
           }
         } else {
           const targetState = getStatusActionTargetState(tool);

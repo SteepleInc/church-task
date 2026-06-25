@@ -555,6 +555,40 @@ describe("tracer API", () => {
         task: { id: createdSubtask.task?.id, parentTaskId: null },
       });
 
+      const missingParentResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/mcp/tools/update-task", {
+          body: JSON.stringify({
+            churchId: org?.id,
+            parentTaskId: "task_missing",
+            taskId: createdSubtask.task?.id,
+          }),
+          headers: { "content-type": "application/json", cookie },
+          method: "POST",
+        }),
+      );
+      expect(missingParentResponse.status).toBe(400);
+      await expect(missingParentResponse.json()).resolves.toMatchObject({
+        error: { code: "parent_task_not_found" },
+        ok: false,
+      });
+
+      const selfParentResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/mcp/tools/update-task", {
+          body: JSON.stringify({
+            churchId: org?.id,
+            parentTaskId: createdSubtask.task?.id,
+            taskId: createdSubtask.task?.id,
+          }),
+          headers: { "content-type": "application/json", cookie },
+          method: "POST",
+        }),
+      );
+      expect(selfParentResponse.status).toBe(400);
+      await expect(selfParentResponse.json()).resolves.toMatchObject({
+        error: { code: "invalid_parent_task" },
+        ok: false,
+      });
+
       const [taskCycle] = await authRuntime.db
         .select()
         .from(cycles)
