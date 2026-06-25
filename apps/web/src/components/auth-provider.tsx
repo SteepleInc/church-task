@@ -3,12 +3,12 @@
 import { useRouter } from "@tanstack/react-router";
 import { createContext, type ReactNode, useContext, useEffect } from "react";
 
-import { authClient } from "@/lib/auth-client";
+import { authClient, type Session } from "@/lib/auth-client";
 
 type AuthProviderContextValue = {
   readonly isPending: boolean;
   readonly refetch: () => Promise<unknown>;
-  readonly session: unknown;
+  readonly session: Session | null;
 };
 
 const AuthProviderContext = createContext<AuthProviderContextValue>({
@@ -32,7 +32,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       context: {
         ...router.options.context,
         refetchSession: refetch,
-        session,
+        session: session ?? null,
         sessionPending: isPending,
       },
     });
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [isPending, refetch, router, session]);
 
   return (
-    <AuthProviderContext.Provider value={{ isPending, refetch, session }}>
+    <AuthProviderContext.Provider value={{ isPending, refetch, session: session ?? null }}>
       {children}
     </AuthProviderContext.Provider>
   );

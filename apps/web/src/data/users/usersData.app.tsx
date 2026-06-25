@@ -2,11 +2,11 @@ import { queries, type Member, type Organization, type User } from "@church-work
 import { useQuery } from "@rocicorp/zero/react";
 
 import { useChurchId } from "@/data/useChurchId";
+import { useIsAppAdmin } from "@/data/users/adminData.app";
 import { useTeamMembershipsCollection, useTeamsCollection } from "@/data/teams/teamsData.app";
 import { authClient } from "@/lib/auth-client";
 import { FilterKeys } from "@/shared/global-state";
 import { useZeroListArgs } from "@/shared/hooks/useZeroListArgs";
-import { useSession } from "@/hooks/use-session";
 
 export type UserCollectionItem = {
   readonly id: string;
@@ -145,21 +145,18 @@ export const mapAdminUser = (
 });
 
 export function useAllUsersCollectionWithFilters() {
-  const { session } = useSession();
-  const isAppAdmin =
-    (session as { user?: { role?: string | null } } | null)?.user?.role === "admin" ||
-    (session as { session?: { userRole?: string | null } } | null)?.session?.userRole === "admin";
+  const isAppAdmin = useIsAppAdmin();
   const { limit, listArgs, nextPage, pageSize } = useZeroListArgs({
     columnMap: userColumnMap,
     filterKey: FilterKeys.Users,
   });
-  const [userRows = []] = useQuery(
-    isAppAdmin ? queries.user.admin_list({ list_args: listArgs }) : undefined,
-  );
-  const [memberRows = []] = useQuery(isAppAdmin ? queries.member.admin_all() : undefined);
-  const [orgRows = []] = useQuery(
-    isAppAdmin ? queries.organization.admin_list({ list_args: { limit: 500 } }) : undefined,
-  );
+  const [userRows = []] = useQuery(queries.user.admin_list({ list_args: listArgs }), {
+    enabled: isAppAdmin,
+  });
+  const [memberRows = []] = useQuery(queries.member.admin_all(), { enabled: isAppAdmin });
+  const [orgRows = []] = useQuery(queries.organization.admin_list({ list_args: { limit: 500 } }), {
+    enabled: isAppAdmin,
+  });
   const orgsById = new Map(orgRows.map((org) => [org.id, org]));
   const usersCollection = userRows.map((user) => mapAdminUser(user, memberRows, orgsById));
 

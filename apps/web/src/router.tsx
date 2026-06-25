@@ -1,10 +1,12 @@
 import { createRouter } from "@tanstack/react-router";
 
+import type { Session } from "@/lib/auth-client";
+
 import { routeTree } from "./routeTree.gen";
 
 export interface RouterAppContext {
   readonly refetchSession: () => Promise<unknown>;
-  readonly session: unknown;
+  readonly session: Session | null;
   readonly sessionPending: boolean;
 }
 
