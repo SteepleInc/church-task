@@ -4,6 +4,7 @@ export const AGENT_PARITY_COVERAGE_STATUSES = [
   "missing",
   "generic-passthrough",
   "intentionally-ui-only",
+  "not-applicable",
 ] as const;
 
 export type AgentParityCoverageStatus = (typeof AGENT_PARITY_COVERAGE_STATUSES)[number];
@@ -191,6 +192,35 @@ const KEY_DATE_UI_NOTES =
   "Inspected Key Dates settings, Template setup Key Date flows, and keyDatesData.app Zero mutation seams.";
 const PROJECTED_TEMPLATE_TASK_UI_NOTES =
   "Inspected Work page projected Template Task cards, task field target seams, and templates-new-stack projected adjustment behavior.";
+const WORK_VIEW_UI_NOTES =
+  "Inspected Work page routing, TaskExecutionSurface, task view options, Insights state, and Task execution filter seams.";
+
+const notApplicablePresentationSurface = (notes: string) =>
+  ({ notes, status: "not-applicable" }) as const satisfies AgentParitySurfaceCoverage;
+
+const coveredWorkViewReadOperation = (entry: {
+  readonly id: string;
+  readonly operation: string;
+  readonly command: string;
+  readonly inputContract: string;
+  readonly outputContract: string;
+  readonly uiBehavior: string;
+}): AgentOperationRegistryEntry => ({
+  authorization: CHURCH_MEMBERSHIP_AUTHORIZATION,
+  context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
+  domainArea: "Work View",
+  id: entry.id,
+  inputContract: entry.inputContract,
+  kind: "read",
+  operation: entry.operation,
+  outputContract: entry.outputContract,
+  surfaces: {
+    cli: { command: entry.command, status: "covered" },
+    mcp: { status: "covered", tool: "list-tasks" },
+    ui: { notes: WORK_VIEW_UI_NOTES, status: "covered" },
+  },
+  uiBehavior: entry.uiBehavior,
+});
 
 const templateCliSurface = (entry: TemplateOperationEntry): AgentParitySurfaceCoverage =>
   entry.cliStatus === "covered"
@@ -377,6 +407,121 @@ export const AGENT_OPERATION_REGISTRY = [
       },
     },
     uiBehavior: "Work page TaskExecutionSurface lists Tasks from useTasksCollection",
+  },
+  coveredWorkViewReadOperation({
+    command: "church-work task list --surface my_work",
+    id: "work-view.my-work.read",
+    inputContract:
+      "churchId, current User, My Work View Tab, View Options that affect Task reads, and supported Task filters",
+    operation: "Read My Work",
+    outputContract:
+      "cross-Team Task rows assigned to or created by the current User, matching the selected My Work View Tab and Task filters",
+    uiBehavior:
+      "My Work reads cross-Team Tasks assigned to the current User by default, supports the Created View Tab, and carries View Tab, View Options, filters, and Insights state in the URL",
+  }),
+  coveredWorkViewReadOperation({
+    command: "church-work task list --surface our_work",
+    id: "work-view.our-work.read",
+    inputContract:
+      "churchId, Our Work View Tab, View Options that affect Task reads, and supported Task filters",
+    operation: "Read Our Work",
+    outputContract:
+      "all visible Church Task rows matching All, Active, or Done View Tab state and Task filters",
+    uiBehavior:
+      "Our Work reads all visible Church Tasks by default, applies All, Active, and Done View Tabs, and carries View Tab, View Options, filters, and Insights state in the URL",
+  }),
+  coveredWorkViewReadOperation({
+    command: "church-work task list --team",
+    id: "work-view.team.read",
+    inputContract:
+      "churchId, teamId or Team Identifier, optional Week/Cycle scope, View Tab, and supported Task filters",
+    operation: "Read Team View",
+    outputContract:
+      "Team-scoped Task rows matching optional Week/Cycle scope, All/Active/Done View Tab state, and Task filters",
+    uiBehavior:
+      "Team views read a Team's real Tasks, optionally scoped by Week/Cycle on Team Week board routes, and apply All, Active, and Done View Tabs without showing projected Template Tasks until materialized",
+  }),
+  {
+    authorization: CHURCH_MEMBERSHIP_AUTHORIZATION,
+    context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
+    domainArea: "View Tab",
+    id: "view-tab.apply",
+    inputContract:
+      "churchId, surface, current User for My Work, and selected tab: Assigned or Created for My Work; All, Active, or Done for Our Work and Team views",
+    kind: "read",
+    operation: "Apply View Tab",
+    outputContract:
+      "Task read filters for current-user assignment/creation or Task State groups, combined with ad-hoc filters",
+    surfaces: {
+      cli: { command: "church-work task list --surface/--created-by/--state", status: "covered" },
+      mcp: { status: "covered", tool: "list-tasks" },
+      ui: { notes: WORK_VIEW_UI_NOTES, status: "covered" },
+    },
+    uiBehavior:
+      "View Tabs compile to Task read filters: My Work Assigned/Created, and Our Work or Team All/Active/Done; the tab is URL state separate from ad-hoc filters and View Options",
+  },
+  {
+    authorization: CHURCH_MEMBERSHIP_AUTHORIZATION,
+    context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
+    domainArea: "View Options",
+    id: "view-options.presentation.apply",
+    inputContract:
+      "URL-carried View Options for mode, grouping, ordering, showSubtasks, showEmptyColumns, and displayProperties",
+    kind: "read",
+    operation: "Apply Presentation View Options",
+    outputContract:
+      "presentation state for the active Work View plus Task list ordering/subtask filters where relevant",
+    surfaces: {
+      cli: notApplicablePresentationSurface(
+        "Mode, grouping, empty columns, and display properties are browser presentation concerns; CLI supports the Task read filters that overlap through task list flags.",
+      ),
+      mcp: notApplicablePresentationSurface(
+        "Mode, grouping, empty columns, and display properties are browser presentation concerns; MCP supports the Task read filters that overlap through list-tasks inputs.",
+      ),
+      ui: { notes: WORK_VIEW_UI_NOTES, status: "covered" },
+    },
+    uiBehavior:
+      "View Options change URL-carried presentation settings for mode, grouping, ordering, subtask visibility, empty columns, and display properties; only ordering and subtask visibility affect agent-readable Task list filters",
+  },
+  {
+    authorization: CHURCH_MEMBERSHIP_AUTHORIZATION,
+    context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
+    domainArea: "Board",
+    id: "board.presentation.read",
+    inputContract: "active Work View Task rows plus URL-carried mode/grouping View Options",
+    kind: "read",
+    operation: "Read Board Presentation",
+    outputContract:
+      "Board Columns and cards derived from Task rows, grouping, and hidden-column local state",
+    surfaces: {
+      cli: notApplicablePresentationSurface(
+        "Board/list/card rendering is presentation-only; CLI reads the underlying Tasks instead.",
+      ),
+      mcp: notApplicablePresentationSurface(
+        "Board/list/card rendering is presentation-only; MCP reads the underlying Tasks instead.",
+      ),
+      ui: { notes: WORK_VIEW_UI_NOTES, status: "covered" },
+    },
+    uiBehavior:
+      "Board and list modes render the same active Work View Task set as cards or rows; Board Columns are derived from grouping or Task State and do not own Task State",
+  },
+  {
+    authorization: CHURCH_MEMBERSHIP_AUTHORIZATION,
+    context: ACTIVE_CHURCH_MEMBERSHIP_CONTEXT,
+    domainArea: "Insights",
+    id: "insights.read",
+    inputContract:
+      "active Work View Task set, Measure task_count, Slice, optional Segment, and show-canceled URL state",
+    kind: "read",
+    operation: "Read Task Insights",
+    outputContract: "Task count chart and table buckets by selected Slice and Segment",
+    surfaces: {
+      cli: missingNamedAgentSurface,
+      mcp: missingFocusedAgentSurface,
+      ui: { notes: WORK_VIEW_UI_NOTES, status: "covered" },
+    },
+    uiBehavior:
+      "Insights reads the current Work View Task set and summarizes Task count by Slice and optional Segment, with show-canceled controlled by URL state",
   },
   {
     authorization: "App Administrator",
@@ -1363,6 +1508,20 @@ const reportSurfaceStatus = (
 ) => {
   const surface = entry.surfaces[surfaceName];
   if (surface.status) return surface.status;
+  if (surface.notes === "No named CLI command yet.") return "missing";
+  if (surface.notes === "No focused MCP/API operation yet.") return "missing";
+  if (surface.notes === "Onboarding setup is intentionally browser-led.")
+    return "intentionally-ui-only";
+  if (
+    (entry.id === "onboarding.church-profile.create" || entry.id === "onboarding.complete") &&
+    (surfaceName === "mcp" || surfaceName === "cli")
+  )
+    return "intentionally-ui-only";
+  if (
+    (entry.id.startsWith("team.") || entry.id.startsWith("team.membership.")) &&
+    surfaceName !== "ui"
+  )
+    return "missing";
   if (surface.tool) return "covered";
   if (surface.command?.startsWith("church-work mcp call")) return "generic-passthrough";
   if (surface.command) return "covered";

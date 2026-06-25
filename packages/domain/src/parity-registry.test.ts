@@ -863,4 +863,86 @@ describe("Agent Operation parity registry", () => {
       ]),
     ).toContain("| Task \\| Planning | List \\\\ Tasks |");
   });
+
+  test("reports UI-led Work View, Board, View Tab, View Options, and Insights read behavior", () => {
+    const byId = new Map(AGENT_OPERATION_REGISTRY.map((entry) => [entry.id, entry]));
+    const report = generateAgentParityReport();
+
+    expect(byId.get("work-view.my-work.read")).toMatchObject({
+      domainArea: "Work View",
+      operation: "Read My Work",
+      kind: "read",
+      surfaces: {
+        ui: expect.objectContaining({ status: "covered" }),
+        mcp: { status: "covered", tool: "list-tasks" },
+        cli: { command: "church-work task list --surface my_work", status: "covered" },
+      },
+    });
+    expect(byId.get("work-view.our-work.read")).toMatchObject({
+      operation: "Read Our Work",
+      surfaces: {
+        ui: expect.objectContaining({ status: "covered" }),
+        mcp: { status: "covered", tool: "list-tasks" },
+        cli: { command: "church-work task list --surface our_work", status: "covered" },
+      },
+    });
+    expect(byId.get("work-view.team.read")).toMatchObject({
+      operation: "Read Team View",
+      inputContract:
+        "churchId, teamId or Team Identifier, optional Week/Cycle scope, View Tab, and supported Task filters",
+      surfaces: {
+        ui: expect.objectContaining({ status: "covered" }),
+        mcp: { status: "covered", tool: "list-tasks" },
+        cli: { command: "church-work task list --team", status: "covered" },
+      },
+    });
+    expect(byId.get("view-tab.apply")).toMatchObject({
+      domainArea: "View Tab",
+      kind: "read",
+      surfaces: {
+        ui: expect.objectContaining({ status: "covered" }),
+        mcp: expect.objectContaining({ status: "covered" }),
+        cli: expect.objectContaining({ status: "covered" }),
+      },
+    });
+    expect(byId.get("view-options.presentation.apply")).toMatchObject({
+      domainArea: "View Options",
+      surfaces: {
+        ui: expect.objectContaining({ status: "covered" }),
+        mcp: expect.objectContaining({ status: "not-applicable" }),
+        cli: expect.objectContaining({ status: "not-applicable" }),
+      },
+    });
+    expect(byId.get("board.presentation.read")).toMatchObject({
+      domainArea: "Board",
+      surfaces: {
+        ui: expect.objectContaining({ status: "covered" }),
+        mcp: expect.objectContaining({ status: "not-applicable" }),
+        cli: expect.objectContaining({ status: "not-applicable" }),
+      },
+    });
+    expect(byId.get("insights.read")).toMatchObject({
+      domainArea: "Insights",
+      operation: "Read Task Insights",
+      kind: "read",
+      surfaces: {
+        ui: expect.objectContaining({ status: "covered" }),
+        mcp: expect.objectContaining({ status: "missing" }),
+        cli: expect.objectContaining({ status: "missing" }),
+      },
+    });
+
+    expect(report).toContain(
+      "| Work View | Read My Work | read | covered | covered | covered | authenticated, Active Church, Church Membership | Church Membership | My Work reads cross-Team Tasks assigned to the current User by default, supports the Created View Tab, and carries View Tab, View Options, filters, and Insights state in the URL |",
+    );
+    expect(report).toContain(
+      "| View Options | Apply Presentation View Options | read | covered | not-applicable | not-applicable | authenticated, Active Church, Church Membership | Church Membership | View Options change URL-carried presentation settings for mode, grouping, ordering, subtask visibility, empty columns, and display properties; only ordering and subtask visibility affect agent-readable Task list filters |",
+    );
+    expect(report).toContain(
+      "| Insights | Read Task Insights | read | covered | missing | missing | authenticated, Active Church, Church Membership | Church Membership | Insights reads the current Work View Task set and summarizes Task count by Slice and optional Segment, with show-canceled controlled by URL state |",
+    );
+    expect(report).toContain(
+      "Coverage statuses: covered, partial, missing, generic-passthrough, intentionally-ui-only, not-applicable",
+    );
+  });
 });
