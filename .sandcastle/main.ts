@@ -324,27 +324,65 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     ...completedIssues.map((issue) => ({ issue, prUrl: undefined, skipPostPrReview: false })),
   ];
 
-  for (const { issue, prUrl: existingPrUrl, skipPostPrReview } of prWorkItems) {
-    const prUrl = existingPrUrl ?? publishIssuePr({ baseBranch: BASE_BRANCH, issue });
-    console.log(`  PR ready for ${issue.id}: ${prUrl}`);
+  const preparedPrResults = await Promise.allSettled(
+    prWorkItems.map(async ({ issue, prUrl: existingPrUrl, skipPostPrReview }) => {
+      const prUrl = existingPrUrl ?? publishIssuePr({ baseBranch: BASE_BRANCH, issue });
+      console.log(`  PR ready for ${issue.id}: ${prUrl}`);
 
-    const readyForReview = await ensurePrBranchUpToDate({ issue, prUrl });
-    if (!readyForReview) {
-      console.warn(`  PR branch could not be brought up to date before review: ${prUrl}`);
+      const readyForReview = await ensurePrBranchUpToDate({ issue, prUrl });
+      if (!readyForReview) {
+        throw new Error(`PR branch could not be brought up to date before review: ${prUrl}`);
+      }
+
+      if (skipPostPrReview) {
+        console.log(`  Skipping post-PR review for existing PR: ${prUrl}`);
+      } else {
+        await runPostPrReview({ issue, prUrl });
+      }
+
+      const readyAfterReview = await ensurePrBranchUpToDate({ issue, prUrl });
+      if (!readyAfterReview) {
+        throw new Error(`PR branch could not be brought up to date after review: ${prUrl}`);
+      }
+
+      let checksReadyToMerge = true;
+      if (PR_CHECK_REPAIR) {
+        checksReadyToMerge = await repairFailedPrChecks({ issue, prUrl });
+      } else if (AUTO_MERGE_PRS) {
+        checksReadyToMerge = checksArePassing(await waitForChecks(prUrl));
+      }
+
+      if (!checksReadyToMerge) {
+        throw new Error(`PR is not ready to merge after repair attempts: ${prUrl}`);
+      }
+
+      return { issue, prUrl };
+    }),
+  );
+
+  const preparedPrs: Array<{
+    issue: z.infer<typeof planSchema>["issues"][number];
+    prUrl: string;
+  }> = [];
+
+  for (const result of preparedPrResults) {
+    if (result.status === "fulfilled") {
+      preparedPrs.push(result.value);
+    } else {
+      console.warn(`  PR preparation failed: ${String(result.reason)}`);
       process.exitCode = 1;
       stopRun = true;
-      break;
     }
+  }
 
-    if (skipPostPrReview) {
-      console.log(`  Skipping post-PR review for existing PR: ${prUrl}`);
-    } else {
-      await runPostPrReview({ issue, prUrl });
-    }
+  if (stopRun) {
+    break;
+  }
 
-    const readyAfterReview = await ensurePrBranchUpToDate({ issue, prUrl });
-    if (!readyAfterReview) {
-      console.warn(`  PR branch could not be brought up to date after review: ${prUrl}`);
+  for (const { issue, prUrl } of preparedPrs) {
+    const branchUpToDate = await ensurePrBranchUpToDate({ issue, prUrl });
+    if (!branchUpToDate) {
+      console.warn(`  PR branch could not be brought up to date with ${BASE_BRANCH}: ${prUrl}`);
       process.exitCode = 1;
       stopRun = true;
       break;
@@ -357,28 +395,6 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
       console.log(`  GitHub auto-merge unavailable; will merge ${prUrl} after checks pass.`);
     } else {
       console.log(`  Auto-merge skipped for ${prUrl} because SANDCASTLE_AUTO_MERGE=false`);
-    }
-
-    let checksReadyToMerge = true;
-    if (PR_CHECK_REPAIR) {
-      checksReadyToMerge = await repairFailedPrChecks({ issue, prUrl });
-    } else if (AUTO_MERGE_PRS && !autoMergeEnabled) {
-      checksReadyToMerge = checksArePassing(await waitForChecks(prUrl));
-    }
-
-    if (!checksReadyToMerge) {
-      console.warn(`  PR is not ready to merge after repair attempts: ${prUrl}`);
-      process.exitCode = 1;
-      stopRun = true;
-      break;
-    }
-
-    const branchUpToDate = await ensurePrBranchUpToDate({ issue, prUrl });
-    if (!branchUpToDate) {
-      console.warn(`  PR branch could not be brought up to date with ${BASE_BRANCH}: ${prUrl}`);
-      process.exitCode = 1;
-      stopRun = true;
-      break;
     }
 
     if (AUTO_MERGE_PRS && !autoMergeEnabled) {
