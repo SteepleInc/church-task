@@ -248,6 +248,54 @@ const listWorkflowStatuses = (db: ChurchWorkDb, churchId: string, workflowId?: s
     )
     .orderBy(asc(workflow_statuses.sort_order));
 
+const taskToolError = (code: string, message: string, status = 400) =>
+  json({ ok: false, error: { code, message } }, { status });
+
+const validateParentTaskReference = (
+  db: ChurchWorkDb,
+  args: { readonly churchId: string; readonly parentTaskId: string; readonly taskId?: string },
+) =>
+  Effect.tryPromise({
+    catch: (cause) => cause,
+    try: async () => {
+      if (args.parentTaskId === args.taskId) return "invalid_parent_task";
+      const [parent] = await db
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.id, args.parentTaskId),
+            eq(tasks.church_id, args.churchId),
+            isNull(tasks.deleted_at),
+          ),
+        )
+        .limit(1);
+      return parent ? null : "parent_task_not_found";
+    },
+  });
+
+const validateCycleReference = (
+  db: ChurchWorkDb,
+  args: { readonly churchId: string; readonly cycleId: string },
+) =>
+  Effect.tryPromise({
+    catch: (cause) => cause,
+    try: async () => {
+      const [cycle] = await db
+        .select({ id: cycles.id })
+        .from(cycles)
+        .where(
+          and(
+            eq(cycles.id, args.cycleId),
+            eq(cycles.church_id, args.churchId),
+            isNull(cycles.deleted_at),
+          ),
+        )
+        .limit(1);
+      return cycle ? null : "cycle_not_found";
+    },
+  });
+
 const slugKey = (value: string) =>
   value
     .trim()
@@ -547,6 +595,16 @@ const runTaskTool = (
         );
         if (!team || !status) throw new Error("Team or Workflow Status not found.");
 
+        const parentTaskId = typeof body.parentTaskId === "string" ? body.parentTaskId : null;
+        if (parentTaskId) {
+          const parentError = yield* validateParentTaskReference(services.db, {
+            churchId,
+            parentTaskId,
+          });
+          if (parentError)
+            return taskToolError(parentError, "Parent Task was not found in the requested Church.");
+        }
+
         const task = {
           _tag: "task",
           assigned_user_id: typeof body.assignedUserId === "string" ? body.assignedUserId : null,
@@ -559,7 +617,7 @@ const runTaskTool = (
           priority: maybeString(body, "priority") ?? null,
           id: getTaskId(),
           number: team.next_task_number,
-          parent_task_id: typeof body.parentTaskId === "string" ? body.parentTaskId : null,
+          parent_task_id: parentTaskId,
           task_state: status.task_state,
           team_id: team.id,
           title,
@@ -628,6 +686,30 @@ const runTaskTool = (
             patch.workflow_status_id = status.id;
             patch.task_state = status.task_state;
             eventType = "task.status_moved";
+          }
+
+          if (typeof patch.cycle_id === "string") {
+            const cycleError = yield* validateCycleReference(services.db, {
+              churchId,
+              cycleId: patch.cycle_id,
+            });
+            if (cycleError)
+              return taskToolError(cycleError, "Cycle was not found in the requested Church.");
+          }
+
+          if (typeof patch.parent_task_id === "string") {
+            const parentError = yield* validateParentTaskReference(services.db, {
+              churchId,
+              parentTaskId: patch.parent_task_id,
+              taskId: existing.id,
+            });
+            if (parentError === "invalid_parent_task")
+              return taskToolError(parentError, "A Task cannot be its own parent.");
+            if (parentError)
+              return taskToolError(
+                parentError,
+                "Parent Task was not found in the requested Church.",
+              );
           }
         } else {
           const targetState = getStatusActionTargetState(tool);

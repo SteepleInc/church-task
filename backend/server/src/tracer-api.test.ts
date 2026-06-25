@@ -518,6 +518,81 @@ describe("tracer API", () => {
         task: { id: created.task?.id, taskState: "todo", workflowStatusId: todoStatus!.id },
       });
 
+      const createSubtaskResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/mcp/tools/create-task", {
+          body: JSON.stringify({
+            churchId: org?.id,
+            dueDate: "2026-06-04",
+            parentTaskId: created.task?.id,
+            teamId: team!.id,
+            title: "Create child task from MCP",
+            workflowStatusId: todoStatus!.id,
+          }),
+          headers: { "content-type": "application/json", cookie },
+          method: "POST",
+        }),
+      );
+      const createdSubtask = (await createSubtaskResponse.json()) as {
+        task?: { id?: string; identifier?: string; parentTaskId?: string | null };
+      };
+      expect(createdSubtask.task).toMatchObject({
+        parentTaskId: created.task?.id,
+      });
+
+      const clearParentResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/mcp/tools/update-task", {
+          body: JSON.stringify({
+            churchId: org?.id,
+            parentTaskId: null,
+            taskId: createdSubtask.task?.id,
+          }),
+          headers: { "content-type": "application/json", cookie },
+          method: "POST",
+        }),
+      );
+      await expect(clearParentResponse.json()).resolves.toMatchObject({
+        ok: true,
+        task: { id: createdSubtask.task?.id, parentTaskId: null },
+      });
+
+      const [taskCycle] = await authRuntime.db
+        .select()
+        .from(cycles)
+        .where(eq(cycles.church_id, org!.id))
+        .limit(1);
+      const moveCycleResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/mcp/tools/update-task", {
+          body: JSON.stringify({
+            churchId: org?.id,
+            cycleId: taskCycle!.id,
+            taskId: created.task?.id,
+          }),
+          headers: { "content-type": "application/json", cookie },
+          method: "POST",
+        }),
+      );
+      await expect(moveCycleResponse.json()).resolves.toMatchObject({
+        ok: true,
+        task: { cycleId: taskCycle!.id, identifier: `${team!.identifier}-1` },
+      });
+
+      const invalidCycleResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/mcp/tools/update-task", {
+          body: JSON.stringify({
+            churchId: org?.id,
+            cycleId: "cycle_missing",
+            taskId: created.task?.id,
+          }),
+          headers: { "content-type": "application/json", cookie },
+          method: "POST",
+        }),
+      );
+      expect(invalidCycleResponse.status).toBe(400);
+      await expect(invalidCycleResponse.json()).resolves.toMatchObject({
+        error: { code: "cycle_not_found" },
+        ok: false,
+      });
+
       const listTasksResponse = await api.fetch(
         new Request("http://127.0.0.1/api/mcp/tools/list-tasks", {
           body: JSON.stringify({ churchId: org?.id }),
