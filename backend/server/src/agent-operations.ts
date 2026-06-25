@@ -366,15 +366,17 @@ type CycleAdjustmentOverrideInput = {
   readonly value: unknown;
 };
 
-const cycleAdjustmentOverrides = (value: unknown): readonly CycleAdjustmentOverrideInput[] =>
-  Array.isArray(value)
-    ? value.filter(
-        (override): override is CycleAdjustmentOverrideInput =>
-          Boolean(override) &&
-          typeof override === "object" &&
-          typeof (override as { readonly field?: unknown }).field === "string",
-      )
-    : [];
+const isCycleAdjustmentOverrideInput = (
+  override: unknown,
+): override is CycleAdjustmentOverrideInput => {
+  if (!override || typeof override !== "object") return false;
+  return "field" in override && typeof override.field === "string";
+};
+
+const cycleAdjustmentOverrides = (value: unknown): readonly CycleAdjustmentOverrideInput[] => {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isCycleAdjustmentOverrideInput);
+};
 
 const mergeCycleAdjustmentOverrides = (
   existingOverrides: readonly CycleAdjustmentOverrideInput[],
@@ -1348,11 +1350,10 @@ const runTaskTool = (
             )
             .limit(1),
         );
+        const existingOverrides = cycleAdjustmentOverrides(parseJsonText(existing?.overrides, []));
+        const incomingOverrides = cycleAdjustmentOverrides(body.overrides);
         const overrides = JSON.stringify(
-          mergeCycleAdjustmentOverrides(
-            cycleAdjustmentOverrides(parseJsonText(existing?.overrides, [])),
-            cycleAdjustmentOverrides(body.overrides),
-          ),
+          mergeCycleAdjustmentOverrides(existingOverrides, incomingOverrides),
         );
         const lifecycle = maybeString(body, "lifecycle") ?? "active";
         const id = existing?.id ?? getCycleAdjustmentId();
