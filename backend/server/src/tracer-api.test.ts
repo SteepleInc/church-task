@@ -454,6 +454,75 @@ describe("tracer API", () => {
       expect(createTaskResponse.ok).toBe(true);
       const created = (await createTaskResponse.json()) as { task?: { id?: string } };
       expect(created.task?.id).toMatch(/^task_/);
+      const activityEntityId = "task_activity_feed_test";
+
+      await authRuntime.db.insert(activities).values([
+        {
+          _tag: "activity",
+          actor_id: null,
+          actor_type: "system",
+          church_id: org!.id,
+          entity_id: activityEntityId,
+          entity_type: "task",
+          event_type: "task_created",
+          id: "activity_test_older",
+          metadata: JSON.stringify({ title: "Create from new MCP" }),
+          occurred_at: new Date("2026-06-01T10:00:00.000Z"),
+        },
+        {
+          _tag: "activity",
+          actor_id: null,
+          actor_type: "system",
+          church_id: org!.id,
+          deleted_at: new Date("2026-06-01T10:30:00.000Z"),
+          entity_id: activityEntityId,
+          entity_type: "task",
+          event_type: "task_deleted_hidden",
+          id: "activity_test_deleted",
+          metadata: "{}",
+          occurred_at: new Date("2026-06-01T10:30:00.000Z"),
+        },
+        {
+          _tag: "activity",
+          actor_id: null,
+          actor_type: "system",
+          church_id: org!.id,
+          entity_id: activityEntityId,
+          entity_type: "task",
+          event_type: "task_updated",
+          id: "activity_test_newer",
+          metadata: JSON.stringify({ field: "title" }),
+          occurred_at: new Date("2026-06-01T11:00:00.000Z"),
+        },
+      ]);
+
+      const listActivitiesResponse = await api.fetch(
+        new Request("http://127.0.0.1/api/mcp/tools/list-activities", {
+          body: JSON.stringify({
+            churchId: org?.id,
+            entityId: activityEntityId,
+            entityType: "task",
+          }),
+          headers: { "content-type": "application/json", cookie },
+          method: "POST",
+        }),
+      );
+      await expect(listActivitiesResponse.json()).resolves.toMatchObject({
+        activities: [
+          expect.objectContaining({
+            eventType: "task_updated",
+            event_type: "task_updated",
+            metadata: { field: "title" },
+          }),
+          expect.objectContaining({
+            eventType: "task_created",
+            event_type: "task_created",
+            metadata: { title: "Create from new MCP" },
+          }),
+        ],
+        ok: true,
+        tool: "list-activities",
+      });
 
       const updateTaskResponse = await api.fetch(
         new Request("http://127.0.0.1/api/mcp/tools/update-task", {
