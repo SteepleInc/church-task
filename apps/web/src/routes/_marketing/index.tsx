@@ -8,7 +8,21 @@ import frame207 from "@/assets/frame-207.svg";
 import nurseVideo from "@/assets/nurse-video.mp4";
 import programmingArrow from "@/assets/programming-arrow.svg";
 
-import { BACK_OUT, Reveal, RISE_EASE, useHeaderEntrance } from "./-marketing-shell";
+import {
+  BoardColumnPresentation,
+  type PresentationTask,
+  ProductFrame,
+  TaskRowPresentation,
+  TemplateProjectionPresentation,
+  type TemplateProjectionWeek,
+} from "@/components/tasks/task-presentation";
+
+import {
+  BACK_OUT,
+  Reveal,
+  RISE_EASE,
+  useHeaderEntrance,
+} from "./-marketing-shell";
 
 export const Route = createFileRoute("/_marketing/")({
   component: HomePage,
@@ -60,7 +74,11 @@ function AnimatedWords({
             animate={animate ? { opacity: 1, y: "0%" } : undefined}
             className="inline-block"
             initial={{ opacity: 0, y: "110%" }}
-            transition={{ delay: delayStart + i * stagger, duration: 0.6, ease: RISE_EASE }}
+            transition={{
+              delay: delayStart + i * stagger,
+              duration: 0.6,
+              ease: RISE_EASE,
+            }}
           >
             {word}
             {i < words.length - 1 ? "\u00A0" : ""}
@@ -136,7 +154,13 @@ function StarIcon({ half = false }: { readonly half?: boolean }) {
   const d =
     "M12 2.5l2.95 6.2 6.8.78-5.05 4.66 1.4 6.66L12 17.6l-6.1 3.2 1.4-6.66L2.25 9.48l6.8-.78L12 2.5z";
   return (
-    <svg className="star" fill="currentColor" height={16} viewBox="0 0 24 24" width={16}>
+    <svg
+      className="star"
+      fill="currentColor"
+      height={16}
+      viewBox="0 0 24 24"
+      width={16}
+    >
       {half ? (
         <>
           <defs>
@@ -227,7 +251,11 @@ function Hero({ base }: { readonly base: number }) {
           gap: "10px",
           padding: "4px 11px 4px 4px",
         }}
-        transition={{ delay: at(HERO_OFFSET.eyebrow), duration: 0.8, ease: "easeOut" }}
+        transition={{
+          delay: at(HERO_OFFSET.eyebrow),
+          duration: 0.8,
+          ease: "easeOut",
+        }}
       >
         <span
           className="flex items-center justify-center rounded-[6px] bg-mkt-bg text-mkt-fg"
@@ -257,7 +285,11 @@ function Hero({ base }: { readonly base: number }) {
           />
         </span>
         <span className="block">
-          <AnimatedWords delayStart={at(HERO_OFFSET.h1Line2)} stagger={0.05} text="for your" />{" "}
+          <AnimatedWords
+            delayStart={at(HERO_OFFSET.h1Line2)}
+            stagger={0.05}
+            text="for your"
+          />{" "}
           <motion.video
             animate={{ scale: 1 }}
             autoPlay
@@ -267,7 +299,11 @@ function Hero({ base }: { readonly base: number }) {
             muted
             playsInline
             src={nurseVideo}
-            transition={{ delay: at(HERO_OFFSET.video), duration: 0.6, ease: BACK_OUT }}
+            transition={{
+              delay: at(HERO_OFFSET.video),
+              duration: 0.6,
+              ease: BACK_OUT,
+            }}
           />{" "}
           <AnimatedWords
             className="text-mkt-fg/25"
@@ -284,11 +320,16 @@ function Hero({ base }: { readonly base: number }) {
         className="mx-auto mt-8 max-w-[760px] text-[18px] text-mkt-muted"
         initial={{ opacity: 0, y: 30 }}
         style={{ lineHeight: 1.5 }}
-        transition={{ delay: at(HERO_OFFSET.subhead), duration: 0.8, ease: "easeOut" }}
+        transition={{
+          delay: at(HERO_OFFSET.subhead),
+          duration: 0.8,
+          ease: "easeOut",
+        }}
       >
-        Built for how church work actually happens. It recurs every week. It spans every team. It
-        slips through the cracks. Church Work turns Templates, Cycles, and Tasks into one shared
-        plan — so everyone knows what's next.
+        Built for how church work actually happens. It recurs every week. It
+        spans every team. It slips through the cracks. Church Work turns
+        Templates, Cycles, and Tasks into one shared plan — so everyone knows
+        what's next.
       </motion.p>
 
       {/* CTA row */}
@@ -298,7 +339,11 @@ function Hero({ base }: { readonly base: number }) {
           className="rounded-full border border-mkt-border bg-mkt-bg px-6 py-3 font-medium text-[15px] text-mkt-fg transition-colors hover:bg-mkt-card"
           initial={{ scale: 0 }}
           style={{ boxShadow: "0 1px 0 rgba(0,0,0,0.04)" }}
-          transition={{ delay: at(HERO_OFFSET.ctaPrimary), duration: 0.5, ease: BACK_OUT }}
+          transition={{
+            delay: at(HERO_OFFSET.ctaPrimary),
+            duration: 0.5,
+            ease: BACK_OUT,
+          }}
           type="button"
         >
           Book a demo
@@ -308,7 +353,11 @@ function Hero({ base }: { readonly base: number }) {
           className="rounded-full px-6 py-3 font-semibold text-[15px] text-mkt-fg"
           initial={{ scale: 0 }}
           style={{ backgroundColor: "oklch(0.88 0.18 95)" }}
-          transition={{ delay: at(HERO_OFFSET.ctaSecondary), duration: 0.5, ease: BACK_OUT }}
+          transition={{
+            delay: at(HERO_OFFSET.ctaSecondary),
+            duration: 0.5,
+            ease: BACK_OUT,
+          }}
           type="button"
           whileHover={{ scale: 1.02 }}
         >
@@ -416,7 +465,10 @@ function LeftCard({ shift }: { readonly shift: number }) {
       </div>
 
       {/* Floating browser mockup (md+) */}
-      <div className="absolute right-0 bottom-0 hidden md:block" style={{ width: 330 }}>
+      <div
+        className="absolute right-0 bottom-0 hidden md:block"
+        style={{ width: 330 }}
+      >
         <SeamDot style={{ left: 1, top: 40 }} />
         <AnimatedDottedFrame
           startDelay={Math.max(0, 4200 + shift * 1000)}
@@ -452,13 +504,19 @@ function LeftCard({ shift }: { readonly shift: number }) {
         {/* Header */}
         <div className="mb-2 flex items-center gap-2">
           <img alt="" height={14} src={programmingArrow} width={14} />
-          <span className="font-medium text-[13px] text-white">Key Features</span>
+          <span className="font-medium text-[13px] text-white">
+            Key Features
+          </span>
         </div>
 
         {/* Divider */}
         <div
           className="relative mb-2 h-px"
-          style={{ background: "rgba(255,255,255,0.19)", marginLeft: -12, marginRight: -12 }}
+          style={{
+            background: "rgba(255,255,255,0.19)",
+            marginLeft: -12,
+            marginRight: -12,
+          }}
         >
           <SeamDot style={{ left: -4, top: -4 }} />
         </div>
@@ -471,7 +529,11 @@ function LeftCard({ shift }: { readonly shift: number }) {
               key={feature.label}
               style={
                 feature.active
-                  ? { background: "#F4F4F4", borderRadius: 4.312, padding: "6px 4px" }
+                  ? {
+                      background: "#F4F4F4",
+                      borderRadius: 4.312,
+                      padding: "6px 4px",
+                    }
                   : { padding: "6px 4px" }
               }
             >
@@ -488,11 +550,18 @@ function LeftCard({ shift }: { readonly shift: number }) {
                   <CheckIcon />
                 </span>
               ) : (
-                <span className="rounded-[3px] bg-white/15" style={{ height: 12, width: 12 }} />
+                <span
+                  className="rounded-[3px] bg-white/15"
+                  style={{ height: 12, width: 12 }}
+                />
               )}
               <span
                 className="font-medium text-[12px]"
-                style={feature.active ? { color: "#111114" } : { color: "rgba(255,255,255,0.9)" }}
+                style={
+                  feature.active
+                    ? { color: "#111114" }
+                    : { color: "rgba(255,255,255,0.9)" }
+                }
               >
                 {feature.label}
               </span>
@@ -518,14 +587,26 @@ function RightCard({ shift }: { readonly shift: number }) {
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <img alt="" className="h-[44px] w-auto" src={frame207} />
-          <span className="font-medium text-[15px] text-mkt-fg">What church teams say</span>
+          <span className="font-medium text-[15px] text-mkt-fg">
+            What church teams say
+          </span>
         </div>
         <div className="flex flex-col" style={{ gap: "4.34px" }}>
           <span
-            style={{ background: "#131318", borderRadius: 5.428, height: 32.569, width: 4.343 }}
+            style={{
+              background: "#131318",
+              borderRadius: 5.428,
+              height: 32.569,
+              width: 4.343,
+            }}
           />
           <span
-            style={{ background: "#DCDCDC", borderRadius: 5.428, height: 16.285, width: 4.343 }}
+            style={{
+              background: "#DCDCDC",
+              borderRadius: 5.428,
+              height: 16.285,
+              width: 4.343,
+            }}
           />
         </div>
       </div>
@@ -555,7 +636,9 @@ function RightCard({ shift }: { readonly shift: number }) {
       {/* Bottom row */}
       <div className="absolute right-6 bottom-6 left-6 flex items-center justify-between">
         <div className="flex flex-col leading-tight">
-          <span className="font-semibold text-[14px] text-mkt-fg">Hillside Church</span>
+          <span className="font-semibold text-[14px] text-mkt-fg">
+            Hillside Church
+          </span>
           <span className="text-[12px] text-mkt-muted">Operations Pastor</span>
         </div>
         <div className="flex items-center gap-1">
@@ -581,7 +664,11 @@ function Showcase({ base }: { readonly base: number }) {
       className="mesh-showcase mx-auto mt-16 overflow-hidden rounded-[28px] p-5 md:p-7"
       initial={{ opacity: 0, y: 60 }}
       style={{ width: "calc(100% - 16px)" }}
-      transition={{ delay: Math.max(0, SHOWCASE_BASELINE + shift), duration: 1, ease: RISE_EASE }}
+      transition={{
+        delay: Math.max(0, SHOWCASE_BASELINE + shift),
+        duration: 1,
+        ease: RISE_EASE,
+      }}
     >
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <LeftCard shift={shift} />
@@ -590,7 +677,10 @@ function Showcase({ base }: { readonly base: number }) {
 
       {/* Trusted-by row */}
       <div className="mt-7 flex flex-col items-start gap-6 px-1 text-white md:flex-row md:items-center md:justify-between">
-        <p className="max-w-md text-[13px] text-white/75" style={{ lineHeight: 1.5 }}>
+        <p
+          className="max-w-md text-[13px] text-white/75"
+          style={{ lineHeight: 1.5 }}
+        >
           Built with churches who run real ministry every week,
           <br />
           not another spreadsheet they have to keep up to date.
@@ -621,16 +711,29 @@ function Showcase({ base }: { readonly base: number }) {
 // Each day carries a few Team-color dots — quiet on ordinary days, fuller on
 // the active ones — so the rail reads like a real Cycle with work on it.
 const WEEK_DAYS = [
-  { date: "2", day: "Mon", dots: ["var(--t-violet)", "var(--t-orange)", "var(--t-blue)"] },
+  {
+    date: "2",
+    day: "Mon",
+    dots: ["var(--t-violet)", "var(--t-orange)", "var(--t-blue)"],
+  },
   { date: "3", day: "Tue", dots: ["var(--t-teal)"] },
   { date: "4", day: "Wed", dots: ["var(--t-pink)", "var(--t-amber)"] },
-  { date: "5", day: "Thu", dots: ["var(--t-blue)", "var(--t-emerald)", "var(--t-violet)"] },
+  {
+    date: "5",
+    day: "Thu",
+    dots: ["var(--t-blue)", "var(--t-emerald)", "var(--t-violet)"],
+  },
   { date: "6", day: "Fri", dots: ["var(--t-orange)"] },
   { date: "7", day: "Sat", dots: [] },
   {
     date: "8",
     day: "Sun",
-    dots: ["var(--t-emerald)", "var(--t-blue)", "var(--t-pink)", "var(--t-amber)"],
+    dots: [
+      "var(--t-emerald)",
+      "var(--t-blue)",
+      "var(--t-pink)",
+      "var(--t-amber)",
+    ],
   },
 ] as const;
 
@@ -668,15 +771,22 @@ function HowItWorks() {
         >
           A church doesn&rsquo;t plan in projects. It plans in weeks.
         </h2>
-        <p className="mt-5 max-w-[560px] text-[18px] text-mkt-muted" style={{ lineHeight: 1.5 }}>
-          So Church Work runs on the same Monday-to-Sunday rhythm you already keep. Here&rsquo;s one
-          week, end to end.
+        <p
+          className="mt-5 max-w-[560px] text-[18px] text-mkt-muted"
+          style={{ lineHeight: 1.5 }}
+        >
+          So Church Work runs on the same Monday-to-Sunday rhythm you already
+          keep. Here&rsquo;s one week, end to end.
         </p>
       </Reveal>
 
       {/* The Week strip — the signature device */}
       <Reveal className="mt-12" delay={80}>
-        <div className="cw-weekstrip" role="img" aria-label="A week, Monday through Sunday">
+        <div
+          className="cw-weekstrip"
+          role="img"
+          aria-label="A week, Monday through Sunday"
+        >
           {WEEK_DAYS.map((d, i) => {
             const moment = WEEK_MOMENTS.find((m) => m.dayIndex === i);
             return (
@@ -713,10 +823,20 @@ function HowItWorks() {
       {/* The three moments, aligned under the strip */}
       <ol className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-mkt-border bg-mkt-border md:grid-cols-3">
         {WEEK_MOMENTS.map((m, i) => (
-          <Reveal as="li" className="bg-mkt-bg p-7 md:p-8" delay={120 + i * 90} key={m.title}>
+          <Reveal
+            as="li"
+            className="bg-mkt-bg p-7 md:p-8"
+            delay={120 + i * 90}
+            key={m.title}
+          >
             <p className="cw-eyebrow">{m.label}</p>
-            <h3 className="mt-4 font-medium text-[22px] tracking-tight">{m.title}</h3>
-            <p className="mt-3 text-[15px] text-mkt-muted" style={{ lineHeight: 1.55 }}>
+            <h3 className="mt-4 font-medium text-[22px] tracking-tight">
+              {m.title}
+            </h3>
+            <p
+              className="mt-3 text-[15px] text-mkt-muted"
+              style={{ lineHeight: 1.55 }}
+            >
               {m.body}
             </p>
           </Reveal>
@@ -727,144 +847,217 @@ function HowItWorks() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Product mockups — lightweight "screenshots" rendered from the app's */
-/* real Team colors and Task states, so color reads as product data.   */
+/* Product mockups — real in-app surfaces (the same List rows, Board    */
+/* cards and Workflow Status icons the live app renders), driven by     */
+/* static data so the marketing imagery can never drift from the app.   */
 /* ------------------------------------------------------------------ */
 
-function UiFrame({ title, children }: { readonly title: string; readonly children: ReactNode }) {
-  return (
-    <div className="cw-ui">
-      <div className="cw-ui-bar">
-        <span className="cw-ui-dot" style={{ background: "#ff5f57" }} />
-        <span className="cw-ui-dot" style={{ background: "#febc2e" }} />
-        <span className="cw-ui-dot" style={{ background: "#28c840" }} />
-        <span className="cw-ui-title">{title}</span>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-const MY_WORK_ROWS = [
+const MY_WORK_ROWS: readonly PresentationTask[] = [
   {
-    key: "WOR-128",
-    team: "var(--t-violet)",
-    state: "progress",
+    identifier: "WOR-128",
     title: "Confirm Sunday band lineup",
-    who: "AK",
-    whoBg: "#8b5cf6",
+    state: "in_progress",
+    priority: "high",
+    labels: [{ color: "violet", name: "Worship" }],
+    assignee: { id: "user_ak", name: "Avery King" },
   },
   {
-    key: "KID-064",
-    team: "var(--t-orange)",
-    state: "todo",
+    identifier: "KID-064",
     title: "Print check-in labels",
-    who: "JD",
-    whoBg: "#f97316",
+    state: "todo",
+    priority: "medium",
+    labels: [{ color: "orange", name: "Kids" }],
+    assignee: { id: "user_jd", name: "Jordan Diaz" },
   },
   {
-    key: "PRD-201",
-    team: "var(--t-blue)",
-    state: "done",
+    identifier: "PRD-201",
     title: "Render lyric slides",
-    who: "ST",
-    whoBg: "#3b82f6",
+    state: "done",
+    priority: "no_priority",
+    labels: [{ color: "blue", name: "Production" }],
+    assignee: { id: "user_st", name: "Sam Torres" },
   },
-] as const;
+];
 
 function MyWorkMock() {
   return (
-    <UiFrame title="My Work">
-      <div>
-        {MY_WORK_ROWS.map((r) => (
-          <div className="cw-task" key={r.key}>
-            <span className="cw-teamdot" style={{ background: r.team }} />
-            <span className="cw-task-key">{r.key}</span>
-            <span className="cw-task-label" style={{ flex: 1 }}>
-              {r.title}
-            </span>
-            <span className="cw-pill" data-state={r.state}>
-              {r.state === "todo" ? "To Do" : r.state === "progress" ? "In Progress" : "Done"}
-            </span>
-            <span className="cw-avatar" style={{ background: r.whoBg }}>
-              {r.who}
-            </span>
-          </div>
+    <ProductFrame title="My Work">
+      <div className="py-1">
+        {MY_WORK_ROWS.map((task) => (
+          <TaskRowPresentation key={task.identifier} task={task} />
         ))}
       </div>
-    </UiFrame>
+    </ProductFrame>
   );
 }
 
-const BOARD_COLUMNS = [
+const BOARD_COLUMNS: readonly {
+  readonly state: PresentationTask["state"];
+  readonly title: string;
+  readonly tasks: readonly PresentationTask[];
+}[] = [
   {
-    color: "var(--muted-foreground)",
-    name: "To Do",
-    chips: [
-      { t: "var(--t-pink)", l: "Order communion" },
-      { t: "var(--t-teal)", l: "Greeter schedule" },
+    state: "todo",
+    title: "To Do",
+    tasks: [
+      {
+        identifier: "EXP-058",
+        title: "Order communion supplies",
+        state: "todo",
+        priority: "low",
+        labels: [{ color: "pink", name: "Experience" }],
+      },
+      {
+        identifier: "EXP-061",
+        title: "Confirm greeter schedule",
+        state: "todo",
+        labels: [{ color: "teal", name: "Welcome" }],
+      },
     ],
   },
   {
-    color: "var(--t-amber)",
-    name: "In Progress",
-    chips: [
-      { t: "var(--t-violet)", l: "Band rehearsal" },
-      { t: "var(--t-blue)", l: "Slides QA" },
+    state: "in_progress",
+    title: "In Progress",
+    tasks: [
+      {
+        identifier: "WOR-130",
+        title: "Band rehearsal run-through",
+        state: "in_progress",
+        priority: "high",
+        labels: [{ color: "violet", name: "Worship" }],
+      },
     ],
   },
   {
-    color: "var(--t-emerald)",
-    name: "Done",
-    chips: [{ t: "var(--t-orange)", l: "Kids check-in" }],
+    state: "done",
+    title: "Done",
+    tasks: [
+      {
+        identifier: "KID-066",
+        title: "Kids check-in tested",
+        state: "done",
+        labels: [{ color: "orange", name: "Kids" }],
+      },
+    ],
   },
-] as const;
+];
 
 function BoardMock() {
   return (
-    <UiFrame title="Production · Board">
-      <div className="cw-board">
+    <ProductFrame title="Production · Board">
+      <div className="grid grid-cols-3 gap-2 p-3">
         {BOARD_COLUMNS.map((col) => (
-          <div className="cw-col" key={col.name} style={{ background: "oklch(0.985 0.003 260)" }}>
-            <div className="cw-col-head" style={{ color: col.color }}>
-              <span className="cw-ui-dot" style={{ background: col.color }} />
-              {col.name}
-            </div>
-            {col.chips.map((c) => (
-              <div className="cw-chip" key={c.l}>
-                <span className="cw-teamdot" style={{ background: c.t }} />
-                {c.l}
-              </div>
-            ))}
-          </div>
+          <BoardColumnPresentation
+            key={col.title}
+            state={col.state}
+            tasks={col.tasks}
+            title={col.title}
+          />
         ))}
       </div>
-    </UiFrame>
+    </ProductFrame>
   );
 }
 
-const INSIGHT_BARS = [
-  { h: "44%", c: "var(--t-violet)" },
-  { h: "72%", c: "var(--t-orange)" },
-  { h: "58%", c: "var(--t-blue)" },
-  { h: "90%", c: "var(--t-emerald)" },
-  { h: "36%", c: "var(--t-pink)" },
-  { h: "64%", c: "var(--t-teal)" },
+// Each Team's share of the Cycle's Tasks, drawn in that Team's own color so the
+// chart reads as real product data, not decoration.
+const INSIGHT_TEAMS = [
+  { name: "Worship", count: 11, bar: "bg-violet-500", dot: "bg-violet-500" },
+  { name: "Production", count: 16, bar: "bg-blue-500", dot: "bg-blue-500" },
+  { name: "Kids", count: 9, bar: "bg-orange-500", dot: "bg-orange-500" },
+  {
+    name: "Experience",
+    count: 12,
+    bar: "bg-emerald-500",
+    dot: "bg-emerald-500",
+  },
 ] as const;
 
 function InsightsMock() {
+  const total = INSIGHT_TEAMS.reduce((sum, team) => sum + team.count, 0);
+  const max = Math.max(...INSIGHT_TEAMS.map((team) => team.count));
   return (
-    <UiFrame title="Insights · by Team">
-      <div className="cw-bars">
-        {INSIGHT_BARS.map((b, i) => (
-          <span className="cw-bar" key={i} style={{ background: b.c, height: b.h }} />
+    <ProductFrame
+      bodyClassName="flex flex-1 flex-col"
+      className="h-full"
+      title="Insights · by Team"
+    >
+      <div className="flex min-h-[116px] flex-1 items-end gap-3 px-4 pt-4">
+        {INSIGHT_TEAMS.map((team) => (
+          <span
+            className={`flex-1 rounded-t-sm ${team.bar}`}
+            key={team.name}
+            style={{ height: `${Math.round((team.count / max) * 100)}%` }}
+          />
         ))}
       </div>
-      <div className="flex items-center justify-between px-4 pt-2 pb-3">
-        <span className="cw-task-key">Tasks this Cycle</span>
-        <span className="font-medium text-[13px] text-mkt-fg">48 total</span>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 pt-3">
+        {INSIGHT_TEAMS.map((team) => (
+          <span
+            className="flex items-center gap-1.5 text-muted-foreground text-xs"
+            key={team.name}
+          >
+            <span className={`size-1.5 rounded-full ${team.dot}`} />
+            {team.name}
+          </span>
+        ))}
       </div>
-    </UiFrame>
+      <div className="flex items-center justify-between border-t px-4 py-2.5">
+        <span className="text-muted-foreground text-xs">Tasks this Cycle</span>
+        <span className="font-medium text-foreground text-sm tabular-nums">
+          {total} total
+        </span>
+      </div>
+    </ProductFrame>
+  );
+}
+
+// One Weekly Service Template, laid out as the service's full lifecycle: the
+// prep that has to land the week before, the work during the service week, and
+// the follow-up that has to happen the week after — each Task projected onto
+// the right Cycle automatically. The service week is live; the surrounding
+// weeks are projected (ghost) Tasks waiting to be created.
+const TEMPLATE_PROJECTION_WEEKS: readonly TemplateProjectionWeek[] = [
+  {
+    label: "Jan 26 — Feb 1",
+    relative: "Week before",
+    tasks: [
+      { color: "violet", label: "Plan the set list" },
+      { color: "blue", label: "Build lyric slides" },
+      { color: "orange", label: "Recruit kids volunteers" },
+    ],
+  },
+  {
+    label: "Feb 2 — 8",
+    relative: "Service week",
+    projected: false,
+    tasks: [
+      { color: "violet", label: "Band rehearsal" },
+      { color: "pink", label: "Set up auditorium" },
+      { color: "orange", label: "Run kids check-in" },
+    ],
+  },
+  {
+    label: "Feb 9 — 15",
+    relative: "Week after",
+    tasks: [
+      { color: "blue", label: "Post sermon clip" },
+      { color: "emerald", label: "Follow up with guests" },
+      { color: "teal", label: "Tear-down debrief" },
+    ],
+  },
+];
+
+function TemplatesMock() {
+  return (
+    <ProductFrame className="h-full" title="Templates · Library">
+      <TemplateProjectionPresentation
+        cadence="Every Sunday"
+        name="Sunday Service"
+        shape="Weekly service"
+        weeks={TEMPLATE_PROJECTION_WEEKS}
+      />
+    </ProductFrame>
   );
 }
 
@@ -876,16 +1069,23 @@ const SURFACES = [
   {
     body: "Everything assigned to you across every Team and Cycle, in one list. No hunting through channels to find what's yours this week.",
     mock: "my-work",
-    span: "md:col-span-4",
+    span: "md:col-span-2",
     tag: "Personal",
     title: "My Work",
   },
   {
     body: "Drag a Task through your Team's own Workflow — To Do, In Progress, Done — without leaving the plan.",
     mock: "board",
-    span: "md:col-span-2",
+    span: "md:col-span-4",
     tag: "Flow",
     title: "Team Boards",
+  },
+  {
+    body: "Recurring work, written once. A Template projects its Tasks onto every future Cycle automatically — so the same Sunday prep is never rebuilt by hand.",
+    mock: "templates",
+    span: "md:col-span-4",
+    tag: "Reuse",
+    title: "Templates",
   },
   {
     body: "Where the week's work stands, counted by Team — so a glance answers \u201care we ready for Sunday?\u201d",
@@ -894,26 +1094,13 @@ const SURFACES = [
     tag: "Read",
     title: "Insights",
   },
-  {
-    body: "Every active Task across the whole church, filtered to the Teams you care about. The shared picture, not seven separate ones.",
-    mock: null,
-    span: "md:col-span-2",
-    tag: "Shared",
-    title: "Our Work",
-  },
-  {
-    body: "Recurring work, written once. A Template projects Tasks onto future Cycles so the same prep never gets rebuilt by hand.",
-    mock: null,
-    span: "md:col-span-2",
-    tag: "Reuse",
-    title: "Templates",
-  },
 ] as const;
 
 function SurfaceMock({ mock }: { readonly mock: string | null }) {
   if (mock === "my-work") return <MyWorkMock />;
   if (mock === "board") return <BoardMock />;
   if (mock === "insights") return <InsightsMock />;
+  if (mock === "templates") return <TemplatesMock />;
   return null;
 }
 
@@ -938,14 +1125,19 @@ function WhatYouGet() {
             key={s.title}
           >
             <div className="flex items-baseline justify-between">
-              <h3 className="font-medium text-[20px] tracking-tight">{s.title}</h3>
+              <h3 className="font-medium text-[20px] tracking-tight">
+                {s.title}
+              </h3>
               <span className="cw-eyebrow">{s.tag}</span>
             </div>
-            <p className="mt-3 text-[15px] text-mkt-muted" style={{ lineHeight: 1.55 }}>
+            <p
+              className="mt-3 text-[15px] text-mkt-muted"
+              style={{ lineHeight: 1.55 }}
+            >
               {s.body}
             </p>
             {s.mock ? (
-              <div className="mt-5">
+              <div className="mt-5 flex flex-1 flex-col">
                 <SurfaceMock mock={s.mock} />
               </div>
             ) : null}
@@ -961,10 +1153,22 @@ function WhatYouGet() {
 /* ------------------------------------------------------------------ */
 
 const TERMS = [
-  { term: "Cadence", def: "The rhythm that makes work recur — weekly, monthly, every Easter." },
-  { term: "Cycle", def: "One Monday-to-Sunday week of work for the whole church." },
-  { term: "Template", def: "Recurring work written once, projected onto future Cycles." },
-  { term: "Rollover", def: "Sunday's hand-off that carries unfinished work into next week." },
+  {
+    term: "Cadence",
+    def: "The rhythm that makes work recur — weekly, monthly, every Easter.",
+  },
+  {
+    term: "Cycle",
+    def: "One Monday-to-Sunday week of work for the whole church.",
+  },
+  {
+    term: "Template",
+    def: "Recurring work written once, projected onto future Cycles.",
+  },
+  {
+    term: "Rollover",
+    def: "Sunday's hand-off that carries unfinished work into next week.",
+  },
 ] as const;
 
 function Vocabulary() {
@@ -990,7 +1194,9 @@ function Vocabulary() {
               delay={i * 80}
               key={t.term}
             >
-              <dt className="font-medium text-[20px] tracking-tight">{t.term}</dt>
+              <dt className="font-medium text-[20px] tracking-tight">
+                {t.term}
+              </dt>
               <dd
                 className="text-[15px]"
                 style={{ color: "rgba(255,255,255,0.55)", lineHeight: 1.5 }}
@@ -1023,7 +1229,8 @@ function ClosingCTA() {
           className="mx-auto mt-6 max-w-[520px] text-[18px] text-mkt-muted"
           style={{ lineHeight: 1.5 }}
         >
-          Set up your church in minutes. Your first Cycle and a ready next week are waiting.
+          Set up your church in minutes. Your first Cycle and a ready next week
+          are waiting.
         </p>
         <div className="mt-9 flex items-center justify-center gap-3">
           <button
@@ -1050,79 +1257,62 @@ function ClosingCTA() {
 /* Gradient showcase band — a second mesh moment with a product view   */
 /* ------------------------------------------------------------------ */
 
-const CYCLE_ROWS = [
+const CYCLE_ROWS: readonly PresentationTask[] = [
   {
-    key: "WOR-128",
-    team: "var(--t-violet)",
-    state: "done",
+    identifier: "WOR-128",
     title: "Set list finalized",
-    who: "AK",
-    whoBg: "#8b5cf6",
+    state: "done",
+    labels: [{ color: "violet", name: "Worship" }],
+    assignee: { id: "user_ak", name: "Avery King" },
   },
   {
-    key: "PRD-204",
-    team: "var(--t-blue)",
-    state: "progress",
+    identifier: "PRD-204",
     title: "Camera cuts rehearsed",
-    who: "ST",
-    whoBg: "#3b82f6",
+    state: "in_progress",
+    priority: "high",
+    labels: [{ color: "blue", name: "Production" }],
+    assignee: { id: "user_st", name: "Sam Torres" },
   },
   {
-    key: "KID-066",
-    team: "var(--t-orange)",
-    state: "progress",
+    identifier: "KID-066",
     title: "Volunteer check-in ready",
-    who: "JD",
-    whoBg: "#f97316",
+    state: "in_progress",
+    labels: [{ color: "orange", name: "Kids" }],
+    assignee: { id: "user_jd", name: "Jordan Diaz" },
   },
   {
-    key: "EXP-039",
-    team: "var(--t-teal)",
-    state: "todo",
+    identifier: "EXP-039",
     title: "Coffee + welcome team",
-    who: "MR",
-    whoBg: "#14b8a6",
+    state: "todo",
+    priority: "medium",
+    labels: [{ color: "teal", name: "Experience" }],
+    assignee: { id: "user_mr", name: "Morgan Reyes" },
   },
   {
-    key: "SOC-017",
-    team: "var(--t-pink)",
-    state: "todo",
+    identifier: "SOC-017",
     title: "Sermon clip scheduled",
-    who: "LB",
-    whoBg: "#ec4899",
+    state: "todo",
+    labels: [{ color: "pink", name: "Social" }],
+    assignee: { id: "user_lb", name: "Liam Brooks" },
   },
-] as const;
+];
 
 function CycleBoardMock() {
   return (
-    <div className="cw-ui" style={{ borderColor: "rgba(255,255,255,0.16)" }}>
-      <div className="cw-ui-bar" style={{ background: "#fbfbfd" }}>
-        <span className="cw-ui-dot" style={{ background: "#ff5f57" }} />
-        <span className="cw-ui-dot" style={{ background: "#febc2e" }} />
-        <span className="cw-ui-dot" style={{ background: "#28c840" }} />
-        <span className="cw-ui-title">This Week · Our Work</span>
-        <span className="cw-pill ml-auto" data-state="progress">
+    <ProductFrame
+      title="This Week · Our Work"
+      trailing={
+        <span className="inline-flex items-center rounded-md border bg-background px-2 py-0.5 font-medium text-muted-foreground text-xs">
           Feb 2 — Feb 8
         </span>
-      </div>
-      <div>
-        {CYCLE_ROWS.map((r) => (
-          <div className="cw-task" key={r.key}>
-            <span className="cw-teamdot" style={{ background: r.team }} />
-            <span className="cw-task-key">{r.key}</span>
-            <span className="cw-task-label" style={{ flex: 1 }}>
-              {r.title}
-            </span>
-            <span className="cw-pill" data-state={r.state}>
-              {r.state === "todo" ? "To Do" : r.state === "progress" ? "In Progress" : "Done"}
-            </span>
-            <span className="cw-avatar" style={{ background: r.whoBg }}>
-              {r.who}
-            </span>
-          </div>
+      }
+    >
+      <div className="py-1">
+        {CYCLE_ROWS.map((task) => (
+          <TaskRowPresentation key={task.identifier} task={task} />
         ))}
       </div>
-    </div>
+    </ProductFrame>
   );
 }
 
@@ -1138,7 +1328,10 @@ function GradientBand() {
       >
         <div className="grid items-center gap-10 md:grid-cols-2 md:gap-14">
           <div className="text-white">
-            <p className="cw-eyebrow" style={{ color: "rgba(255,255,255,0.6)" }}>
+            <p
+              className="cw-eyebrow"
+              style={{ color: "rgba(255,255,255,0.6)" }}
+            >
               One shared picture
             </p>
             <h2
@@ -1151,8 +1344,9 @@ function GradientBand() {
               className="mt-5 max-w-[420px] text-[16px]"
               style={{ color: "rgba(255,255,255,0.72)", lineHeight: 1.55 }}
             >
-              Every Team&rsquo;s Tasks for the current Cycle, color-coded and live. Production sees
-              production; everyone sees how Sunday is coming together.
+              Every Team&rsquo;s Tasks for the current Cycle, color-coded and
+              live. Production sees production; everyone sees how Sunday is
+              coming together.
             </p>
           </div>
           <motion.div

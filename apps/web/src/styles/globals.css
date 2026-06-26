@@ -131,9 +131,10 @@
 
 @theme inline {
   --font-sans:
-    "PP Neue Montreal", "Inter Variable", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
-    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-serif: "PP Pangaia", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    "PP Neue Montreal", "Inter Variable", ui-sans-serif, system-ui, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-serif:
+    "PP Pangaia", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -258,13 +259,41 @@
   position: relative;
   background-color: #0c0a09;
   background-image:
-    radial-gradient(55% 95% at 100% 50%, rgba(120, 180, 255, 0.85) 0%, rgba(120, 180, 255, 0) 70%),
-    radial-gradient(45% 75% at 88% 50%, rgba(170, 210, 255, 0.7) 0%, rgba(170, 210, 255, 0) 70%),
-    radial-gradient(60% 75% at 60% 50%, rgba(255, 215, 90, 0.95) 0%, rgba(255, 215, 90, 0) 70%),
-    radial-gradient(75% 80% at 50% 55%, rgba(255, 175, 60, 0.7) 0%, rgba(255, 175, 60, 0) 65%),
-    radial-gradient(80% 80% at 30% 60%, rgba(255, 150, 40, 0.6) 0%, rgba(255, 130, 30, 0) 60%),
-    radial-gradient(60% 70% at 12% 95%, rgba(255, 110, 25, 0.7) 0%, rgba(255, 110, 25, 0) 65%),
-    radial-gradient(55% 75% at 0% 0%, rgba(120, 80, 40, 0.85) 0%, rgba(120, 80, 40, 0) 60%),
+    radial-gradient(
+      55% 95% at 100% 50%,
+      rgba(120, 180, 255, 0.85) 0%,
+      rgba(120, 180, 255, 0) 70%
+    ),
+    radial-gradient(
+      45% 75% at 88% 50%,
+      rgba(170, 210, 255, 0.7) 0%,
+      rgba(170, 210, 255, 0) 70%
+    ),
+    radial-gradient(
+      60% 75% at 60% 50%,
+      rgba(255, 215, 90, 0.95) 0%,
+      rgba(255, 215, 90, 0) 70%
+    ),
+    radial-gradient(
+      75% 80% at 50% 55%,
+      rgba(255, 175, 60, 0.7) 0%,
+      rgba(255, 175, 60, 0) 65%
+    ),
+    radial-gradient(
+      80% 80% at 30% 60%,
+      rgba(255, 150, 40, 0.6) 0%,
+      rgba(255, 130, 30, 0) 60%
+    ),
+    radial-gradient(
+      60% 70% at 12% 95%,
+      rgba(255, 110, 25, 0.7) 0%,
+      rgba(255, 110, 25, 0) 65%
+    ),
+    radial-gradient(
+      55% 75% at 0% 0%,
+      rgba(120, 80, 40, 0.85) 0%,
+      rgba(120, 80, 40, 0) 60%
+    ),
     linear-gradient(180deg, #1a120c 0%, #0c0a09 100%);
   background-size:
     100% 100%,
@@ -428,7 +457,11 @@
   border-right: 0;
 }
 .marketing-page .cw-weekcell[data-active="true"] {
-  background: linear-gradient(180deg, oklch(0.88 0.18 95 / 0.16) 0%, oklch(0.88 0.18 95 / 0) 100%);
+  background: linear-gradient(
+    180deg,
+    oklch(0.88 0.18 95 / 0.16) 0%,
+    oklch(0.88 0.18 95 / 0) 100%
+  );
 }
 .marketing-page .cw-weekcell[data-edge="true"]::after {
   content: "";
@@ -483,12 +516,14 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Product-mockup primitives — color drawn from the app's real Team    */
-/* colors and Task status, so the imagery reads as actual product data */
+/* Week-strip Team dots — the only product-color device left in CSS.   */
+/* The in-app product imagery (My Work / Board / Insights) is rendered  */
+/* by the shared task-presentation components, not bespoke mock CSS, so */
+/* it can never drift from the live app.                               */
 /* ------------------------------------------------------------------ */
 
-/* The app's eight Team colors, surfaced as CSS vars so chips and dots
-   can reference the same vocabulary the product uses. */
+/* The app's eight Team colors, surfaced as CSS vars so the Week strip's
+   dots reference the same vocabulary the product uses. */
 .marketing-page {
   --t-red: #ef4444;
   --t-orange: #f97316;
@@ -500,176 +535,12 @@
   --t-pink: #ec4899;
 }
 
-/* A small chrome frame so mockups read as in-app screenshots. */
-.marketing-page .cw-ui {
-  border: 1px solid var(--mkt-border);
-  border-radius: 12px;
-  background: var(--mkt-bg);
-  overflow: hidden;
-  box-shadow: 0 1px 2px rgba(16, 16, 24, 0.04);
-}
-.marketing-page .cw-ui-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--mkt-border);
-  background: var(--mkt-card);
-}
-.marketing-page .cw-ui-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-}
-.marketing-page .cw-ui-title {
-  margin-left: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--mkt-muted);
-  letter-spacing: 0.02em;
-}
-
-/* A Task row inside a list mockup. */
-.marketing-page .cw-task {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--mkt-border);
-}
-.marketing-page .cw-task:last-child {
-  border-bottom: 0;
-}
+/* A small Team-color dot on the Week strip. */
 .marketing-page .cw-teamdot {
   width: 9px;
   height: 9px;
   border-radius: 999px;
   flex: none;
-}
-.marketing-page .cw-task-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--mkt-fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.marketing-page .cw-task-key {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--mkt-muted);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.03em;
-}
-.marketing-page .cw-avatar {
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  flex: none;
-  border: 1.5px solid #fff;
-  color: #fff;
-  font-size: 9px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Status pills, mapped to the app's Task states. */
-.marketing-page .cw-pill {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 999px;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-.marketing-page .cw-pill[data-state="todo"] {
-  background: oklch(0.95 0.003 260);
-  color: var(--mkt-muted);
-}
-.marketing-page .cw-pill[data-state="progress"] {
-  background: color-mix(in oklab, var(--t-amber) 16%, white);
-  color: #b45309;
-}
-.marketing-page .cw-pill[data-state="done"] {
-  background: color-mix(in oklab, var(--t-emerald) 16%, white);
-  color: #047857;
-}
-
-/* Mini Board: three colored Workflow columns. */
-.marketing-page .cw-board {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  padding: 12px;
-}
-.marketing-page .cw-col {
-  border-radius: 9px;
-  padding: 8px;
-  min-height: 118px;
-  border: 1px solid var(--mkt-border);
-}
-.marketing-page .cw-col-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  margin-bottom: 8px;
-}
-.marketing-page .cw-chip {
-  background: #fff;
-  border: 1px solid var(--mkt-border);
-  border-radius: 7px;
-  padding: 7px 8px;
-  margin-bottom: 6px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--mkt-fg);
-  box-shadow: 0 1px 1px rgba(16, 16, 24, 0.03);
-}
-
-/* Keep the in-app mockups inside their cards on narrow screens: tighten
-   spacing, let labels truncate, and drop the ticket key when it's tight. */
-@media (max-width: 640px) {
-  .marketing-page .cw-task {
-    gap: 7px;
-    padding: 8px 10px;
-  }
-  .marketing-page .cw-task-key {
-    display: none;
-  }
-  .marketing-page .cw-pill {
-    padding: 2px 6px;
-  }
-  .marketing-page .cw-board {
-    gap: 6px;
-    padding: 10px;
-  }
-  .marketing-page .cw-chip {
-    font-size: 10px;
-    padding: 6px;
-  }
-}
-
-/* Mini Insights: bar chart in the gradient palette. */
-.marketing-page .cw-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  height: 116px;
-  padding: 14px 14px 0;
-}
-.marketing-page .cw-bar {
-  flex: 1;
-  border-radius: 4px 4px 0 0;
-  min-width: 0;
 }
 
 /* The second mesh band — a wider, cooler sweep than the hero so the
@@ -678,10 +549,26 @@
   position: relative;
   background-color: #0c0a09;
   background-image:
-    radial-gradient(60% 120% at 8% 50%, rgba(255, 180, 60, 0.85) 0%, rgba(255, 180, 60, 0) 60%),
-    radial-gradient(50% 90% at 30% 40%, rgba(255, 120, 40, 0.6) 0%, rgba(255, 120, 40, 0) 60%),
-    radial-gradient(55% 100% at 62% 60%, rgba(120, 90, 255, 0.55) 0%, rgba(120, 90, 255, 0) 62%),
-    radial-gradient(70% 120% at 100% 50%, rgba(80, 170, 255, 0.85) 0%, rgba(80, 170, 255, 0) 60%),
+    radial-gradient(
+      60% 120% at 8% 50%,
+      rgba(255, 180, 60, 0.85) 0%,
+      rgba(255, 180, 60, 0) 60%
+    ),
+    radial-gradient(
+      50% 90% at 30% 40%,
+      rgba(255, 120, 40, 0.6) 0%,
+      rgba(255, 120, 40, 0) 60%
+    ),
+    radial-gradient(
+      55% 100% at 62% 60%,
+      rgba(120, 90, 255, 0.55) 0%,
+      rgba(120, 90, 255, 0) 62%
+    ),
+    radial-gradient(
+      70% 120% at 100% 50%,
+      rgba(80, 170, 255, 0.85) 0%,
+      rgba(80, 170, 255, 0) 60%
+    ),
     linear-gradient(110deg, #1a120c 0%, #0b1020 100%);
   background-size:
     200% 200%,
@@ -717,10 +604,26 @@
   position: relative;
   background-color: #0c0a09;
   background-image:
-    radial-gradient(70% 130% at 12% 20%, rgba(255, 200, 70, 0.9) 0%, rgba(255, 200, 70, 0) 60%),
-    radial-gradient(60% 110% at 30% 60%, rgba(255, 140, 45, 0.7) 0%, rgba(255, 140, 45, 0) 60%),
-    radial-gradient(75% 130% at 95% 90%, rgba(110, 90, 240, 0.55) 0%, rgba(110, 90, 240, 0) 62%),
-    radial-gradient(80% 120% at 80% 5%, rgba(80, 160, 255, 0.6) 0%, rgba(80, 160, 255, 0) 60%),
+    radial-gradient(
+      70% 130% at 12% 20%,
+      rgba(255, 200, 70, 0.9) 0%,
+      rgba(255, 200, 70, 0) 60%
+    ),
+    radial-gradient(
+      60% 110% at 30% 60%,
+      rgba(255, 140, 45, 0.7) 0%,
+      rgba(255, 140, 45, 0) 60%
+    ),
+    radial-gradient(
+      75% 130% at 95% 90%,
+      rgba(110, 90, 240, 0.55) 0%,
+      rgba(110, 90, 240, 0) 62%
+    ),
+    radial-gradient(
+      80% 120% at 80% 5%,
+      rgba(80, 160, 255, 0.6) 0%,
+      rgba(80, 160, 255, 0) 60%
+    ),
     linear-gradient(135deg, #1a130c 0%, #0b0e1c 100%);
   background-size:
     180% 180%,
