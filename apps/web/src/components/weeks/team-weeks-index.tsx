@@ -184,22 +184,32 @@ function TimelineMarker({
 
   return (
     <div aria-hidden className="relative hidden w-20 shrink-0 sm:block">
-      {/* Connecting line, clipped so the rail doesn't overshoot the ends. */}
+      {/* Connecting line, clipped so the rail doesn't overshoot the ends. The
+          dot sits above it (ring-4 masks the rail) so the line never shows on
+          top of the circles. */}
       <span
-        className={cn("absolute left-[11px] w-px", lineClass)}
+        className={cn("absolute left-[12px] w-px", lineClass)}
         style={{ top: isFirst ? 22 : 0, bottom: isLast ? "auto" : 0, height: isLast ? 22 : "auto" }}
       />
-      <div className="flex items-start gap-2 pt-[14px] pl-2">
+      <div className="relative z-10 flex items-start gap-2 pt-[14px] pl-2">
         <span
           className={cn(
-            "mt-0.5 size-[9px] shrink-0 rounded-full ring-4 ring-background",
-            row.status === "current"
-              ? "bg-primary"
-              : row.status === "upcoming"
-                ? "bg-muted-foreground/50"
-                : "bg-muted-foreground/30",
+            // A solid background base sits under the translucent status color so
+            // the connecting line never bleeds through the dot.
+            "mt-0.5 size-[9px] shrink-0 rounded-full bg-background ring-4 ring-background",
           )}
-        />
+        >
+          <span
+            className={cn(
+              "block size-full rounded-full",
+              row.status === "current"
+                ? "bg-primary"
+                : row.status === "upcoming"
+                  ? "bg-muted-foreground/50"
+                  : "bg-muted-foreground/30",
+            )}
+          />
+        </span>
         <span className="pt-px text-[11px] leading-tight tabular-nums text-muted-foreground">
           {row.startLabel}
         </span>
