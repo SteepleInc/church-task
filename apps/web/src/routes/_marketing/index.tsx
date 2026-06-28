@@ -31,7 +31,7 @@ export const Route = createFileRoute("/_marketing/")({
       {
         name: "description",
         content:
-          "Cycles, Templates & Teams. Coordinate recurring and project-based church work — without another spreadsheet — so every team knows what's next.",
+          "Weeks, Templates & Teams. Coordinate recurring and project-based church work — without another spreadsheet — so every team knows what's next.",
       },
     ],
   }),
@@ -260,7 +260,7 @@ function Hero({ base }: { readonly base: number }) {
             />
           </svg>
         </span>
-        <span className="text-[14px]">Cycles, Templates &amp; Teams</span>
+        <span className="text-[14px]">Weeks, Templates &amp; Teams</span>
       </motion.div>
 
       {/* H1 */}
@@ -314,7 +314,7 @@ function Hero({ base }: { readonly base: number }) {
         recurring ministry. Build repeatable templates for your weekly services, big events like
         Christmas and Easter, and your monthly rhythms.
         {/* Built for how church work actually happens. It recurs every week. It spans every team. It
-        slips through the cracks. Church Work turns Templates, Cycles, and Tasks into one shared
+        slips through the cracks. Church Work turns Templates, Weeks, and Tasks into one shared
         plan — so everyone knows what's next. */}
       </motion.p>
 
@@ -361,7 +361,7 @@ function Hero({ base }: { readonly base: number }) {
 const KEY_FEATURES = [
   { active: false, label: "My Work & Our Work" },
   { active: false, label: "Templates & Schedules" },
-  { active: true, label: "Cycles & Weeks" },
+  { active: true, label: "Weeks & Planning" },
   { active: false, label: "Boards & Insights" },
   { active: false, label: "Teams & Workflows" },
 ] as const;
@@ -444,7 +444,7 @@ function LeftCard({ shift }: { readonly shift: number }) {
           className="mt-auto pt-6 text-[16px]"
           style={{ color: "rgba(255,255,255,0.36)", lineHeight: "19px" }}
         >
-          From recurring Templates to weekly Cycles,
+          From recurring Templates to every week,
           <br />
           every team sees what's next.
         </p>
@@ -747,22 +747,22 @@ const TEMPLATE_PHASES = [
   { label: "Recap the week after", team: "Welcome" },
 ] as const satisfies readonly Task[];
 
-// The weekly rhythm as a real ordered process: define the Template, the Cycle
+// The weekly rhythm as a real ordered process: define the Template, the week
 // runs it, then rollover carries the rest forward. The order is information, so
 // these earn typed 01 / 02 / 03 markers.
 const WEEK_MOMENTS = [
   {
-    body: "Build the recurring work once — the weekly service, the monthly all-staff, the Easter season. Church Work treats it as a Template every Cycle inherits.",
+    body: "Build the recurring work once — the weekly service, the monthly all-staff, the Easter season. Church Work treats it as a Template every week inherits.",
     label: "Define it once",
     title: "Set up a Template",
   },
   {
-    body: "Monday morning, the new Cycle opens with this week's Tasks already in place. Every Team sees My Work and Our Work — no one rebuilds the plan from scratch.",
+    body: "Monday morning, the new week opens with this week's Tasks already in place. Every Team sees My Work and Our Work — no one rebuilds the plan from scratch.",
     label: "The week runs",
-    title: "The Cycle picks it up",
+    title: "The week picks it up",
   },
   {
-    body: "Sunday night, rollover closes the week and carries anything unfinished into the next Cycle — while the Template has already projected the week after.",
+    body: "Sunday night, rollover closes the week and carries anything unfinished into the next week — while the Template has already projected the week after.",
     label: "And the next",
     title: "It rolls forward",
   },
@@ -772,7 +772,7 @@ function HowItWorks() {
   return (
     <section className="mx-auto max-w-[1400px] px-6 pt-28 md:px-10 md:pt-36">
       <Reveal>
-        <p className="cw-eyebrow">Templates · one definition, every Cycle</p>
+        <p className="cw-eyebrow">Templates · one definition, every week</p>
         <h2
           className="mt-5 max-w-[820px] font-medium text-[40px] tracking-tight md:text-[56px]"
           style={{ letterSpacing: "-0.03em", lineHeight: 1.05 }}
@@ -822,7 +822,7 @@ function HowItWorks() {
             </div>
 
             <p className="mt-auto text-[12.5px] text-mkt-muted" style={{ lineHeight: 1.5 }}>
-              Defined once. Projected onto every Cycle &rarr;
+              Defined once. Projected onto every week &rarr;
             </p>
           </div>
 
@@ -1047,7 +1047,7 @@ function BoardMock() {
   );
 }
 
-// Each Team's share of the Cycle's Tasks, drawn in that Team's own color so the
+// Each Team's share of the week's Tasks, drawn in that Team's own color so the
 // chart reads as real product data, not decoration.
 const INSIGHT_TEAMS = [
   { name: "Worship", count: 11, bar: "bg-violet-500", dot: "bg-violet-500" },
@@ -1088,7 +1088,7 @@ function InsightsMock() {
         ))}
       </div>
       <div className="flex items-center justify-between border-t px-4 py-2.5">
-        <span className="text-muted-foreground text-xs">Tasks this Cycle</span>
+        <span className="text-muted-foreground text-xs">Tasks this week</span>
         <span className="font-medium text-foreground text-sm tabular-nums">{total} total</span>
       </div>
     </ProductFrame>
@@ -1098,7 +1098,7 @@ function InsightsMock() {
 // One Weekly Service Template, laid out as the service's full lifecycle: the
 // prep that has to land the week before, the work during the service week, and
 // the follow-up that has to happen the week after — each Task projected onto
-// the right Cycle automatically. The service week is live; the surrounding
+// the right week automatically. The service week is live; the surrounding
 // weeks are projected (ghost) Tasks waiting to be created.
 const TEMPLATE_PROJECTION_WEEKS: readonly TemplateProjectionWeek[] = [
   {
@@ -1150,7 +1150,7 @@ function TemplatesMock() {
 
 const SURFACES = [
   {
-    body: "Everything assigned to you across every Team and Cycle, in one list. No hunting through channels to find what's yours this week.",
+    body: "Everything assigned to you across every Team and week, in one list. No hunting through channels to find what's yours this week.",
     mock: "my-work",
     span: "md:col-span-2",
     tag: "Personal",
@@ -1164,7 +1164,7 @@ const SURFACES = [
     title: "Team Boards",
   },
   {
-    body: "Recurring work, written once. A Template projects its Tasks onto every future Cycle automatically — so the same Sunday prep is never rebuilt by hand.",
+    body: "Recurring work, written once. A Template projects its Tasks onto every future week automatically — so the same Sunday prep is never rebuilt by hand.",
     mock: "templates",
     span: "md:col-span-4",
     tag: "Reuse",
@@ -1238,13 +1238,13 @@ function ClosingCTA() {
           className="mx-auto max-w-[820px] font-medium text-[44px] tracking-tight md:text-[68px]"
           style={{ letterSpacing: "-0.035em", lineHeight: 1.04 }}
         >
-          Start the next Cycle with a plan, not a scramble.
+          Start the next week with a plan, not a scramble.
         </h2>
         <p
           className="mx-auto mt-6 max-w-[520px] text-[18px] text-mkt-muted"
           style={{ lineHeight: 1.5 }}
         >
-          Set up your church in minutes. Your first Cycle and a ready next week are waiting.
+          Set up your church in minutes. Your first week and a ready next week are waiting.
         </p>
         <div className="mt-9 flex items-center justify-center gap-3">
           <button
@@ -1271,7 +1271,7 @@ function ClosingCTA() {
 /* Gradient showcase band — a second mesh moment with a product view   */
 /* ------------------------------------------------------------------ */
 
-const CYCLE_ROWS: readonly PresentationTask[] = [
+const WEEK_ROWS: readonly PresentationTask[] = [
   {
     identifier: "WOR-128",
     title: "Set list finalized",
@@ -1311,7 +1311,7 @@ const CYCLE_ROWS: readonly PresentationTask[] = [
   },
 ];
 
-function CycleBoardMock() {
+function WeekBoardMock() {
   return (
     <ProductFrame
       title="This Week · Our Work"
@@ -1322,7 +1322,7 @@ function CycleBoardMock() {
       }
     >
       <div className="py-1">
-        {CYCLE_ROWS.map((task) => (
+        {WEEK_ROWS.map((task) => (
           <TaskRowPresentation key={task.identifier} task={task} />
         ))}
       </div>
@@ -1355,7 +1355,7 @@ function GradientBand() {
               className="mt-5 max-w-[420px] text-[16px]"
               style={{ color: "rgba(255,255,255,0.72)", lineHeight: 1.55 }}
             >
-              Every Team&rsquo;s Tasks for the current Cycle, color-coded and live. Production sees
+              Every Team&rsquo;s Tasks for the current week, color-coded and live. Production sees
               production; everyone sees how Sunday is coming together.
             </p>
           </div>
@@ -1366,7 +1366,7 @@ function GradientBand() {
             whileInView={{ opacity: 1, y: 0, scale: 1 }}
             style={{ filter: "drop-shadow(0 30px 60px rgba(0,0,0,0.35))" }}
           >
-            <CycleBoardMock />
+            <WeekBoardMock />
           </motion.div>
         </div>
       </motion.div>

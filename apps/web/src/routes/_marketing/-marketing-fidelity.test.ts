@@ -52,7 +52,7 @@ describe("marketing shell and navigation treatment", () => {
     expect(homeSource).toContain("church teams");
     expect(homeSource).toContain("One Shared Plan");
     expect(homeSource).toContain("for Church Work");
-    expect(homeSource).toContain("Cycles & Weeks");
+    expect(homeSource).toContain("Weeks & Planning");
     expect(homeSource).toContain("What church teams say");
     expect(homeSource).toContain("Feb 02, 2026");
 

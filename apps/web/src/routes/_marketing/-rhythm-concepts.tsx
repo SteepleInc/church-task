@@ -285,7 +285,7 @@ export function LivingWeekSection() {
               </div>
             ))}
             <p className="text-[15px] text-mkt-muted" style={{ lineHeight: 1.55 }}>
-              Worship, Production, Kids, Experience — one Cycle, color-coded and live. A glance
+              Worship, Production, Kids, Experience — one week, color-coded and live. A glance
               answers the only question that matters: are we ready for Sunday?
             </p>
           </div>

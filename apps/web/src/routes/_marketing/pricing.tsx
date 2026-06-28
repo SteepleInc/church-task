@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_marketing/pricing")({
 const INCLUDED = [
   { title: "Unlimited users", body: "Every staff member and volunteer, no per-seat math." },
   { title: "Unlimited Teams", body: "Worship, Production, Kids, and every team you add." },
-  { title: "Cycles & Weeks", body: "The Monday-to-Sunday planning rhythm, fully managed." },
+  { title: "Weeks & Planning", body: "The Monday-to-Sunday planning rhythm, fully managed." },
   { title: "Templates & Schedules", body: "Recurring work written once, projected forward." },
   { title: "Boards & Workflows", body: "Each team's own To Do → In Progress → Done." },
   { title: "Insights", body: "Where the week stands, counted by team and status." },
@@ -155,7 +155,7 @@ function PriceHero({ base }: { readonly base: number }) {
                 style={{ background: "oklch(0.88 0.18 95)" }}
                 type="button"
               >
-                Start your first Cycle
+                Start your first week
               </button>
               <button
                 className="rounded-full border border-white/25 px-7 py-3 font-medium text-[15px] text-white transition-colors hover:bg-white/10"
@@ -205,7 +205,7 @@ const REASONS = [
   },
   {
     title: "Priced like you plan",
-    body: "Your work runs in weekly Cycles, so the bill does too. $19.99 a week — about the cost of a coffee run for the team — for everything.",
+    body: "Your work runs week by week, so the bill does too. $19.99 a week — about the cost of a coffee run for the team — for everything.",
   },
 ] as const;
 
@@ -261,7 +261,7 @@ const FAQS = [
   },
   {
     q: "Why billed weekly?",
-    a: "Church Work runs on the Monday-to-Sunday Cycle, so the billing matches the rhythm you already keep. You can pay monthly if you'd rather — same total.",
+    a: "Church Work runs on the Monday-to-Sunday week, so the billing matches the rhythm you already keep. You can pay monthly if you'd rather — same total.",
   },
   {
     q: "Can we cancel?",
@@ -314,7 +314,7 @@ function ClosingCTA() {
           className="mx-auto mt-6 max-w-[520px] text-[18px] text-mkt-muted"
           style={{ lineHeight: 1.5 }}
         >
-          Set up your church in minutes and start the next Cycle with a plan.
+          Set up your church in minutes and start the next week with a plan.
         </p>
         <div className="mt-9 flex items-center justify-center gap-3">
           <button
