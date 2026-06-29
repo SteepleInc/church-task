@@ -402,3 +402,35 @@ test("title and description arrow-navigate as one surface in the create dialog",
   await page.keyboard.type("!");
   await expect(title).toHaveValue("Seam title!");
 });
+
+test("single-key board shortcuts stay out of the description editor", async ({
+  page,
+}, testInfo) => {
+  const suffix = `${Date.now()}-${testInfo.workerIndex}`;
+  await startAuthenticatedSession(page, {
+    churchName: `E2E Shortcut Church ${suffix}`,
+    email: `tasks-shortcut-${suffix}@example.com`,
+    userName: "E2E Shortcut Owner",
+  });
+
+  await page.getByRole("main").getByRole("button", { name: "Create Task" }).click();
+  const dialog = page.getByRole("dialog", { name: /New Task/ });
+  await expect(dialog).toBeVisible();
+
+  const description = dialog.getByRole("textbox", { name: "Add description" });
+  await description.click();
+  await expect(description).toBeFocused();
+
+  // "f" (board filter) and "c" (create task) are global single-key shortcuts.
+  // While the contentEditable description is focused they must type literally,
+  // not trigger their actions — the @tanstack/hotkeys manager skips them in
+  // editable targets. Without that, "f" opened the filter menu mid-typing.
+  await page.keyboard.type("fancy code");
+
+  // No filter menu opened (its search field carries the "Add filter..." copy).
+  await expect(page.getByPlaceholder("Add filter...")).toHaveCount(0);
+  // No second create dialog stacked on top from the "c" shortcut.
+  await expect(dialog).toHaveCount(1);
+  // The characters landed in the description instead.
+  await expect(description).toContainText("fancy code");
+});
