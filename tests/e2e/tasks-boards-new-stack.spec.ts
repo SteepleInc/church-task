@@ -103,7 +103,16 @@ test("creates, assigns, moves, and preserves Task board state on the local Postg
   // shortcuts render directly beneath it once the Team is expanded.
   await worshipTeamItem.getByRole("link", { name: "Weeks" }).click();
   await expect(page).toHaveURL(new RegExp(`${escapeRegExp(teamPath)}/weeks(?:\\?|$)`));
-  await expect(page.getByRole("heading", { name: "Weeks" })).toBeVisible({ timeout: 20_000 });
+  // The Weeks index keeps its title in the header breadcrumb (Linear-style),
+  // not an in-page heading: confirm the page rendered via the "Team › Weeks"
+  // breadcrumb's current-page segment, scoped to the main content's breadcrumb
+  // nav so it doesn't match the sidebar's "Weeks" link.
+  await expect(
+    page
+      .getByRole("main")
+      .getByRole("navigation", { name: "Breadcrumb" })
+      .getByText("Weeks", { exact: true }),
+  ).toBeVisible({ timeout: 20_000 });
   await worshipTeamItem.getByRole("link", { name: "Current" }).click();
   await expect(page).toHaveURL(teamPathPattern);
   await expectSearchParam(page, "week", "current");
