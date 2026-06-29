@@ -82,7 +82,10 @@ function PrivateWorkContent({ activePanel }: { activePanel: ActiveWorkPanel }) {
   const activeChurchId = activeChurch?.id ?? sessionData?.session.activeOrganizationId ?? null;
   const currentUserId = activeChurch?.currentUserId ?? sessionData?.user?.id ?? null;
   const teams = useTeamsCollection({ churchId: activeChurchId });
-  const cyclesCollection = useCyclesCollection({ churchId: activeChurchId, currentUserId });
+  const cyclesCollection = useCyclesCollection({
+    churchId: activeChurchId,
+    currentUserId,
+  });
   const activeTeams = teams.teamsCollection;
   const selectedTeam =
     typeof activePanel === "object"
@@ -96,6 +99,11 @@ function PrivateWorkContent({ activePanel }: { activePanel: ActiveWorkPanel }) {
     Boolean(activeChurchId) &&
     Boolean(currentUserId) &&
     !(typeof activePanel === "object" && !selectedTeam);
+  // The Weeks timeline owns its own padding inside its ScrollArea (so the
+  // scrollbar can sit flush at the panel edge, Linear-style), so this surface
+  // opts out of the shared PageWrapper horizontal/vertical padding.
+  const isTeamWeeksSurface =
+    typeof activePanel === "object" && activePanel.kind === "team_weeks" && Boolean(selectedTeam);
 
   const surface = typeof activePanel === "object" ? ("team_board" as const) : activePanel;
   const showTopBar =
@@ -154,7 +162,10 @@ function PrivateWorkContent({ activePanel }: { activePanel: ActiveWorkPanel }) {
           }
         | {
             readonly to: "/team/$teamIdentifier/week/$weekNumber";
-            readonly params: { readonly teamIdentifier: string; readonly weekNumber: string };
+            readonly params: {
+              readonly teamIdentifier: string;
+              readonly weekNumber: string;
+            };
           }
         | {
             readonly to: "/team/$teamIdentifier";
@@ -213,7 +224,10 @@ function PrivateWorkContent({ activePanel }: { activePanel: ActiveWorkPanel }) {
 
   // Cmd/Ctrl+B flips Board <-> List (Linear's layout toggle).
   const toggleLayout = () =>
-    setView({ ...activeView, mode: activeView.mode === "board" ? "list" : "board" });
+    setView({
+      ...activeView,
+      mode: activeView.mode === "board" ? "list" : "board",
+    });
 
   const setInsights = (insights: ResolvedInsightsState) => {
     void navigate({
@@ -310,7 +324,10 @@ function PrivateWorkContent({ activePanel }: { activePanel: ActiveWorkPanel }) {
           currentUserId={currentUserId}
           surface={surface}
           team={selectedTeam}
-          teams={activeTeams.map((candidate) => ({ id: candidate.id, name: candidate.name }))}
+          teams={activeTeams.map((candidate) => ({
+            id: candidate.id,
+            name: candidate.name,
+          }))}
           tab={activeTab}
           view={search.view}
           week={search.week}
@@ -345,7 +362,10 @@ function PrivateWorkContent({ activePanel }: { activePanel: ActiveWorkPanel }) {
   return (
     <MainContainer className={showBoardSurface ? "mt-0 pt-0" : undefined}>
       {showBoardSurface ? (
-        <PageWrapper variant="noPageContainer" className="gap-3 pt-0 md:pt-0">
+        <PageWrapper
+          variant="noPageContainer"
+          className={isTeamWeeksSurface ? "gap-3 px-0 py-0 pt-0 md:pt-0" : "gap-3 pt-0 md:pt-0"}
+        >
           {content}
         </PageWrapper>
       ) : (
@@ -357,7 +377,11 @@ function PrivateWorkContent({ activePanel }: { activePanel: ActiveWorkPanel }) {
 
 const ChurchNameSchema = Schema.Struct({
   name: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(2, { message: "Church name must be at least 2 characters." })),
+    Schema.check(
+      Schema.isMinLength(2, {
+        message: "Church name must be at least 2 characters.",
+      }),
+    ),
   ),
   churchTimeZone: Schema.String.pipe(
     Schema.check(Schema.isMinLength(1, { message: "Church Time Zone is required." })),

@@ -88,7 +88,10 @@ export function buildProjectedWeekCycles(args: {
   for (let offset = -pastWeeks; offset <= futureWeeks; offset += 1) {
     const startDate = addLocalDateDays(currentStart, offset * 7);
     if (byStartDate.has(startDate)) continue;
-    const target = buildTargetCycle({ churchTimeZone: args.churchTimeZone, startDate });
+    const target = buildTargetCycle({
+      churchTimeZone: args.churchTimeZone,
+      startDate,
+    });
     byStartDate.set(startDate, {
       id: `projected-week:${startDate}`,
       description: null,
@@ -106,7 +109,10 @@ export function buildProjectedWeekCycles(args: {
     ...cycle,
     targetCycle:
       cycle.targetCycle ??
-      buildTargetCycle({ churchTimeZone: args.churchTimeZone, startDate: cycle.startDate }),
+      buildTargetCycle({
+        churchTimeZone: args.churchTimeZone,
+        startDate: cycle.startDate,
+      }),
   }));
 }
 
@@ -246,7 +252,10 @@ export function groupTeamWeeksIndexRows(
 ): readonly TeamWeeksIndexSection[] {
   const order: readonly TeamWeeksIndexStatus[] = ["current", "upcoming", "completed"];
   return order
-    .map((status) => ({ status, rows: rows.filter((row) => row.status === status) }))
+    .map((status) => ({
+      status,
+      rows: rows.filter((row) => row.status === status),
+    }))
     .filter((section) => section.rows.length > 0);
 }
 
@@ -273,6 +282,12 @@ export type TeamWeeksTimelineRow = TeamWeeksIndexRow & {
   readonly ordinal: number;
   readonly startLabel: string;
   readonly endLabel: string;
+  /**
+   * The Week's start date split into stacked timeline parts, matching Linear's
+   * Cycles rail where the month sits above the day ("Aug" / "16").
+   */
+  readonly startLabelMonth: string;
+  readonly startLabelDay: string;
 };
 
 function formatTimelineLabel(iso: string): string {
@@ -281,6 +296,22 @@ function formatTimelineLabel(iso: string): string {
   const date = new Date(year, month - 1, day);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/**
+ * Split a Week's start date into the month/day parts Linear stacks on its
+ * Cycles rail ("Aug" above "16"). Returns empty strings for an unparsable ISO
+ * so the rail degrades gracefully.
+ */
+function formatTimelineLabelParts(iso: string): { month: string; day: string } {
+  const [year, month, day] = iso.split("-").map(Number);
+  if (!year || !month || !day) return { month: "", day: "" };
+  const date = new Date(year, month - 1, day);
+  if (Number.isNaN(date.getTime())) return { month: "", day: "" };
+  return {
+    month: date.toLocaleDateString("en-US", { month: "short" }),
+    day: date.toLocaleDateString("en-US", { day: "numeric" }),
+  };
 }
 
 /**
@@ -315,11 +346,14 @@ export function buildTeamWeeksTimelineRows(args: {
     })
     .map((row) => {
       const cycle = cycleById.get(row.id);
+      const startParts = cycle ? formatTimelineLabelParts(cycle.startDate) : { month: "", day: "" };
       return {
         ...row,
         ordinal: ordinalById.get(row.id) ?? 0,
         startLabel: cycle ? formatTimelineLabel(cycle.startDate) : "",
         endLabel: cycle ? formatTimelineLabel(cycle.endDate) : "",
+        startLabelMonth: startParts.month,
+        startLabelDay: startParts.day,
       };
     });
 }

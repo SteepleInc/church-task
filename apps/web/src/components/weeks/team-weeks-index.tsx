@@ -1,5 +1,6 @@
 import { AppHeaderSlot } from "@/components/app-header-slot";
 import { TeamAvatar } from "@/components/avatars/teamAvatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCyclesCollection } from "@/data/cycles/cyclesData.app";
 import { useTasksCollection } from "@/data/tasks/tasksData.app";
@@ -125,7 +126,11 @@ export function TeamWeeksIndex({
   const expandedCycleId = resolveExpandedCycleId({ progressCycleId, rows });
 
   return (
-    <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 px-4 pt-2 pb-6 md:px-6">
+    // The page wrapper hands this surface zero padding; the ScrollArea owns the
+    // page's horizontal/top padding (inside the scroll viewport) so the
+    // scrollbar can sit flush at the panel edge, Linear-style. The list spans
+    // the full panel width rather than a narrow centered column.
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* Linear keeps the page title in the top breadcrumb bar rather than in a
           separate in-page header. Mirror that: render the Team › Weeks crumb
           into the shell header slot and let the list start at the top. */}
@@ -138,27 +143,41 @@ export function TeamWeeksIndex({
       </AppHeaderSlot>
 
       {isLoading ? (
-        <TeamWeeksIndexSkeleton />
+        <div className="px-4 pt-1">
+          <TeamWeeksIndexSkeleton />
+        </div>
       ) : rows.length === 0 ? (
-        <EmptyWeeks />
+        <div className="px-4 pt-1">
+          <EmptyWeeks />
+        </div>
       ) : (
-        <ul className="flex flex-col border-t">
-          {rows.map((row, index) => (
-            <li className="flex border-b" key={row.id}>
-              <TimelineMarker isFirst={index === 0} isLast={index === rows.length - 1} row={row} />
-              <div className="min-w-0 flex-1">
-                <WeekRow
-                  churchId={churchId}
-                  expanded={row.id === expandedCycleId}
-                  onProgressCycleIdChange={onProgressCycleIdChange}
+        <ScrollArea className="min-h-0 flex-1">
+          {/* The ScrollArea owns the page padding (px-4 pt-1), so it lives
+              inside the scroll viewport. The row dividers live on the content
+              column only, so the timeline rail column stays a clean, unbroken
+              vertical line — as in Linear. */}
+          <ul className="flex flex-col px-4 pt-1">
+            {rows.map((row, index) => (
+              <li className="flex" key={row.id}>
+                <TimelineMarker
+                  isFirst={index === 0}
+                  isLast={index === rows.length - 1}
                   row={row}
-                  tasks={weekCsvTasks}
-                  teamIdentifier={team.identifier}
                 />
-              </div>
-            </li>
-          ))}
-        </ul>
+                <div className={cn("min-w-0 flex-1 border-b", index === 0 && "border-t")}>
+                  <WeekRow
+                    churchId={churchId}
+                    expanded={row.id === expandedCycleId}
+                    onProgressCycleIdChange={onProgressCycleIdChange}
+                    row={row}
+                    tasks={weekCsvTasks}
+                    teamIdentifier={team.identifier}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </ScrollArea>
       )}
     </section>
   );
@@ -197,11 +216,16 @@ function TeamWeeksBreadcrumb({
 }
 
 // The timeline marker that sits to the left of each Week row, mirroring
-// Linear's Cycles timeline. A continuous vertical line runs through every
-// marker cell (clipped at the first/last row), the dot is pinned to the row's
-// header height, and the current Week's connecting segment is tinted with the
-// primary accent so the present moment stands out. Living inside each row keeps
-// the line aligned even when a row expands to show its burndown chart.
+// Linear's Cycles timeline. The Week's start date is stacked (month over day)
+// and right-aligned against the rail; a continuous vertical line runs through
+// every marker (clipped at the first/last row). Linear draws hollow rings for
+// past and future Weeks and fills only the live Week's dot with the primary
+// accent, tinting the rail from the current Week downward through the Weeks
+// that have already passed. Living inside each row keeps the rail aligned even
+// when a row expands to show its burndown chart.
+//
+// Rows are ordered newest-first, so the segment *below* the current Week leads
+// into completed Weeks: that lower half is the accent-tinted "elapsed" run.
 function TimelineMarker({
   row,
   isFirst,
@@ -211,38 +235,67 @@ function TimelineMarker({
   readonly isFirst: boolean;
   readonly isLast: boolean;
 }) {
-  const lineClass = row.status === "current" ? "bg-primary/60" : "bg-border";
+  const isCurrent = row.status === "current";
+  const isCompleted = row.status === "completed";
+  // The accent run starts at the current Week and continues through every
+  // already-elapsed Week below it; future Weeks above stay on the neutral rail.
+  const elapsedRail = isCurrent || isCompleted;
+
+  // The rail (line + dot) is pinned to the right edge of the marker cell; the
+  // stacked date sits to its left, matching Linear's "date · rail · content".
+  const dotCenter = 12;
 
   return (
-    <div aria-hidden className="relative hidden w-20 shrink-0 sm:block">
-      {/* Connecting line, clipped so the rail doesn't overshoot the ends. The
-          dot sits above it (ring-4 masks the rail) so the line never shows on
-          top of the circles. */}
-      <span
-        className={cn("absolute left-[12px] w-px", lineClass)}
-        style={{ top: isFirst ? 22 : 0, bottom: isLast ? "auto" : 0, height: isLast ? 22 : "auto" }}
-      />
-      <div className="relative z-10 flex items-start gap-2 pt-[14px] pl-2">
+    <div aria-hidden className="relative hidden w-[76px] shrink-0 sm:block">
+      {/* Date label, stacked month-over-day and right-aligned toward the rail. */}
+      <div
+        className="absolute top-[14px] flex flex-col items-end text-right leading-none text-muted-foreground"
+        style={{ right: dotCenter + 16 }}
+      >
+        <span className="text-[11px]">{row.startLabelMonth}</span>
+        <span className="mt-1 text-[11px] tabular-nums">{row.startLabelDay}</span>
+      </div>
+
+      {/* The rail is split into two halves at the dot's exact vertical center
+          (top 14px + half of the 14px dot = 21px) so the line passes cleanly
+          through every dot with no kink. The upper segment (toward future
+          Weeks) and lower segment (toward elapsed Weeks) are tinted
+          independently — Linear lights the elapsed run with the accent. */}
+      {!isFirst ? (
         <span
           className={cn(
-            // A solid background base sits under the translucent status color so
-            // the connecting line never bleeds through the dot.
-            "mt-0.5 size-[9px] shrink-0 rounded-full bg-background ring-4 ring-background",
+            "absolute top-0 h-[21px] w-px",
+            // The short segment above the current dot reaches up into a future
+            // Week, so it stays neutral; elsewhere the elapsed run is tinted.
+            elapsedRail && !isCurrent ? "bg-primary/60" : "bg-border",
           )}
-        >
-          <span
-            className={cn(
-              "block size-full rounded-full",
-              row.status === "current"
-                ? "bg-primary"
-                : row.status === "upcoming"
-                  ? "bg-muted-foreground/50"
-                  : "bg-muted-foreground/30",
-            )}
-          />
-        </span>
-        <span className="pt-px text-[11px] leading-tight tabular-nums text-muted-foreground">
-          {row.startLabel}
+          style={{ right: dotCenter }}
+        />
+      ) : null}
+      {!isLast ? (
+        <span
+          className={cn(
+            "absolute top-[21px] bottom-0 w-px",
+            elapsedRail ? "bg-primary/60" : "bg-border",
+          )}
+          style={{ right: dotCenter }}
+        />
+      ) : null}
+
+      <div className="absolute z-10 top-[14px]" style={{ right: dotCenter - 7 }}>
+        {/* A solid background ring masks the rail behind the marker so the line
+            never shows through the circle. */}
+        <span className="grid size-[14px] shrink-0 place-items-center rounded-full bg-background">
+          {isCurrent ? (
+            // The live Week: a solid accent dot, the focal point of the rail.
+            <span className="size-[9px] rounded-full bg-primary" />
+          ) : isCompleted ? (
+            // Elapsed Weeks: small solid muted dots sitting on the accent run.
+            <span className="size-[7px] rounded-full bg-muted-foreground/50" />
+          ) : (
+            // Future Weeks: hollow rings on the neutral rail.
+            <span className="size-[9px] rounded-full border-2 border-muted-foreground/40 bg-background" />
+          )}
         </span>
       </div>
     </div>
@@ -276,7 +329,7 @@ function WeekRow({
           navigates, while the interactive controls (progress toggle, actions
           menu) sit above it (relative, z-10) and stop propagation. This mirrors
           Linear's Cycles rows, where clicking anywhere opens the Cycle. */}
-      <div className="relative flex items-center gap-3 px-2 py-3.5 transition-colors group-hover/week:bg-muted/40 has-focus-visible:bg-muted/40">
+      <div className="relative flex items-center gap-3 py-3.5 pr-4 pl-5 transition-colors group-hover/week:bg-muted/40 has-focus-visible:bg-muted/40">
         <Link
           aria-label={`Open ${headline}`}
           className="absolute inset-0 z-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
@@ -408,7 +461,7 @@ function WeekExpandedPanel({ row }: { readonly row: TeamWeeksTimelineRow }) {
     // plan into, but reads as "nothing scheduled yet" rather than "empty Week".
     const isFuture = row.status === "upcoming";
     return (
-      <div className="px-2 pb-5">
+      <div className="pr-4 pb-5 pl-5">
         <div className="grid place-items-center gap-1 rounded-lg border border-dashed bg-muted/10 px-4 py-8 text-center">
           <p className="text-sm font-medium">
             {isFuture ? "Nothing planned yet" : "No Tasks this Week"}
@@ -424,7 +477,7 @@ function WeekExpandedPanel({ row }: { readonly row: TeamWeeksTimelineRow }) {
   }
 
   return (
-    <div className="grid gap-4 px-2 pb-5 lg:grid-cols-[1fr_220px]">
+    <div className="grid gap-4 pr-4 pb-5 pl-5 lg:grid-cols-[1fr_220px]">
       <WeekBurndownChart burndown={burndown} className="min-w-0" />
       <dl className="flex flex-col justify-center gap-3 lg:border-l lg:pl-5">
         <LegendStat dotClassName="bg-muted-foreground/40" label="Scope" value={burndown.scope} />
@@ -472,7 +525,7 @@ function TeamWeeksIndexSkeleton() {
   return (
     <div className="flex flex-col border-t">
       {[0, 1, 2, 3, 4].map((row) => (
-        <div className="flex items-center gap-3 border-b px-2 py-3.5" key={row}>
+        <div className="flex items-center gap-3 border-b py-3.5 pr-4 pl-5" key={row}>
           <Skeleton className="size-4 shrink-0 rounded-full" />
           <Skeleton className="h-4 w-24" />
           <div className="ml-auto flex items-center gap-4">
