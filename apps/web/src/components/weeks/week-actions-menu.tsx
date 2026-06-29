@@ -43,6 +43,7 @@ export function WeekActionsMenu({
   cycle,
   tasks = [],
   trigger,
+  align = "start",
 }: {
   readonly churchId: string;
   readonly cycle: WeekActionsMenuCycle;
@@ -50,6 +51,9 @@ export function WeekActionsMenu({
   // Optional custom trigger so callers can present the menu inline (e.g. a Week
   // header) while the default "⋯" button still works on its own.
   readonly trigger?: ReactElement;
+  // Which edge the menu anchors to. Triggers pinned to the right of a row pass
+  // "end" so the menu opens leftward and stays on-screen.
+  readonly align?: "start" | "end";
 }) {
   const { openEditWeek } = useQuickActionOpeners();
 
@@ -108,9 +112,9 @@ export function WeekActionsMenu({
           <MoreHorizontal className="size-4" />
         </DropdownMenuTrigger>
       )}
-      {/* Fan to the right (Linear's Cycle menu opens from the "⋯" toward the
-          content), so the menu anchors its left edge to the trigger. */}
-      <DropdownMenuContent align="start" className="w-60">
+      {/* Anchor edge follows the trigger position: header triggers fan right
+          ("start"); row triggers pinned to the right fan left ("end"). */}
+      <DropdownMenuContent align={align} className="w-60">
         <DropdownMenuLabel className="truncate">{weekLabel}</DropdownMenuLabel>
 
         <DropdownMenuItem onClick={editWeek}>

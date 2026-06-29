@@ -37,6 +37,8 @@ export type TeamWeeksIndexTask = {
 
 export type TeamWeeksIndexRow = {
   readonly id: string;
+  /** The saved Cycle name, or null for a Projected Week with no saved row. */
+  readonly name: string | null;
   readonly displayName: string;
   readonly displayPrimary: string;
   readonly dateRange: string;
@@ -215,6 +217,7 @@ export function buildTeamWeeksIndexRows({
         });
       return {
         id: cycle.id,
+        name: cycle.name?.trim() || null,
         completedCount: counts.completedCount,
         completedPercentage:
           counts.taskCount === 0 ? 0 : Math.round((counts.completedCount / counts.taskCount) * 100),

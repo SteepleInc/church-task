@@ -1,3 +1,4 @@
+import { AppHeaderSlot } from "@/components/app-header-slot";
 import { TeamAvatar } from "@/components/avatars/teamAvatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCyclesCollection } from "@/data/cycles/cyclesData.app";
@@ -11,6 +12,7 @@ import {
   CircleDashed,
   CirclePlay,
   Layers,
+  MoreHorizontal,
   Play,
 } from "lucide-react";
 
@@ -21,6 +23,8 @@ import {
   type TeamWeeksIndexStatus,
   type TeamWeeksTimelineRow,
 } from "./team-weeks-index-data";
+import type { WeekCsvTask } from "./week-actions-data";
+import { WeekActionsMenu } from "./week-actions-menu";
 import { WeekBurndownChart } from "./week-burndown-chart";
 
 const STATUS_LABEL: Record<TeamWeeksIndexStatus, string> = {
@@ -104,18 +108,34 @@ export function TeamWeeksIndex({
     today,
     churchTimeZone,
   });
+  // Lightweight CSV rows for the per-Week "Export tasks" action. The index does
+  // not load the workflow/assignee/team lookup collections, so the
+  // name-derived columns stay null here; the core columns still export.
+  const weekCsvTasks: readonly WeekCsvTask[] = tasksCollection.tasksCollection.map((task) => ({
+    identifier: task.identifier,
+    title: task.title,
+    taskState: task.taskState,
+    workflowStatusName: null,
+    assignedUserName: null,
+    teamName: team.name,
+    dueDate: task.dueDate,
+    cycleId: task.cycleId,
+  }));
   const isLoading = cyclesCollection.loading || tasksCollection.loading;
   const expandedCycleId = resolveExpandedCycleId({ progressCycleId, rows });
 
   return (
-    <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 px-4 py-6 md:px-6">
-      <header className="flex flex-col gap-3">
-        <TeamWeeksBreadcrumb teamIdentifier={team.identifier} teamName={team.name} />
-        <div className="flex items-center gap-3">
-          <TeamAvatar color={team.color} name={team.name} size={32} />
-          <h1 className="text-lg font-semibold tracking-tight">Weeks</h1>
-        </div>
-      </header>
+    <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 px-4 pt-2 pb-6 md:px-6">
+      {/* Linear keeps the page title in the top breadcrumb bar rather than in a
+          separate in-page header. Mirror that: render the Team › Weeks crumb
+          into the shell header slot and let the list start at the top. */}
+      <AppHeaderSlot>
+        <TeamWeeksBreadcrumb
+          teamColor={team.color}
+          teamIdentifier={team.identifier}
+          teamName={team.name}
+        />
+      </AppHeaderSlot>
 
       {isLoading ? (
         <TeamWeeksIndexSkeleton />
@@ -128,9 +148,11 @@ export function TeamWeeksIndex({
               <TimelineMarker isFirst={index === 0} isLast={index === rows.length - 1} row={row} />
               <div className="min-w-0 flex-1">
                 <WeekRow
+                  churchId={churchId}
                   expanded={row.id === expandedCycleId}
                   onProgressCycleIdChange={onProgressCycleIdChange}
                   row={row}
+                  tasks={weekCsvTasks}
                   teamIdentifier={team.identifier}
                 />
               </div>
@@ -142,25 +164,34 @@ export function TeamWeeksIndex({
   );
 }
 
+// The Team › Weeks breadcrumb, rendered into the shell's header slot so it sits
+// in the top bar exactly where Linear shows "Team › Cycles". The Team segment
+// carries its avatar and links back to the board; "Weeks" is the current page.
 function TeamWeeksBreadcrumb({
+  teamColor,
   teamIdentifier,
   teamName,
 }: {
+  readonly teamColor?: string | null;
   readonly teamIdentifier: string;
   readonly teamName: string;
 }) {
   return (
-    <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-xs text-muted-foreground">
+    <nav
+      aria-label="Breadcrumb"
+      className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground"
+    >
       <Link
-        className="truncate rounded transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="-mx-1 flex min-w-0 items-center gap-1.5 truncate rounded-md px-1 py-0.5 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         params={{ teamIdentifier }}
         search={true}
         to="/team/$teamIdentifier"
       >
-        {teamName}
+        <TeamAvatar color={teamColor} name={teamName} size={18} />
+        <span className="truncate">{teamName}</span>
       </Link>
-      <ChevronRight aria-hidden className="size-3 shrink-0 opacity-60" />
-      <span className="font-medium text-foreground/80">Weeks</span>
+      <ChevronRight aria-hidden className="size-3.5 shrink-0 opacity-60" />
+      <span className="font-medium text-foreground">Weeks</span>
     </nav>
   );
 }
@@ -222,11 +253,15 @@ function WeekRow({
   row,
   teamIdentifier,
   expanded,
+  churchId,
+  tasks,
   onProgressCycleIdChange,
 }: {
   readonly row: TeamWeeksTimelineRow;
   readonly teamIdentifier: string;
   readonly expanded: boolean;
+  readonly churchId: string;
+  readonly tasks: readonly WeekCsvTask[];
   readonly onProgressCycleIdChange?: (cycleId: string | null) => void;
 }) {
   const StatusIcon = STATUS_ICON[row.status];
@@ -236,11 +271,28 @@ function WeekRow({
 
   return (
     <div className={cn("group/week", expanded && "bg-muted/20")}>
-      <div className="flex items-center gap-3 px-2 py-3.5 transition-colors group-hover/week:bg-muted/40">
-        <StatusIcon aria-hidden className={cn("size-4 shrink-0", STATUS_ICON_CLASS[row.status])} />
+      {/* The whole header is a click target that opens the Week. A full-row
+          Link sits behind the content (absolute, z-0) so any "dead" space still
+          navigates, while the interactive controls (progress toggle, actions
+          menu) sit above it (relative, z-10) and stop propagation. This mirrors
+          Linear's Cycles rows, where clicking anywhere opens the Cycle. */}
+      <div className="relative flex items-center gap-3 px-2 py-3.5 transition-colors group-hover/week:bg-muted/40 has-focus-visible:bg-muted/40">
+        <Link
+          aria-label={`Open ${headline}`}
+          className="absolute inset-0 z-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          params={{ teamIdentifier, weekNumber: String(row.ordinal) }}
+          search={true}
+          tabIndex={-1}
+          to="/team/$teamIdentifier/week/$weekNumber"
+        />
+
+        <StatusIcon
+          aria-hidden
+          className={cn("relative z-10 size-4 shrink-0", STATUS_ICON_CLASS[row.status])}
+        />
 
         <Link
-          className="flex min-w-0 items-center gap-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="relative z-10 flex min-w-0 items-center gap-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           params={{ teamIdentifier, weekNumber: String(row.ordinal) }}
           search={true}
           to="/team/$teamIdentifier/week/$weekNumber"
@@ -251,7 +303,7 @@ function WeekRow({
           </span>
         </Link>
 
-        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-4">
+        <div className="relative z-10 ml-auto flex shrink-0 items-center gap-2 sm:gap-4">
           <span
             className={cn(
               "rounded-full px-2 py-0.5 text-[11px] font-medium",
@@ -264,7 +316,10 @@ function WeekRow({
           <button
             aria-expanded={expanded}
             className="hidden items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex"
-            onClick={toggleProgress}
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleProgress();
+            }}
             type="button"
           >
             <CapacityRing percentage={row.completedPercentage} />
@@ -279,6 +334,32 @@ function WeekRow({
               <span className="font-medium text-foreground">{row.taskCount}</span> scope
             </span>
           </span>
+
+          {/* The "⋯" menu only materializes on row hover / keyboard focus, the
+              way Linear reveals a Cycle's actions. It stays mounted while the
+              menu is open so the popup doesn't close on pointer-leave. */}
+          <WeekActionsMenu
+            align="end"
+            churchId={churchId}
+            cycle={{
+              id: row.id,
+              startDate: row.targetCycle.startDate,
+              endDate: row.targetCycle.endDate,
+              name: row.name,
+              description: row.description,
+            }}
+            tasks={tasks}
+            trigger={
+              <button
+                aria-label="Week actions"
+                className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-[color,background-color,opacity] hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover/week:opacity-100 aria-expanded:bg-muted aria-expanded:text-foreground aria-expanded:opacity-100 data-popup-open:opacity-100"
+                onClick={(event) => event.stopPropagation()}
+                type="button"
+              >
+                <MoreHorizontal className="size-4" />
+              </button>
+            }
+          />
         </div>
       </div>
 
