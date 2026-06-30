@@ -516,9 +516,6 @@ export function CreateTaskQuickAction() {
     }
     setSavingDraft(false);
     close();
-    // Saving a draft otherwise closes the composer silently; confirm it the
-    // same way Task creation does so the User knows the work was kept.
-    toast.success("Draft saved.");
   };
 
   // Closing with unsaved edits prompts before discarding; a pristine draft (or
@@ -674,7 +671,7 @@ export function CreateTaskQuickAction() {
                       type="button"
                       variant="ghost"
                     >
-                      Save to drafts
+                      Save as draft
                     </Button>
                   ) : null
                 }
@@ -947,14 +944,14 @@ export function CreateTaskQuickAction() {
           confirmation centers and lays its own backdrop over the quick action. */}
       <DiscardChangesDialog
         cancelLabel="Cancel"
-        description="Keep your work — we'll save this Task to your drafts so you can finish it later."
+        description="You can finish this task later from your drafts."
         discardLabel="Discard"
         media={<BookmarkPlus />}
         onDiscard={close}
         onSave={() => void saveDraftAndClose()}
         onOpenChange={setConfirmDiscardOpen}
         open={confirmDiscardOpen}
-        saveLabel="Save to drafts"
+        saveLabel="Save"
         saveLoading={savingDraft}
         title="Save to drafts?"
       />
