@@ -11,6 +11,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -56,10 +57,10 @@ function DraftsPage() {
     });
   }
 
-  async function onDiscardAll() {
+  function onDiscardAll() {
     const ids = collection.map((draft) => draft.id);
-    await discardAll();
     setConfirmOpen(false);
+    void discardAll();
     toast.success(ids.length === 1 ? "Draft discarded." : `${ids.length} drafts discarded.`, {
       action: { label: "Undo", onClick: () => void restoreDrafts(ids) },
     });
@@ -107,8 +108,8 @@ function DraftsPage() {
               </EmptyMedia>
               <EmptyTitle>No active drafts</EmptyTitle>
               <EmptyDescription>
-                Save a Task from the composer to keep it as a draft. Your saved drafts will land
-                here, ready to finish whenever you are.
+                Start a New Task and choose Save to drafts to keep it for later. Your saved drafts
+                land here, ready to finish whenever you are.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -129,18 +130,27 @@ function DraftsPage() {
       <AlertDialog onOpenChange={setConfirmOpen} open={confirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
+            <AlertDialogMedia>
+              <Trash2Icon />
+            </AlertDialogMedia>
             <AlertDialogTitle>
               {count === 1 ? "Discard this draft?" : `Discard all ${count} drafts?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {count === 1
-                ? "This draft will be removed from your Drafts. You can undo right after."
-                : "Every draft will be removed from your Drafts. You can undo right after."}
+                ? "This draft leaves your Drafts. You can undo right after."
+                : "Every draft leaves your Drafts. You can undo right after."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={onDiscardAll} variant="destructive">
+            <AlertDialogCancel>{count === 1 ? "Keep it" : "Keep them"}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                onDiscardAll();
+              }}
+              variant="destructive"
+            >
               {count === 1 ? "Discard draft" : "Discard all"}
             </AlertDialogAction>
           </AlertDialogFooter>
