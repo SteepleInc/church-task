@@ -141,6 +141,17 @@ const CreateTaskSchema = Schema.Struct({
   labels: Schema.Array(Schema.String),
 });
 
+const hasTaskDraftContent = (value: typeof pristineEmptyTaskComposerDefaults) =>
+  value.title.trim().length > 0 ||
+  value.description.trim().length > 0 ||
+  value.assignedUserId !== pristineEmptyTaskComposerDefaults.assignedUserId ||
+  value.workflowStatusId !== pristineEmptyTaskComposerDefaults.workflowStatusId ||
+  value.teamId !== pristineEmptyTaskComposerDefaults.teamId ||
+  value.priority !== pristineEmptyTaskComposerDefaults.priority ||
+  value.estimate !== pristineEmptyTaskComposerDefaults.estimate ||
+  value.labels.length > 0 ||
+  value.dueDate !== pristineEmptyTaskComposerDefaults.dueDate;
+
 /**
  * A compact, read-only cue that this Task will attach to the Week currently in
  * view (its Cycle is materialized on create if it is still a Projected Week).
@@ -497,6 +508,11 @@ export function CreateTaskQuickAction() {
     if (savingDraft) return;
     setSavingDraft(true);
     const value = form.state.values;
+    if (!hasTaskDraftContent(value)) {
+      setSavingDraft(false);
+      close();
+      return;
+    }
     const result = await saveTaskDraft({
       assignedUserId: value.assignedUserId,
       description: value.description === "" ? null : value.description,
@@ -506,7 +522,7 @@ export function CreateTaskQuickAction() {
       parentTaskId: state?.parentTaskId ?? null,
       priority: value.priority === "no_priority" ? null : value.priority,
       teamId: value.teamId,
-      title: value.title,
+      title: value.title.trim(),
       workflowStatusId: value.workflowStatusId || null,
     });
     if (!result.ok) {
@@ -660,9 +676,11 @@ export function CreateTaskQuickAction() {
               </span>
             </QuickActionsTitle>
             <div className="flex items-center gap-1">
-              <form.Subscribe selector={(formState) => formState.isDirty}>
-                {(isDirty) =>
-                  isDirty ? (
+              <form.Subscribe
+                selector={(formState) => formState.isDirty && hasTaskDraftContent(formState.values)}
+              >
+                {(canSaveDraft) =>
+                  canSaveDraft ? (
                     <Button
                       className="text-muted-foreground hover:text-foreground"
                       loading={savingDraft}
