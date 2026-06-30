@@ -64,6 +64,11 @@ export function DiscardChangesDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogAction
+            // When a Save path is offered this is the destructive escape hatch,
+            // so push it to the far left (macOS/Linear "Don't Save" convention)
+            // and let Cancel + Save group on the right. Without a Save path it
+            // is the primary action and stays grouped with Cancel.
+            className={onSave ? "sm:mr-auto" : undefined}
             onClick={(event) => {
               event.preventDefault();
               onOpenChange(false);

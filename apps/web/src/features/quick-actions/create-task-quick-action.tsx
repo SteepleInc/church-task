@@ -516,6 +516,9 @@ export function CreateTaskQuickAction() {
     }
     setSavingDraft(false);
     close();
+    // Saving a draft otherwise closes the composer silently; confirm it the
+    // same way Task creation does so the User knows the work was kept.
+    toast.success("Draft saved.");
   };
 
   // Closing with unsaved edits prompts before discarding; a pristine draft (or
