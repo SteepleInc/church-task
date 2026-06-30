@@ -952,6 +952,7 @@ export function CreateTaskQuickAction() {
         onOpenChange={setConfirmDiscardOpen}
         open={confirmDiscardOpen}
         saveLabel="Save to drafts"
+        saveLoading={savingDraft}
         title="Save to drafts?"
       />
     </>

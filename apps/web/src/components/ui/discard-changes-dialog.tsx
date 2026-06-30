@@ -34,6 +34,7 @@ export function DiscardChangesDialog({
   onOpenChange,
   onDiscard,
   onSave,
+  saveLoading = false,
   title = "Discard changes?",
   description = "You have unsaved changes. If you close now, they'll be lost.",
   discardLabel = "Discard",
@@ -45,6 +46,7 @@ export function DiscardChangesDialog({
   readonly onOpenChange: (open: boolean) => void;
   readonly onDiscard: () => void;
   readonly onSave?: () => void;
+  readonly saveLoading?: boolean;
   readonly title?: string;
   readonly description?: string;
   readonly discardLabel?: string;
@@ -71,12 +73,12 @@ export function DiscardChangesDialog({
           >
             {discardLabel}
           </AlertDialogAction>
-          <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel disabled={saveLoading}>{cancelLabel}</AlertDialogCancel>
           {onSave ? (
             <AlertDialogAction
+              loading={saveLoading}
               onClick={(event) => {
                 event.preventDefault();
-                onOpenChange(false);
                 onSave();
               }}
             >

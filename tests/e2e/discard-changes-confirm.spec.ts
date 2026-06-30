@@ -83,7 +83,12 @@ test("create-Task quick action saves dirty work from the close dialog", async ({
 
   const confirm = page.getByRole("alertdialog");
   await expect(confirm).toBeVisible();
+  const saveResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/zero/mutate") && response.request().method() === "POST",
+  );
   await confirm.getByRole("button", { name: "Save to drafts" }).click();
+  await expect.poll(async () => (await saveResponse).ok()).toBe(true);
   await expect(confirm).not.toBeVisible();
   await expect(dialog).not.toBeVisible();
 });
