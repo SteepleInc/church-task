@@ -36,6 +36,7 @@ Current references:
 - `effect-smol` is the Effect v4/effect-smol source. Use it when checking new Effect APIs and migration patterns.
 - `better-auth` is the Better Auth source. Use it when checking auth APIs, plugin patterns, adapters, tests, and runtime constraints.
 - `router` is the TanStack Router source. Use it when checking routing APIs, file-route conventions, router internals, and examples.
+- `hotkeys` is the TanStack Hotkeys source. Use it when checking keyboard shortcut APIs, patterns, and examples.
 - `circle` is a Linear-inspired project management UI by ln-dev7, built with Next.js, TypeScript, shadcn/ui, and Tailwind CSS. Use it as a UI/UX and component-structure reference for issue/project/team tracking interfaces.
 
 ## Working Notes

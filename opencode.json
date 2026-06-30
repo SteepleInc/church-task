@@ -47,6 +47,10 @@
       "repository": "TanStack/router",
       "description": "Use when checking TanStack Router routing APIs, file-route conventions, router internals, and examples."
     },
+    "hotkeys": {
+      "repository": "TanStack/hotkeys",
+      "description": "Use when checking TanStack Hotkeys APIs, keyboard shortcut patterns, and examples."
+    },
     "circle": {
       "repository": "ln-dev7/circle",
       "description": "Use as a Linear-inspired UI/UX and component-structure reference for issue/project/team tracking interfaces."
