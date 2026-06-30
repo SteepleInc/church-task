@@ -31,7 +31,6 @@ import {
   useDiscardDraftMutation,
   useMyDraftsCollection,
   useRestoreDraftsMutation,
-  useTaskDraft,
 } from "@/data/drafts/draftsData.app";
 import { useCurrentOrgOpt } from "@/data/orgs/orgData.app";
 import { DraftCard } from "@/features/drafts/draft-card";
@@ -58,9 +57,9 @@ function DraftsPage() {
   }
 
   function onDiscardAll() {
-    const ids = collection.map((draft) => draft.id);
+    const ids = collection.map((draft) => draft.draft_id);
     setConfirmOpen(false);
-    void discardAll();
+    void discardAll(ids);
     toast.success(ids.length === 1 ? "Draft discarded." : `${ids.length} drafts discarded.`, {
       action: { label: "Undo", onClick: () => void restoreDrafts(ids) },
     });
@@ -116,11 +115,11 @@ function DraftsPage() {
         ) : (
           <div className="mx-auto grid w-full max-w-3xl gap-3">
             {collection.map((draft) => (
-              <DraftCardLoader
+              <DraftCard
                 churchId={churchId}
-                draftId={draft.id}
-                key={draft.id}
+                key={draft.draft_id}
                 onDiscard={onDiscardOne}
+                taskDraft={draft}
               />
             ))}
           </div>
@@ -158,25 +157,6 @@ function DraftsPage() {
       </AlertDialog>
     </MainContainer>
   );
-}
-
-/**
- * Resolves the Task Draft subtype for a Drafts row and renders its card. Lives
- * one component down so each draft owns its own `task_drafts.by_draft_id`
- * subscription (Zero dedupes), keeping the page shell free of per-row queries.
- */
-function DraftCardLoader({
-  draftId,
-  churchId,
-  onDiscard,
-}: {
-  readonly draftId: string;
-  readonly churchId: string | null;
-  readonly onDiscard: (draftId: string) => void;
-}) {
-  const taskDraft = useTaskDraft(draftId);
-  if (!taskDraft) return null;
-  return <DraftCard churchId={churchId} onDiscard={onDiscard} taskDraft={taskDraft} />;
 }
 
 function DraftsSkeleton() {

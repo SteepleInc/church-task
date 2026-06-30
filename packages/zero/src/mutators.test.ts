@@ -1088,7 +1088,11 @@ describe("Zero Task mutators", () => {
   test("discards all active Task Drafts from session-derived User and Church", async () => {
     const { tx, updateCalls } = createServerTx([]);
 
-    await mustGetMutator(mutators, "drafts.discard_all").fn({ args: {}, ctx: signedInContext, tx });
+    await mustGetMutator(mutators, "drafts.discard_all").fn({
+      args: { draft_ids: ["draft_test"] },
+      ctx: signedInContext,
+      tx,
+    });
 
     expect(updateCalls.map((call) => call.table)).toEqual([task_drafts, drafts]);
     expect(updateCalls[0]?.set).toMatchObject({ deleted_by: "user_test" });

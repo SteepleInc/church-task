@@ -2386,9 +2386,9 @@ export const mutators = defineMutators({
         })
         .where(scope);
     }),
-    discard_all: defineChurchWorkMutator(toZeroSchema(Schema.Struct({})), async ({ ctx, tx }) => {
+    discard_all: defineChurchWorkMutator(DraftIdsArgs, async ({ args, ctx, tx }) => {
       const db = serverDb(tx);
-      if (!db) return;
+      if (!db || args.draft_ids.length === 0) return;
 
       const session = requireSignedInSession(ctx);
       const churchId = session.active_church_id;
@@ -2407,6 +2407,7 @@ export const mutators = defineMutators({
           and(
             eq(task_drafts.church_id, churchId),
             eq(task_drafts.owner_user_id, session.user_id),
+            inArray(task_drafts.draft_id, [...args.draft_ids]),
             isNull(task_drafts.deleted_at),
           ),
         );
@@ -2422,6 +2423,7 @@ export const mutators = defineMutators({
           and(
             eq(drafts.church_id, churchId),
             eq(drafts.owner_user_id, session.user_id),
+            inArray(drafts.id, [...args.draft_ids]),
             isNull(drafts.deleted_at),
           ),
         );

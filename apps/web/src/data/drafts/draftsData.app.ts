@@ -1,9 +1,9 @@
-import { mutators, queries, type Draft, type TaskDraft } from "@church-work/zero";
+import { mutators, queries, type TaskDraft } from "@church-work/zero";
 import { useQuery, useZero } from "@rocicorp/zero/react";
 
 export function useMyDraftsCollection() {
-  const [rows, result] = useQuery(queries.drafts.my_active());
-  const collection = rows as readonly Draft[];
+  const [rows, result] = useQuery(queries.task_drafts.my_active());
+  const collection = rows as readonly TaskDraft[];
   return { collection, draftsCollection: collection, loading: result.type !== "complete" };
 }
 
@@ -19,7 +19,8 @@ export function useDiscardDraftMutation() {
 
 export function useDiscardAllDraftsMutation() {
   const zero = useZero();
-  return () => zero.mutate(mutators.drafts.discard_all({}));
+  return (draftIds: readonly string[]) =>
+    zero.mutate(mutators.drafts.discard_all({ draft_ids: [...draftIds] }));
 }
 
 export function useRestoreDraftsMutation() {
