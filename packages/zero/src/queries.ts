@@ -57,6 +57,7 @@ const ChurchScopedByIdArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, id: Schema.String }),
 );
 const DraftByIdArgs = toZeroSchema(Schema.Struct({ id: Schema.String }));
+const TaskDraftByDraftIdArgs = toZeroSchema(Schema.Struct({ draft_id: Schema.String }));
 
 const defineChurchWorkQuery = defineQueryWithType<ZeroSchema, OptionalZeroSessionContext>();
 
@@ -118,6 +119,25 @@ export const queries = defineQueries({
         .where("id", args.id)
         .where("church_id", activeChurchId)
         .where("owner_user_id", session.user_id)
+        .where("deleted_at", "IS", null)
+        .one();
+    }),
+  },
+  task_drafts: {
+    by_draft_id: defineChurchWorkQuery(TaskDraftByDraftIdArgs, ({ args, ctx }) => {
+      const session = requireSignedInSession(ctx);
+      const activeChurchId = session.active_church_id;
+
+      if (activeChurchId === null) {
+        return zql.task_drafts
+          .where("id", "__missing_active_church__")
+          .where("deleted_at", "IS", null)
+          .one();
+      }
+
+      return zql.task_drafts
+        .where("draft_id", args.draft_id)
+        .where("church_id", activeChurchId)
         .where("deleted_at", "IS", null)
         .one();
     }),

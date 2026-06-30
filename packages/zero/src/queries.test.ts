@@ -135,6 +135,20 @@ describe("Zero product queries", () => {
     expect(() =>
       mustGetQuery(queries, "drafts.by_id").fn({ args: { id: "draft_123" }, ctx: memberContext }),
     ).not.toThrow();
+
+    expect(() =>
+      mustGetQuery(queries, "task_drafts.by_draft_id").fn({
+        args: { draft_id: "draft_123" },
+        ctx: { authenticated: false, runtime: "server" },
+      }),
+    ).toThrow("Authentication required.");
+
+    expect(() =>
+      mustGetQuery(queries, "task_drafts.by_draft_id").fn({
+        args: { draft_id: "draft_123" },
+        ctx: memberContext,
+      }),
+    ).not.toThrow();
   });
 
   test("rejects cross-Church product collection queries for normal members", () => {
