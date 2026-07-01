@@ -17,4 +17,7 @@
       "custom_domain": true,
     },
   ],
+  "vars": {
+    "ZERO_CACHE_UPSTREAM": "https://qtx776hae8vl4cnd.us-east-1.public.c8a94c3922.z.cloudzero.app",
+  },
 }
