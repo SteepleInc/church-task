@@ -80,9 +80,13 @@ const modelIds = {
 } satisfies Record<string, () => string>;
 
 const getTrustedOrigins = () =>
-  [process.env.CORS_ORIGIN, process.env.SITE_URL, process.env.E2E_SITE_URL].filter(
-    (origin): origin is string => Boolean(origin),
-  );
+  [
+    process.env.CORS_ORIGIN,
+    process.env.SITE_URL,
+    process.env.BETTER_AUTH_URL,
+    process.env.E2E_SITE_URL,
+    process.env.NODE_ENV === "production" ? undefined : "http://localhost:2001",
+  ].filter((origin): origin is string => Boolean(origin));
 
 type SessionCreateHookInput = typeof session.$inferInsert;
 

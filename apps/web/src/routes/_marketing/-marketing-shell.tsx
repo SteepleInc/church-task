@@ -290,9 +290,8 @@ function Header() {
         </div>
       ) : (
         /* Get started */
-        <motion.button
+        <motion.div
           animate={{ scale: 1 }}
-          className="rounded-full border border-mkt-border bg-white px-5 py-[10px] font-medium text-[14px] text-mkt-accent-fg transition-colors hover:bg-mkt-card dark:bg-mkt-fg dark:text-mkt-bg dark:hover:bg-mkt-fg/90"
           initial={{ scale: 0 }}
           style={{ boxShadow: "0 1px 0 rgba(0,0,0,0.04)" }}
           transition={{
@@ -300,10 +299,14 @@ function Header() {
             duration: HEADER_TIMING.button.duration,
             ease: BACK_OUT,
           }}
-          type="button"
         >
-          Get started
-        </motion.button>
+          <Link
+            className="block rounded-full border border-mkt-border bg-white px-5 py-[10px] font-medium text-[14px] text-mkt-accent-fg transition-colors hover:bg-mkt-card dark:bg-mkt-fg dark:text-mkt-bg dark:hover:bg-mkt-fg/90"
+            to="/sign-in"
+          >
+            Get started
+          </Link>
+        </motion.div>
       )}
     </header>
   );

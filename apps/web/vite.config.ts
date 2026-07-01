@@ -8,7 +8,7 @@ import { defineConfig, loadEnv } from "vite";
 
 const ZERO_PATH_REGEX = /^\/zero/;
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   const envDir = path.resolve(__dirname, "../..");
   const env = { ...loadEnv(mode, envDir, ""), ...process.env };
   const proxy = env.VITE_ZERO_CACHE_URL
@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       tailwindcss(),
-      cloudflare({ viteEnvironment: { name: "ssr" } }),
+      command === "build" ? cloudflare({ viteEnvironment: { name: "ssr" } }) : undefined,
       tanstackStart({
         router: {},
       }),
