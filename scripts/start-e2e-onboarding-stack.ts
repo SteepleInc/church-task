@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import type { SeedProfile } from "@church-work/db";
@@ -88,6 +89,22 @@ const webEnv = {
   ZERO_APP_ID: zeroAppId,
 };
 
+const devVarsPath = resolve(webDir, ".dev.vars");
+const devVars = [
+  `DATABASE_URL=${JSON.stringify(webEnv.DATABASE_URL)}`,
+  `BETTER_AUTH_SECRET=${JSON.stringify(webEnv.BETTER_AUTH_SECRET ?? "e2e-local-better-auth-secret-do-not-use-in-production")}`,
+  `BETTER_AUTH_URL=${JSON.stringify(webEnv.BETTER_AUTH_URL ?? webUrl)}`,
+  `E2E_SITE_URL=${JSON.stringify(webEnv.E2E_SITE_URL)}`,
+  `NODE_ENV=${JSON.stringify(webEnv.NODE_ENV)}`,
+  `OTP_CAPTURE_ENABLED=${JSON.stringify(webEnv.OTP_CAPTURE_ENABLED)}`,
+  `SITE_URL=${JSON.stringify(webEnv.SITE_URL)}`,
+  `VITE_PORT=${JSON.stringify(webEnv.VITE_PORT)}`,
+  `VITE_ZERO_CACHE_URL=${JSON.stringify(webEnv.VITE_ZERO_CACHE_URL)}`,
+  `ZERO_APP_ID=${JSON.stringify(webEnv.ZERO_APP_ID)}`,
+].join("\n");
+
+await writeFile(devVarsPath, `${devVars}\n`, { mode: 0o600 });
+
 console.info(`Starting onboarding E2E web app at ${webUrl}`);
 runChild("bun", ["run", "dev", "--", "--mode", "e2e", "--host", "127.0.0.1"], webDir, webEnv);
 await waitForHttpOk(webUrl, 120_000);
@@ -110,6 +127,7 @@ const shutdown = async () => {
         : Promise.resolve(),
     ),
   );
+  await rm(devVarsPath, { force: true });
   await zero.stop();
   await postgres.stop();
 };
