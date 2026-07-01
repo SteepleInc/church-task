@@ -870,12 +870,12 @@ export function CreateTaskQuickAction() {
                   {(canSaveDraft) =>
                     canSaveDraft ? (
                       <Button
-                        className="text-muted-foreground hover:text-foreground"
+                        className="rounded-full text-muted-foreground hover:text-foreground"
                         loading={savingDraft}
                         onClick={() => void saveDraftAndClose()}
                         size="sm"
                         type="button"
-                        variant="ghost"
+                        variant="outline"
                       >
                         Save as draft
                       </Button>
