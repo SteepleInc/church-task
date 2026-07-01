@@ -8,6 +8,13 @@ import { useMyDraftsCollection } from "@/data/drafts/draftsData.app";
 // row is removed from the tree the instant it finishes fading/collapsing.
 const APPEAR_TRANSITION_MS = 200;
 
+function prefersReducedMotion() {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
 export function DraftsSidebarItem() {
   const { collection } = useMyDraftsCollection();
   const draftCount = collection.length;
@@ -26,7 +33,11 @@ export function DraftsSidebarItem() {
     }
 
     setIsVisible(false);
-    const timeoutId = window.setTimeout(() => setIsMounted(false), APPEAR_TRANSITION_MS);
+    // When motion is reduced the CSS transition is disabled, so unmount right
+    // away instead of leaving the row fully visible for the exit duration and
+    // then popping it out abruptly.
+    const exitDelay = prefersReducedMotion() ? 0 : APPEAR_TRANSITION_MS;
+    const timeoutId = window.setTimeout(() => setIsMounted(false), exitDelay);
     return () => window.clearTimeout(timeoutId);
   }, [draftCount]);
 
@@ -39,7 +50,7 @@ export function DraftsSidebarItem() {
       // sibling items glide up to fill the space instead of jumping; overflow
       // is clipped only during the transition so the focus ring never clips
       // while the row is at rest.
-      className="motion-safe:transition-[opacity,transform,max-height,margin] motion-safe:duration-200 motion-safe:ease-out data-[state=closed]:pointer-events-none data-[state=closed]:-mt-px data-[state=closed]:max-h-0 data-[state=closed]:-translate-y-0.5 data-[state=closed]:overflow-hidden data-[state=closed]:opacity-0 data-[state=open]:mt-0 data-[state=open]:max-h-8 data-[state=open]:translate-y-0 data-[state=open]:opacity-100"
+      className="motion-safe:transition-[opacity,transform,max-height,margin] motion-safe:duration-200 data-[state=closed]:pointer-events-none data-[state=closed]:-mt-px data-[state=closed]:max-h-0 data-[state=closed]:-translate-y-0.5 data-[state=closed]:overflow-hidden data-[state=closed]:opacity-0 data-[state=closed]:ease-in data-[state=open]:mt-0 data-[state=open]:max-h-8 data-[state=open]:translate-y-0 data-[state=open]:opacity-100 data-[state=open]:ease-out"
       icon={<FileTextIcon className="size-4" />}
       state={isVisible ? "open" : "closed"}
       title="Drafts"
