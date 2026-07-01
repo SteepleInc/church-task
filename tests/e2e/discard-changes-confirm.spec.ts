@@ -189,6 +189,39 @@ test("Drafts page opens an existing Task Draft for rehydrated autosaved editing"
   await expect(page.getByText(originalTitle)).not.toBeVisible();
 });
 
+test("creating a Task from an opened Draft removes the Draft card", async ({ page }, testInfo) => {
+  const email = `create-from-draft-${Date.now()}-${testInfo.workerIndex}@example.com`;
+  const churchName = `E2E Create From Draft Church ${Date.now()}`;
+  const draftTitle = `Draft to create ${Date.now()}`;
+
+  await signInAndCompleteOnboarding(page, { churchName, email });
+
+  const dialog = await openCreateTaskQuickAction(page);
+  await dialog.getByPlaceholder("Task title").fill(draftTitle);
+  await page.keyboard.press("Escape");
+  const confirm = page.getByRole("alertdialog");
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole("button", { name: "Save" }).click();
+  await expect(dialog).not.toBeVisible();
+
+  await page
+    .locator('[data-sidebar="sidebar"]')
+    .getByRole("link", { name: /Drafts/ })
+    .click();
+  await expect(page).toHaveURL(/\/drafts$/);
+  await expect(page.getByText(draftTitle)).toBeVisible();
+
+  await page.getByText(draftTitle).click();
+  const draftDialog = page.getByRole("dialog", { name: /Task Draft/ });
+  await expect(draftDialog).toBeVisible();
+  await draftDialog.getByRole("button", { name: "Create Task" }).click();
+
+  await expect(draftDialog).not.toBeVisible();
+  await expect(page).toHaveURL(/\/drafts$/);
+  await expect(page.getByText(draftTitle)).not.toBeVisible();
+  await expect(page.getByText("No active drafts")).toBeVisible();
+});
+
 test("create-Task quick action closes a pristine draft without prompting", async ({
   page,
 }, testInfo) => {

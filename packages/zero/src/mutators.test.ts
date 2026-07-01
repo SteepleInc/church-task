@@ -1259,6 +1259,64 @@ describe("Zero Task mutators", () => {
     expect(formatTaskIdentifier("PRO", taskInsert.number)).toBe("PRO-7");
   });
 
+  test("creates a Task from a Draft and soft-deletes both Draft rows", async () => {
+    const { insertCalls, tx, updateCalls } = createServerTx([
+      [{ id: "draft_test" }],
+      [{ id: "workflowstatus_todo", task_state: "todo", workflow_id: "workflow_production" }],
+      [{ id: "team_production", identifier: "PRO", next_task_number: 7 }],
+      [{ id: "workflow_production" }],
+      [],
+      [{ board_order: "a1" }],
+    ]);
+
+    await mustGetMutator(mutators, "tasks.create").fn({
+      args: {
+        church_id: "org_test",
+        description: "submitted body",
+        draft_id: "draft_test",
+        team_id: "team_production",
+        title: "Submitted title",
+        workflow_status_id: "workflowstatus_todo",
+      },
+      ctx: signedInContext,
+      tx,
+    });
+
+    const taskInsert = insertCalls.find((call) => call.table === tasks)?.values as {
+      readonly description: string | null;
+      readonly title: string;
+    };
+
+    expect(taskInsert).toMatchObject({
+      description: "submitted body",
+      title: "Submitted title",
+    });
+    expect(updateCalls.map((call) => call.table)).toEqual([teams, task_drafts, drafts]);
+    expect(updateCalls[1]?.set).toMatchObject({ deleted_by: "user_test" });
+    expect(updateCalls[2]?.set).toMatchObject({ deleted_by: "user_test" });
+  });
+
+  test("does not create a Task when the Draft is not owned in the active Church", async () => {
+    const { insertCalls, tx, updateCalls } = createServerTx([[]]);
+
+    await expect(
+      mustGetMutator(mutators, "tasks.create").fn({
+        args: {
+          church_id: "org_test",
+          draft_id: "draft_other",
+          team_id: "team_production",
+          title: "Submitted title",
+          workflow_status_id: "workflowstatus_todo",
+        },
+        ctx: signedInContext,
+        tx,
+      }),
+    ).rejects.toThrow("Draft not found.");
+
+    expect(insertCalls.find((call) => call.table === tasks)).toBeUndefined();
+    expect(updateCalls).toHaveLength(0);
+  });
+
   test("creates top-level Task Comments and logs comment-created Activity", async () => {
     const { insertCalls, tx } = createServerTx([[{ id: "task_test", cycle_id: "cycle_test" }]]);
 
