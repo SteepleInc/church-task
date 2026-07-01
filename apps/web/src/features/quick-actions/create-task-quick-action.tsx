@@ -322,6 +322,7 @@ export function CreateTaskQuickAction() {
   const submitModeRef = useRef<"default" | "open">("default");
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAutosavedRef = useRef<string | null>(null);
+  const hydratedDraftIdRef = useRef<string | null>(null);
 
   // Picker openers for dialog-level keyboard shortcuts (T/S/A/P/⇧E/L/D).
   const teamOpenRef = useRef<(() => void) | null>(null);
@@ -549,6 +550,8 @@ export function CreateTaskQuickAction() {
     }
     setConfirmDiscardOpen(false);
     setSavingDraft(false);
+    hydratedDraftIdRef.current = null;
+    lastAutosavedRef.current = null;
     setState(null);
     setError(null);
     form.reset();
@@ -576,8 +579,10 @@ export function CreateTaskQuickAction() {
     const payload = draftPayloadFromValue(form.state.values);
     const key = JSON.stringify(payload);
     if (key === lastAutosavedRef.current) return;
-    lastAutosavedRef.current = key;
-    await updateTaskDraft({ draftId: editingDraftId, ...payload }).catch(() => undefined);
+    const result = await updateTaskDraft({ draftId: editingDraftId, ...payload }).catch(
+      () => undefined,
+    );
+    if (result?.ok) lastAutosavedRef.current = key;
   };
 
   const saveDraftAndClose = async () => {
@@ -673,23 +678,20 @@ export function CreateTaskQuickAction() {
 
   useEffect(() => {
     if (!editingDraftId || !editingTaskDraft) return;
+    if (hydratedDraftIdRef.current === editingDraftId) return;
+
+    hydratedDraftIdRef.current = editingDraftId;
     const sync = { dontUpdateMeta: true } as const;
     const labels = parseDraftLabelIds(editingTaskDraft.label_ids);
+    const priority = normalizeDraftPriority(editingTaskDraft.priority);
+    const estimate = normalizeDraftEstimate(editingTaskDraft.estimate);
     form.setFieldValue("title", editingTaskDraft.title ?? "", sync);
     form.setFieldValue("description", editingTaskDraft.description ?? "", sync);
     form.setFieldValue("assignedUserId", editingTaskDraft.assigned_user_id ?? null, sync);
     form.setFieldValue("workflowStatusId", editingTaskDraft.workflow_status_id ?? "", sync);
     form.setFieldValue("teamId", editingTaskDraft.team_id ?? null, sync);
-    form.setFieldValue(
-      "priority",
-      (editingTaskDraft.priority as TaskPriority | null) ?? "no_priority",
-      sync,
-    );
-    form.setFieldValue(
-      "estimate",
-      (editingTaskDraft.estimate as TaskEstimate | null) ?? "no_estimate",
-      sync,
-    );
+    form.setFieldValue("priority", priority, sync);
+    form.setFieldValue("estimate", estimate, sync);
     form.setFieldValue("labels", labels, sync);
     form.setFieldValue("dueDate", editingTaskDraft.due_date ?? null, sync);
     nextDescriptionRef.current = editingTaskDraft.description ?? "";
@@ -699,9 +701,9 @@ export function CreateTaskQuickAction() {
         assignedUserId: editingTaskDraft.assigned_user_id ?? null,
         description: editingTaskDraft.description ?? "",
         dueDate: editingTaskDraft.due_date ?? null,
-        estimate: (editingTaskDraft.estimate as TaskEstimate | null) ?? "no_estimate",
+        estimate,
         labels,
-        priority: (editingTaskDraft.priority as TaskPriority | null) ?? "no_priority",
+        priority,
         teamId: editingTaskDraft.team_id ?? null,
         title: editingTaskDraft.title ?? "",
         workflowStatusId: editingTaskDraft.workflow_status_id ?? "",
@@ -1160,5 +1162,30 @@ function parseDraftLabelIds(raw: string | null | undefined): readonly string[] {
       : [];
   } catch {
     return [];
+  }
+}
+
+function normalizeDraftPriority(value: string | null | undefined): TaskPriority {
+  switch (value) {
+    case "urgent":
+    case "high":
+    case "medium":
+    case "low":
+      return value;
+    default:
+      return "no_priority";
+  }
+}
+
+function normalizeDraftEstimate(value: string | null | undefined): TaskEstimate {
+  switch (value) {
+    case "xs":
+    case "s":
+    case "m":
+    case "l":
+    case "xl":
+      return value;
+    default:
+      return "no_estimate";
   }
 }
