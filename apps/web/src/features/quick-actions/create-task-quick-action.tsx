@@ -469,7 +469,11 @@ export function CreateTaskQuickAction() {
         return;
       }
 
-      if (createMore) {
+      // A Draft is consumed exactly once when it becomes a Task. Even if the
+      // sticky "Create more" preference is enabled from normal Task creation,
+      // close the Draft composer after creation so a second submission cannot
+      // reuse the now-deleted draft id.
+      if (createMore && !editingDraftId) {
         // Keep the dialog open with every property as-is; only the text
         // resets, ready for the next Task in the batch. Clearing the text is a
         // programmatic reset, not a User edit, so it stays pristine and won't
@@ -579,7 +583,8 @@ export function CreateTaskQuickAction() {
     const payload = draftPayloadFromValue(form.state.values);
     const key = JSON.stringify(payload);
     if (key === lastAutosavedRef.current) return;
-    const result = await updateTaskDraft({ draftId: editingDraftId, ...payload }).catch(
+    if (!churchId) return;
+    const result = await updateTaskDraft({ churchId, draftId: editingDraftId, ...payload }).catch(
       () => undefined,
     );
     if (result?.ok) lastAutosavedRef.current = key;
@@ -596,8 +601,14 @@ export function CreateTaskQuickAction() {
       close();
       return;
     }
+    if (!churchId) {
+      setSavingDraft(false);
+      setError("Active Church access required.");
+      return;
+    }
     const result = await saveTaskDraft({
       assignedUserId: value.assignedUserId,
+      churchId,
       description: value.description === "" ? null : value.description,
       dueDate: value.dueDate,
       estimate: value.estimate === "no_estimate" ? null : value.estimate,
@@ -627,12 +638,13 @@ export function CreateTaskQuickAction() {
       autosaveTimerRef.current = null;
     }
     close();
-    await discardDraft(draftId).catch(() => undefined);
+    if (!churchId) return;
+    await discardDraft(churchId, draftId).catch(() => undefined);
     // Discarding is a Soft Delete (CONTEXT.md), so offer the same undo the
     // Drafts page does — closing the dialog shouldn't make the action feel
     // more final than discarding from the list.
     toast.success("Draft discarded.", {
-      action: { label: "Undo", onClick: () => void restoreDrafts([draftId]) },
+      action: { label: "Undo", onClick: () => void restoreDrafts(churchId, [draftId]) },
     });
   };
 

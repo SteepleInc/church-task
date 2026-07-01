@@ -1025,6 +1025,7 @@ describe("Zero Task mutators", () => {
     await mustGetMutator(mutators, "drafts.save_task").fn({
       args: {
         assigned_user_id: "user_assignee",
+        church_id: "org_test",
         description: "draft body",
         due_date: "2026-07-01",
         estimate: "m",
@@ -1064,7 +1065,7 @@ describe("Zero Task mutators", () => {
     const { tx, updateCalls } = createServerTx([]);
 
     await mustGetMutator(mutators, "drafts.discard").fn({
-      args: { draft_id: "draft_test" },
+      args: { church_id: "org_test", draft_id: "draft_test" },
       ctx: signedInContext,
       tx,
     });
@@ -1075,7 +1076,7 @@ describe("Zero Task mutators", () => {
 
     updateCalls.length = 0;
     await mustGetMutator(mutators, "drafts.restore").fn({
-      args: { draft_ids: ["draft_test"] },
+      args: { church_id: "org_test", draft_ids: ["draft_test"] },
       ctx: signedInContext,
       tx,
     });
@@ -1090,6 +1091,7 @@ describe("Zero Task mutators", () => {
 
     await mustGetMutator(mutators, "drafts.update_task").fn({
       args: {
+        church_id: "org_test",
         draft_id: "draft_test",
         fields: {
           assigned_user_id: "user_assignee",
@@ -1120,7 +1122,7 @@ describe("Zero Task mutators", () => {
     const { tx, updateCalls } = createServerTx([]);
 
     await mustGetMutator(mutators, "drafts.discard_all").fn({
-      args: { draft_ids: ["draft_test"] },
+      args: { church_id: "org_test", draft_ids: ["draft_test"] },
       ctx: signedInContext,
       tx,
     });
@@ -1257,6 +1259,81 @@ describe("Zero Task mutators", () => {
     expect(JSON.parse(activityInsert.metadata)).toMatchObject({ team_id: "team_production" });
     expect(teamUpdate.next_task_number).toBe(8);
     expect(formatTaskIdentifier("PRO", taskInsert.number)).toBe("PRO-7");
+  });
+
+  test("creates a Task from a Draft and soft-deletes both Draft rows", async () => {
+    const { insertCalls, tx, updateCalls } = createServerTx([
+      [{ id: "draft_test" }],
+      [{ id: "workflowstatus_todo", task_state: "todo", workflow_id: "workflow_production" }],
+      [{ id: "team_production", identifier: "PRO", next_task_number: 7 }],
+      [{ id: "workflow_production" }],
+      [],
+      [{ board_order: "a1" }],
+    ]);
+
+    await mustGetMutator(mutators, "tasks.create").fn({
+      args: {
+        church_id: "org_test",
+        description: "submitted body",
+        draft_id: "draft_test",
+        team_id: "team_production",
+        title: "Submitted title",
+        workflow_status_id: "workflowstatus_todo",
+      },
+      ctx: signedInContext,
+      tx,
+    });
+
+    const taskInsert = insertCalls.find((call) => call.table === tasks)?.values as {
+      readonly description: string | null;
+      readonly title: string;
+    };
+
+    expect(taskInsert).toMatchObject({
+      description: "submitted body",
+      title: "Submitted title",
+    });
+    const taskDraftUpdate = updateCalls.find((call) => call.table === task_drafts)?.set as
+      | {
+          readonly deleted_at?: unknown;
+          readonly deleted_by?: unknown;
+          readonly updated_by?: unknown;
+        }
+      | undefined;
+    const draftUpdate = updateCalls.find((call) => call.table === drafts)?.set as
+      | {
+          readonly deleted_at?: unknown;
+          readonly deleted_by?: unknown;
+          readonly updated_by?: unknown;
+        }
+      | undefined;
+
+    expect(updateCalls.map((call) => call.table)).toEqual([teams, task_drafts, drafts]);
+    expect(taskDraftUpdate).toMatchObject({ deleted_by: "user_test", updated_by: "user_test" });
+    expect(taskDraftUpdate?.deleted_at).toBeInstanceOf(Date);
+    expect(draftUpdate).toMatchObject({ deleted_by: "user_test", updated_by: "user_test" });
+    expect(draftUpdate?.deleted_at).toBeInstanceOf(Date);
+  });
+
+  test("does not create a Task when the Draft is not owned in the active Church", async () => {
+    const { insertCalls, tx, updateCalls } = createServerTx([[]]);
+
+    await expect(
+      mustGetMutator(mutators, "tasks.create").fn({
+        args: {
+          church_id: "org_test",
+          draft_id: "draft_other",
+          team_id: "team_production",
+          title: "Submitted title",
+          workflow_status_id: "workflowstatus_todo",
+        },
+        ctx: signedInContext,
+        tx,
+      }),
+    ).rejects.toThrow("Draft not found.");
+
+    expect(insertCalls.find((call) => call.table === tasks)).toBeUndefined();
+    expect(updateCalls).toHaveLength(0);
   });
 
   test("creates top-level Task Comments and logs comment-created Activity", async () => {

@@ -960,6 +960,7 @@ export function useSaveTaskDraftMutation() {
   const zero = useZero();
 
   return async (params: {
+    readonly churchId: string;
     readonly title: string;
     readonly description?: string | null;
     readonly teamId?: string | null;
@@ -976,6 +977,7 @@ export function useSaveTaskDraftMutation() {
         zero.mutate(
           mutators.drafts.save_task({
             assigned_user_id: params.assignedUserId ?? null,
+            church_id: params.churchId,
             description: params.description ?? null,
             due_date: params.dueDate ?? null,
             estimate: params.estimate ?? null,
@@ -998,6 +1000,7 @@ export function useUpdateTaskDraftMutation() {
   const zero = useZero();
 
   return async (params: {
+    readonly churchId: string;
     readonly draftId: string;
     readonly title: string;
     readonly description?: string | null;
@@ -1014,6 +1017,7 @@ export function useUpdateTaskDraftMutation() {
       () =>
         zero.mutate(
           mutators.drafts.update_task({
+            church_id: params.churchId,
             draft_id: params.draftId,
             fields: {
               assigned_user_id: params.assignedUserId ?? null,
