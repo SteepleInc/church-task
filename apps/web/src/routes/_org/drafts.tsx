@@ -55,8 +55,9 @@ function DraftsPage() {
   const count = visibleDrafts.length;
 
   async function onDiscardOne(draftId: string) {
+    if (!churchId) return;
     setDiscardingDraftIds((ids) => new Set(ids).add(draftId));
-    const result = await discardDraft(draftId);
+    const result = await discardDraft(churchId, draftId);
     if (result.type === "error") {
       setDiscardingDraftIds((ids) => {
         const next = new Set(ids);
@@ -75,17 +76,18 @@ function DraftsPage() {
             next.delete(draftId);
             return next;
           });
-          void restoreDrafts([draftId]);
+          void restoreDrafts(churchId, [draftId]);
         },
       },
     });
   }
 
   async function onDiscardAll() {
+    if (!churchId) return;
     const ids = visibleDrafts.map((draft) => draft.draft_id);
     setConfirmOpen(false);
     setDiscardingDraftIds((discardingIds) => new Set([...discardingIds, ...ids]));
-    const result = await discardAll(ids);
+    const result = await discardAll(churchId, ids);
     if (result.type === "error") {
       setDiscardingDraftIds((discardingIds) => {
         const next = new Set(discardingIds);
@@ -104,7 +106,7 @@ function DraftsPage() {
             for (const id of ids) next.delete(id);
             return next;
           });
-          void restoreDrafts(ids);
+          void restoreDrafts(churchId, ids);
         },
       },
     });

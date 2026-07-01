@@ -232,11 +232,17 @@ const TaskDraftFieldsArg = Schema.Struct({
   title: Schema.optional(Schema.String),
   workflow_status_id: Schema.optional(Schema.Union([Schema.String, Schema.Null])),
 });
-const SaveTaskDraftArgs = toZeroSchema(TaskDraftFieldsArg);
-const DraftIdArgs = toZeroSchema(Schema.Struct({ draft_id: Schema.String }));
-const DraftIdsArgs = toZeroSchema(Schema.Struct({ draft_ids: Schema.Array(Schema.String) }));
+const SaveTaskDraftArgs = toZeroSchema(
+  Schema.Struct({ church_id: Schema.String, ...TaskDraftFieldsArg.fields }),
+);
+const DraftIdArgs = toZeroSchema(
+  Schema.Struct({ church_id: Schema.String, draft_id: Schema.String }),
+);
+const DraftIdsArgs = toZeroSchema(
+  Schema.Struct({ church_id: Schema.String, draft_ids: Schema.Array(Schema.String) }),
+);
 const UpdateTaskDraftArgs = toZeroSchema(
-  Schema.Struct({ draft_id: Schema.String, fields: TaskDraftFieldsArg }),
+  Schema.Struct({ church_id: Schema.String, draft_id: Schema.String, fields: TaskDraftFieldsArg }),
 );
 const UpdateTaskArgs = toZeroSchema(
   Schema.Struct({ church_id: Schema.String, fields: TaskFieldsArg, task_id: Schema.String }),
@@ -2302,9 +2308,8 @@ export const mutators = defineMutators({
       const db = serverDb(tx);
       if (!db) return;
 
-      const session = requireSignedInSession(ctx);
-      const churchId = session.active_church_id;
-      if (!churchId) throw new Error("Active Church access required.");
+      const session = requireActiveChurchAccess(ctx, args.church_id);
+      const churchId = args.church_id;
 
       const now = new Date();
       const draftId = getDraftId();
@@ -2351,9 +2356,8 @@ export const mutators = defineMutators({
       const db = serverDb(tx);
       if (!db) return;
 
-      const session = requireSignedInSession(ctx);
-      const churchId = session.active_church_id;
-      if (!churchId) throw new Error("Active Church access required.");
+      const session = requireActiveChurchAccess(ctx, args.church_id);
+      const churchId = args.church_id;
 
       const now = new Date();
       await db
@@ -2396,9 +2400,8 @@ export const mutators = defineMutators({
       const db = serverDb(tx);
       if (!db) return;
 
-      const session = requireSignedInSession(ctx);
-      const churchId = session.active_church_id;
-      if (!churchId) throw new Error("Active Church access required.");
+      const session = requireActiveChurchAccess(ctx, args.church_id);
+      const churchId = args.church_id;
 
       const now = new Date();
       const scope = and(
@@ -2438,9 +2441,8 @@ export const mutators = defineMutators({
       const db = serverDb(tx);
       if (!db || args.draft_ids.length === 0) return;
 
-      const session = requireSignedInSession(ctx);
-      const churchId = session.active_church_id;
-      if (!churchId) throw new Error("Active Church access required.");
+      const session = requireActiveChurchAccess(ctx, args.church_id);
+      const churchId = args.church_id;
 
       const now = new Date();
       await db
@@ -2480,9 +2482,8 @@ export const mutators = defineMutators({
       const db = serverDb(tx);
       if (!db || args.draft_ids.length === 0) return;
 
-      const session = requireSignedInSession(ctx);
-      const churchId = session.active_church_id;
-      if (!churchId) throw new Error("Active Church access required.");
+      const session = requireActiveChurchAccess(ctx, args.church_id);
+      const churchId = args.church_id;
 
       const now = new Date();
       await db

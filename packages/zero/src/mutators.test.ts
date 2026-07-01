@@ -1025,6 +1025,7 @@ describe("Zero Task mutators", () => {
     await mustGetMutator(mutators, "drafts.save_task").fn({
       args: {
         assigned_user_id: "user_assignee",
+        church_id: "org_test",
         description: "draft body",
         due_date: "2026-07-01",
         estimate: "m",
@@ -1064,7 +1065,7 @@ describe("Zero Task mutators", () => {
     const { tx, updateCalls } = createServerTx([]);
 
     await mustGetMutator(mutators, "drafts.discard").fn({
-      args: { draft_id: "draft_test" },
+      args: { church_id: "org_test", draft_id: "draft_test" },
       ctx: signedInContext,
       tx,
     });
@@ -1075,7 +1076,7 @@ describe("Zero Task mutators", () => {
 
     updateCalls.length = 0;
     await mustGetMutator(mutators, "drafts.restore").fn({
-      args: { draft_ids: ["draft_test"] },
+      args: { church_id: "org_test", draft_ids: ["draft_test"] },
       ctx: signedInContext,
       tx,
     });
@@ -1090,6 +1091,7 @@ describe("Zero Task mutators", () => {
 
     await mustGetMutator(mutators, "drafts.update_task").fn({
       args: {
+        church_id: "org_test",
         draft_id: "draft_test",
         fields: {
           assigned_user_id: "user_assignee",
@@ -1120,7 +1122,7 @@ describe("Zero Task mutators", () => {
     const { tx, updateCalls } = createServerTx([]);
 
     await mustGetMutator(mutators, "drafts.discard_all").fn({
-      args: { draft_ids: ["draft_test"] },
+      args: { church_id: "org_test", draft_ids: ["draft_test"] },
       ctx: signedInContext,
       tx,
     });
