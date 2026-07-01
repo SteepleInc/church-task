@@ -174,7 +174,10 @@ describe("Inbox navigation plumbing", () => {
     const mention = notificationFixture("mention", {
       actor_user_id: "user-2",
       display_body: "Parking update",
-      display_metadata: JSON.stringify({ task_identifier: "CT-99", task_title: "Parking team" }),
+      display_metadata: JSON.stringify({
+        task_identifier: "CT-99",
+        task_title: "Parking team",
+      }),
       display_title: "Mentioned you",
       read_at: new Date("2026-06-22T11:00:00.000Z").getTime(),
       type: "mention_explicit_target",
