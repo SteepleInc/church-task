@@ -26,10 +26,7 @@ export function DraftsSidebarItem() {
     }
 
     setIsVisible(false);
-    const timeoutId = window.setTimeout(
-      () => setIsMounted(false),
-      APPEAR_TRANSITION_MS,
-    );
+    const timeoutId = window.setTimeout(() => setIsMounted(false), APPEAR_TRANSITION_MS);
     return () => window.clearTimeout(timeoutId);
   }, [draftCount]);
 
