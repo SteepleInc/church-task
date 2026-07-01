@@ -914,12 +914,6 @@ export function CreateTaskQuickAction() {
                     onKeyDown={(event) => {
                       if (event.metaKey || event.ctrlKey || event.altKey) return;
                       const input = event.currentTarget;
-                      if (event.key === "Escape") {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        input.blur();
-                        return;
-                      }
                       const caretAtEnd =
                         input.selectionStart === input.value.length &&
                         input.selectionEnd === input.value.length;
@@ -963,13 +957,6 @@ export function CreateTaskQuickAction() {
                       onChange={(value) =>
                         field.handleChange(serializeDescriptionValue(value) ?? "")
                       }
-                      onKeyDown={(event) => {
-                        if (event.key === "Escape") {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          event.currentTarget.blur();
-                        }
-                      }}
                       onEscapeStart={focusTitleEnd}
                     />
                   </div>
