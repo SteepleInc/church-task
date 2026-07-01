@@ -336,7 +336,7 @@ function Hero({ base }: { readonly base: number }) {
         </motion.button>
         <motion.button
           animate={{ scale: 1 }}
-          className="rounded-full px-6 py-3 font-semibold text-[15px] text-mkt-fg"
+          className="rounded-full px-6 py-3 font-semibold text-[15px] text-mkt-accent-fg"
           initial={{ scale: 0 }}
           style={{ backgroundColor: "oklch(0.88 0.18 95)" }}
           transition={{
@@ -1248,7 +1248,7 @@ function ClosingCTA() {
         </p>
         <div className="mt-9 flex items-center justify-center gap-3">
           <button
-            className="rounded-full px-7 py-3 font-semibold text-[15px] text-mkt-fg transition-transform hover:scale-[1.02]"
+            className="rounded-full px-7 py-3 font-semibold text-[15px] text-mkt-accent-fg transition-transform hover:scale-[1.02]"
             style={{ backgroundColor: "oklch(0.88 0.18 95)" }}
             type="button"
           >
