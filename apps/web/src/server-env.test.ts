@@ -15,7 +15,7 @@ const viteConfigSource = await Bun.file(new URL("../vite.config.ts", import.meta
 
 describe("web dev server environment", () => {
   test("creates the API runtime from validated server env", () => {
-    expect(apiRuntimeSource).toContain('await import("@church-work/env/server")');
+    expect(apiRuntimeSource).toContain('from "@church-work/env/server"');
     expect(apiRuntimeSource).toContain("createTracerApi(serverEnv.DATABASE_URL)");
   });
 

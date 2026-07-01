@@ -141,7 +141,7 @@ export function ChurchWorkWordmarkSvg({
           d: path.d,
           "data-wordmark-index": index,
           "data-wordmark-part": path.part,
-          fill: path.part === "work" ? "#F97316" : "black",
+          fill: path.part === "work" ? "#F97316" : "currentColor",
         };
 
         if (animated) {

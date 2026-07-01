@@ -6,9 +6,24 @@ import { z } from "zod";
 
 const runtimeEnv = { ...process.env };
 
-config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
-config({ override: true, path: fileURLToPath(new URL("../../../.env.local", import.meta.url)) });
-Object.assign(process.env, runtimeEnv);
+const isCloudflareWorkerRuntime = () => {
+  const navigatorUserAgent = globalThis.navigator?.userAgent ?? "";
+  const processVersions = process.versions as NodeJS.ProcessVersions & {
+    workerd?: string;
+  };
+
+  return (
+    processVersions.workerd !== undefined ||
+    navigatorUserAgent.includes("Cloudflare-Workers") ||
+    ("WebSocketPair" in globalThis && "caches" in globalThis)
+  );
+};
+
+if (!isCloudflareWorkerRuntime()) {
+  config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
+  config({ override: true, path: fileURLToPath(new URL("../../../.env.local", import.meta.url)) });
+  Object.assign(process.env, runtimeEnv);
+}
 
 export const serverEnv = createEnv({
   clientPrefix: "VITE_",

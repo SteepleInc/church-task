@@ -146,7 +146,7 @@ export const createTracerApi = (databaseUrl: string) => {
                 tx,
               });
             }),
-          request.clone(),
+          request.clone() as unknown as Parameters<typeof handleMutateRequest>[2],
         ).then(toResponse),
     });
 

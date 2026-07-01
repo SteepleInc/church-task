@@ -1,3 +1,4 @@
+import { serverEnv } from "@church-work/env/server";
 import { createTracerApi } from "@church-work/server";
 
 let tracerApi: ReturnType<typeof createTracerApi> | undefined;
@@ -7,7 +8,6 @@ const getTracerApi = async () => {
     return tracerApi;
   }
 
-  const { serverEnv } = await import("@church-work/env/server");
   tracerApi = createTracerApi(serverEnv.DATABASE_URL);
   return tracerApi;
 };
