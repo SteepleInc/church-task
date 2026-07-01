@@ -1291,9 +1291,26 @@ describe("Zero Task mutators", () => {
       description: "submitted body",
       title: "Submitted title",
     });
+    const taskDraftUpdate = updateCalls.find((call) => call.table === task_drafts)?.set as
+      | {
+          readonly deleted_at?: unknown;
+          readonly deleted_by?: unknown;
+          readonly updated_by?: unknown;
+        }
+      | undefined;
+    const draftUpdate = updateCalls.find((call) => call.table === drafts)?.set as
+      | {
+          readonly deleted_at?: unknown;
+          readonly deleted_by?: unknown;
+          readonly updated_by?: unknown;
+        }
+      | undefined;
+
     expect(updateCalls.map((call) => call.table)).toEqual([teams, task_drafts, drafts]);
-    expect(updateCalls[1]?.set).toMatchObject({ deleted_by: "user_test" });
-    expect(updateCalls[2]?.set).toMatchObject({ deleted_by: "user_test" });
+    expect(taskDraftUpdate).toMatchObject({ deleted_by: "user_test", updated_by: "user_test" });
+    expect(taskDraftUpdate?.deleted_at).toBeInstanceOf(Date);
+    expect(draftUpdate).toMatchObject({ deleted_by: "user_test", updated_by: "user_test" });
+    expect(draftUpdate?.deleted_at).toBeInstanceOf(Date);
   });
 
   test("does not create a Task when the Draft is not owned in the active Church", async () => {
